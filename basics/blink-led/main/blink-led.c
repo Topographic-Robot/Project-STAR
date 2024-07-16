@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 void app_main(void) {
-  // high_level_approach();
-  // medium_level_approach();
+  /* high_level_approach(); */
+  /* medium_level_approach(); */
   low_level_approach();
 }

@@ -3,4 +3,4 @@
 
 void high_level_approach(void);
 
-#endif // HIGH_LEVEL_APPROACH_H
+#endif /* HIGH_LEVEL_APPROACH_H */

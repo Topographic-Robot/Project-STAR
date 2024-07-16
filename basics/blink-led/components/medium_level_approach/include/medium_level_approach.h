@@ -3,4 +3,4 @@
 
 void medium_level_approach(void);
 
-#endif // MEDIUM_LEVEL_APPROACH_H
+#endif /* MEDIUM_LEVEL_APPROACH_H */
