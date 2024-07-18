@@ -4,3 +4,5 @@
 **/compiled_comands.json
 **/sdkconfig*
 **/.DS_Store
+
+backup_*

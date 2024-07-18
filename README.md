@@ -8,4 +8,6 @@ Follow the [documentation](https://topographic-robot.github.io/Documentation/ind
 
 ## Formatting
 
-Run `./format.sh` before every push
+Run `./format.sh` before every push and `./compare_backups.sh` if you want to verify that the autoformatter didnt mess up.
+
+for bash: `pip install beautysh`

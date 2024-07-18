@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+#### TODO:
+####
+#### 1. ensure after running convert_comments that there is a space before and after the /* */
+####    - `/*test*/` -> `/* test */`
+####    - `/* test*/` -> `/* test */`
+####    - `/*test */` -> `/* test */`
+####   (key notes: make sure to not accidnetly remove letters, so /*test*/ shouldnt become /* es */)
+
 # Exit immediately if a command exits with a non-zero status,
 # treat unset variables as an error,
 # and ensure that the return value of a pipeline is the status of the last command to exit with a non-zero status
@@ -8,7 +16,7 @@ set -euo pipefail
 # Uncomment the following line for debugging
 # set -x
 
-# Logging function
+# Logging function to print messages with a timestamp
 log() {
     echo "$(date +'%Y-%m-%d %H:%M:%S') - $*"
 }
@@ -35,31 +43,43 @@ convert_comments() {
     local file_path=$1
 
     # Use awk to convert single-line comments to block comments,
-    # ignoring lines with existing block comments or more than two slashes
+    # ignoring lines with existing block comments or more than two slashes,
+    # and properly handling quoted strings
     awk '
     {
-        # Ignore lines with more than two slashes (e.g., ///)
-        if ($0 ~ /\/\/\/+/) {
-            print $0
-        } 
-        # Ignore lines with existing block comments (e.g., /* ... */)
-        else if ($0 ~ /\/\*/) {
-            print $0
-        }
-        # Convert single-line comments (//) to block comments (/* ... */) with proper spacing
-        else if ($0 ~ /\/\// && $0 !~ /\".*\/\/.*\"/) {
-            sub(/\/\//, "/*", $0)  # Replace // with /*
-            sub(/[ \t]*$/, " */", $0)  # Add */ at the end, ensuring proper spacing
-            # Ensure one space after /* if there were no spaces after //
-            if ($0 ~ /\/\*[^ ]/) {
-                sub(/\/\*/, "/* ", $0)  # Correct spacing
+        # Split the line by double quotes (")
+        n = split($0, parts, /"/)
+
+        # Flag to track whether we are inside a quoted string
+        inside_quote = 0
+
+        # Iterate through each part split by quotes
+        for (i = 1; i <= n; i++) {
+            # If we are not inside a quoted string
+            if (inside_quote == 0) {
+                # Check if the part contains a // comment and does not contain a block comment (/*)
+                if (parts[i] ~ /\/\// && parts[i] !~ /\/\*/) {
+                    # Replace // with /* and add space if necessary
+                    sub(/\/\//, "/*", parts[i])
+                    # Add */ at the end, ensuring proper spacing
+                    sub(/[ \t]*$/, " */", parts[i])
+                }
+
+                # Ensure there is exactly one space after /*
+                gsub(/\/\* */, "/* ", parts[i])
+                gsub(/\/\*\*/, "/* ", parts[i])
+                # Ensure there is exactly one space before */
+                gsub(/ *\*\//, " */", parts[i])
             }
-            print $0
-        } 
-        # Print the line unchanged if none of the above conditions are met
-        else {
-            print $0
+            inside_quote = 1 - inside_quote # Toggle the inside_quote flag to indicate entering/exiting a quoted string
         }
+
+        # Reconstruct the line by concatenating the parts with double quotes
+        $0 = parts[1]
+        for (i = 2; i <= n; i++) {
+            $0 = $0 "\"" parts[i]
+        }
+        print
     }
     ' "${file_path}" > "${file_path}.tmp" && mv "${file_path}.tmp" "${file_path}"
 }
@@ -68,22 +88,47 @@ convert_comments() {
 # Arguments:
 #   $1: File extension to search for (e.g., "c", "h", "cc", "s")
 #   $2: Formatter command to apply to each file
+#   $3: Backup directory to use for backups
 format_files() {
     local file_extension=$1
     local formatter_command=$2
+    local backup_dir=$3
 
-    # Find all files with the specified extension, excluding those in the "build" directory
+    # Create the backup directory
+    mkdir -p "$backup_dir"
+
+    # Find all files with the specified extension, excluding those in the "build" and "backup_" directories
     # Process each file by converting comments and applying the formatter
-    while IFS= read -r -d '' file; do
+    find . -type f ! -path "*/build/*" ! -path "*/backup_*/*" -name "*.${file_extension}" -print0 | while IFS= read -r -d '' file; do
+        # Create backup of the original file
+        local backup_file="$backup_dir/$file"
+        mkdir -p "$(dirname "$backup_file")"
+        cp "$file" "$backup_file"
+
+        # Log the conversion and formatting steps
         log "Converting comments in $file"
         convert_comments "$file"
         log "Formatting $file"
         $formatter_command "$file"
-    done < <(find . -type f ! -path "*/build/*" -name "*.${file_extension}" -print0)
+
+        # Check if the backup differs from the formatted file
+        if ! diff -q "$file" "$backup_file" &>/dev/null; then
+            log "Backup differs for $file. Keeping backup."
+        else
+            log "No changes detected for $file. Removing backup."
+            rm "$backup_file"
+            # Remove empty backup directories
+            find "$backup_dir" -type d -empty -delete
+        fi
+    done
 }
 
 # Export the functions so they can be used by the while loop
 export -f convert_comments
+export -f format_files
+
+# Define the backup directory with a timestamp
+backup_dir="backup_$(date +'%Y%m%d%H%M%S')"
 
 # Define an array with the file extensions and their corresponding formatters
 declare -a formatters=(
@@ -96,7 +141,15 @@ declare -a formatters=(
 # Loop through the array and call format_files for each entry
 for formatter in "${formatters[@]}"; do
     IFS=":" read -r extension command <<< "$formatter"
-    format_files "$extension" "$command"
+    format_files "$extension" "$command" "$backup_dir"
 done
+
+# Remove the backup directory if it is empty
+if [ -d "$backup_dir" ]; then
+    find "$backup_dir" -type d -empty -delete
+    if [ -d "$backup_dir" ] && [ ! "$(ls -A "$backup_dir")" ]; then
+        rmdir "$backup_dir"
+    fi
+fi
 
 log "Formatting complete."
