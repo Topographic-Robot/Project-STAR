@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-#### TODO:
-####
-#### 1. ensure after running convert_comments that there is a space before and after the /* */
-####    - `/*test*/` -> `/* test */`
-####    - `/* test*/` -> `/* test */`
-####    - `/*test */` -> `/* test */`
-####   (key notes: make sure to not accidnetly remove letters, so /*test*/ shouldnt become /* es */)
-
 # Exit immediately if a command exits with a non-zero status,
 # treat unset variables as an error,
 # and ensure that the return value of a pipeline is the status of the last command to exit with a non-zero status
