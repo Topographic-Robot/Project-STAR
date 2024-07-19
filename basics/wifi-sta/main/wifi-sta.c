@@ -6,10 +6,13 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "esp_wifi_default.h"
-#include "esp_wifi_types_generic.h"
 #include "freertos/event_groups.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+
+#if !defined(_WIN32) && !defined(_WIN64)
+#include "esp_wifi_types_generic.h"
+#endif
 
 #define WIFI_MAX_RETRY 10
 /* Creds for my local coffee shop */
