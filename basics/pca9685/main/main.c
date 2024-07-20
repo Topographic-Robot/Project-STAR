@@ -121,7 +121,21 @@ static esp_err_t pca9685_set_servo_angle(uint8_t channel, float degree) {
     degree = 180;
   }
 
-  /* Calculate the corresponding off value for the given degree */
+  /* Calculate the corresponding off value for the given degree
+   *
+   * Explanation of the magic numbers:
+   * - The PCA9685 has a resolution of 4096 steps (0-4095).
+   * - The PWM frequency is set to 50Hz, corresponding to a 20ms period.
+   * - For a standard hobby servo, the pulse width varies from ~1ms (0 degrees)
+   *   to ~2ms (180 degrees).
+   * - Each step represents approximately 0.00488ms (20ms / 4096).
+   * - For 0 degrees: 1ms / 0.00488ms ≈ 204 steps.
+   * - For 180 degrees: 2ms / 0.00488ms ≈ 409 steps.
+   * - The range from 0 to 180 degrees thus spans 204 to 409 steps (409 - 204 =
+   *   205 steps).
+   *
+   * The formula `(degree / 180.0 * 205.0) + 204.0` converts the servo angle
+   * (0-180 degrees) to the corresponding PWM step value (204-409 steps) */
   uint16_t target_off = (uint16_t)((degree / 180.0 * 205.0) + 204.0);
 
   /* Set the PWM value for the servo */
@@ -215,7 +229,7 @@ void app_main(void) {
   }
 
   /* Create tasks for all 16 motors */
-  for (uint8_t i = 0; i < 8; i++) {
+  for (uint8_t i = 0; i < 16; i++) {
     xTaskCreate(motor_task, "motor_task", 2048, &servos[i].channel, 5, NULL);
   }
 
