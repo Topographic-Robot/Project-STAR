@@ -1,26 +1,45 @@
+#include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdio.h>
 
-#define I2C_MASTER_SCL_IO         22 /*!< GPIO number for I2C master clock */
-#define I2C_MASTER_SDA_IO         21 /*!< GPIO number for I2C master data  */
-#define I2C_MASTER_NUM            I2C_NUM_0 /*!< I2C port number for master dev */
-#define I2C_MASTER_FREQ_HZ        100000    /*!< I2C master clock frequency */
-#define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
-#define I2C_MASTER_RX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
+#define I2C_MASTER_SCL_IO         GPIO_NUM_22
+#define I2C_MASTER_SDA_IO         GPIO_NUM_21
+#define I2C_MASTER_NUM            I2C_NUM_0
+#define I2C_MASTER_FREQ_HZ        100000 /* 1MHz */
+#define I2C_MASTER_TX_BUF_DISABLE 0      /* I2C master doesn't need buffer */
+#define I2C_MASTER_RX_BUF_DISABLE 0      /* I2C master doesn't need buffer */
 #define I2C_MASTER_TIMEOUT_MS     1000
 
-#define PCA9685_ADDR 0x40 /*!< Slave address for PCA9685 */
-
-#define PCA9685_MODE1    0x00
-#define PCA9685_MODE2    0x01
-#define PCA9685_PRESCALE 0xFE
+/* These values are from the datasheet */
+#define PCA9685_ADDR         0x40     /* Slave address for PCA9685 */
+#define PCA9685_INTER_OSC    25000000 /* Internal Oscillator (25MHz) */
+#define PCA9685_RESOLUTION   4096     /* PCA9685 Resolution (2^12) */
+#define PCA9685_SLEEP_MODE   0x10
+#define PCA9685_RESTART_MODE 0x80
+#define PCA9685_OUTPUT_MODE  0x04 /* Output Logic Mode */
+#define PCA9685_MODE1        0x00
+#define PCA9685_MODE2        0x01
+#define PCA9685_PRESCALE     0xFE
+#define PCA9685_LED0_ON_L    0x06
+#define PCA9685_LED0_ON_H    0x07
+#define PCA9685_LED0_OFF_L   0x08
+#define PCA9685_LED0_OFF_H   0x09
 
 static const char *TAG = "pca9685_servo";
 
-// Initialize I2C
+/* Structure to keep track of servo positions */
+typedef struct {
+  uint8_t channel;
+  float   current_degree;
+} servo_t;
+
+/* Array to keep track of all servos */
+static servo_t servos[16]; /* Assuming we have up to 16 servos connected */
+
+/* Initialize I2C */
 static esp_err_t i2c_master_init(void) {
   i2c_config_t conf = {
       .mode             = I2C_MODE_MASTER,
@@ -40,7 +59,7 @@ static esp_err_t i2c_master_init(void) {
                             I2C_MASTER_TX_BUF_DISABLE, 0);
 }
 
-// Write to PCA9685 register
+/* Write to PCA9685 register */
 static esp_err_t pca9685_write(uint8_t reg_addr, uint8_t data) {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
@@ -54,36 +73,151 @@ static esp_err_t pca9685_write(uint8_t reg_addr, uint8_t data) {
   return err;
 }
 
-// Set PWM frequency
+/* Set PWM frequency */
 static esp_err_t pca9685_set_pwm_freq(float freq) {
-  uint8_t prescale_val = (uint8_t)(25000000 / (4096 * freq) - 1);
-  ESP_ERROR_CHECK(pca9685_write(PCA9685_MODE1, 0x10)); // Enter sleep mode
+  uint8_t prescale_val =
+      (uint8_t)(PCA9685_INTER_OSC / (PCA9685_RESOLUTION * freq) - 1);
+  /* Enter sleep mode */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_MODE1, PCA9685_SLEEP_MODE));
   ESP_ERROR_CHECK(pca9685_write(PCA9685_PRESCALE, prescale_val));
-  ESP_ERROR_CHECK(pca9685_write(PCA9685_MODE1, 0x80)); // Restart
-  ESP_ERROR_CHECK(pca9685_write(PCA9685_MODE2, 0x04)); // Output logic
+  /* Restart */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_MODE1, PCA9685_RESTART_MODE));
+  /* Output logic */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_MODE2, PCA9685_OUTPUT_MODE));
   return ESP_OK;
 }
 
-// Set PWM value for a specific channel
+/* Set PWM value for a specific channel */
 static esp_err_t pca9685_set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
-  ESP_ERROR_CHECK(pca9685_write(0x06 + 4 * channel, on & 0xFF));
-  ESP_ERROR_CHECK(pca9685_write(0x07 + 4 * channel, on >> 8));
-  ESP_ERROR_CHECK(pca9685_write(0x08 + 4 * channel, off & 0xFF));
-  ESP_ERROR_CHECK(pca9685_write(0x09 + 4 * channel, off >> 8));
+  /* 4 * channel is to calculate the channel offset, 4 is because of 4 registers
+   * (shown below) */
+
+  /* Write the low byte of the ON time to the register for the specified channel
+   */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_LED0_ON_L + 4 * channel, on & 0xFF));
+
+  /* Write the high byte of the ON time to the register for the specified
+   * channel */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_LED0_ON_H + 4 * channel, on >> 8));
+
+  /* Write the low byte of the OFF time to the register for the specified
+   * channel */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_LED0_OFF_L + 4 * channel, off & 0xFF));
+
+  /* Write the high byte of the OFF time to the register for the specified
+   * channel */
+  ESP_ERROR_CHECK(pca9685_write(PCA9685_LED0_OFF_H + 4 * channel, off >> 8));
+
   return ESP_OK;
+}
+
+/* Move servo to a specified degree without any speed control */
+static esp_err_t pca9685_set_servo_angle(uint8_t channel, float degree) {
+  /* Ensure the degree is within the valid range */
+  if (degree < 0) {
+    degree = 0;
+  }
+  if (degree > 180) {
+    degree = 180;
+  }
+
+  /* Calculate the corresponding off value for the given degree */
+  uint16_t target_off = (uint16_t)((degree / 180.0 * 205.0) + 204.0);
+
+  /* Set the PWM value for the servo */
+  esp_err_t err = pca9685_set_pwm(channel, 0, target_off);
+  if (err != ESP_OK) {
+    return err;
+  }
+
+  /* Update the current degree in the servo structure */
+  servos[channel].current_degree = degree;
+
+  return ESP_OK;
+}
+
+/* Gradually move servo to a specified degree with speed control
+ *
+ * NOTE: you must set the current_degree for the motor before running this
+ * function */
+static esp_err_t pca9685_set_servo_angle_smooth(uint8_t  channel,
+                                                float    target_degree,
+                                                uint16_t step_delay_ms) {
+  /* Ensure the degree is within the valid range */
+  if (target_degree < 0) {
+    target_degree = 0;
+  }
+  if (target_degree > 180) {
+    target_degree = 180;
+  }
+
+  /* Get the current degree from the servo structure */
+  float current_degree = servos[channel].current_degree;
+  float step_size      = 1.0; /* Define the step size for each movement */
+
+  /* Calculate the direction of movement */
+  int direction = (target_degree > current_degree) ? 1 : -1;
+
+  /* Gradually move the servo */
+  while ((direction == 1 && current_degree < target_degree) ||
+         (direction == -1 && current_degree > target_degree)) {
+    current_degree += direction * step_size;
+    /* Ensure the degree is within the valid range */
+    if (current_degree < 0) {
+      current_degree = 0;
+    }
+    if (current_degree > 180) {
+      current_degree = 180;
+    }
+
+    /* Calculate the corresponding off value for the given degree */
+    uint16_t target_off = (uint16_t)((current_degree / 180.0 * 205.0) + 204.0);
+
+    /* Set the PWM value for the servo */
+    ESP_ERROR_CHECK(pca9685_set_pwm(channel, 0, target_off));
+
+    /* Update the current degree in the servo structure */
+    servos[channel].current_degree = current_degree;
+
+    /* Delay to control the speed of movement */
+    vTaskDelay(pdMS_TO_TICKS(step_delay_ms));
+  }
+  return ESP_OK;
+}
+
+/* Task to move a motor */
+void motor_task(void *arg) {
+  uint8_t channel = *(uint8_t *)arg;
+  while (1) {
+    /* Move servo to 0 degrees smoothly */
+    ESP_LOGI(TAG, "Moving servo %d to 0 degrees smoothly", channel);
+    ESP_ERROR_CHECK(pca9685_set_servo_angle_smooth(channel, 0, 10));
+    vTaskDelay(pdMS_TO_TICKS(1000)); /* Wait for a second */
+
+    /* Move servo to 180 degrees smoothly */
+    ESP_LOGI(TAG, "Moving servo %d to 180 degrees smoothly", channel);
+    ESP_ERROR_CHECK(pca9685_set_servo_angle_smooth(channel, 180, 10));
+    vTaskDelay(pdMS_TO_TICKS(1000)); /* Wait for a second */
+  }
 }
 
 void app_main(void) {
   ESP_ERROR_CHECK(i2c_master_init());
-  ESP_ERROR_CHECK(pca9685_set_pwm_freq(50)); // Set frequency to 50Hz for servos
+  /* Set frequency to 50Hz for servos */
+  ESP_ERROR_CHECK(pca9685_set_pwm_freq(50));
 
-  while (1) {
-    // Move servo to left (1ms pulse width)
-    ESP_ERROR_CHECK(pca9685_set_pwm(0, 0, 204)); // 1ms pulse (204/4096 * 20ms)
-    vTaskDelay(pdMS_TO_TICKS(1000));             // Wait for 1 second
-
-    // Move servo to right (2ms pulse width)
-    ESP_ERROR_CHECK(pca9685_set_pwm(0, 0, 409)); // 2ms pulse (409/4096 * 20ms)
-    vTaskDelay(pdMS_TO_TICKS(1000));             // Wait for 1 second
+  /* Initialize servos (manual initialization) */
+  for (uint8_t i = 0; i < 16; i++) {
+    servos[i].channel        = i;
+    /* Assuming starting at 90 degrees for safety */
+    servos[i].current_degree = 90;
+    pca9685_set_servo_angle(i, 90);
   }
+
+  /* Create tasks for all 16 motors */
+  for (uint8_t i = 0; i < 8; i++) {
+    xTaskCreate(motor_task, "motor_task", 2048, &servos[i].channel, 5, NULL);
+  }
+
+  while (1) { vTaskDelay(pdMS_TO_TICKS(1000)); }
 }
