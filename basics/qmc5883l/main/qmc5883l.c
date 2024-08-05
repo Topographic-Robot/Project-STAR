@@ -130,6 +130,7 @@ static void qmc5883l_read_data(void) {
 
   esp_err_t err = qmc5883l_read(QMC5883L_XOUT_L, data, 6);
   if (err == ESP_OK) {
+    /* XXX: Explain this */
     mag_x = (int16_t)(data[1] << 8 | data[0]);
     mag_y = (int16_t)(data[3] << 8 | data[2]);
     mag_z = (int16_t)(data[5] << 8 | data[4]);

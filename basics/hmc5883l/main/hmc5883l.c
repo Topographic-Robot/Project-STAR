@@ -39,6 +39,7 @@ static esp_err_t i2c_master_init(void) {
 static esp_err_t hmc5883l_write_byte(uint8_t reg_addr, uint8_t data) {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
+  /* XXX: Comments are needed */
   i2c_master_write_byte(cmd, (HMC5883L_ADDR << 1) | WRITE_BIT, ACK_CHECK_EN);
   i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
   i2c_master_write_byte(cmd, data, ACK_CHECK_EN);
@@ -53,9 +54,11 @@ static esp_err_t hmc5883l_read_bytes(uint8_t reg_addr, uint8_t *data,
                                      size_t len) {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
+  /* XXX: Comments are needed */
   i2c_master_write_byte(cmd, (HMC5883L_ADDR << 1) | WRITE_BIT, ACK_CHECK_EN);
   i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
   i2c_master_start(cmd);
+  /* XXX: Comments are needed */
   i2c_master_write_byte(cmd, (HMC5883L_ADDR << 1) | READ_BIT, ACK_CHECK_EN);
   if (len > 1) {
     i2c_master_read(cmd, data, len - 1, ACK_VAL);
@@ -95,11 +98,13 @@ static void hmc5883l_init(void) {
 
 static void hmc5883l_read_magnetometer(int16_t *mag_x, int16_t *mag_y,
                                        int16_t *mag_z) {
-  uint8_t   data[6];
-  esp_err_t ret = hmc5883l_read_bytes(0x03, data, 6);
+  uint8_t   data[6]; /* XXX: Move 6 into some macro? */
+  esp_err_t ret =
+      hmc5883l_read_bytes(0x03, data, 6); /* XXX: Duplicating 6 again here */
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "Failed to read magnetometer data");
   } else {
+    /* XXX: Some explaination of what this does would be nice */
     *mag_x = (int16_t)((data[0] << 8) | data[1]);
     *mag_y = (int16_t)((data[4] << 8) | data[5]);
     *mag_z = (int16_t)((data[2] << 8) | data[3]);

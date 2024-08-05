@@ -30,9 +30,11 @@ static esp_err_t i2c_master_init(void) {
 
 void i2c_scanner() {
   printf("Scanning I2C bus...\n");
+  /* XXX: Where is 127 from */
   for (int i = 1; i < 127; i++) {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
+    /* XXX: Comment is needed, explain this */
     i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, true);
     i2c_master_stop(cmd);
     esp_err_t ret =

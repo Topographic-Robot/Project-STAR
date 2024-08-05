@@ -28,8 +28,9 @@ static int prev_state = 0;
 
 /* Interrupt service routine for EC11_OUT_A and EC11_OUT_B */
 static void IRAM_ATTR gpio_isr_handler(void *arg) {
-  uint32_t gpio_num = (uint32_t)arg;
-  int64_t  now = esp_timer_get_time() / 1000; /* current time in milliseconds */
+  uint32_t gpio_num =
+      (uint32_t)arg; /* XXX: Is there a way to not cast from void * */
+  int64_t now = esp_timer_get_time() / 1000; /* current time in milliseconds */
 
   if (gpio_num == EC11_OUT_A) {
     if (now - last_gpio_event_time_a > DEBOUNCE_TIME_MS) {
@@ -57,6 +58,7 @@ void gpio_task(void *arg) {
       int current_state =
           (gpio_get_level(EC11_OUT_A) << 1) | gpio_get_level(EC11_OUT_B);
 
+      /* XXX: Add some comments on rolling state */
       const char *state_str[] = {"00", "01", "11", "10"};
       ESP_LOGI(TAG, "State: %s", state_str[current_state]);
 

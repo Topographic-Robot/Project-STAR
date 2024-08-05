@@ -68,9 +68,11 @@ static esp_err_t mpu6050_write_byte(uint8_t reg_addr, uint8_t data) {
 static esp_err_t mpu6050_read(uint8_t reg_addr, uint8_t *data, size_t len) {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
+  /* XXX: Explain this */
   i2c_master_write_byte(cmd, MPU6050_SENSOR_ADDR << 1 | I2C_MASTER_WRITE, true);
   i2c_master_write_byte(cmd, reg_addr, true);
   i2c_master_start(cmd);
+  /* XXX: Explain this */
   i2c_master_write_byte(cmd, MPU6050_SENSOR_ADDR << 1 | I2C_MASTER_READ, true);
   if (len > 1) {
     i2c_master_read(cmd, data, len - 1, I2C_MASTER_ACK);
@@ -96,7 +98,7 @@ static void mpu6050_init(void) {
 }
 
 static void mpu6050_read_accel_gyro(void) {
-  uint8_t data[14];
+  uint8_t data[14]; /* XXX: Explain the 14 */
   int16_t accel_x, accel_y, accel_z, temp, gyro_x, gyro_y, gyro_z;
   float   temperature;
 
@@ -107,6 +109,7 @@ static void mpu6050_read_accel_gyro(void) {
   for (int i = 0; i < NUM_READINGS; i++) {
     mpu6050_read(MPU6050_ACCEL_XOUT_H, data, 14);
 
+  /* XXX: Explain this */
     accel_x = (int16_t)(data[0] << 8 | data[1]);
     accel_y = (int16_t)(data[2] << 8 | data[3]);
     accel_z = (int16_t)(data[4] << 8 | data[5]);
