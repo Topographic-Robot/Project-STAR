@@ -19,17 +19,17 @@
 /* Uncomment the line below if ADD is connected to GND */
 #define MPU6050_SENSOR_ADDR 0x68
 
-#define I2C_MASTER_SCL_IO         22 /* GPIO number for I2C master clock */
-#define I2C_MASTER_SDA_IO         21 /* GPIO number for I2C master data */
+#define I2C_MASTER_SCL_IO         22        /* GPIO number for I2C master clock */
+#define I2C_MASTER_SDA_IO         21        /* GPIO number for I2C master data */
 #define I2C_MASTER_NUM            I2C_NUM_1 /* I2C port number for master dev */
 #define I2C_MASTER_FREQ_HZ        100000    /* I2C master clock frequency */
 #define I2C_MASTER_TX_BUF_DISABLE 0         /* I2C master doesn't need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE 0         /* I2C master doesn't need buffer */
 #define MPU6050_CMD_START         0x41      /* Command to start MPU6050 */
-#define MPU6050_WHO_AM_I          0x75 /* Register to check MPU6050 identity */
-#define MPU6050_PWR_MGMT_1_REG    0x6B /* Register to manage power mode */
-#define MPU6050_ACCEL_XOUT_H      0x3B /* Register to read accel data */
-#define MPU6050_GYRO_XOUT_H       0x43 /* Register to read gyro data */
+#define MPU6050_WHO_AM_I          0x75      /* Register to check MPU6050 identity */
+#define MPU6050_PWR_MGMT_1_REG    0x6B      /* Register to manage power mode */
+#define MPU6050_ACCEL_XOUT_H      0x3B      /* Register to read accel data */
+#define MPU6050_GYRO_XOUT_H       0x43      /* Register to read gyro data */
 
 static const char *TAG = "MPU6050";
 #define NUM_READINGS 10
@@ -109,7 +109,7 @@ static void mpu6050_read_accel_gyro(void) {
   for (int i = 0; i < NUM_READINGS; i++) {
     mpu6050_read(MPU6050_ACCEL_XOUT_H, data, 14);
 
-  /* XXX: Explain this */
+    /* XXX: Explain this */
     accel_x = (int16_t)(data[0] << 8 | data[1]);
     accel_y = (int16_t)(data[2] << 8 | data[3]);
     accel_z = (int16_t)(data[4] << 8 | data[5]);

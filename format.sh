@@ -14,7 +14,7 @@ log() {
 }
 
 # Check if the required tools are installed
-required_tools=("clang-format" "asmfmt")
+required_tools=("clang-format" "asmfmt" "dos2unix")
 for tool in "${required_tools[@]}"; do
     if ! command -v "$tool" &>/dev/null; then
         log "$tool is not installed. Aborting."
@@ -76,6 +76,14 @@ convert_comments() {
     ' "${file_path}" > "${file_path}.tmp" && mv "${file_path}.tmp" "${file_path}"
 }
 
+# Function to convert DOS line endings to Unix line endings
+# Arguments:
+#   $1: Path to the file to be processed
+convert_dos_to_unix() {
+    local file_path=$1
+    dos2unix "$file_path"
+}
+
 # Function to find and format files using a specified formatter
 # Arguments:
 #   $1: File extension to search for (e.g., "c", "h", "cc", "s")
@@ -90,7 +98,7 @@ format_files() {
     mkdir -p "$backup_dir"
 
     # Find all files with the specified extension, excluding those in the "build" and "backup_" directories
-    # Process each file by converting comments and applying the formatter
+    # Process each file by converting DOS to Unix, converting comments, and applying the formatter
     find . -type f ! -path "*/build/*" ! -path "*/backup_*/*" -name "*.${file_extension}" -print0 | while IFS= read -r -d '' file; do
         # Create backup of the original file
         local backup_file="$backup_dir/$file"
@@ -98,6 +106,8 @@ format_files() {
         cp "$file" "$backup_file"
 
         # Log the conversion and formatting steps
+        log "Converting DOS to Unix line endings in $file"
+        convert_dos_to_unix "$file"
         log "Converting comments in $file"
         convert_comments "$file"
         log "Formatting $file"
@@ -117,16 +127,18 @@ format_files() {
 
 # Export the functions so they can be used by the while loop
 export -f convert_comments
+export -f convert_dos_to_unix
 export -f format_files
 
 # Define the backup directory with a timestamp
-backup_dir="backup_$(date +'%Y%m%d%H%M%S')"
+backup_dir="backup/backup_$(date +'%Y%m%d%H%M%S')"
 
 # Define an array with the file extensions and their corresponding formatters
 declare -a formatters=(
     "h:clang-format -i"
     "c:clang-format -i"
     "cc:clang-format -i"
+    "cpp:clang-format -i"
     "s:asmfmt -w"
 )
 
@@ -141,6 +153,7 @@ if [ -d "$backup_dir" ]; then
     find "$backup_dir" -type d -empty -delete
     if [ -d "$backup_dir" ] && [ ! "$(ls -A "$backup_dir")" ]; then
         rmdir "$backup_dir"
+        rmdir "backup"
     fi
 fi
 
