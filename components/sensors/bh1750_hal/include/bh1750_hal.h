@@ -51,7 +51,6 @@ typedef struct bh1750_data_t {
 esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
                       bh1750_data_t *data);
 
-
 /**
  * @brief Reads light intensity data from the BH1750 sensor.
  *

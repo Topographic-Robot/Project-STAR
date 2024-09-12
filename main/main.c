@@ -37,22 +37,22 @@ void app_main(void)
  */
 static void clear_nvs_flash(void) 
 {
-    /* Attempt to initialize NVS (Non-Volatile Storage) */
-    esp_err_t ret = nvs_flash_init();
+  /* Attempt to initialize NVS (Non-Volatile Storage) */
+  esp_err_t ret = nvs_flash_init();
 
-    /* If NVS flash has no free pages or a new version is found, erase and reinitialize */
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        /* Erase NVS flash if initialization failed due to no free pages or version mismatch */
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        /* Reinitialize NVS flash after erasing */
-        ret = nvs_flash_init();
-    }
+  /* If NVS flash has no free pages or a new version is found, erase and reinitialize */
+  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    /* Erase NVS flash if initialization failed due to no free pages or version mismatch */
+    ESP_ERROR_CHECK(nvs_flash_erase());
+    /* Reinitialize NVS flash after erasing */
+    ret = nvs_flash_init();
+  }
 
-    /* Ensure NVS initialization was successful; terminate if an error occurs */
-    ESP_ERROR_CHECK(ret);
+  /* Ensure NVS initialization was successful; terminate if an error occurs */
+  ESP_ERROR_CHECK(ret);
 
-    /* Log the successful initialization of NVS flash */
-    ESP_LOGI(toporobo_tag, "ESP32 NVS flash cleared and initialized");
+  /* Log the successful initialization of NVS flash */
+  ESP_LOGI(toporobo_tag, "ESP32 NVS flash cleared and initialized");
 }
 
 /**
