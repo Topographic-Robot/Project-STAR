@@ -1,4 +1,4 @@
-#include "bh1750.h"
+#include "bh1750_hal.h"
 #include "common/i2c.h"
 #include <driver/i2c.h>
 #include <esp_log.h>
@@ -25,8 +25,8 @@ const char   *bh1750_tag               = "BH1750"; /* Tag for logs */
  * @param[in] i2c_bus The I2C bus number to communicate over.
  *
  * @return 
- *      - ESP_OK on success.
- *      - Error code on failure.
+ *   - ESP_OK on success.
+ *   - Error code on failure.
  */
 static esp_err_t priv_bh1750_write_byte(uint8_t data, uint8_t i2c_bus)
 {
@@ -71,8 +71,8 @@ static esp_err_t priv_bh1750_write_byte(uint8_t data, uint8_t i2c_bus)
  * @param[in] i2c_bus The I2C bus number to communicate over.
  *
  * @return 
- *      - ESP_OK on success.
- *      - Error code on failure.
+ *   - ESP_OK on success.
+ *   - Error code on failure.
  */
 static esp_err_t priv_bh1750_read(uint8_t *data, size_t len, uint8_t i2c_bus)
 {
@@ -114,10 +114,10 @@ static esp_err_t priv_bh1750_read(uint8_t *data, size_t len, uint8_t i2c_bus)
 /* Public Functions ***********************************************************/
 
 esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
-                      uint8_t i2c_bus)
+                      bh1750_data_t* bh1750_data)
 {
   /* Initialize the I2C bus with specified SCL, SDA pins, frequency, and bus number */
-  esp_err_t err = priv_i2c_init(scl_io, sda_io, freq_hz, i2c_bus, bh1750_tag);
+  esp_err_t err = priv_i2c_init(scl_io, sda_io, freq_hz, bh1750_data->i2c_bus, bh1750_tag);
   if (err != ESP_OK) {
     /* Log an error if the I2C driver installation fails */
     ESP_LOGE(bh1750_tag, "I2C driver install failed: %s", esp_err_to_name(err));
@@ -125,7 +125,7 @@ esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
   }
   
   /* Power on the BH1750 sensor */
-  err = priv_bh1750_write_byte(bh1750_power_on_cmd, i2c_bus);
+  err = priv_bh1750_write_byte(bh1750_power_on_cmd, bh1750_data->i2c_bus);
   if (err != ESP_OK) {
     /* Log an error if powering on the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 power on failed");
@@ -136,7 +136,7 @@ esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Reset the BH1750 sensor */
-  err = priv_bh1750_write_byte(bh1750_reset_cmd, i2c_bus);
+  err = priv_bh1750_write_byte(bh1750_reset_cmd, bh1750_data->i2c_bus);
   if (err != ESP_OK) {
     /* Log an error if resetting the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 reset failed");
@@ -147,7 +147,7 @@ esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Set the BH1750 sensor to continuous high-resolution mode */
-  err = priv_bh1750_write_byte(bh1750_cont_low_res_mode, i2c_bus);
+  err = priv_bh1750_write_byte(bh1750_cont_low_res_mode, bh1750_data->i2c_bus);
   if (err != ESP_OK) {
     /* Log an error if setting the resolution mode fails */
     ESP_LOGE(bh1750_tag, "BH1750 setting resolution mode failed");
@@ -160,23 +160,24 @@ esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
   return err; /* Return the final error status or ESP_OK if successful */
 }
 
-float bh1750_read_lux(uint8_t i2c_bus)
+void bh1750_read(bh1750_data_t *bh1750_data)
 {
   /* Array to store the two bytes of data read from the BH1750 sensor */
   uint8_t data[2];
   
   /* Read 2 bytes of data from the BH1750 sensor over I2C */
-  esp_err_t err = priv_bh1750_read(data, 2, i2c_bus);
+  esp_err_t err = priv_bh1750_read(data, 2, bh1750_data->i2c_bus);
   if (err == ESP_OK) {
     /* Combine the two bytes into a 16-bit raw light intensity value */
     uint16_t raw_light_intensity = (data[0] << 8) | data[1];
-  
+    
     /* Convert the raw light intensity to lux as per the BH1750 datasheet */
-    return raw_light_intensity / 1.2; /* Lux = raw value / 1.2 */
+    bh1750_data->lux = raw_light_intensity / 1.2; /* Lux = raw value / 1.2 */
+    ESP_LOGI(bh1750_tag, "The measured light intensity was %f lux", bh1750_data->lux);
   } 
 
   /* Log an error if reading data from the BH1750 sensor fails */
   ESP_LOGE(bh1750_tag, "Failed to read data from BH1750");
-  return -1.0; /* Return -1.0 to indicate an error */
+  bh1750_data->lux = -1.0; /* Return -1.0 to indicate an error */
 }
 

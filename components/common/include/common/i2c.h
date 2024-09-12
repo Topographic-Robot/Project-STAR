@@ -15,15 +15,15 @@
  * pull-up configuration, and frequency. It sets the I2C mode to master 
  * and initializes the driver without requiring a buffer for the master mode.
  *
- * @param scl_io Pin number for the I2C clock line (SCL).
- * @param sda_io Pin number for the I2C data line (SDA).
- * @param freq_hz Clock frequency in Hertz for the I2C bus.
- * @param i2c_bus I2C bus number to use for communication.
- * @param tag The tag for logging errors.
+ * @param[in] scl_io Pin number for the I2C clock line (SCL).
+ * @param[in] sda_io Pin number for the I2C data line (SDA).
+ * @param[in] freq_hz Clock frequency in Hertz for the I2C bus.
+ * @param[out] i2c_bus I2C bus number to use for communication.
+ * @param[in] tag The tag for logging errors.
  *
  * @return 
- *      - ESP_OK on successful initialization.
- *      - An error code from the esp_err_t enumeration on failure.
+ *   - ESP_OK on successful initialization.
+ *   - An error code from the esp_err_t enumeration on failure.
  *
  * @note The function enables internal pull-ups for both SDA and SCL pins.
  *       Make sure the I2C bus is free before calling this function.
