@@ -47,8 +47,10 @@ typedef struct {
  * 
  * @note This function will establish communication via I2C, UART, or other protocols 
  * for each sensor type and ensure correct initialization.
+ *
+ * @param[out] sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
  */
-void sensors_comm_init(void);
+void sensors_comm_init(sensor_data_t *sensor_data);
 
 /**
  * @brief Records sensor data and stores it in a given variable.
@@ -75,7 +77,7 @@ void sensors_comm_init(void);
  * - HMC5883L+GY-273 (magnetometer)
  * - GY-NEO6MV2 (GPS)
  * 
- * @param sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
+ * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
  */
 void sensor_tasks(void *sensor_data);
 

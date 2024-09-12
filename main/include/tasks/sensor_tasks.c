@@ -1,27 +1,52 @@
+/* Initialization and Reading of Sensors through Tasks */
+
+/*******************************************************************************
+ *
+ *  
+ *      +-----------------------------------+
+ *      |          BH1750 Sensor            |
+ *      +-----------------------------------+
+ *              |                   |
+ *       +------+                   +------+
+ *       |  SCL (I2C)                      |  SDA (I2C)
+ *       |  GPIO_22 (50,000 Hz)            |  GPIO_21 (50,000 Hz)
+ *  +-----------+                   +-----------+
+ *  | SCL (I2C) |                   | SDA (I2C) |
+ *  | GPIO_22   |                   | GPIO_21   |
+ *  +-----------+                   +-----------+
+ *  
+ *                I2C Bus Frequency: 50000 Hz
+ ******************************************************************************/
+
 #include "sensor_tasks.h"
 #include "bh1750_hal.h"
-#include "hal/i2c_types.h"
+#include <driver/gpio.h>
+
+
+/* Constants ******************************************************************/
+
+const uint8_t  bh1750_scl_io  = GPIO_NUM_22;
+const uint8_t  bh1750_sda_io  = GPIO_NUM_21;
+const uint32_t bh1750_freq_hz = 50000; /* in Hz */
 
 /* Public Functions ***********************************************************/
 
-/* TODO: Make this verify, check and do it again maybe like before every run */
-/* TODO: This function has to take in sensor_data as a parm for these init functions */
-void sensors_comm_init(void)
+void sensors_comm_init(sensor_data_t *sensor_data)
 {
-  /* 1. Initialize I2C/UART communication with each sensor */
-  /* bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz, bh1750_data_t *data); */
-  /* 2. Verify the initialization of each sensor */
-  /* 3. Log the status of each sensor's communication setup */
+  /* Initialize I2C/UART communication with each sensor */
+  bh1750_init(&(sensor_data->bh1750_data));
 }
 
 void sensor_tasks(void *sensor_data)
 {
+  sensor_data_t *_sensor_data = (sensor_data_t *)sensor_data;
 //    /* 1. Record data from MPU6050 */
 //    mpu6050_read(sensor_data->mpu6050_data);
 //    
-//    /* 2. Record data from BH1750 */
-  bh1750_read(&(((sensor_data_t *)sensor_data)->bh1750_data));
-//    
+  /* 2. Record data from BH1750 */
+  bh1750_read(&(_sensor_data->bh1750_data));
+  bh1750_reset_on_error(&(_sensor_data->bh1750_data));
+    
 //    /* 3. Record data from HC-SR04 */
 //    hc_sr04_read(sensor_data->hc_sr04_data);
 //    

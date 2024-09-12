@@ -24,6 +24,14 @@ extern const char *system_tag;
  * - Sensor data collection is pinned to Core 1.
  * - Webserver video relay is pinned to Core 1.
  */
-void start_system_tasks(void);
+void system_tasks_start(void);
+
+/**
+ * @brief Initialize system-level tasks for handling devices and communication.
+ * 
+ * This function creates and initializes tasks that monitor motors, collect 
+ * sensor data, relay video to the webserver, and handle Wi-Fi operations. 
+ */
+void system_tasks_init(void);
 
 #endif /* TOPOROBO_SYSTEM_TASKS_H */

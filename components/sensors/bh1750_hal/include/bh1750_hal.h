@@ -3,26 +3,59 @@
 
 #include <stdint.h>
 #include <esp_err.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 /* Constants ******************************************************************/
 
-extern const uint8_t bh1750_power_on_cmd;
-extern const uint8_t bh1750_i2c_address;
-extern const uint8_t bh1750_cont_low_res_mode;
-extern const uint8_t bh1750_reset_cmd;
-extern const char   *bh1750_tag;
+extern const uint8_t  bh1750_power_on_cmd;
+extern const uint8_t  bh1750_i2c_address;
+extern const uint8_t  bh1750_cont_low_res_mode;
+extern const uint8_t  bh1750_reset_cmd;
+extern const char    *bh1750_tag;
+extern const uint8_t  bh1750_scl_io;
+extern const uint8_t  bh1750_sda_io;
+extern const uint32_t bh1750_freq_hz;
+
+/* Enums **********************************************************************/
+
+/**
+ * @enum bh1750_states_t
+ * @brief Enum to represent the state of the BH1750 sensor.
+ *
+ * This enum defines the possible states for the BH1750 sensor.
+ */
+typedef enum {
+  k_bh1750_ready              = 0x00, ///< Sensor is ready to read data.
+  k_bh1750_data_updated       = 0x01, ///< Sensor data has been updated.
+  k_bh1750_uninitialized      = 0x10, ///< Sensor is not initialized.
+  k_bh1750_error              = 0xF0, ///< A general catch all error
+  k_bh1750_power_on_error     = 0xA1, ///< An error occurred during power on.
+  k_bh1750_reset_error        = 0xA2, ///< An error occurred during reset.
+  k_bh1759_cont_low_res_error = 0xA3, ///< An error occurred setting continuous high-resolution mode
+} bh1750_states_t;
 
 /* Structs ********************************************************************/
 
 /**
+ * @struct bh1750_data_t
  * @brief Structure to store BH1750 sensor data.
  *
- * This structure holds the I2C bus number used for communication and the
- * light intensity value measured by the BH1750 sensor.
+ * This structure holds the I2C bus number used for communication, 
+ * the light intensity value measured by the BH1750 sensor, and a 
+ * state flag used to track the sensor's status.
+ * 
+ * These flags are set in the `bh1750_states_t` enum, always verify 
+ * with the enum.
+ * 
+ * Additionally, the structure contains a mutex (`sensor_mutex`) to ensure
+ * thread-safe access when the sensor data is being read or updated.
  */
-typedef struct bh1750_data_t {
-  uint8_t i2c_bus; ///< I2C bus number used for communication.
-  float lux;       ///< Measured light intensity in lux.
+typedef struct {
+    uint8_t i2c_bus;                ///< I2C bus number used for communication.
+    float lux;                      ///< Measured light intensity in lux.
+    uint8_t state;                  ///< Sensor state, set in `bh1750_states_t` enum
+    SemaphoreHandle_t sensor_mutex; ///< Mutex for protecting access to sensor data.
 } bh1750_data_t;
 
 /* Public Functions ***********************************************************/
@@ -32,11 +65,11 @@ typedef struct bh1750_data_t {
  *
  * This function initializes the I2C driver for the BH1750 sensor and sets
  * it up for continuous high-resolution measurement mode. It powers on the 
- * device, resets it, and configures the resolution mode.
+ * device, resets it, and configures the resolution mode. If the device fails
+ * to be configured, this will try and reset the device to configure again.
+ * This however still might not work and calling the function until the 
+ * bh1750_data_t's `state` flag is `0x00` is recommended.
  *
- * @param[in] scl_io Pin number for the I2C clock line (SCL).
- * @param[in] sda_io Pin number for the I2C data line (SDA).
- * @param[in] freq_hz I2C clock frequency in Hertz.
  * @param[in,out] bh1750_data Pointer to the `bh1750_data_t` structure that 
  *   will hold the I2C bus number. The `i2c_bus` member will be set during 
  *   initialization.
@@ -48,8 +81,7 @@ typedef struct bh1750_data_t {
  * @note Delays are introduced after power on, reset, and resolution
  *   mode settings to ensure proper sensor initialization.
  */
-esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
-                      bh1750_data_t *data);
+esp_err_t bh1750_init(bh1750_data_t *data);
 
 /**
  * @brief Reads light intensity data from the BH1750 sensor.
@@ -63,8 +95,22 @@ esp_err_t bh1750_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
  *   - `lux`: Will be updated with the light intensity in lux (output).
  *            If the reading fails, `lux` will be set to -1.0.
  *
- * @note Ensure the I2C bus is initialized before calling this function.
+ * @note Ensure the bh1750 is initialized before calling this function.
  */
 void bh1750_read(bh1750_data_t *bh1750_data);
+
+/**
+ * @brief Checks if the BH1750 sensor encountered an error and attempts to reset it.
+ *
+ * This function checks the `state` flag of the `bh1750_data_t` structure to determine if an error 
+ * occurred. If an error is detected, it runs the BH1750  initialization function 
+ * to reset the sensor. If the reset is successful, the `state` flag will 
+ * be updated to `k_bh1750_ready`.
+ *
+ * @param[in,out] bh1750_data Pointer to a `bh1750_data_t` struct that contains:
+ *   - `state`: The current state of the sensor (input/output). A non-zero value indicates an error. 
+ *     After a successful reset, this flag is reset.
+ */
+void bh1750_reset_on_error(bh1750_data_t *bh1750_data);
 
 #endif /* TOPOROBO_BH1750_HAL_H */
