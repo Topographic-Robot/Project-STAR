@@ -296,7 +296,11 @@ void dht22_read(dht22_data_t *sensor_data)
     return;
   }
 
-  ESP_LOGI(dht22_tag, "Temperature: %.1f F (%1.f C), Humidity: %.1f %%", sensor_data->temperature_f, sensor_data->temperature_c, sensor_data->humidity);
+  ESP_LOGI(dht22_tag, 
+      "Temperature: %.1f F (%1.f C), Humidity: %.1f %%", 
+      sensor_data->temperature_f, 
+      sensor_data->temperature_c, 
+      sensor_data->humidity);
 
   /* Release the mutex after accessing the sensor */
   xSemaphoreGive(sensor_data->sensor_mutex);
