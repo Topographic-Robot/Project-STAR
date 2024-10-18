@@ -1,6 +1,62 @@
 #ifndef TOPOROBO_BH1750_HAL_H
 #define TOPOROBO_BH1750_HAL_H
 
+/* Digital 16bit Serial Output Type Ambient Light Sensor IC */
+/* Uses I2C for Communication */
+
+/*******************************************************************************
+ *
+ *    +----------------------------------------+
+ *    |                BH1750                  |
+ *    |                                        |
+ *    |   +----------------------------------+ |
+ *    |   |                                 |  |
+ *    |   |   +-----------------------------+  |
+ *    |   |   |        +----------+         |  |
+ *    |   |   | VCC    |  2.4V to 3.6V      |--------->| VCC
+ *    |   |   +-----------------------------+  |
+ *    |   |   | GND    | Ground             |--------->| GND
+ *    |   |   +-----------------------------+  |
+ *    |   |   | SCL    | Serial Clock       |--------->| GPIO_NUM_22 (50,000Hz)
+ *    |   |   +-----------------------------+  |
+ *    |   |   | SDA    | Serial Data        |--------->| GPIO_NUM_21 (50,000Hz)
+ *    |   |   +-----------------------------+  |
+ *    |   |   | ADDR   | I2C Address Select |--------->| GND
+ *    |   |   +-----------------------------+  |
+ *    |   |                                 |  |
+ *    |   +---------------------------------+  |
+ *    +----------------------------------------+
+ *    
+ *    Block Diagram for wiring
+ *    
+ *    +----------------------------------------------------+
+ *    |                    BH1750                          |
+ *    |                                                    |
+ *    |   +------------+     +-------------------+         |
+ *    |   | Photodiode |---->| Transimpedance    |         |
+ *    |   | (Sensor)   |     | Amplifier (TIA)   |         |
+ *    |   +------------+     +-------------------+         |
+ *    |                                                    |
+ *    |   +------------------+      +----------------+     |
+ *    |   | Analog-to-Digital|----->| Control Logic  |     |
+ *    |   | Converter (ADC)  |      |                |     |
+ *    |   +------------------+      +----------------+     |
+ *    |                                                    |
+ *    |   +---------------------+                          |
+ *    |   | Serial Interface    |<-------------------------|
+ *    |   | (I2C)               |                          |
+ *    |   +---------------------+                          |
+ *    |                                                    |
+ *    |   +---------------------+                          |
+ *    |   | Power Supply Unit   |                          |
+ *    |   | (PSU)               |                          |
+ *    |   +---------------------+                          |
+ *    +----------------------------------------------------+
+ *    
+ *    Internal Structure
+ *
+ ******************************************************************************/
+
 #include <stdint.h>
 #include <esp_err.h>
 #include <freertos/FreeRTOS.h>
@@ -16,6 +72,7 @@ extern const char    *bh1750_tag;
 extern const uint8_t  bh1750_scl_io;
 extern const uint8_t  bh1750_sda_io;
 extern const uint32_t bh1750_freq_hz;
+extern const uint8_t  bh1750_polling_rate_s;
 
 /* Enums **********************************************************************/
 
@@ -54,7 +111,7 @@ typedef enum {
 typedef struct {
     uint8_t i2c_bus;                ///< I2C bus number used for communication.
     float lux;                      ///< Measured light intensity in lux.
-    uint8_t state;                  ///< Sensor state, set in `bh1750_states_t` enum
+    uint8_t state;                  ///< Sensor state, set in `bh1750_states_t` enum.
     SemaphoreHandle_t sensor_mutex; ///< Mutex for protecting access to sensor data.
 } bh1750_data_t;
 
@@ -67,21 +124,29 @@ typedef struct {
  * it up for continuous high-resolution measurement mode. It powers on the 
  * device, resets it, and configures the resolution mode. If the device fails
  * to be configured, this will try and reset the device to configure again.
- * This however still might not work and calling the function until the 
- * bh1750_data_t's `state` flag is `0x00` is recommended.
+ * This however still might not work and calling the function `bh1750_reset_on_error` 
+ * until the bh1750_data_t's `state` flag is `0x00` is recommended.
  *
  * @param[in,out] bh1750_data Pointer to the `bh1750_data_t` structure that 
  *   will hold the I2C bus number. The `i2c_bus` member will be set during 
  *   initialization.
  *
+ * @param[in] first_time Boolean to let the function know if you have already
+ *   called this before, its not recommended to run it as 'first_time' multiple
+ *   times since memory allocation for a Semaphore occurs and can run into 
+ *   memory issues if ran too much. Run it as 'first_time' once then set it to
+ *   false when re-running the function.
+ *
  * @return
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
  *
- * @note Delays are introduced after power on, reset, and resolution
- *   mode settings to ensure proper sensor initialization.
+ * @note 
+ *   - This should only be called once.
+ *   - Delays are introduced after power on, reset, and resolution
+ *     mode settings to ensure proper sensor initialization. 
  */
-esp_err_t bh1750_init(bh1750_data_t *data);
+esp_err_t bh1750_init(bh1750_data_t *data, bool first_time);
 
 /**
  * @brief Reads light intensity data from the BH1750 sensor.
@@ -112,5 +177,21 @@ void bh1750_read(bh1750_data_t *bh1750_data);
  *     After a successful reset, this flag is reset.
  */
 void bh1750_reset_on_error(bh1750_data_t *bh1750_data);
+
+/**
+ * @brief Executes periodic tasks for the BH1750 sensor.
+ * 
+ * This function reads light intensity data from the BH1750 sensor and
+ * checks for any errors in the sensor state. If an error is detected, the sensor 
+ * is reset to attempt recovery. The function also introduces a delay based 
+ * on the polling rate to ensure continuous operation at the desired intervals.
+ * 
+ * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure that
+ *                            contains sensor data used for reading and error checking.
+ * 
+ * @note The delay is calculated from the `bh1750_polling_rate_s` global variable
+ *       and converts the polling rate from seconds to milliseconds.
+ */
+void bh1750_tasks(void *sensor_data);
 
 #endif /* TOPOROBO_BH1750_HAL_H */

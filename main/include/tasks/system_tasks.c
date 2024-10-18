@@ -69,5 +69,7 @@ void system_tasks_start(void)
   /* 4. Start webserver video relay task pinned to Core 1 */
   xTaskCreatePinnedToCore(webserver_tasks, "webserver_tasks", 2048, NULL, 5, NULL, 1);
 
+  vTaskStartScheduler(); /* Start the Task Scheduler */
+
   ESP_LOGI(system_tag, "System tasks started");
 }

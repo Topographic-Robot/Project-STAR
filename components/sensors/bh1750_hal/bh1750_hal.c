@@ -1,16 +1,20 @@
 #include "bh1750_hal.h"
 #include "common/i2c.h"
+#include "dht22_hal.h"
 #include <driver/i2c.h>
 #include <esp_log.h>
 
-
 /* Constants ******************************************************************/
 
-const uint8_t bh1750_power_on_cmd      = 0x01;     /* Power on command */
-const uint8_t bh1750_i2c_address       = 0x23;     /* I2C address for BH1750 */
-const uint8_t bh1750_cont_low_res_mode = 0x13;     /* Continuously measure low resolution (4 lux) */
-const uint8_t bh1750_reset_cmd         = 0x07;     /* Reset Command */
-const char   *bh1750_tag               = "BH1750"; /* Tag for logs */
+const uint8_t  bh1750_power_on_cmd      = 0x01;        /* Power on command */
+const uint8_t  bh1750_i2c_address       = 0x23;        /* I2C address for BH1750 */
+const uint8_t  bh1750_cont_low_res_mode = 0x13;        /* Continuously measure low resolution (4 lux) */
+const uint8_t  bh1750_reset_cmd         = 0x07;        /* Reset Command */
+const char    *bh1750_tag               = "BH1750";    /* Tag for logs */
+const uint8_t  bh1750_scl_io            = GPIO_NUM_22;
+const uint8_t  bh1750_sda_io            = GPIO_NUM_21;
+const uint32_t bh1750_freq_hz           = 50000;       /* I2C Bus Frequency in Hz */
+const uint8_t  bh1750_polling_rate_s    = 5;           /* Polling rate (5 seconds) */
 
 /* Private (Static) Functions *************************************************/
 
@@ -48,17 +52,17 @@ static esp_err_t priv_bh1750_write_byte(uint8_t data, uint8_t i2c_bus)
   i2c_master_stop(cmd);
 
   /* Execute the I2C command */
-  esp_err_t err = i2c_master_cmd_begin(i2c_bus, cmd, 1000 / portTICK_PERIOD_MS);
+  esp_err_t ret = i2c_master_cmd_begin(i2c_bus, cmd, 1000 / portTICK_PERIOD_MS);
 
   /* Delete the command link after execution */
   i2c_cmd_link_delete(cmd);
 
   /* Check for errors in the I2C command */
-  if (err != ESP_OK) {
-    ESP_LOGE(bh1750_tag, "I2C write failed: %s", esp_err_to_name(err));
+  if (ret != ESP_OK) {
+    ESP_LOGE(bh1750_tag, "I2C write failed: %s", esp_err_to_name(ret));
   }
 
-  return err; /* Return the error status or ESP_OK */
+  return ret; /* Return the error status or ESP_OK */
 }
 
 /**
@@ -102,84 +106,86 @@ static esp_err_t priv_bh1750_read(uint8_t *data, size_t len, uint8_t i2c_bus)
   i2c_master_stop(cmd);
 
   /* Execute the I2C command */
-  esp_err_t err = i2c_master_cmd_begin(i2c_bus, cmd, 1000 / portTICK_PERIOD_MS);
+  esp_err_t ret = i2c_master_cmd_begin(i2c_bus, cmd, 1000 / portTICK_PERIOD_MS);
 
   /* Delete the command link after execution */
   i2c_cmd_link_delete(cmd);
 
   /* Check for errors in the I2C command */
-  if (err != ESP_OK) {
-    ESP_LOGE(bh1750_tag, "I2C read failed: %s", esp_err_to_name(err));
+  if (ret != ESP_OK) {
+    ESP_LOGE(bh1750_tag, "I2C read failed: %s", esp_err_to_name(ret));
   }
 
-  return err; /* Return the error status or ESP_OK */
+  return ret; /* Return the error status or ESP_OK */
 }
 
 /* Public Functions ***********************************************************/
 
-esp_err_t bh1750_init(bh1750_data_t* bh1750_data)
+esp_err_t bh1750_init(bh1750_data_t* sensor_data, bool first_time)
 {
   /* Initialize the struct, but not the semaphore until the state is 0x00.
    * This is to prevent memory allocation that might not be used. If we call
    * this function and it creates a new mutex very time then that is very bad.
    */
-  bh1750_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
-  bh1750_data->lux          = -1.0; /* Start with an invalid value since 
-                                     * it hasnet been read yet */
+  if (first_time) {
+    sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
+  }
+  sensor_data->lux = -1.0; /* Start with an invalid value since 
+                            * it hasnet been read yet */
 
-  bh1750_data->state = k_bh1750_uninitialized; /* Start in uninitialized */
+  sensor_data->state = k_bh1750_uninitialized; /* Start in uninitialized */
 
   /* Initialize the I2C bus with specified SCL, SDA pins, frequency, and bus number */
-  esp_err_t err = priv_i2c_init(
-      bh1750_scl_io, bh1750_sda_io, bh1750_freq_hz, bh1750_data->i2c_bus, 
+  esp_err_t ret = priv_i2c_init(
+      bh1750_scl_io, bh1750_sda_io, bh1750_freq_hz, sensor_data->i2c_bus, 
       bh1750_tag);
 
-  if (err != ESP_OK) {
+  if (ret != ESP_OK) {
     /* Log an error if the I2C driver installation fails */
-    ESP_LOGE(bh1750_tag, "I2C driver install failed: %s", esp_err_to_name(err));
-    return err; /* Return the error code if initialization fails */
+    ESP_LOGE(bh1750_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
+    return ret; /* Return the error code if initialization fails */
   }
   
   /* Power on the BH1750 sensor */
-  err = priv_bh1750_write_byte(bh1750_power_on_cmd, bh1750_data->i2c_bus);
-  if (err != ESP_OK) {
+  ret = priv_bh1750_write_byte(bh1750_power_on_cmd, sensor_data->i2c_bus);
+  if (ret != ESP_OK) {
     /* Log an error if powering on the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 power on failed");
 
     /* Update state */
-    bh1750_data->state = k_bh1750_power_on_error;
+    sensor_data->state = k_bh1750_power_on_error;
 
-    return err; /* Return the error code if power on fails */
+    return ret; /* Return the error code if power on fails */
   }
   
   /* Delay for 10ms to allow the sensor to power on */
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Reset the BH1750 sensor */
-  err = priv_bh1750_write_byte(bh1750_reset_cmd, bh1750_data->i2c_bus);
-  if (err != ESP_OK) {
+  ret = priv_bh1750_write_byte(bh1750_reset_cmd, sensor_data->i2c_bus);
+  if (ret != ESP_OK) {
     /* Log an error if resetting the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 reset failed");
 
     /* Update the state */
-    bh1750_data->state = k_bh1750_reset_error;
+    sensor_data->state = k_bh1750_reset_error;
 
-    return err; /* Return the error code if reset fails */
+    return ret; /* Return the error code if reset fails */
   }
   
   /* Delay for 10ms to allow the reset to take effect */
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Set the BH1750 sensor to continuous high-resolution mode */
-  err = priv_bh1750_write_byte(bh1750_cont_low_res_mode, bh1750_data->i2c_bus);
-  if (err != ESP_OK) {
+  ret = priv_bh1750_write_byte(bh1750_cont_low_res_mode, sensor_data->i2c_bus);
+  if (ret != ESP_OK) {
     /* Log an error if setting the resolution mode fails */
     ESP_LOGE(bh1750_tag, "BH1750 setting resolution mode failed");
 
     /* Update the state */
-    bh1750_data->state = k_bh1759_cont_low_res_error;
+    sensor_data->state = k_bh1759_cont_low_res_error;
 
-    return err; /* Return the error code if setting the mode fails */
+    return ret; /* Return the error code if setting the mode fails */
   }
   
   /* Delay for 10ms to allow the resolution mode to be set */
@@ -187,22 +193,32 @@ esp_err_t bh1750_init(bh1750_data_t* bh1750_data)
 
   /* At this point no errors happened and the sensor is Initialized */
   /* Verify that this sensor didnt already have its mutex set */
-  if (bh1750_data->sensor_mutex == NULL) {
+  if (sensor_data->sensor_mutex == NULL) {
     /* Now we set the mutex value only once */
-    bh1750_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (bh1750_data->sensor_mutex == NULL) {
+    sensor_data->sensor_mutex = xSemaphoreCreateMutex();
+    if (sensor_data->sensor_mutex == NULL) {
       ESP_LOGE(bh1750_tag, "ESP32 ran out of memory");
+
+      sensor_data->state = k_bh1750_error;
       return ESP_ERR_NO_MEM;
     }
   }
-  
+
+  sensor_data->state = k_dht22_ready; /* it is initialized */
   return ESP_OK;
 }
 
-void bh1750_read(bh1750_data_t *bh1750_data) 
+void bh1750_read(bh1750_data_t *sensor_data) 
 {
+  /* Check if the sensor data is NULL */
+  if (sensor_data == NULL) {
+    ESP_LOGE(bh1750_tag, "Sensor data pointer is NULL");
+    return;
+  }
+
+
   /* Try to take the semaphore before accessing shared data */
-  if (xSemaphoreTake(bh1750_data->sensor_mutex, portMAX_DELAY) != pdTRUE) {
+  if (xSemaphoreTake(sensor_data->sensor_mutex, portMAX_DELAY) != pdTRUE) {
     ESP_LOGW(bh1750_tag, "Failed to take sensor mutex");
     return;
   }
@@ -211,13 +227,13 @@ void bh1750_read(bh1750_data_t *bh1750_data)
   uint8_t data[2];
 
   /* Read 2 bytes of data from the BH1750 sensor over I2C */
-  esp_err_t err = priv_bh1750_read(data, 2, bh1750_data->i2c_bus);
-  if (err != ESP_OK) {
-    bh1750_data->lux   = -1.0; /* Set lux to -1.0 to indicate an error */
-    bh1750_data->state = k_bh1750_error;
+  esp_err_t ret = priv_bh1750_read(data, 2, sensor_data->i2c_bus);
+  if (ret != ESP_OK) {
+    sensor_data->lux   = -1.0; /* Set lux to -1.0 to indicate an error */
+    sensor_data->state = k_bh1750_error;
     ESP_LOGE(bh1750_tag, "Failed to read data from BH1750");
 
-    xSemaphoreGive(bh1750_data->sensor_mutex); /* Ensure the semaphore is released */
+    xSemaphoreGive(sensor_data->sensor_mutex); /* Ensure the semaphore is released */
     return;
   }
 
@@ -225,28 +241,37 @@ void bh1750_read(bh1750_data_t *bh1750_data)
   uint16_t raw_light_intensity = (data[0] << 8) | data[1];
 
   /* Convert the raw light intensity to lux as per the BH1750 datasheet */
-  bh1750_data->lux = raw_light_intensity / 1.2; /* Lux = raw value / 1.2 */
-  ESP_LOGI(bh1750_tag, "The measured light intensity was %f lux", bh1750_data->lux);
+  sensor_data->lux = raw_light_intensity / 1.2; /* Lux = raw value / 1.2 */
+  ESP_LOGI(bh1750_tag, "The measured light intensity was %f lux", sensor_data->lux);
 
   /* Give the semaphore back after accessing the shared data */
-  xSemaphoreGive(bh1750_data->sensor_mutex);
+  xSemaphoreGive(sensor_data->sensor_mutex);
 }
 
-void bh1750_reset_on_error(bh1750_data_t *bh1750_data) 
+void bh1750_reset_on_error(bh1750_data_t *sensor_data) 
 {
   /* Check if the state indicates any error using a bitwise AND with k_bh1750_error */
-  if (bh1750_data->state & k_bh1750_error) {
+  if (sensor_data->state & k_bh1750_error) {
     ESP_LOGI(bh1750_tag, "Error detected. Attempting to reset the BH1750 sensor.");
 
     /* Attempt to initialize/reset the sensor */
-    if (bh1750_init(bh1750_data) == ESP_OK) {
+    if (bh1750_init(sensor_data, false) == ESP_OK) {
       /* If successful, set the state to ready */
-      bh1750_data->state = k_bh1750_ready;
+      sensor_data->state = k_bh1750_ready;
       ESP_LOGI(bh1750_tag, "BH1750 sensor reset successfully. State is now ready.");
     } else {
       /* If reset fails, set the state to reset error */
-      bh1750_data->state = k_bh1750_reset_error;
+      sensor_data->state = k_bh1750_reset_error;
       ESP_LOGE(bh1750_tag, "Failed to reset the BH1750 sensor. State set to reset error.");
     }
   }
+}
+
+void bh1750_tasks(void *sensor_data)
+{
+  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  bh1750_read(bh1750_data);
+  bh1750_reset_on_error(bh1750_data);
+
+  vTaskDelay(pdMS_TO_TICKS(bh1750_polling_rate_s * 1000)); /* convert from s to ms */
 }
