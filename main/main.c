@@ -10,5 +10,6 @@ void app_main(void)
 
   while (1) {
     /* Do nothing since everything is handled in tasks */
+    vTaskDelay(portMAX_DELAY); /* Sleep indefinitely */
   }
 }

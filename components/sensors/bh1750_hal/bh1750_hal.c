@@ -6,122 +6,19 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t  bh1750_power_on_cmd      = 0x01;        /* Power on command */
-const uint8_t  bh1750_i2c_address       = 0x23;        /* I2C address for BH1750 */
-const uint8_t  bh1750_cont_low_res_mode = 0x13;        /* Continuously measure low resolution (4 lux) */
-const uint8_t  bh1750_reset_cmd         = 0x07;        /* Reset Command */
-const char    *bh1750_tag               = "BH1750";    /* Tag for logs */
-const uint8_t  bh1750_scl_io            = GPIO_NUM_22;
-const uint8_t  bh1750_sda_io            = GPIO_NUM_21;
-const uint32_t bh1750_freq_hz           = 50000;       /* I2C Bus Frequency in Hz */
-const uint8_t  bh1750_polling_rate_s    = 5;           /* Polling rate (5 seconds) */
-
-/* Private (Static) Functions *************************************************/
-
-/**
- * @brief Write a byte to the BH1750 sensor over I2C.
- *
- * This function sends a single byte of data to the BH1750 sensor using the
- * specified I2C bus. The command link is created, and the data is written
- * using the I2C protocol.
- *
- * @note this functions don't check the semaphore, it is an internal function.
- *
- * @param[in] data The byte of data to be written to the BH1750 sensor.
- * @param[in] i2c_bus The I2C bus number to communicate over.
- *
- * @return 
- *   - ESP_OK on success.
- *   - Error code on failure.
- */
-static esp_err_t priv_bh1750_write_byte(uint8_t data, uint8_t i2c_bus)
-{
-  /* Create an I2C command link handle */
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-
-  /* Start I2C communication */
-  i2c_master_start(cmd);
-
-  /* Send the BH1750 I2C address with the write flag */
-  i2c_master_write_byte(cmd, bh1750_i2c_address << 1 | I2C_MASTER_WRITE, true);
-
-  /* Write the data byte to the sensor */
-  i2c_master_write_byte(cmd, data, true);
-
-  /* Stop I2C communication */
-  i2c_master_stop(cmd);
-
-  /* Execute the I2C command */
-  esp_err_t ret = i2c_master_cmd_begin(i2c_bus, cmd, 1000 / portTICK_PERIOD_MS);
-
-  /* Delete the command link after execution */
-  i2c_cmd_link_delete(cmd);
-
-  /* Check for errors in the I2C command */
-  if (ret != ESP_OK) {
-    ESP_LOGE(bh1750_tag, "I2C write failed: %s", esp_err_to_name(ret));
-  }
-
-  return ret; /* Return the error status or ESP_OK */
-}
-
-/**
- * @brief Read multiple bytes from the BH1750 sensor over I2C.
- *
- * This function reads a specified number of bytes from the BH1750 sensor using
- * the I2C bus. It handles reading a single byte or multiple bytes with ACK/NACK 
- * handling for I2C communication.
- *
- * @note this functions don't check the semaphore, it is an internal function.
- *
- * @param[out] data Pointer to the buffer where read data will be stored.
- * @param[in] len The number of bytes to read.
- * @param[in] i2c_bus The I2C bus number to communicate over.
- *
- * @return 
- *   - ESP_OK on success.
- *   - Error code on failure.
- */
-static esp_err_t priv_bh1750_read(uint8_t *data, size_t len, uint8_t i2c_bus)
-{
-  /* Create an I2C command link handle */
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-
-  /* Start I2C communication */
-  i2c_master_start(cmd);
-
-  /* Send the BH1750 I2C address with the read flag */
-  i2c_master_write_byte(cmd, bh1750_i2c_address << 1 | I2C_MASTER_READ, true);
-
-  /* Read multiple bytes if length is greater than 1 */
-  if (len > 1) {
-    /* Read len-1 bytes with an ACK after each byte */
-    i2c_master_read(cmd, data, len - 1, I2C_MASTER_ACK);
-  }
-
-  /* Read the last byte with a NACK to signal the end of the transmission */
-  i2c_master_read_byte(cmd, data + len - 1, I2C_MASTER_NACK);
-
-  /* Stop I2C communication */
-  i2c_master_stop(cmd);
-
-  /* Execute the I2C command */
-  esp_err_t ret = i2c_master_cmd_begin(i2c_bus, cmd, 1000 / portTICK_PERIOD_MS);
-
-  /* Delete the command link after execution */
-  i2c_cmd_link_delete(cmd);
-
-  /* Check for errors in the I2C command */
-  if (ret != ESP_OK) {
-    ESP_LOGE(bh1750_tag, "I2C read failed: %s", esp_err_to_name(ret));
-  }
-
-  return ret; /* Return the error status or ESP_OK */
-}
+const uint8_t  bh1750_power_on_cmd       = 0x01;
+const uint8_t  bh1750_i2c_address        = 0x23;
+const uint8_t  bh1750_cont_low_res_mode  = 0x13;
+const uint8_t  bh1750_reset_cmd          = 0x07;
+const char    *bh1750_tag                = "BH1750";
+const uint8_t  bh1750_scl_io             = GPIO_NUM_22;
+const uint8_t  bh1750_sda_io             = GPIO_NUM_21;
+const uint32_t bh1750_freq_hz            = 100000;
+const uint32_t bh1750_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 
 /* Public Functions ***********************************************************/
 
-esp_err_t bh1750_init(bh1750_data_t* sensor_data, bool first_time)
+esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
 {
   /* Initialize the struct, but not the semaphore until the state is 0x00.
    * This is to prevent memory allocation that might not be used. If we call
@@ -147,7 +44,7 @@ esp_err_t bh1750_init(bh1750_data_t* sensor_data, bool first_time)
   }
   
   /* Power on the BH1750 sensor */
-  ret = priv_bh1750_write_byte(bh1750_power_on_cmd, sensor_data->i2c_bus);
+  ret = priv_i2c_write_byte(bh1750_power_on_cmd, sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     /* Log an error if powering on the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 power on failed");
@@ -162,7 +59,7 @@ esp_err_t bh1750_init(bh1750_data_t* sensor_data, bool first_time)
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Reset the BH1750 sensor */
-  ret = priv_bh1750_write_byte(bh1750_reset_cmd, sensor_data->i2c_bus);
+  ret = priv_i2c_write_byte(bh1750_reset_cmd, sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     /* Log an error if resetting the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 reset failed");
@@ -177,7 +74,7 @@ esp_err_t bh1750_init(bh1750_data_t* sensor_data, bool first_time)
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Set the BH1750 sensor to continuous high-resolution mode */
-  ret = priv_bh1750_write_byte(bh1750_cont_low_res_mode, sensor_data->i2c_bus);
+  ret = priv_i2c_write_byte(bh1750_cont_low_res_mode, sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     /* Log an error if setting the resolution mode fails */
     ESP_LOGE(bh1750_tag, "BH1750 setting resolution mode failed");
@@ -218,7 +115,7 @@ void bh1750_read(bh1750_data_t *sensor_data)
 
 
   /* Try to take the semaphore before accessing shared data */
-  if (xSemaphoreTake(sensor_data->sensor_mutex, portMAX_DELAY) != pdTRUE) {
+  if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * bh1750_polling_rate_ticks) != pdTRUE) {
     ESP_LOGW(bh1750_tag, "Failed to take sensor mutex");
     return;
   }
@@ -227,7 +124,7 @@ void bh1750_read(bh1750_data_t *sensor_data)
   uint8_t data[2];
 
   /* Read 2 bytes of data from the BH1750 sensor over I2C */
-  esp_err_t ret = priv_bh1750_read(data, 2, sensor_data->i2c_bus);
+  esp_err_t ret = priv_i2c_read_bytes(data, 2, sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     sensor_data->lux   = -1.0; /* Set lux to -1.0 to indicate an error */
     sensor_data->state = k_bh1750_error;
@@ -273,5 +170,5 @@ void bh1750_tasks(void *sensor_data)
   bh1750_read(bh1750_data);
   bh1750_reset_on_error(bh1750_data);
 
-  vTaskDelay(pdMS_TO_TICKS(bh1750_polling_rate_s * 1000)); /* convert from s to ms */
+  vTaskDelay(bh1750_polling_rate_ticks);
 }

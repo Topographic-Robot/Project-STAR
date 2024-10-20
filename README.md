@@ -6,8 +6,3 @@ An advanced terrain-mapping robot designed to traverse various landscapes, inclu
 
 Follow the [documentation](https://topographic-robot.github.io/Documentation/index.html) and do the [installation](https://topographic-robot.github.io/Documentation/installation/environment_setup.html) of dependencies
 
-## Formatting
-
-Run `./format.sh` before every push and `./compare_backups.sh` if you want to verify that the autoformatter didnt mess up.
-
-for bash: `pip install beautysh`

@@ -60,10 +60,10 @@
 
 /* Constants ******************************************************************/
 
-extern const char   *dht22_tag;
-extern const uint8_t dht22_data_io;
-extern const uint8_t dht22_polling_rate_s;
-extern const uint8_t dht22_bit_count;
+extern const char    *dht22_tag;                /* Tag for logging */
+extern const uint8_t  dht22_data_io;            /* GPIO pin for DHT22 data line */
+extern const uint32_t dht22_polling_rate_ticks; /* Polling rate (5 seconds) */
+extern const uint8_t  dht22_bit_count;          /* Total number of bits from DHT22 */
 
 /* Enums **********************************************************************/
 

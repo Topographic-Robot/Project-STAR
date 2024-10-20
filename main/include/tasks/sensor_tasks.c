@@ -25,6 +25,15 @@ void sensor_tasks(void *sensor_data)
   /* 2. Record data from DHT22 */
   xTaskCreate(dht22_tasks, "dht22_tasks", 2048, _sensor_data, 5, NULL);
 
+  /* 3. Record data from MPU6050 */
+  /* TODO */
+
+  /* 4. Record data from PCA9685 */
+  /* TODO */
+
+  /* 5. Record data from QMC5883L */
+  /* TODO */
+
   ESP_LOGI(system_tag, "Sensor data recorded and stored");
 }
 

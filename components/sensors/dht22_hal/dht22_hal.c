@@ -7,10 +7,10 @@
 
 /* Constants *******************************************************************/
 
-const char   *dht22_tag            = "DHT22";    /* Tag for logging */
-const uint8_t dht22_data_io        = GPIO_NUM_4; /* GPIO pin for DHT22 data line */
-const uint8_t dht22_polling_rate_s = 5;          /* Polling rate in seconds */
-const uint8_t dht22_bit_count      = 40;         /* Total number of bits from DHT22 */
+const char    *dht22_tag                = "DHT22";
+const uint8_t  dht22_data_io            = GPIO_NUM_4;
+const uint32_t dht22_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
+const uint8_t  dht22_bit_count          = 40;
 
 /**
  * Increasing this value:
@@ -278,7 +278,7 @@ void dht22_read(dht22_data_t *sensor_data)
   }
 
   /* Try to take the mutex to ensure exclusive access to the sensor */
-  if (xSemaphoreTake(sensor_data->sensor_mutex, portMAX_DELAY) != pdTRUE) {
+  if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * dht22_polling_rate_ticks) != pdTRUE) {
     ESP_LOGE(dht22_tag, "Failed to acquire mutex to access sensor");
     return;
   }
@@ -311,5 +311,5 @@ void dht22_tasks(void *sensor_data)
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
   dht22_read(dht22_data);
 
-  vTaskDelay(pdMS_TO_TICKS(dht22_polling_rate_s * 1000)); /* convert s to ms */
+  vTaskDelay(dht22_polling_rate_ticks);
 }

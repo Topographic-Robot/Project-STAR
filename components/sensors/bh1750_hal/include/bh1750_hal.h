@@ -2,24 +2,24 @@
 #define TOPOROBO_BH1750_HAL_H
 
 /* Digital 16bit Serial Output Type Ambient Light Sensor IC */
-/* Uses I2C for Communication */
+/* Uses I2C for Communication with address 0x23 */
 
 /*******************************************************************************
  *
  *    +----------------------------------------+
  *    |                BH1750                  |
  *    |                                        |
- *    |   +----------------------------------+ |
+ *    |   +---------------------------------+  |
  *    |   |                                 |  |
  *    |   |   +-----------------------------+  |
- *    |   |   |        +----------+         |  |
+ *    |   |   |        +--------------------+  |
  *    |   |   | VCC    |  2.4V to 3.6V      |--------->| VCC
  *    |   |   +-----------------------------+  |
  *    |   |   | GND    | Ground             |--------->| GND
  *    |   |   +-----------------------------+  |
- *    |   |   | SCL    | Serial Clock       |--------->| GPIO_NUM_22 (50,000Hz)
+ *    |   |   | SCL    | Serial Clock       |--------->| GPIO_NUM_22 (100,000Hz)
  *    |   |   +-----------------------------+  |
- *    |   |   | SDA    | Serial Data        |--------->| GPIO_NUM_21 (50,000Hz)
+ *    |   |   | SDA    | Serial Data        |--------->| GPIO_NUM_21 (100,000Hz)
  *    |   |   +-----------------------------+  |
  *    |   |   | ADDR   | I2C Address Select |--------->| GND
  *    |   |   +-----------------------------+  |
@@ -64,15 +64,15 @@
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  bh1750_power_on_cmd;
-extern const uint8_t  bh1750_i2c_address;
-extern const uint8_t  bh1750_cont_low_res_mode;
-extern const uint8_t  bh1750_reset_cmd;
-extern const char    *bh1750_tag;
-extern const uint8_t  bh1750_scl_io;
-extern const uint8_t  bh1750_sda_io;
-extern const uint32_t bh1750_freq_hz;
-extern const uint8_t  bh1750_polling_rate_s;
+extern const uint8_t  bh1750_power_on_cmd;       /* Power on command */
+extern const uint8_t  bh1750_i2c_address;        /* I2C address for BH1750 */
+extern const uint8_t  bh1750_cont_low_res_mode;  /* Continuously measure low resolution (4 lux) */
+extern const uint8_t  bh1750_reset_cmd;          /* Reset Command */
+extern const char    *bh1750_tag;                /* Tag for logs */
+extern const uint8_t  bh1750_scl_io;             /* GPIO pin for I2C Serial Clock Line */
+extern const uint8_t  bh1750_sda_io;             /* GPIO pin for I2C Serial Data Line */
+extern const uint32_t bh1750_freq_hz;            /* I2C Bus Frequency in Hz */
+extern const uint32_t bh1750_polling_rate_ticks; /* Polling rate (5 seconds) */
 
 /* Enums **********************************************************************/
 
