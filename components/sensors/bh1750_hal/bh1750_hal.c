@@ -1,15 +1,10 @@
 #include "bh1750_hal.h"
 #include "common/i2c.h"
-#include "dht22_hal.h"
-#include <driver/i2c.h>
 #include <esp_log.h>
 
 /* Constants ******************************************************************/
 
-const uint8_t  bh1750_power_on_cmd       = 0x01;
 const uint8_t  bh1750_i2c_address        = 0x23;
-const uint8_t  bh1750_cont_low_res_mode  = 0x13;
-const uint8_t  bh1750_reset_cmd          = 0x07;
 const char    *bh1750_tag                = "BH1750";
 const uint8_t  bh1750_scl_io             = GPIO_NUM_22;
 const uint8_t  bh1750_sda_io             = GPIO_NUM_21;
@@ -44,7 +39,7 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
   }
   
   /* Power on the BH1750 sensor */
-  ret = priv_i2c_write_byte(bh1750_power_on_cmd, sensor_data->i2c_bus, bh1750_tag);
+  ret = priv_i2c_write_byte(k_bh1750_power_on_cmd, sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     /* Log an error if powering on the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 power on failed");
@@ -59,10 +54,22 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Reset the BH1750 sensor */
-  ret = priv_i2c_write_byte(bh1750_reset_cmd, sensor_data->i2c_bus, bh1750_tag);
+  ret = priv_i2c_write_byte(k_bh1750_reset_cmd, sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     /* Log an error if resetting the BH1750 fails */
     ESP_LOGE(bh1750_tag, "BH1750 reset failed");
+
+    /* Try a power cycle */
+    ret = priv_i2c_write_byte(k_bh1750_power_down_cmd, 
+                              sensor_data->i2c_bus, bh1750_tag);
+    if (ret != ESP_OK) {
+      /* Set and return the error */
+      sensor_data->state = k_bh1750_power_cycle_error;
+      return ret;
+    } else {
+      /* Call this function again to turn it back on */
+      bh1750_init(sensor_data, false);
+    }
 
     /* Update the state */
     sensor_data->state = k_bh1750_reset_error;
@@ -74,13 +81,14 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
   vTaskDelay(10 / portTICK_PERIOD_MS);
   
   /* Set the BH1750 sensor to continuous high-resolution mode */
-  ret = priv_i2c_write_byte(bh1750_cont_low_res_mode, sensor_data->i2c_bus, bh1750_tag);
+  ret = priv_i2c_write_byte(k_bh1750_cont_low_res_mode_cmd, 
+                            sensor_data->i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     /* Log an error if setting the resolution mode fails */
     ESP_LOGE(bh1750_tag, "BH1750 setting resolution mode failed");
 
     /* Update the state */
-    sensor_data->state = k_bh1759_cont_low_res_error;
+    sensor_data->state = k_bh1750_cont_low_res_error;
 
     return ret; /* Return the error code if setting the mode fails */
   }
@@ -101,7 +109,7 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
     }
   }
 
-  sensor_data->state = k_dht22_ready; /* it is initialized */
+  sensor_data->state = k_bh1750_ready; /* it is initialized */
   return ESP_OK;
 }
 

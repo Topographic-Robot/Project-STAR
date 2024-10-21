@@ -74,10 +74,10 @@ extern const uint8_t  dht22_bit_count;          /* Total number of bits from DHT
  * This enum defines the possible states for the DHT22 sensor.
  */
 typedef enum {
-  k_dht22_ready         = 0x00, ///< Sensor is ready to read data.
-  k_dht22_data_updated  = 0x01, ///< Sensor data has been updated.
-  k_dht22_uninitialized = 0x10, ///< Sensor is not initialized.
-  k_dht22_error         = 0xF0, ///< A general catch all error
+  k_dht22_ready         = 0x00, /**< Sensor is ready to read data. */
+  k_dht22_data_updated  = 0x01, /**< Sensor data has been updated. */
+  k_dht22_uninitialized = 0x10, /**< Sensor is not initialized. */
+  k_dht22_error         = 0xF0, /**< A general catch all error */
 } dht22_states_t;
 
 /* Data Structures *************************************************************/
@@ -90,11 +90,11 @@ typedef enum {
  * access to the sensor data.
  */
 typedef struct {
-    float             temperature_f; ///< Temperature in Fahrenheit.
-    float             temperature_c; ///< Temperature in Celsius.
-    float             humidity;      ///< Humidity in percentage.
-    uint8_t           state;         ///< Sensor state, set in `dht22_states_t` enum.
-    SemaphoreHandle_t sensor_mutex;  ///< Mutex for protecting access to sensor data.
+  float             temperature_f; /**< Temperature in Fahrenheit. */
+  float             temperature_c; /**< Temperature in Celsius. */
+  float             humidity;      /**< Humidity in percentage. */
+  uint8_t           state;         /**< Sensor state, set in `dht22_states_t` enum. */
+  SemaphoreHandle_t sensor_mutex;  /**< Mutex for protecting access to sensor data. */
 } dht22_data_t;
 
 /* Public Functions ************************************************************/
@@ -113,7 +113,6 @@ typedef struct {
  *   memory issues if ran too much. Run it as 'first_time' once then set it to
  *   false when re-running the function.
  *
-
  *
  * @return ESP_OK on success, ESP_FAIL on failure.
  */

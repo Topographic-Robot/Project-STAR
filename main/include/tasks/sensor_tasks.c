@@ -2,7 +2,6 @@
 
 #include "sensor_tasks.h"
 #include "system_tasks.h"
-#include "sensor_hal.h"
 #include <driver/gpio.h>
 #include <esp_log.h>
 
@@ -11,8 +10,21 @@
 void sensors_comm_init(sensor_data_t *sensor_data)
 {
   /* Initialize I2C/UART communication with each sensor */
+
+  /* Initialize BH1750 */
   bh1750_init(&(sensor_data->bh1750_data), true);
+
+  /* Initialize DHT22 */
   dht22_init(&(sensor_data->dht22_data), true);
+
+  /* Initialize MPU6050 */
+  /* TODO */
+
+  /* Initialize PCA9685 */
+  /* TODO */
+
+  /* Initialize QMC5883L */
+  /* TODO */
 }
 
 void sensor_tasks(void *sensor_data)

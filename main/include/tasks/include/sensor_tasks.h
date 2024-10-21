@@ -24,12 +24,12 @@
  * - `gy_neo6mv2_data`: Holds data from the GY-NEO6MV2 GPS module.
  */
 typedef struct {
-  bh1750_data_t bh1750_data; ///< BH1750 light intensity data
-  dht22_data_t   dht22_data; ///< DHT22 temperature + humidity data 
-/*  mpu6050_data_t mpu6050_data;       ///< MPU6050 gyroscope + accelerometer data */
-/*  hc_sr04_data_t hc_sr04_data;       ///< HC-SR04 ultrasonic distance data */
-/*  hmc5883l_data_t hmc5883l_data;     ///< HMC5883L magnetometer data */
-/*  gy_neo6mv2_data_t gy_neo6mv2_data; ///< GY-NEO6MV2 GPS data */
+  bh1750_data_t  bh1750_data;  /**< BH1750 light intensity data */
+  dht22_data_t   dht22_data;   /**< DHT22 temperature + humidity data */
+  mpu6050_data_t mpu6050_data; /**< MPU6050 gyroscope + accelerometer data */
+ // hc_sr04_data_t hc_sr04_data;       /**< HC-SR04 ultrasonic distance data */
+ // hmc5883l_data_t hmc5883l_data;     /**< HMC5883L magnetometer data */
+ // gy_neo6mv2_data_t gy_neo6mv2_data; /**< GY-NEO6MV2 GPS data */
 } sensor_data_t;
 
 /* Public Functions ***********************************************************/
