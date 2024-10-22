@@ -18,12 +18,12 @@ void sensors_comm_init(sensor_data_t *sensor_data)
   dht22_init(&(sensor_data->dht22_data), true);
 
   /* Initialize MPU6050 */
-  /* TODO */
-
-  /* Initialize PCA9685 */
-  /* TODO */
+  mpu6050_init(&(sensor_data->mpu6050_data), true);
 
   /* Initialize QMC5883L */
+  qmc5883l_init(&(sensor_data->qmc5883l_data), true);
+  
+  /* Initialize GY-NEO6MV2 */
   /* TODO */
 }
 
@@ -38,12 +38,12 @@ void sensor_tasks(void *sensor_data)
   xTaskCreate(dht22_tasks, "dht22_tasks", 2048, _sensor_data, 5, NULL);
 
   /* 3. Record data from MPU6050 */
-  /* TODO */
+  xTaskCreate(mpu6050_tasks, "mpu6050_tasks", 2048, _sensor_data, 5, NULL);
 
-  /* 4. Record data from PCA9685 */
-  /* TODO */
+  /* 4. Record data from QMC5883L */
+  xTaskCreate(qmc5883l_tasks, "qmc5883l_tasks", 2048, _sensor_data, 5, NULL);
 
-  /* 5. Record data from QMC5883L */
+  /* 5. Record data from GY-NEO6MV2 */
   /* TODO */
 
   ESP_LOGI(system_tag, "Sensor data recorded and stored");

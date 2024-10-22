@@ -178,7 +178,7 @@ typedef enum : uint8_t {
  */
 typedef struct {
   uint8_t accel_config; /**< Register value to set full-scale range in MPU6050 */
-  float accel_scale;    /**< Scaling factor for converting raw data to g */
+  float   accel_scale;  /**< Scaling factor for converting raw data to g */
 } mpu6050_accel_config_t;
 
 /**
@@ -198,7 +198,7 @@ typedef struct {
  */
 typedef struct {
   uint8_t gyro_config; /**< Register value to set full-scale range in MPU6050 */
-  float gyro_scale;    /**< Scaling factor for converting raw data to °/s */
+  float   gyro_scale;  /**< Scaling factor for converting raw data to °/s */
 } mpu6050_gyro_config_t;
 
 /**

@@ -10,7 +10,7 @@ const char *system_tag = "Topographic-Robot";
 
 /* Globals (Static) ***********************************************************/
 
-static sensor_data_t g_sensor_data;
+static sensor_data_t s_sensor_data;
 
 /* Private (Static) Functions *************************************************/
 
@@ -51,7 +51,7 @@ void system_tasks_init(void)
   priv_clear_nvs_flash();
 
   /* Initialize the sensors */
-  sensors_comm_init(&g_sensor_data);
+  sensors_comm_init(&s_sensor_data);
 }
 
 void system_tasks_start(void)
@@ -64,7 +64,7 @@ void system_tasks_start(void)
 
   /* 3. Start sensor data collection task pinned to Core 1 */
   xTaskCreatePinnedToCore(sensor_tasks, "sensor_tasks", 2048, 
-      (void *)(&g_sensor_data), 5, NULL, 1);
+      (void *)(&s_sensor_data), 5, NULL, 1);
 
   /* 4. Start webserver video relay task pinned to Core 1 */
   xTaskCreatePinnedToCore(webserver_tasks, "webserver_tasks", 2048, NULL, 5, NULL, 1);
