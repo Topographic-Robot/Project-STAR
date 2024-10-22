@@ -28,9 +28,8 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
   sensor_data->state = k_bh1750_uninitialized; /* Start in uninitialized */
 
   /* Initialize the I2C bus with specified SCL, SDA pins, frequency, and bus number */
-  esp_err_t ret = priv_i2c_init(
-      bh1750_scl_io, bh1750_sda_io, bh1750_freq_hz, sensor_data->i2c_bus, 
-      bh1750_tag);
+  esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_freq_hz, 
+                                sensor_data->i2c_bus, bh1750_tag);
 
   if (ret != ESP_OK) {
     /* Log an error if the I2C driver installation fails */

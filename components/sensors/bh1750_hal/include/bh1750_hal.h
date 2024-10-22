@@ -146,7 +146,7 @@ typedef struct {
  * This however still might not work and calling the function `bh1750_reset_on_error` 
  * until the bh1750_data_t's `state` flag is `0x00` is recommended.
  *
- * @param[in,out] bh1750_data Pointer to the `bh1750_data_t` structure that 
+ * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure that 
  *   will hold the I2C bus number. The `i2c_bus` member will be set during 
  *   initialization.
  *
@@ -165,7 +165,7 @@ typedef struct {
  *   - Delays are introduced after power on, reset, and resolution
  *     mode settings to ensure proper sensor initialization. 
  */
-esp_err_t bh1750_init(bh1750_data_t *data, bool first_time);
+esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time);
 
 /**
  * @brief Reads light intensity data from the BH1750 sensor.
@@ -174,14 +174,14 @@ esp_err_t bh1750_init(bh1750_data_t *data, bool first_time);
  * raw data into lux. The conversion factor is 1.2 to convert the raw sensor 
  * value into a meaningful lux value.
  *
- * @param[in,out] bh1750_data Pointer to a `bh1750_data_t` struct that contains:
+ * @param[in,out] sensor_data Pointer to a `bh1750_data_t` struct that contains:
  *   - `i2c_bus`: The I2C bus number to use for communication (input).
  *   - `lux`: Will be updated with the light intensity in lux (output).
  *            If the reading fails, `lux` will be set to -1.0.
  *
  * @note Ensure the bh1750 is initialized before calling this function.
  */
-void bh1750_read(bh1750_data_t *bh1750_data);
+void bh1750_read(bh1750_data_t *sensor_data);
 
 /**
  * @brief Checks if the BH1750 sensor encountered an error and attempts to reset it.
@@ -191,12 +191,12 @@ void bh1750_read(bh1750_data_t *bh1750_data);
  * initialization function to reset the sensor. If the reset is successful, the 
  * `state` flag will be updated to `k_bh1750_ready`.
  *
- * @param[in,out] bh1750_data Pointer to a `bh1750_data_t` struct that contains:
+ * @param[in,out] sensor_data Pointer to a `bh1750_data_t` struct that contains:
  *   - `state`: The current state of the sensor (input/output). 
  *              A non-zero value indicates an error. After a successful reset, 
  *              this flag is reset.
  */
-void bh1750_reset_on_error(bh1750_data_t *bh1750_data);
+void bh1750_reset_on_error(bh1750_data_t *sensor_data);
 
 /**
  * @brief Executes periodic tasks for the BH1750 sensor.

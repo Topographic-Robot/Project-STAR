@@ -105,7 +105,7 @@ typedef struct {
  * Sets up the GPIO pin and prepares the dht22_data_t structure for use. A mutex is
  * created to protect access to the sensor data during concurrent tasks.
  * 
- * @param[in,out] data Pointer to dht22_data_t structure to initialize.
+ * @param[in,out] sensor_data Pointer to dht22_data_t structure to initialize.
  *
  * @param[in] first_time Boolean to let the function know if you have already
  *   called this before, its not recommended to run it as 'first_time' multiple
@@ -116,7 +116,7 @@ typedef struct {
  *
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
-esp_err_t dht22_init(dht22_data_t *data, bool first_time);
+esp_err_t dht22_init(dht22_data_t *sensor_data, bool first_time);
 
 /**
  * @brief Reads data from the DHT22 sensor.
@@ -125,9 +125,9 @@ esp_err_t dht22_init(dht22_data_t *data, bool first_time);
  * the provided dht22_data_t structure. The function uses a mutex to ensure thread-safe
  * access to the sensor data.
  * 
- * @param[in,out] dht22_data Pointer to dht22_data_t structure where data will be stored.
+ * @param[in,out] sensor_data Pointer to dht22_data_t structure where data will be stored.
  */
-void dht22_read(dht22_data_t *dht22_data);
+void dht22_read(dht22_data_t *sensor_data);
 
 /**
  * @brief Task to periodically read the DHT22 sensor data.
