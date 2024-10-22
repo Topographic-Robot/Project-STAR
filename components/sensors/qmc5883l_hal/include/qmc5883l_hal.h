@@ -114,10 +114,12 @@ typedef enum : uint8_t {
 
 /**
  * @struct qmc5883l_scale_t
- * @brief Structure that holds both the register value and the scaling factor for the QMC5883L magnetometer.
+ * @brief Structure that holds both the register value and the scaling factor for 
+ *        the QMC5883L magnetometer.
  *
- * The QMC5883L outputs 16-bit signed integers representing the magnetic field in the X, Y, and Z axes.
- * To convert the raw data into meaningful values (in microteslas), we use a scaling factor based on the selected range.
+ * The QMC5883L outputs 16-bit signed integers representing the magnetic field in 
+ * the X, Y, and Z axes. To convert the raw data into meaningful values (in microteslas), 
+ * we use a scaling factor based on the selected range.
  */
 typedef struct {
   uint8_t range; /**< Register value to set the full-scale range in QMC5883L */
