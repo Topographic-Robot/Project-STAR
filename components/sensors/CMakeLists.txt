@@ -4,12 +4,14 @@ idf_component_register(
     "dht22_hal/dht22_hal.c"
     "mpu6050_hal/mpu6050_hal.c"
     "qmc5883l_hal/qmc5883l_hal.c"
+    "gy_neo6mv2_hal/gy_neo6mv2_hal.c"
   INCLUDE_DIRS 
     "include"
     "bh1750_hal/include"
     "dht22_hal/include"
     "mpu6050_hal/include"
     "qmc5883l_hal/include"
+    "gy_neo6mv2_hal/include"
   PRIV_REQUIRES 
     driver 
     common
