@@ -29,12 +29,13 @@
  *
  * Sample Rate = Gyro Output Rate / (1 + SMPLRT_DIV)
  */
-const uint8_t mpu6050_sample_rate_div = 9;
+const uint8_t  mpu6050_sample_rate_div    = 9;
 const char    *mpu6050_tag                = "MPU6050";
 const uint8_t  mpu6050_scl_io             = GPIO_NUM_22;
 const uint8_t  mpu6050_sda_io             = GPIO_NUM_21;
-const uint32_t mpu6050_freq_hz            = 100000;
+const uint32_t mpu6050_i2c_freq_hz        = 100000;
 const uint32_t mpu6050_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
+const uint8_t  mpu6050_i2c_address        = 0x68;
 
 /* Static const array of accelerometer configurations and scaling factors */
 /* Note: (2^16)/2 = 32768 */
@@ -65,11 +66,14 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
     sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
   }
 
+  sensor_data->i2c_bus = mpu6050_i2c_address;
   sensor_data->gyro_x  = sensor_data->gyro_y  = sensor_data->gyro_z  = -1.0;
   sensor_data->accel_x = sensor_data->accel_y = sensor_data->accel_z = -1.0;
-  sensor_data->state = k_mpu6050_uninitialized; /* Start in uninitialized state */
+  sensor_data->state   = k_mpu6050_uninitialized; /* Start in uninitialized state */
 
-  esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io, mpu6050_freq_hz, sensor_data->i2c_bus, mpu6050_tag);
+  esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io, 
+                                mpu6050_i2c_freq_hz, sensor_data->i2c_bus, 
+                                mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
     return ret;

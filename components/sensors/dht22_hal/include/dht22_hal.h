@@ -60,10 +60,10 @@
 
 /* Constants ******************************************************************/
 
-extern const char    *dht22_tag;                /* Tag for logging */
-extern const uint8_t  dht22_data_io;            /* GPIO pin for DHT22 data line */
-extern const uint32_t dht22_polling_rate_ticks; /* Polling rate (5 seconds) */
-extern const uint8_t  dht22_bit_count;          /* Total number of bits from DHT22 */
+extern const char    *dht22_tag;                /**< Tag for logging */
+extern const uint8_t  dht22_data_io;            /**< GPIO pin for DHT22 data line */
+extern const uint32_t dht22_polling_rate_ticks; /**< Polling rate (5 seconds) */
+extern const uint8_t  dht22_bit_count;          /**< Total number of bits from DHT22 */
 
 /* Enums **********************************************************************/
 
@@ -133,8 +133,8 @@ void dht22_read(dht22_data_t *sensor_data);
  * @brief Task to periodically read the DHT22 sensor data.
  * 
  * Runs in a loop to read humidity and temperature data from the DHT22 sensor every
- * 5 seconds. The data is stored in a dht22_data_t structure, with access protected
- * by a mutex.
+ * X seconds defined by the `dht22_polling_rate_ticks` variable measrued in system ticks.
+ * The data is stored in a dht22_data_t structure, with access protected by a mutex.
  * 
  * @param sensor_data Pointer to the dht22_data_t structure for storing data.
  */

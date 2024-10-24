@@ -57,10 +57,11 @@
 
 /* Constants ******************************************************************/
 
-extern const char    *gy_neo6mv2_tag;             /* Tag for logs */
-extern const uint8_t  gy_neo6mv2_tx_io;           /* GPIO pin for UART TX */
-extern const uint8_t  gy_neo6mv2_rx_io;           /* GPIO pin for UART RX */
-extern const uint32_t gy_neo6mv2_uart_baudrate;   /* UART baud rate */
+extern const char    *gy_neo6mv2_tag;                /**< Tag for logs */
+extern const uint8_t  gy_neo6mv2_tx_io;              /**< GPIO pin for UART TX */
+extern const uint8_t  gy_neo6mv2_rx_io;              /**< GPIO pin for UART RX */
+extern const uint32_t gy_neo6mv2_uart_baudrate;      /**< UART baud rate */
+extern const uint32_t gy_neo6mv2_polling_rate_ticks; /**< Polling rate (5 seconds) */
 
 /* Structs ********************************************************************/
 
@@ -87,23 +88,42 @@ typedef struct {
  *
  * This function sets up the UART connection for communication with the GPS module.
  *
- * @param[in,out] gps_data Pointer to the `gy_neo6mv2_data_t` structure that will hold the GPS data.
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure that will hold the GPS data.
  * @param[in] first_time Boolean to indicate if the function is being called for the first time.
  *
  * @return
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
  */
-esp_err_t gy_neo6mv2_init(gy_neo6mv2_data_t *gps_data, bool first_time);
+esp_err_t gy_neo6mv2_init(gy_neo6mv2_data_t *sensor_data, bool first_time);
 
 /**
  * @brief Reads GPS data from the GY-NEO6MV2 GPS module.
  *
  * This function reads data from the GPS module and updates the GPS data structure.
  *
- * @param[in,out] gps_data Pointer to a `gy_neo6mv2_data_t` struct containing GPS data.
+ * @param[in,out] sensor_data Pointer to a `gy_neo6mv2_data_t` struct containing GPS data.
  */
-void gy_neo6mv2_read(gy_neo6mv2_data_t *gps_data);
+void gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
+
+/**
+ * @brief Executes periodic tasks for the GY-NEO6MV2 GPS module.
+ * 
+ * This function reads GPS data from the GY-NEO6MV2 module, including latitude, 
+ * longitude, altitude, and other satellite data. It checks for any errors in 
+ * communication with the module and ensures data is processed correctly. If 
+ * communication errors occur, the GPS module is reinitialized to restore functionality.
+ * 
+ * The function also manages the timing of data reads to ensure they occur at regular 
+ * intervals, based on the GPS polling rate.
+ * 
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure that 
+ *                         holds the GPS coordinates and status information.
+ * 
+ * @note The delay between GPS data reads is controlled by the `gy_neo6mv2_polling_rate_ticks` 
+ *       global variable, which defines the polling rate in system ticks.
+ */
+void gy_neo6mv2_tasks(void *sensor_data);
 
 #endif /* TOPOROBO_GY_NEO6MV2_HAL_H */
 

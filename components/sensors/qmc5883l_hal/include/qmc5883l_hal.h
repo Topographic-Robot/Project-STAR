@@ -58,13 +58,13 @@
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  qmc5883l_i2c_address;        /* I2C address for QMC5883L */
-extern const char    *qmc5883l_tag;                /* Tag for logs */
-extern const uint8_t  qmc5883l_scl_io;             /* GPIO pin for I2C Serial Clock Line */
-extern const uint8_t  qmc5883l_sda_io;             /* GPIO pin for I2C Serial Data Line */
-extern const uint32_t qmc5883l_freq_hz;            /* I2C Bus Frequency in Hz */
-extern const uint32_t qmc5883l_polling_rate_ticks; /* Polling rate */
-extern const uint8_t  qmc5883l_odr_setting;        /* Output Data Rate setting */
+extern const uint8_t  qmc5883l_i2c_address;        /**< I2C address for QMC5883L */
+extern const char    *qmc5883l_tag;                /**< Tag for logs */
+extern const uint8_t  qmc5883l_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
+extern const uint8_t  qmc5883l_sda_io;             /**< GPIO pin for I2C Serial Data Line */
+extern const uint32_t qmc5883l_i2c_freq_hz;        /**< I2C Bus Frequency in Hz */
+extern const uint32_t qmc5883l_polling_rate_ticks; /**< Polling rate */
+extern const uint8_t  qmc5883l_odr_setting;        /**< Output Data Rate setting */
 
 /* Enums **********************************************************************/
 
@@ -190,6 +190,9 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data);
  *
  * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure that
  *                            contains sensor data used for reading and error checking.
+ *
+ * @note The delay between data reads is controlled by the `qmc5883l_polling_rate_ticks` 
+ *       global variable, which defines the polling rate in system ticks.
  */
 void qmc5883l_tasks(void *sensor_data);
 

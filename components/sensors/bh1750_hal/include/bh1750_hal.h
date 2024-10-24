@@ -64,12 +64,12 @@
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  bh1750_i2c_address;        /* I2C address for BH1750 */
-extern const char    *bh1750_tag;                /* Tag for logs */
-extern const uint8_t  bh1750_scl_io;             /* GPIO pin for I2C Serial Clock Line */
-extern const uint8_t  bh1750_sda_io;             /* GPIO pin for I2C Serial Data Line */
-extern const uint32_t bh1750_freq_hz;            /* I2C Bus Frequency in Hz */
-extern const uint32_t bh1750_polling_rate_ticks; /* Polling rate (5 seconds) */
+extern const uint8_t  bh1750_i2c_address;        /**< I2C address for BH1750 */
+extern const char    *bh1750_tag;                /**< Tag for logs */
+extern const uint8_t  bh1750_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
+extern const uint8_t  bh1750_sda_io;             /**< GPIO pin for I2C Serial Data Line */
+extern const uint32_t bh1750_i2c_freq_hz;        /**< I2C Bus Frequency in Hz */
+extern const uint32_t bh1750_polling_rate_ticks; /**< Polling rate (5 seconds) */
 
 /* Enums **********************************************************************/
 
@@ -209,8 +209,8 @@ void bh1750_reset_on_error(bh1750_data_t *sensor_data);
  * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure that
  *                            contains sensor data used for reading and error checking.
  * 
- * @note The delay is calculated from the `bh1750_polling_rate_s` global variable
- *       and converts the polling rate from seconds to milliseconds.
+ * @note The delay is calculated from the `bh1750_polling_rate_ticks` 
+ *       global variable, which defines the polling rate in system ticks.
  */
 void bh1750_tasks(void *sensor_data);
 

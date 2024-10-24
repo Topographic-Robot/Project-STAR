@@ -8,7 +8,7 @@ const uint8_t  bh1750_i2c_address        = 0x23;
 const char    *bh1750_tag                = "BH1750";
 const uint8_t  bh1750_scl_io             = GPIO_NUM_22;
 const uint8_t  bh1750_sda_io             = GPIO_NUM_21;
-const uint32_t bh1750_freq_hz            = 100000;
+const uint32_t bh1750_i2c_freq_hz        = 100000;
 const uint32_t bh1750_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 
 /* Public Functions ***********************************************************/
@@ -22,13 +22,13 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
   if (first_time) {
     sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
   }
-  sensor_data->lux = -1.0; /* Start with an invalid value since 
-                            * it hasnet been read yet */
-
-  sensor_data->state = k_bh1750_uninitialized; /* Start in uninitialized */
+  sensor_data->i2c_bus = bh1750_i2c_address;     /* Set the I2C address */
+  sensor_data->lux     = -1.0;                   /* Start with an invalid value
+                                                  * since it hasnet been read yet */
+  sensor_data->state   = k_bh1750_uninitialized; /* Start in uninitialized */
 
   /* Initialize the I2C bus with specified SCL, SDA pins, frequency, and bus number */
-  esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_freq_hz, 
+  esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_i2c_freq_hz, 
                                 sensor_data->i2c_bus, bh1750_tag);
 
   if (ret != ESP_OK) {

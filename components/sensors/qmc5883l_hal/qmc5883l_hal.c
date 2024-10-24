@@ -9,7 +9,7 @@ const uint8_t  qmc5883l_i2c_address        = 0x0D;
 const char    *qmc5883l_tag                = "QMC5883L";
 const uint8_t  qmc5883l_scl_io             = GPIO_NUM_22;
 const uint8_t  qmc5883l_sda_io             = GPIO_NUM_21;
-const uint32_t qmc5883l_freq_hz            = 100000;
+const uint32_t qmc5883l_i2c_freq_hz        = 100000;
 const uint32_t qmc5883l_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 const uint8_t  qmc5883l_odr_setting        = k_qmc5883l_odr_100hz;
 
@@ -30,11 +30,13 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
     sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
   }
 
-  sensor_data->mag_x = sensor_data->mag_y = sensor_data->mag_z = 0.0;
-  sensor_data->state = 0; /* Start in uninitialized state */
+  sensor_data->i2c_bus = qmc5883l_i2c_address;
+  sensor_data->mag_x   = sensor_data->mag_y = sensor_data->mag_z = 0.0;
+  sensor_data->state   = 0; /* Start in uninitialized state */
 
-  esp_err_t ret = priv_i2c_init(qmc5883l_scl_io, qmc5883l_sda_io, qmc5883l_freq_hz,
-      sensor_data->i2c_bus, qmc5883l_tag);
+  esp_err_t ret = priv_i2c_init(qmc5883l_scl_io, qmc5883l_sda_io, 
+                                qmc5883l_i2c_freq_hz, sensor_data->i2c_bus, 
+                                qmc5883l_tag);
 
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "I2C driver install failed: %s", esp_err_to_name(ret));

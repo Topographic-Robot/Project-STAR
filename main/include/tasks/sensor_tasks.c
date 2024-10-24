@@ -1,6 +1,7 @@
 /* Initialization and Reading of Sensors through Tasks */
 
 #include "sensor_tasks.h"
+#include "gy_neo6mv2_hal.h"
 #include "system_tasks.h"
 #include <driver/gpio.h>
 #include <esp_log.h>
@@ -24,7 +25,7 @@ void sensors_comm_init(sensor_data_t *sensor_data)
   qmc5883l_init(&(sensor_data->qmc5883l_data), true);
   
   /* Initialize GY-NEO6MV2 */
-  /* TODO */
+  gy_neo6mv2_init(&(sensor_data->gy_neo6mv2_data), true);
 }
 
 void sensor_tasks(void *sensor_data)
@@ -44,7 +45,7 @@ void sensor_tasks(void *sensor_data)
   xTaskCreate(qmc5883l_tasks, "qmc5883l_tasks", 2048, _sensor_data, 5, NULL);
 
   /* 5. Record data from GY-NEO6MV2 */
-  /* TODO */
+  xTaskCreate(gy_neo6mv2_tasks, "gy_neo6mv2_tasks", 2048, _sensor_data, 5, NULL);
 
   ESP_LOGI(system_tag, "Sensor data recorded and stored");
 }

@@ -10,7 +10,8 @@ const char *system_tag = "Topographic-Robot";
 
 /* Globals (Static) ***********************************************************/
 
-static sensor_data_t s_sensor_data;
+static sensor_data_t     s_sensor_data;
+static controller_data_t s_controller_data;
 
 /* Private (Static) Functions *************************************************/
 
@@ -52,6 +53,9 @@ void system_tasks_init(void)
 
   /* Initialize the sensors */
   sensors_comm_init(&s_sensor_data);
+
+  /* Initialize the motors (controllers) */
+  motor_comm_init(&s_controller_data);
 }
 
 void system_tasks_start(void)

@@ -65,13 +65,13 @@
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  mpu6050_i2c_address;        /* I2C address for MPU6050 */
-extern const char    *mpu6050_tag;                /* Tag for logs */
-extern const uint8_t  mpu6050_scl_io;             /* GPIO pin for I2C Serial Clock Line */
-extern const uint8_t  mpu6050_sda_io;             /* GPIO pin for I2C Serial Data Line */
-extern const uint32_t mpu6050_freq_hz;            /* I2C Bus Frequency in Hz */
-extern const uint32_t mpu6050_polling_rate_ticks; /* Polling rate (5 seconds) */
-extern const uint8_t  mpu6050_sample_rate_div;    /* Sample Rate = (internal sample rate) / (1 + sample_rate_divider) */
+extern const uint8_t  mpu6050_i2c_address;        /**< I2C address for MPU6050 */
+extern const char    *mpu6050_tag;                /**< Tag for logs */
+extern const uint8_t  mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
+extern const uint8_t  mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line */
+extern const uint32_t mpu6050_i2c_freq_hz;        /**< I2C Bus Frequency in Hz */
+extern const uint32_t mpu6050_polling_rate_ticks; /**< Polling rate (5 seconds) */
+extern const uint8_t  mpu6050_sample_rate_div;    /**< Sample Rate = (internal sample rate) / (1 + sample_rate_divider) */
 
 /* Enums **********************************************************************/
 
@@ -311,8 +311,8 @@ void mpu6050_reset_on_error(mpu6050_data_t *sensor_data);
  * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure that
  *                            contains sensor data used for reading and error checking.
  * 
- * @note The delay is calculated from the `mpu6050_polling_rate_s` global variable
- *       and converts the polling rate from seconds to milliseconds.
+ * @note The delay is calculated from the `mpu6050_polling_rate_ticks` global variable
+ *       which defines the pollign rate in system ticks.
  */
 void mpu6050_tasks(void *sensor_data);
 

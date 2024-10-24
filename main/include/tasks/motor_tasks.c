@@ -1,13 +1,19 @@
 #include "motor_tasks.h"
 
-void motor_comm_init(/* data */)
+/* Constants ******************************************************************/
+
+const uint8_t num_pca9685_boards = 2;
+
+/* Public Functions ***********************************************************/
+
+void motor_comm_init(controller_data_t *controller_data)
 {
   /* Initialize PCA9685 */
-  //pca9685_init(&(sensor_data->pca9685_data), true);
+  pca9685_init(&(controller_data->pca9685_boards), num_pca9685_boards);
 }
 
 void motor_tasks(void *pv_params) 
 {
-  /* 4. Use the PCA9685 */
-  //xTaskCreate(pca9685_tasks, "pca9685_tasks", 2048, _sensor_data, 5, NULL);
+  /* TODO: Implement motor task logic to move the robot */
 }
+
