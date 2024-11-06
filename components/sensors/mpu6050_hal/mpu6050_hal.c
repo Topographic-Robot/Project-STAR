@@ -263,8 +263,8 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
 
 void mpu6050_tasks(void *sensor_data)
 {
+  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   while (1) {
-    mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
     mpu6050_read(mpu6050_data);
     vTaskDelay(mpu6050_polling_rate_ticks);
   }

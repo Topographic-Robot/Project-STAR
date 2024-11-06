@@ -11,7 +11,7 @@ const char *system_tag = "Topographic-Robot";
 
 /* Globals (Static) ***********************************************************/
 
-static sensor_data_t     s_sensor_data;
+static sensor_data_t s_sensor_data;
 
 /* Private (Static) Functions *************************************************/
 

@@ -313,8 +313,8 @@ void dht22_read(dht22_data_t *sensor_data)
 
 void dht22_tasks(void *sensor_data) 
 {
+  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
   while (1) {
-    dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
     dht22_read(dht22_data);
     vTaskDelay(dht22_polling_rate_ticks);
   }

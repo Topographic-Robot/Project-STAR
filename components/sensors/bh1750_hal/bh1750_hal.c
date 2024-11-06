@@ -25,8 +25,7 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
   }
   sensor_data->i2c_address = bh1750_i2c_address;     /* Set the I2C address */
   sensor_data->i2c_bus     = bh1750_i2c_bus;         /* Set the I2C bus */
-  sensor_data->lux         = -1.0;                   /* Start with an invalid value
-                                                      * since it hasnet been read yet */
+  sensor_data->lux         = -1.0;                   /* Start with an invalid value since it hasn't been read yet */
   sensor_data->state       = k_bh1750_uninitialized; /* Start in uninitialized */
 
   /* Initialize the I2C bus with specified SCL, SDA pins, frequency, and bus number */
@@ -182,10 +181,10 @@ void bh1750_reset_on_error(bh1750_data_t *sensor_data)
 
 void bh1750_tasks(void *sensor_data)
 {
+  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
   while (1) {
-    //bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
-    //bh1750_read(bh1750_data);
-    //bh1750_reset_on_error(bh1750_data);
+    bh1750_read(bh1750_data);
+    bh1750_reset_on_error(bh1750_data);
     vTaskDelay(bh1750_polling_rate_ticks);
   }
 }

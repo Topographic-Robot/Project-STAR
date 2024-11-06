@@ -67,8 +67,8 @@ void gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 
 void gy_neo6mv2_tasks(void *sensor_data)
 {
+  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
   while (1) {
-    gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
     gy_neo6mv2_read(gy_neo6mv2_data);
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }

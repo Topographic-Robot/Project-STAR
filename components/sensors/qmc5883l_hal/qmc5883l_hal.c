@@ -194,47 +194,48 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data)
     return;
   }
 
-//  uint8_t mag_data[6];
-//  esp_err_t ret = priv_i2c_read_bytes(mag_data, 6, qmc5883l_i2c_bus, 
-//                                      qmc5883l_i2c_address, qmc5883l_tag);
-//  if (ret != ESP_OK) {
-//    ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
-//    xSemaphoreGive(sensor_data->sensor_mutex);
-//    return;
-//  }
-//
-//  /* Combine high and low bytes to form the raw X, Y, Z values */
-//  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]);
-//  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]);
-//  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]);
-//
-//  /* Convert the raw data to meaningful values using scaling factors */
-//  float scale_factor = qmc5883l_scale_configs[qmc5883l_scale_config_idx].scale;
-//  sensor_data->mag_x = mag_x_raw * scale_factor;
-//  sensor_data->mag_y = mag_y_raw * scale_factor;
-//  sensor_data->mag_z = mag_z_raw * scale_factor;
-//
-//  /* Calculate the heading (yaw) from the X and Y magnetic field components */
-//  float heading = atan2(sensor_data->mag_y, sensor_data->mag_x) * 180.0 / M_PI;
-//  if (heading < 0) {
-//    heading += 360.0; /* Normalize heading to the range [0, 360] degrees */
-//  }
-//
-//  /* Save the heading into the sensor data structure */
-//  sensor_data->heading = heading;
-//
-//  /* Log the magnetic field values and the calculated heading */
-//  ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
-//      sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, sensor_data->heading);
-//
-//  /* Release the mutex after accessing the shared data */
-//  xSemaphoreGive(sensor_data->sensor_mutex);
+  uint8_t mag_data[6];
+  esp_err_t ret = priv_i2c_read_bytes(mag_data, 6, qmc5883l_i2c_bus, 
+                                      qmc5883l_i2c_address, qmc5883l_tag);
+  if (ret != ESP_OK) {
+    ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
+    xSemaphoreGive(sensor_data->sensor_mutex);
+    return;
+  }
+
+  /* Combine high and low bytes to form the raw X, Y, Z values */
+  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]);
+  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]);
+  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]);
+
+  /* Convert the raw data to meaningful values using scaling factors */
+  float scale_factor = qmc5883l_scale_configs[qmc5883l_scale_config_idx].scale;
+  sensor_data->mag_x = mag_x_raw * scale_factor;
+  sensor_data->mag_y = mag_y_raw * scale_factor;
+  sensor_data->mag_z = mag_z_raw * scale_factor;
+
+  /* Calculate the heading (yaw) from the X and Y magnetic field components */
+  float heading = atan2(sensor_data->mag_y, sensor_data->mag_x) * 180.0 / M_PI;
+  if (heading < 0) {
+    heading += 360.0; /* Normalize heading to the range [0, 360] degrees */
+  }
+
+  /* Save the heading into the sensor data structure */
+  sensor_data->heading = heading;
+
+  /* Log the magnetic field values and the calculated heading */
+  ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
+           sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, 
+           sensor_data->heading);
+
+  /* Release the mutex after accessing the shared data */
+  xSemaphoreGive(sensor_data->sensor_mutex);
 }
 
 void qmc5883l_tasks(void *sensor_data)
 {
+  qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
   while (1) {
-    qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
     qmc5883l_read(qmc5883l_data);
     vTaskDelay(qmc5883l_polling_rate_ticks);
   }
