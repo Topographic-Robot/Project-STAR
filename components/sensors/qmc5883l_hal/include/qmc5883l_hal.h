@@ -17,9 +17,9 @@
  *     |   |   +--------------------------+   | |
  *     |   |   | GND    | Ground          |----------->| GND
  *     |   |   +--------------------------+   | |
- *     |   |   | SDA    | I2C Data        |----------->| GPIO_NUM_21 (100,000Hz)
- *     |   |   +--------------------------+   | |
  *     |   |   | SCL    | I2C Clock       |----------->| GPIO_NUM_22 (100,000Hz)
+ *     |   |   +--------------------------+   | |
+ *     |   |   | SDA    | I2C Data        |----------->| GPIO_NUM_21 (100,000Hz)
  *     |   |   +--------------------------+   | |
  *     |   |   | DRDY   | Data Ready Pin  |----------->| Floating (optional)
  *     |   |   +--------------------------+   | |
@@ -59,6 +59,7 @@
 /* Constants ******************************************************************/
 
 extern const uint8_t  qmc5883l_i2c_address;        /**< I2C address for QMC5883L */
+extern const uint8_t  qmc5883l_i2c_bus;            /**< I2C bus which the ESP32 uses */
 extern const char    *qmc5883l_tag;                /**< Tag for logs */
 extern const uint8_t  qmc5883l_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
 extern const uint8_t  qmc5883l_sda_io;             /**< GPIO pin for I2C Serial Data Line */
@@ -138,6 +139,7 @@ typedef struct {
  * thread-safe access when the sensor data is being read or updated.
  */
 typedef struct {
+  uint8_t           i2c_address;  /**< I2C address used for communication */
   uint8_t           i2c_bus;      /**< I2C bus number used for communication */
   float             mag_x;        /**< Measured X-axis magnetic field in µT */
   float             mag_y;        /**< Measured Y-axis magnetic field in µT */

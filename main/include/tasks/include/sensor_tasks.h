@@ -24,10 +24,10 @@
  */
 typedef struct {
   bh1750_data_t  bh1750_data;        /**< BH1750 light intensity data */
-  dht22_data_t   dht22_data;         /**< DHT22 temperature + humidity data */
-  mpu6050_data_t mpu6050_data;       /**< MPU6050 gyroscope + accelerometer data */
+//  dht22_data_t   dht22_data;         /**< DHT22 temperature + humidity data */
+//  mpu6050_data_t mpu6050_data;       /**< MPU6050 gyroscope + accelerometer data */
   qmc5883l_data_t qmc5883l_data;     /**< QMC5883L magnetometer data */
-  gy_neo6mv2_data_t gy_neo6mv2_data; /**< GY-NEO6MV2 GPS data */
+//  gy_neo6mv2_data_t gy_neo6mv2_data; /**< GY-NEO6MV2 GPS data */
 } sensor_data_t;
 
 /* Public Functions ***********************************************************/
@@ -75,6 +75,6 @@ void sensors_comm_init(sensor_data_t *sensor_data);
  * 
  * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
  */
-void sensor_tasks(void *sensor_data);
+void sensor_tasks(sensor_data_t *sensor_data);
 
 #endif /* TOPOROBO_SENSOR_TASKS_H */

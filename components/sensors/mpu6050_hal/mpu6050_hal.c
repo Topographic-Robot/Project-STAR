@@ -36,6 +36,7 @@ const uint8_t  mpu6050_sda_io             = GPIO_NUM_21;
 const uint32_t mpu6050_i2c_freq_hz        = 100000;
 const uint32_t mpu6050_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 const uint8_t  mpu6050_i2c_address        = 0x68;
+const uint8_t  mpu6050_i2c_bus            = I2C_NUM_0;
 
 /* Static const array of accelerometer configurations and scaling factors */
 /* Note: (2^16)/2 = 32768 */
@@ -66,13 +67,14 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
     sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
   }
 
-  sensor_data->i2c_bus = mpu6050_i2c_address;
-  sensor_data->gyro_x  = sensor_data->gyro_y  = sensor_data->gyro_z  = -1.0;
-  sensor_data->accel_x = sensor_data->accel_y = sensor_data->accel_z = -1.0;
-  sensor_data->state   = k_mpu6050_uninitialized; /* Start in uninitialized state */
+  sensor_data->i2c_address = mpu6050_i2c_address;
+  sensor_data->i2c_bus     = mpu6050_i2c_bus;
+  sensor_data->gyro_x      = sensor_data->gyro_y  = sensor_data->gyro_z  = -1.0;
+  sensor_data->accel_x     = sensor_data->accel_y = sensor_data->accel_z = -1.0;
+  sensor_data->state       = k_mpu6050_uninitialized; /* Start in uninitialized state */
 
   esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io, 
-                                mpu6050_i2c_freq_hz, sensor_data->i2c_bus, 
+                                mpu6050_i2c_freq_hz, mpu6050_i2c_bus,
                                 mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
@@ -80,7 +82,8 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
   }
 
   /* Power on the MPU6050 sensor */
-  ret = priv_i2c_write_byte(k_mpu6050_power_on_cmd, sensor_data->i2c_bus, mpu6050_tag);
+  ret = priv_i2c_write_byte(k_mpu6050_power_on_cmd, mpu6050_i2c_bus, 
+                            mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 power on failed");
     sensor_data->state = k_mpu6050_power_on_error;
@@ -91,7 +94,8 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
   /* Reset the MPU6050 sensor */
-  ret = priv_i2c_write_byte(k_mpu6050_reset_cmd, sensor_data->i2c_bus, mpu6050_tag);
+  ret = priv_i2c_write_byte(k_mpu6050_reset_cmd, mpu6050_i2c_bus, 
+                            mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 reset failed");
     sensor_data->state = k_mpu6050_reset_error;
@@ -102,7 +106,8 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
   /* Configure the sample rate divider to 100 Hz (if div is 9) */
-  ret = priv_i2c_write_byte(mpu6050_sample_rate_div, sensor_data->i2c_bus, mpu6050_tag);
+  ret = priv_i2c_write_byte(mpu6050_sample_rate_div, mpu6050_i2c_bus, 
+                            mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 sample rate configuration failed");
     return ret;
@@ -125,7 +130,8 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
    *
    * In this case, DLPF_CFG = 3 provides a 44 Hz bandwidth.
    */
-  ret = priv_i2c_write_byte(k_mpu6050_config_dlpf_44hz, sensor_data->i2c_bus, mpu6050_tag);
+  ret = priv_i2c_write_byte(k_mpu6050_config_dlpf_44hz, mpu6050_i2c_bus, 
+                            mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 DLPF configuration failed");
     return ret;
@@ -147,7 +153,7 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
    *   without saturating.
    */
   ret = priv_i2c_write_byte(mpu6050_gyro_configs[mpu6050_gyro_config_idx].gyro_config, 
-                            sensor_data->i2c_bus, mpu6050_tag);
+                            mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 gyroscope configuration failed");
     return ret;
@@ -169,7 +175,7 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
    *   normal forces during walking or turning without saturation.
    */
   ret = priv_i2c_write_byte(mpu6050_accel_configs[mpu6050_accel_config_idx].accel_config, 
-                            sensor_data->i2c_bus, mpu6050_tag);
+                            mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 accelerometer configuration failed");
     return ret;
@@ -177,7 +183,8 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
 
   /* Verify the sensor by reading the WHO_AM_I register */
   uint8_t who_am_i = 0;
-  ret = priv_i2c_read_bytes(&who_am_i, 1, sensor_data->i2c_bus, mpu6050_tag);
+  ret = priv_i2c_read_bytes(&who_am_i, 1, mpu6050_i2c_bus, 
+                            mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK || who_am_i != k_mpu6050_who_am_i_response) {
     ESP_LOGE(mpu6050_tag, "MPU6050 WHO_AM_I verification failed (read: 0x%02X)", who_am_i);
     return ret;
@@ -202,13 +209,19 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
     return;
   }
 
+  if (sensor_data->sensor_mutex == NULL) {
+    ESP_LOGE(mpu6050_tag, "Sensor data pointer's mutex is NULL");
+    return;
+  }
+
   if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * mpu6050_polling_rate_ticks) != pdTRUE) {
     ESP_LOGW(mpu6050_tag, "Failed to take sensor mutex");
     return;
   }
 
   uint8_t accel_data[6], gyro_data[6];
-  esp_err_t ret = priv_i2c_read_bytes(accel_data, 6, sensor_data->i2c_bus, mpu6050_tag);
+  esp_err_t ret = priv_i2c_read_bytes(accel_data, 6, sensor_data->i2c_bus, 
+                                      sensor_data->i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read accelerometer data from MPU6050");
     sensor_data->state = k_mpu6050_error;
@@ -216,7 +229,8 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
     return;
   }
 
-  ret = priv_i2c_read_bytes(gyro_data, 6, sensor_data->i2c_bus, mpu6050_tag);
+  ret = priv_i2c_read_bytes(gyro_data, 6, mpu6050_i2c_bus, 
+                            mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read gyroscope data from MPU6050");
     sensor_data->state = k_mpu6050_error;
@@ -249,7 +263,9 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
 
 void mpu6050_tasks(void *sensor_data)
 {
-  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
-  mpu6050_read(mpu6050_data);
-  vTaskDelay(mpu6050_polling_rate_ticks);
+  while (1) {
+    mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+    mpu6050_read(mpu6050_data);
+    vTaskDelay(mpu6050_polling_rate_ticks);
+  }
 }

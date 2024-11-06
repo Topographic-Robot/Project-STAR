@@ -3,16 +3,17 @@
 #include <esp_log.h>
 
 /* Constants ******************************************************************/
-const uint8_t  pca9685_scl_io           = GPIO_NUM_22; /**< GPIO pin for I2C Serial Clock Line */
-const uint8_t  pca9685_sda_io           = GPIO_NUM_21; /**< GPIO pin for I2C Serial Data Line */
-const uint32_t pca9685_i2c_freq_hz      = 100000;      /**< I2C Bus Frequency in Hz */
-const uint8_t  pca9685_i2c_address      = 0x40;        /**< Base I2C address for PCA9685 */
-const uint32_t pca9685_osc_freq         = 25000000;    /**< Internal Oscillator Frequency (25 MHz) */
-const uint16_t pca9685_pwm_resolution   = 4096;        /**< 12-bit PWM resolution (4096 steps) */
-const uint16_t pca9685_default_pwm_freq = 50;          /**< Default PWM frequency (50 Hz) */
-const uint16_t pca9685_max_pwm_value    = 4095;        /**< Maximum value for PWM duty cycle (4095) */
-const uint16_t pca9685_pwm_period_us    = 20000;       /**< Total PWM period for 50Hz (20000 µs) */
-const char    *pca9685_tag              = "PCA9685";   /**< Tag for logs */
+const uint8_t  pca9685_scl_io           = GPIO_NUM_22;
+const uint8_t  pca9685_sda_io           = GPIO_NUM_21;
+const uint32_t pca9685_i2c_freq_hz      = 100000;
+const uint8_t  pca9685_i2c_address      = 0x40;
+const uint8_t  pca9685_i2c_bus          = I2C_NUM_0;
+const uint32_t pca9685_osc_freq         = 25000000;
+const uint16_t pca9685_pwm_resolution   = 4096;
+const uint16_t pca9685_default_pwm_freq = 50;
+const uint16_t pca9685_max_pwm_value    = 4095;
+const uint16_t pca9685_pwm_period_us    = 20000;
+const char    *pca9685_tag              = "PCA9685";
 
 /* Private Functions **********************************************************/
 
@@ -58,9 +59,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
     }
 
     /* Initialize the I2C communication for the board */
-    new_board->i2c_bus = pca9685_i2c_address + i;
+    new_board->i2c_address = pca9685_i2c_address + i;
+    new_board->i2c_bus     = pca9685_i2c_bus;
     ret = priv_i2c_init(pca9685_scl_io, pca9685_sda_io, pca9685_i2c_freq_hz, 
-                        new_board->i2c_bus, pca9685_tag);
+                        pca9685_i2c_bus, pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to initialize I2C for PCA9685 board %d", i);
       free(new_board);
@@ -69,7 +71,7 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
 
     /* Put the PCA9685 into sleep mode before setting the frequency */
     ret = priv_i2c_write_byte(k_pca9685_mode1_cmd | k_pca9685_sleep_cmd, 
-                              new_board->i2c_bus, pca9685_tag);
+                              pca9685_i2c_bus, new_board->i2c_address, pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to put PCA9685 board %d into sleep mode", i);
       free(new_board);
@@ -78,14 +80,16 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
 
     /* Set the prescaler for the PWM frequency */
     uint8_t prescaler = priv_calculate_prescaler(pca9685_default_pwm_freq);
-    ret = priv_i2c_write_byte(k_pca9685_prescale_cmd, new_board->i2c_bus, pca9685_tag);
+    ret = priv_i2c_write_byte(k_pca9685_prescale_cmd, pca9685_i2c_bus, 
+                              new_board->i2c_address, pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to write prescaler for PCA9685 board %d", i);
       free(new_board);
       return ret;
     }
 
-    ret = priv_i2c_write_byte(prescaler, new_board->i2c_bus, pca9685_tag);
+    ret = priv_i2c_write_byte(prescaler, pca9685_i2c_bus,
+                              new_board->i2c_address, pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to set prescaler value for PCA9685 board %d", i);
       free(new_board);
@@ -94,7 +98,8 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
 
     /* Wake up the PCA9685 (restart mode) */
     ret = priv_i2c_write_byte(k_pca9685_mode1_cmd | k_pca9685_restart_cmd, 
-                              new_board->i2c_bus, pca9685_tag);
+                              pca9685_i2c_bus, new_board->i2c_address, 
+                              pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to restart PCA9685 board %d", i);
       free(new_board);
@@ -147,7 +152,8 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
           uint8_t on_l_cmd = k_pca9685_channel0_on_l_cmd + 4 * channel;
 
           /* Set ON time to 0 (start of pulse) */
-          esp_err_t ret = priv_i2c_write_byte(on_l_cmd, current_board->i2c_bus, 
+          esp_err_t ret = priv_i2c_write_byte(on_l_cmd, pca9685_i2c_bus, 
+                                              current_board->i2c_address,
                                               pca9685_tag);
           if (ret != ESP_OK) {
             ESP_LOGE(pca9685_tag, "Failed to set ON time for motor %d on PCA9685 board %d", 
@@ -156,14 +162,16 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
           }
 
           /* Set OFF time to pulse length (end of pulse) */
-          ret = priv_i2c_write_byte(pulse_length & 0xFF, current_board->i2c_bus, 
+          ret = priv_i2c_write_byte(pulse_length & 0xFF, pca9685_i2c_bus,
+                                    current_board->i2c_address,
                                     pca9685_tag); /* Lower byte of pulse length */
           if (ret != ESP_OK) {
             ESP_LOGE(pca9685_tag, "Failed to set OFF time (low byte) for motor %d on PCA9685 board %d", 
                      channel, current_board->board_id);
             return ret;
           }
-          ret = priv_i2c_write_byte((pulse_length >> 8) & 0xFF, current_board->i2c_bus, 
+          ret = priv_i2c_write_byte((pulse_length >> 8) & 0xFF, pca9685_i2c_bus,
+                                    current_board->i2c_address,
                                     pca9685_tag); /* Upper byte of pulse length */
           if (ret != ESP_OK) {
             ESP_LOGE(pca9685_tag, "Failed to set OFF time (high byte) for motor %d on PCA9685 board %d", 

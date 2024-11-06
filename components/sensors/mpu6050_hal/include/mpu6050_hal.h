@@ -66,6 +66,7 @@
 /* Constants ******************************************************************/
 
 extern const uint8_t  mpu6050_i2c_address;        /**< I2C address for MPU6050 */
+extern const uint8_t  mpu6050_i2c_bus;            /**< I2C bus for MPU6050 */
 extern const char    *mpu6050_tag;                /**< Tag for logs */
 extern const uint8_t  mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
 extern const uint8_t  mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line */
@@ -216,6 +217,7 @@ typedef struct {
  * thread-safe access when the sensor data is being read or updated.
  */
 typedef struct {
+  uint8_t           i2c_address;  /**< I2C address used for communication */
   uint8_t           i2c_bus;      /**< I2C bus number used for communication */
   float             accel_x;      /**< Measured X-axis acceleration */
   float             accel_y;      /**< Measured Y-axis acceleration */

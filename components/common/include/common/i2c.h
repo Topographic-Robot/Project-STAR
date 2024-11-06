@@ -36,43 +36,49 @@ esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
                         uint8_t i2c_bus, const char *tag);
 
 /**
- * @brief Write a byte to the I2C interface.
+ * @brief Write a byte to a specific I2C device.
  *
- * This function sends a single byte of data to the an I2C device using the
- * specified I2C bus. The command link is created, and the data is written
- * using the I2C protocol.
+ * This function transmits a single byte of data to a designated I2C device
+ * using the specified I2C bus and device address. It creates an I2C command
+ * link, sends the I2C address with the write flag, writes the data byte, and
+ * then completes the transaction by stopping the I2C communication. 
  *
- * @note this functions don't check any semaphores, it is an internal function.
+ * @note This function is intended for internal use and does not implement
+ *       semaphore checks or concurrency protections.
  *
- * @param[in] data The byte of data to be written to the I2C device.
- * @param[in,out] i2c_bus The I2C bus number to communicate over.
- * @param[in] tag The tag for logging errors.
+ * @param[in] data The byte of data to send to the I2C device.
+ * @param[in] i2c_bus The I2C bus number to communicate over.
+ * @param[in] i2c_address The 7-bit I2C address of the target device.
+ * @param[in] tag The tag for logging errors in case of failure.
  *
- * @return 
+ * @return
  *   - ESP_OK on success.
- *   - Error code on failure.
+ *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
-esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus, const char *tag);
+esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus, 
+                              uint8_t i2c_address, const char *tag);
 
 /**
- * @brief Read multiple bytes from the I2C interface.
+ * @brief Read multiple bytes from a specific I2C device.
  *
- * This function reads a specified number of bytes from the I2C interface using
- * the I2C bus. It handles reading a single byte or multiple bytes with ACK/NACK 
- * handling for I2C communication.
+ * This function reads a specified number of bytes from a designated I2C device
+ * using the specified I2C bus. It supports reading single or multiple bytes
+ * with ACK/NACK handling for proper I2C communication.
  *
- * @note this functions don't check any semaphores, it is an internal function.
+ * @note This function does not perform semaphore checks and is intended for 
+ *       internal use.
  *
  * @param[out] data Pointer to the buffer where read data will be stored.
- * @param[in] len The number of bytes to read.
+ * @param[in] len The number of bytes to read from the I2C device.
  * @param[in] i2c_bus The I2C bus number to communicate over.
+ * @param[in] i2c_address The 7-bit I2C address of the target device.
  * @param[in] tag The tag for logging errors.
  *
- * @return 
+ * @return
  *   - ESP_OK on success.
- *   - Error code on failure.
+ *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
-esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, 
-                              uint8_t i2c_bus, const char *tag);
+esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus, 
+                              uint8_t i2c_address, const char *tag);
 
 #endif /* TOPOROBO_I2C_H */

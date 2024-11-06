@@ -7,9 +7,4 @@ void app_main(void)
 
   /* Start System-Level Tasks (motor, sensors, webserver, etc) */
   system_tasks_start();
-
-  while (1) {
-    /* Do nothing since everything is handled in tasks */
-    vTaskDelay(portMAX_DELAY); /* Sleep indefinitely */
-  }
 }

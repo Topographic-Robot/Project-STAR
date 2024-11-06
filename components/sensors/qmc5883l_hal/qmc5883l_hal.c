@@ -6,6 +6,7 @@
 /* Constants ******************************************************************/
 
 const uint8_t  qmc5883l_i2c_address        = 0x0D;
+const uint8_t  qmc5883l_i2c_bus            = I2C_NUM_0;
 const char    *qmc5883l_tag                = "QMC5883L";
 const uint8_t  qmc5883l_scl_io             = GPIO_NUM_22;
 const uint8_t  qmc5883l_sda_io             = GPIO_NUM_21;
@@ -26,21 +27,25 @@ static const uint8_t qmc5883l_scale_config_idx = 0; /* Index of chosen values (0
 
 esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
 {
+  ESP_LOGI(qmc5883l_tag, "Starting Configuration");
   if (first_time) {
     sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
   }
 
-  sensor_data->i2c_bus = qmc5883l_i2c_address;
-  sensor_data->mag_x   = sensor_data->mag_y = sensor_data->mag_z = 0.0;
-  sensor_data->state   = 0; /* Start in uninitialized state */
+  sensor_data->i2c_address = qmc5883l_i2c_address;
+  sensor_data->i2c_bus     = qmc5883l_i2c_bus;
+  sensor_data->mag_x       = sensor_data->mag_y = sensor_data->mag_z = 0.0;
+  sensor_data->state       = 0; /* Start in uninitialized state */
 
   esp_err_t ret = priv_i2c_init(qmc5883l_scl_io, qmc5883l_sda_io, 
-                                qmc5883l_i2c_freq_hz, sensor_data->i2c_bus, 
+                                qmc5883l_i2c_freq_hz, qmc5883l_i2c_bus,
                                 qmc5883l_tag);
 
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
     return ret;
+  } else {
+    ESP_LOGI(qmc5883l_tag, "I2C driver install complete");
   }
 
   /* Configure the Output Data Rate (ODR) to 100 Hz. */
@@ -73,10 +78,12 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
    * like navigation and orientation tracking.
    */
   ret = priv_i2c_write_byte(k_qmc5883l_ctrl1_cmd | qmc5883l_odr_setting, 
-                            sensor_data->i2c_bus, qmc5883l_tag);
+                            qmc5883l_i2c_bus, qmc5883l_i2c_address, qmc5883l_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(qmc5883l_tag, "QMC5883L ODR configuration failed");
+    ESP_LOGE(qmc5883l_tag, "ODR configuration failed");
     return ret;
+  } else {
+    ESP_LOGI(qmc5883l_tag, "ODR configuration complete");
   }
 
   /* Configure the full-scale magnetic range to ±2 Gauss. */
@@ -93,9 +100,9 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
    *
    * - ±2 Gauss: This range provides the highest sensitivity, which is ideal 
    *   for detecting small magnetic field changes like the Earth’s magnetic field. 
-   *   It offers finer resolution, making it suitable for applications such as compass-based
-   *   navigation or heading detection. However, this range can saturate in the 
-   *   presence of strong magnetic fields.
+   *   It offers finer resolution, making it suitable for applications such as 
+   *   compass-based navigation or heading detection. However, this range can 
+   *   saturate in the presence of strong magnetic fields.
    *
    * - ±8 Gauss: This range can measure stronger magnetic fields without saturating, 
    *   but it provides lower sensitivity compared to the ±2 Gauss setting. It is 
@@ -105,11 +112,13 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
    * This range is sufficient for most applications that involve detecting the 
    * Earth’s magnetic field and is typically used for orientation and navigation purposes.
    */
-  ret = priv_i2c_write_byte(k_qmc5883l_ctrl1_cmd | qmc5883l_scale_configs[qmc5883l_scale_config_idx].range, 
-      sensor_data->i2c_bus, qmc5883l_tag);
+  ret = priv_i2c_write_byte(k_qmc5883l_ctrl1_cmd | qmc5883l_scale_configs[qmc5883l_scale_config_idx].range,
+                            qmc5883l_i2c_bus, qmc5883l_i2c_address, qmc5883l_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(qmc5883l_tag, "QMC5883L magnetic range configuration failed");
+    ESP_LOGE(qmc5883l_tag, "magnetic range configuration failed");
     return ret;
+  } else {
+    ESP_LOGI(qmc5883l_tag, "magnetic range configuration complete");
   }
 
   /* Configure the Over-Sampling Ratio (OSR) to 512. */
@@ -119,8 +128,9 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
    * Why is Over-Sampling Ratio (OSR) Important?
    * The Over-Sampling Ratio (OSR) controls how many internal measurements are 
    * averaged to produce the final magnetic field data. Higher OSR values improve 
-   * the sensor's accuracy by reducing noise at the cost of slower updates. Lower OSR values
-   * result in faster updates but may introduce more noise into the measurements.
+   * the sensor's accuracy by reducing noise at the cost of slower updates. Lower 
+   * OSR values result in faster updates but may introduce more noise into the 
+   * measurements.
    *
    * Benefits of Higher OSR Values:
    *
@@ -135,16 +145,21 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
    *   helps to suppress random fluctuations in the magnetic field readings.
    *
    * The downside of higher OSR is the increased power consumption and slower data 
-   * output rate, but for many applications, the trade-off is worth the improved accuracy.
+   * output rate, but for many applications, the trade-off is worth the improved 
+   * accuracy.
    *
-   * Set up the Over-Sampling Ratio (OSR) to 512 to improve noise performance and accuracy.
-   * This value provides a good balance between accuracy and speed, especially in 
-   * navigation and orientation applications where high precision is required.
+   * Set up the Over-Sampling Ratio (OSR) to 512 to improve noise performance and 
+   * accuracy. This value provides a good balance between accuracy and speed, 
+   * especially in navigation and orientation applications where high precision 
+   * is required.
    */
-  ret = priv_i2c_write_byte(k_qmc5883l_ctrl1_cmd | k_qmc5883l_osr_512, sensor_data->i2c_bus, qmc5883l_tag);
+  ret = priv_i2c_write_byte(k_qmc5883l_ctrl1_cmd | k_qmc5883l_osr_512, qmc5883l_i2c_bus, 
+                            qmc5883l_i2c_address, qmc5883l_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(qmc5883l_tag, "QMC5883L OSR configuration failed");
+    ESP_LOGE(qmc5883l_tag, "OSR configuration failed");
     return ret;
+  } else {
+    ESP_LOGI(qmc5883l_tag, "OSR configuration complete");
   }
 
   if (sensor_data->sensor_mutex == NULL) {
@@ -152,60 +167,76 @@ esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time)
     if (sensor_data->sensor_mutex == NULL) {
       ESP_LOGE(qmc5883l_tag, "ESP32 ran out of memory");
       return ESP_ERR_NO_MEM;
+    } else {
+      ESP_LOGI(qmc5883l_tag, "Allocated memory for semaphore");
     }
   }
 
   sensor_data->state = 1; /* Sensor is initialized */
+  ESP_LOGI(qmc5883l_tag, "Sensor Configuration Complete");
   return ESP_OK;
 }
 
 void qmc5883l_read(qmc5883l_data_t *sensor_data)
 {
+  if (sensor_data == NULL) {
+    ESP_LOGE(qmc5883l_tag, "Sensor data pointer is NULL");
+    return;
+  }
+
+  if (sensor_data->sensor_mutex == NULL) {
+    ESP_LOGE(qmc5883l_tag, "Sensor data pointer's mutex is NULL");
+    return;
+  }
+
   if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * qmc5883l_polling_rate_ticks) != pdTRUE) {
     ESP_LOGW(qmc5883l_tag, "Failed to take sensor mutex");
     return;
   }
 
-  uint8_t mag_data[6];
-  esp_err_t ret = priv_i2c_read_bytes(mag_data, 6, sensor_data->i2c_bus, qmc5883l_tag);
-  if (ret != ESP_OK) {
-    ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
-    xSemaphoreGive(sensor_data->sensor_mutex);
-    return;
-  }
-
-  /* Combine high and low bytes to form the raw X, Y, Z values */
-  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]);
-  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]);
-  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]);
-
-  /* Convert the raw data to meaningful values using scaling factors */
-  float scale_factor = qmc5883l_scale_configs[qmc5883l_scale_config_idx].scale;
-  sensor_data->mag_x = mag_x_raw * scale_factor;
-  sensor_data->mag_y = mag_y_raw * scale_factor;
-  sensor_data->mag_z = mag_z_raw * scale_factor;
-
-  /* Calculate the heading (yaw) from the X and Y magnetic field components */
-  float heading = atan2(sensor_data->mag_y, sensor_data->mag_x) * 180.0 / M_PI;
-  if (heading < 0) {
-    heading += 360.0; /* Normalize heading to the range [0, 360] degrees */
-  }
-
-  /* Save the heading into the sensor data structure */
-  sensor_data->heading = heading;
-
-  /* Log the magnetic field values and the calculated heading */
-  ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
-      sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, sensor_data->heading);
-
-  /* Release the mutex after accessing the shared data */
-  xSemaphoreGive(sensor_data->sensor_mutex);
+//  uint8_t mag_data[6];
+//  esp_err_t ret = priv_i2c_read_bytes(mag_data, 6, qmc5883l_i2c_bus, 
+//                                      qmc5883l_i2c_address, qmc5883l_tag);
+//  if (ret != ESP_OK) {
+//    ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
+//    xSemaphoreGive(sensor_data->sensor_mutex);
+//    return;
+//  }
+//
+//  /* Combine high and low bytes to form the raw X, Y, Z values */
+//  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]);
+//  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]);
+//  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]);
+//
+//  /* Convert the raw data to meaningful values using scaling factors */
+//  float scale_factor = qmc5883l_scale_configs[qmc5883l_scale_config_idx].scale;
+//  sensor_data->mag_x = mag_x_raw * scale_factor;
+//  sensor_data->mag_y = mag_y_raw * scale_factor;
+//  sensor_data->mag_z = mag_z_raw * scale_factor;
+//
+//  /* Calculate the heading (yaw) from the X and Y magnetic field components */
+//  float heading = atan2(sensor_data->mag_y, sensor_data->mag_x) * 180.0 / M_PI;
+//  if (heading < 0) {
+//    heading += 360.0; /* Normalize heading to the range [0, 360] degrees */
+//  }
+//
+//  /* Save the heading into the sensor data structure */
+//  sensor_data->heading = heading;
+//
+//  /* Log the magnetic field values and the calculated heading */
+//  ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
+//      sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, sensor_data->heading);
+//
+//  /* Release the mutex after accessing the shared data */
+//  xSemaphoreGive(sensor_data->sensor_mutex);
 }
 
 void qmc5883l_tasks(void *sensor_data)
 {
-  qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
-  qmc5883l_read(qmc5883l_data);
-  vTaskDelay(qmc5883l_polling_rate_ticks);
+  while (1) {
+    qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
+    qmc5883l_read(qmc5883l_data);
+    vTaskDelay(qmc5883l_polling_rate_ticks);
+  }
 }
 

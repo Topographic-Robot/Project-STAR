@@ -65,6 +65,7 @@
 /* Constants ******************************************************************/
 
 extern const uint8_t  bh1750_i2c_address;        /**< I2C address for BH1750 */
+extern const uint8_t  bh1750_i2c_bus;            /**< I2C bus which the ESP32 uses */
 extern const char    *bh1750_tag;                /**< Tag for logs */
 extern const uint8_t  bh1750_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
 extern const uint8_t  bh1750_sda_io;             /**< GPIO pin for I2C Serial Data Line */
@@ -128,6 +129,7 @@ typedef enum : uint8_t {
  * thread-safe access when the sensor data is being read or updated.
  */
 typedef struct {
+  uint8_t           i2c_address;  /**< I2C address used for communication */
   uint8_t           i2c_bus;      /**< I2C bus number used for communication. */
   float             lux;          /**< Measured light intensity in lux. */
   uint8_t           state;        /**< Sensor state, set in `bh1750_states_t` enum. */

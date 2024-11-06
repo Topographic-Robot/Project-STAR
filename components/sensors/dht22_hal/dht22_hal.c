@@ -277,6 +277,11 @@ void dht22_read(dht22_data_t *sensor_data)
     return;
   }
 
+  if (sensor_data->sensor_mutex == NULL) {
+    ESP_LOGE(dht22_tag, "Sensor data pointer's mutex is NULL");
+    return;
+  }
+
   /* Try to take the mutex to ensure exclusive access to the sensor */
   if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * dht22_polling_rate_ticks) != pdTRUE) {
     ESP_LOGE(dht22_tag, "Failed to acquire mutex to access sensor");
@@ -308,8 +313,9 @@ void dht22_read(dht22_data_t *sensor_data)
 
 void dht22_tasks(void *sensor_data) 
 {
-  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  dht22_read(dht22_data);
-
-  vTaskDelay(dht22_polling_rate_ticks);
+  while (1) {
+    dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
+    dht22_read(dht22_data);
+    vTaskDelay(dht22_polling_rate_ticks);
+  }
 }

@@ -1,4 +1,5 @@
 #include "system_tasks.h"
+#include "sensor_tasks.h"
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -11,7 +12,6 @@ const char *system_tag = "Topographic-Robot";
 /* Globals (Static) ***********************************************************/
 
 static sensor_data_t     s_sensor_data;
-static controller_data_t s_controller_data;
 
 /* Private (Static) Functions *************************************************/
 
@@ -55,25 +55,12 @@ void system_tasks_init(void)
   sensors_comm_init(&s_sensor_data);
 
   /* Initialize the motors (controllers) */
-  motor_comm_init(&s_controller_data);
+  //motor_comm_init(&s_controller_data);
 }
 
 void system_tasks_start(void)
 {
-  /* 1. Start Wi-Fi handling task pinned to Core 0 */
-  xTaskCreatePinnedToCore(wifi_tasks, "wifi_tasks", 4096, NULL, 5, NULL, 0);
-
-  /* 2. Start motor monitoring task pinned to Core 1 */
-  xTaskCreatePinnedToCore(motor_tasks, "motor_tasks", 2048, NULL, 5, NULL, 1);
-
-  /* 3. Start sensor data collection task pinned to Core 1 */
-  xTaskCreatePinnedToCore(sensor_tasks, "sensor_tasks", 2048, 
-      (void *)(&s_sensor_data), 5, NULL, 1);
-
-  /* 4. Start webserver video relay task pinned to Core 1 */
-  xTaskCreatePinnedToCore(webserver_tasks, "webserver_tasks", 2048, NULL, 5, NULL, 1);
-
-  vTaskStartScheduler(); /* Start the Task Scheduler */
+  sensor_tasks(&s_sensor_data);
 
   ESP_LOGI(system_tag, "System tasks started");
 }
