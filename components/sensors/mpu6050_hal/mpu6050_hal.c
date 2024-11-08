@@ -61,17 +61,20 @@ static const uint8_t mpu6050_accel_config_idx = 1; /* Index of chosen values fro
 
 /* Public Functions ***********************************************************/
 
-esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
+esp_err_t mpu6050_init(void *sensor_data, bool first_time)
 {
+  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+  ESP_LOGI(mpu6050_tag, "Starting Configuration");
+
   if (first_time) {
-    sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
+    mpu6050_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
   }
 
-  sensor_data->i2c_address = mpu6050_i2c_address;
-  sensor_data->i2c_bus     = mpu6050_i2c_bus;
-  sensor_data->gyro_x      = sensor_data->gyro_y  = sensor_data->gyro_z  = -1.0;
-  sensor_data->accel_x     = sensor_data->accel_y = sensor_data->accel_z = -1.0;
-  sensor_data->state       = k_mpu6050_uninitialized; /* Start in uninitialized state */
+  mpu6050_data->i2c_address = mpu6050_i2c_address;
+  mpu6050_data->i2c_bus     = mpu6050_i2c_bus;
+  mpu6050_data->gyro_x      = mpu6050_data->gyro_y  = mpu6050_data->gyro_z  = -1.0;
+  mpu6050_data->accel_x     = mpu6050_data->accel_y = mpu6050_data->accel_z = -1.0;
+  mpu6050_data->state       = k_mpu6050_uninitialized; /* Start in uninitialized state */
 
   esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io, 
                                 mpu6050_i2c_freq_hz, mpu6050_i2c_bus,
@@ -86,7 +89,7 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
                             mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 power on failed");
-    sensor_data->state = k_mpu6050_power_on_error;
+    mpu6050_data->state = k_mpu6050_power_on_error;
     return ret;
   }
 
@@ -98,7 +101,7 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
                             mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "MPU6050 reset failed");
-    sensor_data->state = k_mpu6050_reset_error;
+    mpu6050_data->state = k_mpu6050_reset_error;
     return ret;
   }
 
@@ -190,15 +193,16 @@ esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time)
     return ret;
   }
 
-  if (sensor_data->sensor_mutex == NULL) {
-    sensor_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (sensor_data->sensor_mutex == NULL) {
+  if (mpu6050_data->sensor_mutex == NULL) {
+    mpu6050_data->sensor_mutex = xSemaphoreCreateMutex();
+    if (mpu6050_data->sensor_mutex == NULL) {
       ESP_LOGE(mpu6050_tag, "ESP32 ran out of memory");
       return ESP_ERR_NO_MEM;
     }
   }
 
-  sensor_data->state = k_mpu6050_ready; /* Sensor is initialized */
+  mpu6050_data->state = k_mpu6050_ready; /* Sensor is initialized */
+  ESP_LOGI(mpu6050_tag, "Sensor Configuration Complete");
   return ESP_OK;
 }
 

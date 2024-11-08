@@ -1,6 +1,53 @@
 #ifndef TOPOROBO_PCA9685_HAL_H
 #define TOPOROBO_PCA9685_HAL_H
 
+/* PCA9685 16-Channel 12-Bit PWM Driver IC */
+/* Communicates over I2C protocol with configurable address range from 0x40 to 0x7F */
+
+/*******************************************************************************
+ *
+ *     +-----------------------+
+ *     |       PCA9685         |
+ *     |-----------------------|
+ *     | VCC    | 3.3V to 5V   |----------> VCC
+ *     | GND    | Ground       |----------> GND
+ *     | SCL    | I2C Clock    |----------> GPIO_NUM_22 (100,000Hz)
+ *     | SDA    | I2C Data     |----------> GPIO_NUM_21 (100,000Hz)
+ *     | OE     | Output Enable|----------> GND (optional, enables PWM output)
+ *     | A0-A5  | Address Pins |----------> Floating or GND/VCC to set address
+ *     | V+     | Servo Power  |----------> External Power (e.g., 5-6V for servos)
+ *     +-----------------------+
+ *
+ *     Block Diagram for Wiring
+ *
+ *     +----------------------------------------------------+
+ *     |                      PCA9685                       |
+ *     |                                                    |
+ *     |   +----------------+     +---------------------+   |
+ *     |   | PWM Channels   |---->| PWM Control Logic   |   |
+ *     |   | (16 Channels)  |     |                     |   |
+ *     |   +----------------+     +---------------------+   |
+ *     |                                                    |
+ *     |   +------------------+    +--------------------+   |
+ *     |   | Oscillator       |--->| Frequency Control  |   |
+ *     |   | Circuit          |    | Unit               |   |
+ *     |   +------------------+    +--------------------+   |
+ *     |                                                    |
+ *     |   +---------------------+                          |
+ *     |   | I2C Interface       |<-------------------------|
+ *     |   | (SDA, SCL, Address) |                          |
+ *     |   +---------------------+                          |
+ *     |                                                    |
+ *     |   +---------------------+                          |
+ *     |   | Power Supply Unit   |                          |
+ *     |   | (PSU)               |                          |
+ *     |   +---------------------+                          |
+ *     +----------------------------------------------------+
+ *
+ *     Internal Structure
+ *
+ ******************************************************************************/
+
 #include <stdint.h>
 #include <esp_err.h>
 

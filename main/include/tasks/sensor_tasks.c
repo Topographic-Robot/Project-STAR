@@ -1,48 +1,72 @@
-/* Initialization and Reading of Sensors through Tasks */
+/* Initialization  and Reading of Sensors through Tasks */
 
 #include "sensor_tasks.h"
+#include "portmacro.h"
 #include "system_tasks.h"
 #include <driver/gpio.h>
 #include <esp_log.h>
 
+/* Globals (Static) ***********************************************************/
+
+/* TODO: 
+ * when testing, i found out multiple sensors at the same time created issues.
+ * like when bh1750 was enabled everythnig was good, but once i also enabled
+ * qmc5583l they both failed. i suspect that the i2c config doesnt do |= but =
+ *
+ * also with multiple sensors, the mutex appear to be NULL?
+ */
+static sensor_config_t sensors[] = {
+  { "BH1750",     bh1750_init,     bh1750_tasks,     true }, /* confirmed to work */
+  { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   false },  /* pretty sure doesnt work */
+  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    false },
+  { "DHT22",      dht22_init,      dht22_tasks,      false },
+  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, false }, /* I think this creates a stack overflow */
+};
+
 /* Public Functions ***********************************************************/
 
-void sensors_comm_init(sensor_data_t *sensor_data)
-{
-  /* Initialize I2C/UART communication with each sensor */
+esp_err_t sensors_comm_init(sensor_data_t *sensor_data) {
+  esp_err_t status         = ESP_OK;
+  esp_err_t overall_status = ESP_OK;
 
-  /* Initialize BH1750 */
-  bh1750_init(&(sensor_data->bh1750_data), true);
+  for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
+    if (sensors[i].enabled) {
+      ESP_LOGI(system_tag, "Initializing sensor: %s", sensors[i].sensor_name);
+      status = sensors[i].init_function(sensor_data, true);
 
-  /* Initialize DHT22 */
-  //dht22_init(&(sensor_data->dht22_data), true);
+      if (status == ESP_OK) {
+        ESP_LOGI(system_tag, "Sensor %s initialized successfully", 
+                 sensors[i].sensor_name);
+      } else {
+        ESP_LOGE(system_tag, "Sensor %s initialization failed with error: %d", 
+                 sensors[i].sensor_name, status);
+        overall_status = ESP_FAIL;
+      }
+    } else {
+      ESP_LOGI(system_tag, "Sensor %s is disabled", sensors[i].sensor_name);
+    }
+  }
 
-  /* Initialize MPU6050 */
-  //mpu6050_init(&(sensor_data->mpu6050_data), true);
-
-  /* Initialize QMC5883L */
-  qmc5883l_init(&(sensor_data->qmc5883l_data), true);
-  
-  /* Initialize GY-NEO6MV2 */
-  //gy_neo6mv2_init(&(sensor_data->gy_neo6mv2_data), true);
+  return overall_status; /* Return ESP_OK only if all sensors initialized successfully */
 }
 
-void sensor_tasks(sensor_data_t *sensor_data)
-{
-  /* 1. Record data from BH1750 */
-  xTaskCreate(bh1750_tasks, "bh1750_tasks", 2048, &(sensor_data->bh1750_data), 5, NULL);
+esp_err_t sensor_tasks(sensor_data_t *sensor_data) {
+  esp_err_t overall_status = ESP_OK;
 
-  /* 2. Record data from DHT22 */
-  //xTaskCreate(dht22_tasks, "dht22_tasks", 2048, &(sensor_data->dht22_data), 5, NULL);
+  for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
+    if (sensors[i].enabled) {
+      ESP_LOGI(system_tag, "Creating task for sensor: %s", sensors[i].sensor_name);
+      BaseType_t ret = xTaskCreate(sensors[i].task_function, sensors[i].sensor_name, 
+                                   2048, sensor_data, 5, NULL);
+      if (ret!= pdPASS) {
+        ESP_LOGE(system_tag, "Task creation failed for sensor: %s", 
+                 sensors[i].sensor_name);
+        overall_status = ESP_FAIL;
+      }
+    } else {
+      ESP_LOGI(system_tag, "Task for sensor %s is disabled", sensors[i].sensor_name);
+    }
+  }
 
-  /* 3. Record data from MPU6050 */
-  //xTaskCreate(mpu6050_tasks, "mpu6050_tasks", 2048, &(sensor_data->mpu6050_data), 5, NULL);
-
-  /* 4. Record data from QMC5883L */
-  xTaskCreate(qmc5883l_tasks, "qmc5883l_tasks", 2048, &(sensor_data->qmc5883l_data), 5, NULL);
-
-  /* 5. Record data from GY-NEO6MV2 */
-  //xTaskCreate(gy_neo6mv2_tasks, "gy_neo6mv2_tasks", 2048, &(sensor_data->gy_neo6mv2_data), 5, NULL);
-
-  ESP_LOGI(system_tag, "Sensor tasks started");
+  return overall_status; /* Return ESP_OK only if all tasks start successfully */
 }

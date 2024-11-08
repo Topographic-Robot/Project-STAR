@@ -18,49 +18,98 @@ static sensor_data_t s_sensor_data;
 /**
  * @brief Clears and initializes the ESP32's Non-Volatile Storage (NVS) flash.
  * 
- * This function attempts to initialize the NVS flash. If no free pages are found 
+ * Attempts to initialize the NVS flash. If no free pages are found 
  * or a new version of NVS is detected, it erases the flash and reinitializes it.
  * 
- * @note This function will log an error and terminate the program if NVS 
- * initialization fails.
+ * @return ESP_OK if successful; otherwise, returns an error code.
  */
-static void priv_clear_nvs_flash(void) 
+static esp_err_t priv_clear_nvs_flash(void) 
 {
-  /* Attempt to initialize NVS (Non-Volatile Storage) */
   esp_err_t ret = nvs_flash_init();
 
-  /* If NVS flash has no free pages or a new version is found, erase and reinitialize */
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    /* Erase NVS flash if initialization failed due to no free pages or version mismatch */
+    ESP_LOGW(system_tag, "Erasing NVS flash due to error: %s", esp_err_to_name(ret));
     ESP_ERROR_CHECK(nvs_flash_erase());
-    /* Reinitialize NVS flash after erasing */
     ret = nvs_flash_init();
   }
 
-  /* Ensure NVS initialization was successful; terminate if an error occurs */
-  ESP_ERROR_CHECK(ret);
+  if (ret != ESP_OK) {
+    ESP_LOGE(system_tag, "Failed to initialize NVS: %s", esp_err_to_name(ret));
+  }
 
-  /* Log the successful initialization of NVS flash */
-  ESP_LOGI(system_tag, "ESP32 NVS flash cleared and initialized");
+  return ret;
 }
 
 /* Public Functions ***********************************************************/
 
-void system_tasks_init(void)
+esp_err_t system_tasks_init(void)
 {
-  /* Initialize the system, clear the nvs flash */
-  priv_clear_nvs_flash();
+  /* Initialize NVS storage */
+  if (priv_clear_nvs_flash() != ESP_OK) {
+    return ESP_FAIL;
+  }
 
-  /* Initialize the sensors */
-  sensors_comm_init(&s_sensor_data);
+  /* Initialize sensor communication */
+  if (sensors_comm_init(&s_sensor_data) != ESP_OK) {
+    ESP_LOGE(system_tag, "Sensor communication initialization failed.");
+    return ESP_FAIL;
+  }
 
-  /* Initialize the motors (controllers) */
-  //motor_comm_init(&s_controller_data);
+  /* Initialize motor controllers */
+  /* if (motor_comm_init() != ESP_OK) {
+       ESP_LOGE(system_tag, "Motor controller initialization failed.");
+       return ESP_FAIL;
+     }
+  */
+
+  /* Initialize storage (e.g., SD card or SPIFFS) */
+  /* if (storage_init() != ESP_OK) {
+       ESP_LOGE(system_tag, "Storage initialization failed.");
+       return ESP_FAIL;
+     }
+  */
+
+  /* Initialize web server */
+  /* if (web_server_init() != ESP_OK) {
+       ESP_LOGE(system_tag, "Web server initialization failed.");
+       return ESP_FAIL;
+     }
+  */
+
+  ESP_LOGI(system_tag, "All system components initialized successfully.");
+  return ESP_OK;
 }
 
-void system_tasks_start(void)
+esp_err_t system_tasks_start(void)
 {
-  sensor_tasks(&s_sensor_data);
+  /* Start sensor tasks */
+  if (sensor_tasks(&s_sensor_data) != ESP_OK) {
+    ESP_LOGE(system_tag, "Sensor tasks start failed.");
+    return ESP_FAIL;
+  }
 
-  ESP_LOGI(system_tag, "System tasks started");
+  /* Start motor control tasks */
+  /* if (motor_tasks_start() != ESP_OK) {
+       ESP_LOGE(system_tag, "Motor tasks start failed.");
+       return ESP_FAIL;
+     }
+  */
+
+  /* Start storage tasks, if applicable */
+  /* if (storage_tasks_start() != ESP_OK) {
+       ESP_LOGE(system_tag, "Storage tasks start failed.");
+       return ESP_FAIL;
+     }
+  */
+
+  /* Start web server tasks */
+  /* if (web_server_tasks_start() != ESP_OK) {
+       ESP_LOGE(system_tag, "Web server tasks start failed.");
+       return ESP_FAIL;
+     }
+  */
+
+  ESP_LOGI(system_tag, "System tasks started successfully.");
+  return ESP_OK;
 }
+

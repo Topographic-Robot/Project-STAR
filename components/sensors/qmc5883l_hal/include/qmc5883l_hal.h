@@ -6,26 +6,15 @@
 
 /*******************************************************************************
  *
- *     +----------------------------------------+
- *     |                QMC5883L                |
- *     |                                        |
- *     |   +----------------------------------+ |
- *     |   |                                  | |
- *     |   |   +--------------------------+   | |
- *     |   |   |        +-----------------+   | |
- *     |   |   | VCC    | 3.3V or 5V      |----------->| VCC
- *     |   |   +--------------------------+   | |
- *     |   |   | GND    | Ground          |----------->| GND
- *     |   |   +--------------------------+   | |
- *     |   |   | SCL    | I2C Clock       |----------->| GPIO_NUM_22 (100,000Hz)
- *     |   |   +--------------------------+   | |
- *     |   |   | SDA    | I2C Data        |----------->| GPIO_NUM_21 (100,000Hz)
- *     |   |   +--------------------------+   | |
- *     |   |   | DRDY   | Data Ready Pin  |----------->| Floating (optional)
- *     |   |   +--------------------------+   | |
- *     |   |                                  | |
- *     |   +----------------------------------+ |
- *     +----------------------------------------+
+ *     +-----------------------+
+ *     |       QMC5883L        |
+ *     |-----------------------|
+ *     | VCC  | 3.3V or 5V     |----------> VCC
+ *     | GND  | Ground         |----------> GND
+ *     | SCL  | I2C Clock      |----------> GPIO_NUM_22 (100,000Hz)
+ *     | SDA  | I2C Data       |----------> GPIO_NUM_21 (100,000Hz)
+ *     | DRDY | Data Ready Pin |----------> Floating (optional)
+ *     +-----------------------+
  *
  *     Block Diagram for Wiring
  *
@@ -111,6 +100,21 @@ typedef enum : uint8_t {
   k_qmc5883l_osr_64          = 0xC0  /**< Over-sampling ratio: 64 */
 } qmc5883l_commands_t;
 
+/**
+ * @enum qmc5883l_states_t
+ * @brief Enum to represent the state of the BH1750 sensor.
+ *
+ * This enum defines the possible states for the BH1750 sensor.
+ */
+typedef enum : uint8_t {
+  k_qmc5883l_ready              = 0x00, /**< Sensor is ready to read data. */
+  k_qmc5883l_data_updated       = 0x01, /**< Sensor data has been updated. */
+  k_qmc5883l_uninitialized      = 0x10, /**< Sensor is not initialized. */
+  k_qmc5883l_error              = 0xF0, /**< A general catch all error */
+  k_qmc5883l_power_on_error     = 0xA1, /**< An error occurred during power on. */
+  k_qmc5883l_reset_error        = 0xA2, /**< An error occurred during reset. */
+} qmc5883l_states_t;
+
 /* Structs ********************************************************************/
 
 /**
@@ -168,7 +172,7 @@ typedef struct {
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
  */
-esp_err_t qmc5883l_init(qmc5883l_data_t *sensor_data, bool first_time);
+esp_err_t qmc5883l_init(void *sensor_data, bool first_time);
 
 /**
  * @brief Reads magnetic field data from the QMC5883L sensor.

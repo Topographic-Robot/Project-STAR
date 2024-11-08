@@ -6,28 +6,18 @@
 
 /*******************************************************************************
  *
- *     +----------------------------------------+
- *     |                MPU6050                 |
- *     |                                        |
- *     |   +----------------------------------+ |
- *     |   |                                  | |
- *     |   |   +--------------------------+   | |
- *     |   |   |        +-----------------+   | |
- *     |   |   | VCC    | 3.3V or 5V      |----------->| VCC
- *     |   |   +--------------------------+   | |
- *     |   |   | GND    | Ground          |----------->| GND
- *     |   |   +--------------------------+   | |
- *     |   |   | SDA    | I2C Data         |---------->| GPIO_NUM_21 (100,000Hz)
- *     |   |   +--------------------------+   | |
- *     |   |   | SCL    | I2C Clock        |---------->| GPIO_NUM_22 (100,000Hz)
- *     |   |   +--------------------------+   | |
- *     |   |   | AD0    | I2C Address Pin  |---------->| GND (or VCC for 0x69)
- *     |   |   +--------------------------+   | |
- *     |   |   | INT    | Interrupt Pin    |---------->| Floating (optional)
- *     |   |   +--------------------------+   | |
- *     |   |                                  | |
- *     |   +----------------------------------+ |
- *     +----------------------------------------+
+ *     +-----------------------+
+ *     |       MPU6050         |
+ *     |-----------------------|
+ *     | VCC  | 3.3V or 5V     |----------> VCC
+ *     | GND  | Ground         |----------> GND
+ *     | SDA  | I2C Data       |----------> GPIO_NUM_21 (100,000Hz)
+ *     | SCL  | I2C Clock      |----------> GPIO_NUM_22 (100,000Hz)
+ *     | XDA  | Aux I2C Data   |----------> Floating (leave unconnected if unused)
+ *     | XCL  | Aux I2C Clock  |----------> Floating (leave unconnected if unused)
+ *     | ADD  | I2C Address Pin|----------> GND (or VCC for 0x69 address)
+ *     | INT  | Interrupt Pin  |----------> Floating (optional)
+ *     +-----------------------+
  *
  *     Block Diagram for Wiring
  *
@@ -269,7 +259,7 @@ typedef struct {
  *     - Accelerometer Full Scale: ±4g, allowing for a moderate range of linear 
  *       acceleration without losing precision during regular motion.
  */
-esp_err_t mpu6050_init(mpu6050_data_t *sensor_data, bool first_time);
+esp_err_t mpu6050_init(void *sensor_data, bool first_time);
 
 /**
  * @brief Reads acceleration and gyroscope data from the MPU6050 sensor.

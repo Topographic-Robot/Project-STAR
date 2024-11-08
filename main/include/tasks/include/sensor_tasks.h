@@ -2,6 +2,7 @@
 #define TOPOROBO_SENSOR_TASKS_H
 
 #include "sensor_hal.h"
+#include <esp_err.h>
 
 /* Structs ********************************************************************/
 
@@ -30,6 +31,20 @@ typedef struct {
   gy_neo6mv2_data_t gy_neo6mv2_data; /**< GY-NEO6MV2 GPS data */
 } sensor_data_t;
 
+/**
+ * @brief Structure to hold configuration for each sensor.
+ *
+ * This structure contains information about each sensor, including its name, 
+ * initialization and task functions, and an enabled flag to indicate whether 
+ * the sensor should be active in the system.
+ */
+typedef struct {
+  const char *sensor_name;                   /**< Name of the sensor for identification in logs. */
+  esp_err_t  (*init_function)(void *, bool); /**< Function pointer to initialize the sensor. */
+  void       (*task_function)(void *);       /**< Function pointer to the sensor's data recording task. */
+  bool       enabled;                        /**< Flag to indicate if the sensor is enabled (true) or disabled (false). */
+} sensor_config_t;
+
 /* Public Functions ***********************************************************/
 
 /**
@@ -46,8 +61,9 @@ typedef struct {
  * for each sensor type and ensure correct initialization.
  *
  * @param[out] sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
+ * @return ESP_OK if all sensors initialize successfully; ESP_FAIL if any sensor fails.
  */
-void sensors_comm_init(sensor_data_t *sensor_data);
+esp_err_t sensors_comm_init(sensor_data_t *sensor_data);
 
 /**
  * @brief Records sensor data and stores it in a given variable.
@@ -74,7 +90,9 @@ void sensors_comm_init(sensor_data_t *sensor_data);
  * - GY-NEO6MV2 (GPS)
  * 
  * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
+ * @return ESP_OK if all sensor tasks start successfully; ESP_FAIL if any task fails.
  */
-void sensor_tasks(sensor_data_t *sensor_data);
+esp_err_t sensor_tasks(sensor_data_t *sensor_data);
 
 #endif /* TOPOROBO_SENSOR_TASKS_H */
+

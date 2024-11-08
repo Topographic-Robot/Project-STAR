@@ -226,20 +226,23 @@ static esp_err_t priv_dht22_read_data(dht22_data_t *sensor_data)
 
 /* Public Functions ************************************************************/
 
-esp_err_t dht22_init(dht22_data_t *sensor_data, bool first_time) 
+esp_err_t dht22_init(void *sensor_data, bool first_time) 
 {
+  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
+  ESP_LOGI(dht22_tag, "Starting Configuration");
+
   /* Initialize the struct, but not the semaphore until the state is 0x00.
    * This is to prevent memory allocation that might not be used. If we call
    * this function and it creates a new mutex very time then that is very bad.
    */
   if (first_time) {
-    sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
+    dht22_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
   }
 
-  sensor_data->humidity      = -1.0;
-  sensor_data->temperature_f = -1.0;
-  sensor_data->temperature_c = -1.0;
-  sensor_data->state         = k_dht22_uninitialized; /* start uninitialized */
+  dht22_data->humidity      = -1.0;
+  dht22_data->temperature_f = -1.0;
+  dht22_data->temperature_c = -1.0;
+  dht22_data->state         = k_dht22_uninitialized; /* start uninitialized */
 
   esp_err_t ret = priv_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
@@ -255,17 +258,18 @@ esp_err_t dht22_init(dht22_data_t *sensor_data, bool first_time)
    * - Keeping the line high ensures proper communication between the sensor and MCU. */
   gpio_set_level(dht22_data_io, 1);
 
-  if (sensor_data->sensor_mutex == NULL) {
-    sensor_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (sensor_data->sensor_mutex == NULL) {
+  if (dht22_data->sensor_mutex == NULL) {
+    dht22_data->sensor_mutex = xSemaphoreCreateMutex();
+    if (dht22_data->sensor_mutex == NULL) {
       ESP_LOGE(dht22_tag, "Failed to create sensor mutex");
 
-      sensor_data->state = k_dht22_error;
+      dht22_data->state = k_dht22_error;
       return ESP_ERR_NO_MEM;
     }
   }
 
-  sensor_data->state = k_dht22_ready;
+  dht22_data->state = k_dht22_ready;
+  ESP_LOGI(dht22_tag, "Sensor Configuration Complete");
   return ESP_OK;
 }
 

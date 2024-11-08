@@ -14,19 +14,22 @@ const uint32_t bh1750_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 
 /* Public Functions ***********************************************************/
 
-esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
+esp_err_t bh1750_init(void *sensor_data, bool first_time)
 {
+  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  ESP_LOGI(bh1750_tag, "Starting Configuration");
+
   /* Initialize the struct, but not the semaphore until the state is 0x00.
    * This is to prevent memory allocation that might not be used. If we call
    * this function and it creates a new mutex very time then that is very bad.
    */
   if (first_time) {
-    sensor_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
+    bh1750_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
   }
-  sensor_data->i2c_address = bh1750_i2c_address;     /* Set the I2C address */
-  sensor_data->i2c_bus     = bh1750_i2c_bus;         /* Set the I2C bus */
-  sensor_data->lux         = -1.0;                   /* Start with an invalid value since it hasn't been read yet */
-  sensor_data->state       = k_bh1750_uninitialized; /* Start in uninitialized */
+  bh1750_data->i2c_address = bh1750_i2c_address;     /* Set the I2C address */
+  bh1750_data->i2c_bus     = bh1750_i2c_bus;         /* Set the I2C bus */
+  bh1750_data->lux         = -1.0;                   /* Start with an invalid value since it hasn't been read yet */
+  bh1750_data->state       = k_bh1750_uninitialized; /* Start in uninitialized */
 
   /* Initialize the I2C bus with specified SCL, SDA pins, frequency, and bus number */
   esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_i2c_freq_hz, 
@@ -46,7 +49,7 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
     ESP_LOGE(bh1750_tag, "BH1750 power on failed");
 
     /* Update state */
-    sensor_data->state = k_bh1750_power_on_error;
+    bh1750_data->state = k_bh1750_power_on_error;
 
     return ret; /* Return the error code if power on fails */
   }
@@ -66,15 +69,15 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
                               bh1750_i2c_address, bh1750_tag);
     if (ret != ESP_OK) {
       /* Set and return the error */
-      sensor_data->state = k_bh1750_power_cycle_error;
+      bh1750_data->state = k_bh1750_power_cycle_error;
       return ret;
     } else {
       /* Call this function again to turn it back on */
-      bh1750_init(sensor_data, false);
+      bh1750_init(bh1750_data, false);
     }
 
     /* Update the state */
-    sensor_data->state = k_bh1750_reset_error;
+    bh1750_data->state = k_bh1750_reset_error;
 
     return ret; /* Return the error code if reset fails */
   }
@@ -90,7 +93,7 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
     ESP_LOGE(bh1750_tag, "BH1750 setting resolution mode failed");
 
     /* Update the state */
-    sensor_data->state = k_bh1750_cont_low_res_error;
+    bh1750_data->state = k_bh1750_cont_low_res_error;
 
     return ret; /* Return the error code if setting the mode fails */
   }
@@ -100,18 +103,19 @@ esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time)
 
   /* At this point no errors happened and the sensor is Initialized */
   /* Verify that this sensor didnt already have its mutex set */
-  if (sensor_data->sensor_mutex == NULL) {
+  if (bh1750_data->sensor_mutex == NULL) {
     /* Now we set the mutex value only once */
-    sensor_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (sensor_data->sensor_mutex == NULL) {
+    bh1750_data->sensor_mutex = xSemaphoreCreateMutex();
+    if (bh1750_data->sensor_mutex == NULL) {
       ESP_LOGE(bh1750_tag, "ESP32 ran out of memory");
 
-      sensor_data->state = k_bh1750_error;
+      bh1750_data->state = k_bh1750_error;
       return ESP_ERR_NO_MEM;
     }
   }
 
-  sensor_data->state = k_bh1750_ready; /* it is initialized */
+  bh1750_data->state = k_bh1750_ready; /* it is initialized */
+  ESP_LOGI(bh1750_tag, "Sensor Configuration Complete");
   return ESP_OK;
 }
 

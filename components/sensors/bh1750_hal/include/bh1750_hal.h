@@ -6,26 +6,15 @@
 
 /*******************************************************************************
  *
- *    +----------------------------------------+
- *    |                BH1750                  |
- *    |                                        |
- *    |   +---------------------------------+  |
- *    |   |                                 |  |
- *    |   |   +-----------------------------+  |
- *    |   |   |        +--------------------+  |
- *    |   |   | VCC    |  2.4V to 3.6V      |--------->| VCC
- *    |   |   +-----------------------------+  |
- *    |   |   | GND    | Ground             |--------->| GND
- *    |   |   +-----------------------------+  |
- *    |   |   | SCL    | Serial Clock       |--------->| GPIO_NUM_22 (100,000Hz)
- *    |   |   +-----------------------------+  |
- *    |   |   | SDA    | Serial Data        |--------->| GPIO_NUM_21 (100,000Hz)
- *    |   |   +-----------------------------+  |
- *    |   |   | ADDR   | I2C Address Select |--------->| GND
- *    |   |   +-----------------------------+  |
- *    |   |                                 |  |
- *    |   +---------------------------------+  |
- *    +----------------------------------------+
+ *    +-----------------------+
+ *    |        BH1750         |
+ *    |-----------------------|
+ *    | VCC  | 2.4V to 3.6V   |----------> VCC
+ *    | GND  | Ground         |----------> GND
+ *    | SCL  | Serial Clock   |----------> GPIO_NUM_22 (100,000Hz)
+ *    | SDA  | Serial Data    |----------> GPIO_NUM_21 (100,000Hz)
+ *    | ADDR | I2C Address    |----------> GND
+ *    +-----------------------+
  *    
  *    Block Diagram for wiring
  *    
@@ -167,7 +156,7 @@ typedef struct {
  *   - Delays are introduced after power on, reset, and resolution
  *     mode settings to ensure proper sensor initialization. 
  */
-esp_err_t bh1750_init(bh1750_data_t *sensor_data, bool first_time);
+esp_err_t bh1750_init(void *sensor_data, bool first_time);
 
 /**
  * @brief Reads light intensity data from the BH1750 sensor.

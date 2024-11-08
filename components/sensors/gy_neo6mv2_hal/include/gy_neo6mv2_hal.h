@@ -6,24 +6,14 @@
 
 /*******************************************************************************
  *
- *     +----------------------------------------+
- *     |              GY-NEO6MV2                |
- *     |                                        |
- *     |   +----------------------------------+ |
- *     |   |                                  | |
- *     |   |   +--------------------------+   | |
- *     |   |   |        +-----------------+   | |
- *     |   |   | VCC    | 3.3V or 5V      |----------->| VCC
- *     |   |   +--------------------------+   | |
- *     |   |   | GND    | Ground          |----------->| GND
- *     |   |   +--------------------------+   | |
- *     |   |   | TXD    | UART TX         |----------->| GPIO_NUM_17
- *     |   |   +--------------------------+   | |
- *     |   |   | RXD    | UART RX         |----------->| GPIO_NUM_16
- *     |   |   +--------------------------+   | |
- *     |   |                                  | |
- *     |   +----------------------------------+ |
- *     +----------------------------------------+
+ *     +-----------------------+
+ *     |      GY-NEO6MV2       |
+ *     |-----------------------|
+ *     | VCC  | 3.3V or 5V     |----------> VCC
+ *     | GND  | Ground         |----------> GND
+ *     | TXD  | UART TX        |----------> GPIO_NUM_17
+ *     | RXD  | UART RX        |----------> GPIO_NUM_16
+ *     +-----------------------+
  *
  *     Block Diagram for Wiring
  *
@@ -95,7 +85,7 @@ typedef struct {
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
  */
-esp_err_t gy_neo6mv2_init(gy_neo6mv2_data_t *sensor_data, bool first_time);
+esp_err_t gy_neo6mv2_init(void *sensor_data, bool first_time);
 
 /**
  * @brief Reads GPS data from the GY-NEO6MV2 GPS module.
