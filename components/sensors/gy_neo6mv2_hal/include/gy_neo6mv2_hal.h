@@ -68,7 +68,6 @@ typedef struct {
   float             speed;      /**< Speed in meters per second */
   char              time[11];   /**< UTC Time in HHMMSS format */
   uint8_t           fix_status; /**< GPS fix status (0: no fix, 1: 2D fix, 2: 3D fix) */
-  SemaphoreHandle_t data_mutex; /**< Mutex for protecting access to GPS data */
 } gy_neo6mv2_data_t;
 
 /* Public Functions ***********************************************************/
@@ -79,13 +78,12 @@ typedef struct {
  * This function sets up the UART connection for communication with the GPS module.
  *
  * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure that will hold the GPS data.
- * @param[in] first_time Boolean to indicate if the function is being called for the first time.
  *
  * @return
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
  */
-esp_err_t gy_neo6mv2_init(void *sensor_data, bool first_time);
+esp_err_t gy_neo6mv2_init(void *sensor_data);
 
 /**
  * @brief Reads GPS data from the GY-NEO6MV2 GPS module.

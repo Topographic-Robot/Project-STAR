@@ -138,9 +138,6 @@ typedef struct {
  * This structure holds the I2C bus number used for communication,
  * the magnetic field strength in the X, Y, and Z axes measured by the QMC5883L sensor,
  * the calculated heading (yaw), and a state flag used to track the sensor's status.
- *
- * Additionally, the structure contains a mutex (`sensor_mutex`) to ensure
- * thread-safe access when the sensor data is being read or updated.
  */
 typedef struct {
   uint8_t           i2c_address;  /**< I2C address used for communication */
@@ -150,7 +147,6 @@ typedef struct {
   float             mag_z;        /**< Measured Z-axis magnetic field in µT */
   float             heading;      /**< Calculated heading (yaw) in degrees */
   uint8_t           state;        /**< Sensor state */
-  SemaphoreHandle_t sensor_mutex; /**< Mutex for protecting access to sensor data */
 } qmc5883l_data_t;
 
 /* Public Functions ***********************************************************/
@@ -165,14 +161,11 @@ typedef struct {
  * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure that
  *   will hold the I2C bus number.
  *
- * @param[in] first_time Boolean to indicate if the function is being called for
- *            the first time.
- *
  * @return
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
  */
-esp_err_t qmc5883l_init(void *sensor_data, bool first_time);
+esp_err_t qmc5883l_init(void *sensor_data);
 
 /**
  * @brief Reads magnetic field data from the QMC5883L sensor.

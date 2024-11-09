@@ -15,5 +15,6 @@ idf_component_register(
   PRIV_REQUIRES 
     driver 
     common
+    esp_timer
 )
 

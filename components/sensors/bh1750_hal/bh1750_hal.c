@@ -1,4 +1,4 @@
-#include "bh1750_hal.h"
+#include "sensor_hal.h"
 #include "common/i2c.h"
 #include <esp_log.h>
 
@@ -14,18 +14,12 @@ const uint32_t bh1750_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 
 /* Public Functions ***********************************************************/
 
-esp_err_t bh1750_init(void *sensor_data, bool first_time)
+esp_err_t bh1750_init(void *sensor_data)
 {
-  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
+  bh1750_data_t *bh1750_data     = &all_sensor_data->bh1750_data;
   ESP_LOGI(bh1750_tag, "Starting Configuration");
 
-  /* Initialize the struct, but not the semaphore until the state is 0x00.
-   * This is to prevent memory allocation that might not be used. If we call
-   * this function and it creates a new mutex very time then that is very bad.
-   */
-  if (first_time) {
-    bh1750_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
-  }
   bh1750_data->i2c_address = bh1750_i2c_address;     /* Set the I2C address */
   bh1750_data->i2c_bus     = bh1750_i2c_bus;         /* Set the I2C bus */
   bh1750_data->lux         = -1.0;                   /* Start with an invalid value since it hasn't been read yet */
@@ -73,7 +67,7 @@ esp_err_t bh1750_init(void *sensor_data, bool first_time)
       return ret;
     } else {
       /* Call this function again to turn it back on */
-      bh1750_init(bh1750_data, false);
+      bh1750_init(bh1750_data);
     }
 
     /* Update the state */
@@ -101,19 +95,6 @@ esp_err_t bh1750_init(void *sensor_data, bool first_time)
   /* Delay for 10ms to allow the resolution mode to be set */
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
-  /* At this point no errors happened and the sensor is Initialized */
-  /* Verify that this sensor didnt already have its mutex set */
-  if (bh1750_data->sensor_mutex == NULL) {
-    /* Now we set the mutex value only once */
-    bh1750_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (bh1750_data->sensor_mutex == NULL) {
-      ESP_LOGE(bh1750_tag, "ESP32 ran out of memory");
-
-      bh1750_data->state = k_bh1750_error;
-      return ESP_ERR_NO_MEM;
-    }
-  }
-
   bh1750_data->state = k_bh1750_ready; /* it is initialized */
   ESP_LOGI(bh1750_tag, "Sensor Configuration Complete");
   return ESP_OK;
@@ -127,17 +108,6 @@ void bh1750_read(bh1750_data_t *sensor_data)
     return;
   }
 
-  if (sensor_data->sensor_mutex == NULL) {
-    ESP_LOGE(bh1750_tag, "Sensor data pointer's mutex is NULL");
-    return;
-  }
-
-  /* Try to take the semaphore before accessing shared data */
-  if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * bh1750_polling_rate_ticks) != pdTRUE) {
-    ESP_LOGW(bh1750_tag, "Failed to take sensor mutex");
-    return;
-  }
-
   /* Array to store the two bytes of data read from the BH1750 sensor */
   uint8_t data[2];
 
@@ -148,8 +118,6 @@ void bh1750_read(bh1750_data_t *sensor_data)
     sensor_data->lux   = -1.0; /* Set lux to -1.0 to indicate an error */
     sensor_data->state = k_bh1750_error;
     ESP_LOGE(bh1750_tag, "Failed to read data from BH1750");
-
-    xSemaphoreGive(sensor_data->sensor_mutex); /* Ensure the semaphore is released */
     return;
   }
 
@@ -159,9 +127,6 @@ void bh1750_read(bh1750_data_t *sensor_data)
   /* Convert the raw light intensity to lux as per the BH1750 datasheet */
   sensor_data->lux = raw_light_intensity / 1.2; /* Lux = raw value / 1.2 */
   ESP_LOGI(bh1750_tag, "The measured light intensity was %f lux", sensor_data->lux);
-
-  /* Give the semaphore back after accessing the shared data */
-  xSemaphoreGive(sensor_data->sensor_mutex);
 }
 
 void bh1750_reset_on_error(bh1750_data_t *sensor_data) 
@@ -171,7 +136,7 @@ void bh1750_reset_on_error(bh1750_data_t *sensor_data)
     ESP_LOGI(bh1750_tag, "Error detected. Attempting to reset the BH1750 sensor.");
 
     /* Attempt to initialize/reset the sensor */
-    if (bh1750_init(sensor_data, false) == ESP_OK) {
+    if (bh1750_init(sensor_data) == ESP_OK) {
       /* If successful, set the state to ready */
       sensor_data->state = k_bh1750_ready;
       ESP_LOGI(bh1750_tag, "BH1750 sensor reset successfully. State is now ready.");
@@ -185,7 +150,8 @@ void bh1750_reset_on_error(bh1750_data_t *sensor_data)
 
 void bh1750_tasks(void *sensor_data)
 {
-  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
+  bh1750_data_t *bh1750_data     = &all_sensor_data->bh1750_data;
   while (1) {
     bh1750_read(bh1750_data);
     bh1750_reset_on_error(bh1750_data);

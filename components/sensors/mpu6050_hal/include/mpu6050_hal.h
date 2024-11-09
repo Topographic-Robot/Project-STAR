@@ -202,9 +202,6 @@ typedef struct {
  *
  * These flags are set in the `mpu6050_states_t` enum, always verify
  * with the enum.
- *
- * Additionally, the structure contains a mutex (`sensor_mutex`) to ensure
- * thread-safe access when the sensor data is being read or updated.
  */
 typedef struct {
   uint8_t           i2c_address;  /**< I2C address used for communication */
@@ -217,7 +214,6 @@ typedef struct {
   float             gyro_z;       /**< Measured Z-axis gyroscope data */
   float             temperature;  /**< Measured temperature from the sensor */
   uint8_t           state;        /**< Sensor state, set in `mpu6050_states_t` */
-  SemaphoreHandle_t sensor_mutex; /**< Mutex for protecting access to sensor data */
 } mpu6050_data_t;
 
 /* Public Functions ***********************************************************/
@@ -236,12 +232,6 @@ typedef struct {
  *   will hold the I2C bus number. The `i2c_bus` member will be set during 
  *   initialization.
  *
- * @param[in] first_time Boolean to indicate if the function is being called for 
- *            the first time. It's not recommended to run it as 'first_time' multiple 
- *            times since memory allocation for a Semaphore occurs and can lead 
- *            to memory issues if run too often. Call it as 'first_time' once, 
- *            then set it to false for subsequent calls.
- *
  * @return
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
@@ -259,7 +249,7 @@ typedef struct {
  *     - Accelerometer Full Scale: ±4g, allowing for a moderate range of linear 
  *       acceleration without losing precision during regular motion.
  */
-esp_err_t mpu6050_init(void *sensor_data, bool first_time);
+esp_err_t mpu6050_init(void *sensor_data);
 
 /**
  * @brief Reads acceleration and gyroscope data from the MPU6050 sensor.

@@ -8,19 +8,12 @@
 
 /* Globals (Static) ***********************************************************/
 
-/* TODO: 
- * when testing, i found out multiple sensors at the same time created issues.
- * like when bh1750 was enabled everythnig was good, but once i also enabled
- * qmc5583l they both failed. i suspect that the i2c config doesnt do |= but =
- *
- * also with multiple sensors, the mutex appear to be NULL?
- */
 static sensor_config_t sensors[] = {
-  { "BH1750",     bh1750_init,     bh1750_tasks,     true }, /* confirmed to work */
-  { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   false },  /* pretty sure doesnt work */
-  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    false },
-  { "DHT22",      dht22_init,      dht22_tasks,      false },
-  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, false }, /* I think this creates a stack overflow */
+  { "BH1750",     bh1750_init,     bh1750_tasks,     false }, /* confirmed to work */
+  { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   false }, /* pretty sure doesnt work */
+  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    false }, /* pretty sure this does work */
+  { "DHT22",      dht22_init,      dht22_tasks,      false }, /* confirmed to work */
+  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, false }, /* creates stack overflow */
 };
 
 /* Public Functions ***********************************************************/
@@ -32,7 +25,7 @@ esp_err_t sensors_comm_init(sensor_data_t *sensor_data) {
   for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
     if (sensors[i].enabled) {
       ESP_LOGI(system_tag, "Initializing sensor: %s", sensors[i].sensor_name);
-      status = sensors[i].init_function(sensor_data, true);
+      status = sensors[i].init_function(sensor_data);
 
       if (status == ESP_OK) {
         ESP_LOGI(system_tag, "Sensor %s initialized successfully", 

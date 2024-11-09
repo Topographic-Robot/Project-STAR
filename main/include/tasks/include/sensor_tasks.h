@@ -7,31 +7,6 @@
 /* Structs ********************************************************************/
 
 /**
- * @brief Structure to store data from various sensors.
- * 
- * This structure holds the recorded sensor data from all the connected sensors, 
- * including the BH1750 light sensor, MPU6050 gyroscope + accelerometer,
- * DHT22 temperature + humidity sensor, QMC5883L magnetometer, 
- * and GY-NEO6MV2 GPS sensor.
- * 
- * Each member of this structure corresponds to the data collected from a specific sensor type.
- * 
- * Members:
- * - `bh1750_data`: Holds data from the BH1750 light intensity sensor.
- * - `mpu6050_data`: Holds data from the MPU6050 gyroscope + accelerometer sensor.
- * - `dht22_data`: Holds data from the DHT22 temperature + humidity sensor.
- * - `qmc5883l_data`: Holds data from the QMC5883L magnetometer.
- * - `gy_neo6mv2_data`: Holds data from the GY-NEO6MV2 GPS module.
- */
-typedef struct {
-  bh1750_data_t     bh1750_data;     /**< BH1750 light intensity data */
-  dht22_data_t      dht22_data;      /**< DHT22 temperature + humidity data */
-  mpu6050_data_t    mpu6050_data;    /**< MPU6050 gyroscope + accelerometer data */
-  qmc5883l_data_t   qmc5883l_data;   /**< QMC5883L magnetometer data */
-  gy_neo6mv2_data_t gy_neo6mv2_data; /**< GY-NEO6MV2 GPS data */
-} sensor_data_t;
-
-/**
  * @brief Structure to hold configuration for each sensor.
  *
  * This structure contains information about each sensor, including its name, 
@@ -39,10 +14,10 @@ typedef struct {
  * the sensor should be active in the system.
  */
 typedef struct {
-  const char *sensor_name;                   /**< Name of the sensor for identification in logs. */
-  esp_err_t  (*init_function)(void *, bool); /**< Function pointer to initialize the sensor. */
-  void       (*task_function)(void *);       /**< Function pointer to the sensor's data recording task. */
-  bool       enabled;                        /**< Flag to indicate if the sensor is enabled (true) or disabled (false). */
+  const char *sensor_name;             /**< Name of the sensor for identification in logs. */
+  esp_err_t  (*init_function)(void *); /**< Function pointer to initialize the sensor. */
+  void       (*task_function)(void *); /**< Function pointer to the sensor's data recording task. */
+  bool       enabled;                  /**< Flag to indicate if the sensor is enabled (true) or disabled (false). */
 } sensor_config_t;
 
 /* Public Functions ***********************************************************/

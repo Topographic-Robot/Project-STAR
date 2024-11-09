@@ -1,4 +1,4 @@
-#include "qmc5883l_hal.h"
+#include "sensor_hal.h"
 #include "common/i2c.h"
 #include <esp_log.h>
 #include <math.h>
@@ -25,14 +25,11 @@ static const uint8_t qmc5883l_scale_config_idx = 0; /* Index of chosen values (0
 
 /* Public Functions ***********************************************************/
 
-esp_err_t qmc5883l_init(void *sensor_data, bool first_time)
+esp_err_t qmc5883l_init(void *sensor_data)
 {
-  qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
+  sensor_data_t  *all_sensor_data = (sensor_data_t *)sensor_data;
+  qmc5883l_data_t *qmc5883l_data    = &all_sensor_data->qmc5883l_data;
   ESP_LOGI(qmc5883l_tag, "Starting Configuration");
-
-  if (first_time) {
-    qmc5883l_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
-  }
 
   qmc5883l_data->i2c_address = qmc5883l_i2c_address;
   qmc5883l_data->i2c_bus     = qmc5883l_i2c_bus;
@@ -168,17 +165,6 @@ esp_err_t qmc5883l_init(void *sensor_data, bool first_time)
     ESP_LOGI(qmc5883l_tag, "OSR configuration complete");
   }
 
-  if (qmc5883l_data->sensor_mutex == NULL) {
-    qmc5883l_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (qmc5883l_data->sensor_mutex == NULL) {
-      ESP_LOGE(qmc5883l_tag, "ESP32 ran out of memory");
-      qmc5883l_data->state = k_qmc5883l_error;
-      return ESP_ERR_NO_MEM;
-    } else {
-      ESP_LOGI(qmc5883l_tag, "Allocated memory for semaphore");
-    }
-  }
-
   qmc5883l_data->state = k_qmc5883l_ready;
   ESP_LOGI(qmc5883l_tag, "Sensor Configuration Complete");
   return ESP_OK;
@@ -191,25 +177,12 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data)
     return;
   }
 
-  if (sensor_data->sensor_mutex == NULL) {
-    ESP_LOGE(qmc5883l_tag, "Sensor data pointer's mutex is NULL");
-    sensor_data->state = k_qmc5883l_error;
-    return;
-  }
-
-  if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * qmc5883l_polling_rate_ticks) != pdTRUE) {
-    ESP_LOGW(qmc5883l_tag, "Failed to take sensor mutex");
-    sensor_data->state = k_qmc5883l_error;
-    return;
-  }
-
   uint8_t mag_data[6];
   esp_err_t ret = priv_i2c_read_bytes(mag_data, 6, qmc5883l_i2c_bus, 
                                       qmc5883l_i2c_address, qmc5883l_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
     sensor_data->state = k_qmc5883l_error;
-    xSemaphoreGive(sensor_data->sensor_mutex);
     return;
   }
   sensor_data->state = k_qmc5883l_data_updated;
@@ -238,14 +211,12 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data)
   ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
            sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, 
            sensor_data->heading);
-
-  /* Release the mutex after accessing the shared data */
-  xSemaphoreGive(sensor_data->sensor_mutex);
 }
 
 void qmc5883l_tasks(void *sensor_data)
 {
-  qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
+  sensor_data_t  *all_sensor_data = (sensor_data_t *)sensor_data;
+  qmc5883l_data_t *qmc5883l_data    = &all_sensor_data->qmc5883l_data;
   while (1) {
     qmc5883l_read(qmc5883l_data);
     vTaskDelay(qmc5883l_polling_rate_ticks);

@@ -48,8 +48,6 @@
 
 #include <stdint.h>
 #include <esp_err.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
 
 /* Constants ******************************************************************/
 
@@ -113,16 +111,12 @@ typedef enum : uint8_t {
  * 
  * These flags are set in the `bh1750_states_t` enum, always verify 
  * with the enum.
- * 
- * Additionally, the structure contains a mutex (`sensor_mutex`) to ensure
- * thread-safe access when the sensor data is being read or updated.
  */
 typedef struct {
   uint8_t           i2c_address;  /**< I2C address used for communication */
   uint8_t           i2c_bus;      /**< I2C bus number used for communication. */
   float             lux;          /**< Measured light intensity in lux. */
   uint8_t           state;        /**< Sensor state, set in `bh1750_states_t` enum. */
-  SemaphoreHandle_t sensor_mutex; /**< Mutex for protecting access to sensor data. */
 } bh1750_data_t;
 
 /* Public Functions ***********************************************************/
@@ -141,12 +135,6 @@ typedef struct {
  *   will hold the I2C bus number. The `i2c_bus` member will be set during 
  *   initialization.
  *
- * @param[in] first_time Boolean to let the function know if you have already
- *   called this before, its not recommended to run it as 'first_time' multiple
- *   times since memory allocation for a Semaphore occurs and can run into 
- *   memory issues if ran too much. Run it as 'first_time' once then set it to
- *   false when re-running the function.
- *
  * @return
  *   - ESP_OK on success.
  *   - An error code from the `esp_err_t` enumeration on failure.
@@ -156,7 +144,7 @@ typedef struct {
  *   - Delays are introduced after power on, reset, and resolution
  *     mode settings to ensure proper sensor initialization. 
  */
-esp_err_t bh1750_init(void *sensor_data, bool first_time);
+esp_err_t bh1750_init(void *sensor_data);
 
 /**
  * @brief Reads light intensity data from the BH1750 sensor.

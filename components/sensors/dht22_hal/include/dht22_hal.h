@@ -76,15 +76,13 @@ typedef enum {
  * @struct dht22_data_t
  * @brief Structure to store DHT22 sensor data.
  * 
- * Holds humidity and temperature values in Fahrenheit. The mutex ensures thread-safe 
- * access to the sensor data.
+ * Holds humidity and temperature values in Fahrenheit and Celsius.
  */
 typedef struct {
   float             temperature_f; /**< Temperature in Fahrenheit. */
   float             temperature_c; /**< Temperature in Celsius. */
   float             humidity;      /**< Humidity in percentage. */
   uint8_t           state;         /**< Sensor state, set in `dht22_states_t` enum. */
-  SemaphoreHandle_t sensor_mutex;  /**< Mutex for protecting access to sensor data. */
 } dht22_data_t;
 
 /* Public Functions ************************************************************/
@@ -92,28 +90,19 @@ typedef struct {
 /**
  * @brief Initializes the DHT22 sensor and the data structure.
  * 
- * Sets up the GPIO pin and prepares the dht22_data_t structure for use. A mutex is
- * created to protect access to the sensor data during concurrent tasks.
+ * Sets up the GPIO pin and prepares the dht22_data_t structure for use. A 
  * 
  * @param[in,out] sensor_data Pointer to dht22_data_t structure to initialize.
  *
- * @param[in] first_time Boolean to let the function know if you have already
- *   called this before, its not recommended to run it as 'first_time' multiple
- *   times since memory allocation for a Semaphore occurs and can run into 
- *   memory issues if ran too much. Run it as 'first_time' once then set it to
- *   false when re-running the function.
- *
- *
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
-esp_err_t dht22_init(void *sensor_data, bool first_time);
+esp_err_t dht22_init(void *sensor_data);
 
 /**
  * @brief Reads data from the DHT22 sensor.
  * 
  * Reads humidity and temperature data from the DHT22 sensor and stores the values in
- * the provided dht22_data_t structure. The function uses a mutex to ensure thread-safe
- * access to the sensor data.
+ * the provided dht22_data_t structure. 
  * 
  * @param[in,out] sensor_data Pointer to dht22_data_t structure where data will be stored.
  */
@@ -124,7 +113,7 @@ void dht22_read(dht22_data_t *sensor_data);
  * 
  * Runs in a loop to read humidity and temperature data from the DHT22 sensor every
  * X seconds defined by the `dht22_polling_rate_ticks` variable measrued in system ticks.
- * The data is stored in a dht22_data_t structure, with access protected by a mutex.
+ * The data is stored in a dht22_data_t structure.
  * 
  * @param sensor_data Pointer to the dht22_data_t structure for storing data.
  */

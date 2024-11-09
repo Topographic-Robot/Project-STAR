@@ -1,7 +1,10 @@
-#include "dht22_hal.h"
+#include "sensor_hal.h"
 #include "common/gpio.h"
+#include <stdio.h>
+#include <string.h>
 #include <esp_log.h>
 #include <driver/gpio.h>
+#include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -19,7 +22,7 @@ const uint8_t  dht22_bit_count          = 40;
  *     cause the DHT22 to ignore the start signal.
  * Decreasing this value:
  *   - Reduces the time the pin is held low. If decreased too much, 
- *   the DHT22 may not detect the start signal and fail to respond.
+ *     the DHT22 may not detect the start signal and fail to respond.
  * 
  * Typical value: 20ms is used to meet the DHT22 timing requirements.
  */
@@ -57,23 +60,23 @@ static const uint32_t dht22_bit_threshold_us = 40; /* Threshold for distinguishi
 /* Static (Private) Functions **************************************************/
 
 /**
- * @brief Wait for a specific GPIO level within the given timeout.
+ * @brief Wait for a specific GPIO level within the given timeout and measure the duration.
  * 
  * @param level Desired GPIO level (0 or 1).
- * @param timeout Maximum time to wait for the level, in microseconds.
- * @return 0 if level reached successfully, 1 if timeout occurred.
+ * @param timeout_us Maximum time to wait for the level, in microseconds.
+ * @param duration_us Pointer to store the time taken to reach the level, in microseconds.
+ * @return true if level reached successfully within timeout, false if timeout occurred.
  */
-static int priv_dht22_wait_for_level(int level, uint32_t timeout) 
+static bool priv_dht22_wait_for_level_with_duration(int level, uint32_t timeout_us, uint32_t *duration_us) 
 {
-  int elapsed_time = 0;
-  while (gpio_get_level(dht22_data_io) != level) {
-    if (elapsed_time >= timeout) {
-      return 1; /* Timeout occurred */
+    uint64_t start_time = esp_timer_get_time();
+    while (gpio_get_level(dht22_data_io) != level) {
+        if ((esp_timer_get_time() - start_time) >= timeout_us) {
+            return false; /* Timeout occurred */
+        }
     }
-    vTaskDelay(pdMS_TO_TICKS(1000)); /* Delay 1 ms */
-    elapsed_time++;
-  }
-  return 0; /* Success */
+    *duration_us = (uint32_t)(esp_timer_get_time() - start_time);
+    return true; /* Success */
 }
 
 /**
@@ -83,12 +86,12 @@ static int priv_dht22_wait_for_level(int level, uint32_t timeout)
  */
 static void priv_dht22_send_start_signal(void)
 {
-  gpio_set_direction(dht22_data_io, GPIO_MODE_OUTPUT);
-  gpio_set_level(dht22_data_io, 0);                /* Pull line low */
-  vTaskDelay(pdMS_TO_TICKS(dht22_start_delay_ms)); /* Wait for start signal duration */
+    gpio_set_direction(dht22_data_io, GPIO_MODE_OUTPUT);
+    gpio_set_level(dht22_data_io, 0); /* Pull line low */
+    esp_rom_delay_us(dht22_start_delay_ms * 1000); /* Wait for start signal duration in microseconds */
 
-  gpio_set_level(dht22_data_io, 1); /* Release line */
-  vTaskDelay(pdMS_TO_TICKS(1000));  /* Short delay before switching to input (1ms) */
+    gpio_set_level(dht22_data_io, 1); /* Release line */
+    esp_rom_delay_us(30); /* Wait for 30 microseconds before switching to input */
 }
 
 /**
@@ -100,13 +103,16 @@ static void priv_dht22_send_start_signal(void)
  */
 static esp_err_t priv_dht22_wait_for_response(void)
 {
-  if (priv_dht22_wait_for_level(0, dht22_response_timeout_us) == 1 ||
-      priv_dht22_wait_for_level(1, dht22_response_timeout_us) == 1 ||
-      priv_dht22_wait_for_level(0, dht22_response_timeout_us) == 1) {
-    ESP_LOGE(dht22_tag, "Sensor not responding");
-    return ESP_FAIL;
-  }
-  return ESP_OK;
+    uint32_t duration;
+
+    /* DHT22 pulls the line low for 80us, then high for 80us, as a response signal */
+    if (!priv_dht22_wait_for_level_with_duration(0, dht22_response_timeout_us, &duration) ||
+        !priv_dht22_wait_for_level_with_duration(1, dht22_response_timeout_us, &duration) ||
+        !priv_dht22_wait_for_level_with_duration(0, dht22_response_timeout_us, &duration)) {
+        ESP_LOGE(dht22_tag, "Sensor not responding");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 /**
@@ -118,17 +124,26 @@ static esp_err_t priv_dht22_wait_for_response(void)
  */
 static int priv_dht22_read_bit(void) 
 {
-  if (priv_dht22_wait_for_level(1, 50) == 1) {
-    ESP_LOGE(dht22_tag, "Timeout waiting for bit start");
-    return ESP_FAIL;
-  }
-  int duration = priv_dht22_wait_for_level(0, 70);
-  if (duration == 1) {
-    ESP_LOGE(dht22_tag, "Timeout waiting for bit end");
-    return ESP_FAIL;
-  }
+    uint32_t duration = 0;
 
-  return duration > dht22_bit_threshold_us;
+    /* Wait for the line to go high (start of bit transmission) */
+    if (!priv_dht22_wait_for_level_with_duration(1, 50, &duration)) {
+        ESP_LOGE(dht22_tag, "Timeout waiting for bit start");
+        return ESP_FAIL;
+    }
+
+    /* Wait for the line to go low again, measuring the duration of the high level */
+    if (!priv_dht22_wait_for_level_with_duration(0, 70, &duration)) {
+        ESP_LOGE(dht22_tag, "Timeout waiting for bit end");
+        return ESP_FAIL;
+    }
+
+    /* Determine if the bit is '0' or '1' based on the duration */
+    if (duration > dht22_bit_threshold_us) {
+        return 1; /* Bit is '1' */
+    } else {
+        return 0; /* Bit is '0' */
+    }
 }
 
 /**
@@ -141,26 +156,27 @@ static int priv_dht22_read_bit(void)
  */
 static esp_err_t priv_dht22_read_data_bits(uint8_t *data_buffer) 
 {
-  uint8_t byte_index = 0, bit_index = 7;
-  for (int i = 0; i < dht22_bit_count; i++) {
-    int bit = priv_dht22_read_bit();
-    if (bit == ESP_FAIL) {
-      return ESP_FAIL;
-    }
-    if (bit == 1) {
-      data_buffer[byte_index] |= 1 << bit_index; /* Set bit to '1' */
+    uint8_t byte_index = 0, bit_index = 7;
+    memset(data_buffer, 0, 5);
+    for (int i = 0; i < dht22_bit_count; i++) {
+        int bit = priv_dht22_read_bit();
+        if (bit == ESP_FAIL) {
+            return ESP_FAIL;
+        }
+        if (bit == 1) {
+            data_buffer[byte_index] |= (1 << bit_index); /* Set bit to '1' */
+        }
+
+        /* Move to the next bit */
+        if (bit_index == 0) {
+            bit_index = 7;
+            byte_index++;
+        } else {
+            bit_index--;
+        }
     }
 
-    /* Move to the next bit */
-    if (bit_index == 0) {
-      bit_index = 7;
-      byte_index++;
-    } else {
-      bit_index--;
-    }
-  }
-
-  return ESP_OK;
+    return ESP_OK;
 }
 
 /**
@@ -171,12 +187,12 @@ static esp_err_t priv_dht22_read_data_bits(uint8_t *data_buffer)
  */
 static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
 {
-  uint8_t checksum = data_buffer[0] + data_buffer[1] + data_buffer[2] + data_buffer[3];
-  if ((checksum & 0xFF) != data_buffer[4]) {
-    ESP_LOGE(dht22_tag, "Checksum failed");
-    return ESP_FAIL;
-  }
-  return ESP_OK;
+    uint8_t checksum = data_buffer[0] + data_buffer[1] + data_buffer[2] + data_buffer[3];
+    if ((checksum & 0xFF) != data_buffer[4]) {
+        ESP_LOGE(dht22_tag, "Checksum failed");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 /**
@@ -190,136 +206,103 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
  */
 static esp_err_t priv_dht22_read_data(dht22_data_t *sensor_data) 
 {
-  /* Buffer to store 5 bytes (40 bits) of data */
-  uint8_t data_buffer[5] = {0};
+    /* Buffer to store 5 bytes (40 bits) of data */
+    uint8_t data_buffer[5] = {0};
 
-  /* Send start signal and wait for response */
-  priv_dht22_send_start_signal();
-  gpio_set_direction(dht22_data_io, GPIO_MODE_INPUT);
-  if (priv_dht22_wait_for_response() != ESP_OK) {
-    return ESP_FAIL;
-  }
+    /* Send start signal and wait for response */
+    priv_dht22_send_start_signal();
+    gpio_set_direction(dht22_data_io, GPIO_MODE_INPUT);
+    if (priv_dht22_wait_for_response() != ESP_OK) {
+        return ESP_FAIL;
+    }
 
-  /* Read 40 bits of data */
-  if (priv_dht22_read_data_bits(data_buffer) != ESP_OK) {
-    return ESP_FAIL;
-  }
+    /* Read 40 bits of data */
+    if (priv_dht22_read_data_bits(data_buffer) != ESP_OK) {
+        return ESP_FAIL;
+    }
 
-  /* Verify checksum */
-  if (priv_dht22_verify_checksum(data_buffer) != ESP_OK) {
-    return ESP_FAIL;
-  }
+    /* Verify checksum */
+    if (priv_dht22_verify_checksum(data_buffer) != ESP_OK) {
+        return ESP_FAIL;
+    }
 
-  /* Convert raw data to humidity and temperature */
-  sensor_data->humidity      = ((data_buffer[0] << 8) + data_buffer[1]) * 0.1f;
-  sensor_data->temperature_c = (((data_buffer[2] & 0x7F) << 8) + data_buffer[3]) * 0.1f;
-  sensor_data->temperature_f = sensor_data->temperature_c * 9.0 / 5.0 + 32; /* Convert Celsius to Fahrenheit */
+    /* Convert raw data to humidity and temperature */
+    sensor_data->humidity      = ((data_buffer[0] << 8) + data_buffer[1]) * 0.1f;
+    sensor_data->temperature_c = (((data_buffer[2] & 0x7F) << 8) + data_buffer[3]) * 0.1f;
+    sensor_data->temperature_f = sensor_data->temperature_c * 9.0 / 5.0 + 32; /* Convert Celsius to Fahrenheit */
 
-  /* Handle negative temperatures */
-  if (data_buffer[2] & 0x80) {
-    sensor_data->temperature_c = -(sensor_data->temperature_c);
-    sensor_data->temperature_f = -(sensor_data->temperature_f);
-  }
+    /* Handle negative temperatures */
+    if (data_buffer[2] & 0x80) {
+        sensor_data->temperature_c = -sensor_data->temperature_c;
+        sensor_data->temperature_f = -sensor_data->temperature_f;
+    }
 
-  return ESP_OK;
+    return ESP_OK;
 }
 
 /* Public Functions ************************************************************/
 
-esp_err_t dht22_init(void *sensor_data, bool first_time) 
+esp_err_t dht22_init(void *sensor_data) 
 {
-  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  ESP_LOGI(dht22_tag, "Starting Configuration");
+    sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
+    dht22_data_t  *dht22_data      = &all_sensor_data->dht22_data;
+    ESP_LOGI(dht22_tag, "Starting Configuration");
 
-  /* Initialize the struct, but not the semaphore until the state is 0x00.
-   * This is to prevent memory allocation that might not be used. If we call
-   * this function and it creates a new mutex very time then that is very bad.
-   */
-  if (first_time) {
-    dht22_data->sensor_mutex = NULL; /* Set NULL, and change it later when its ready */
-  }
+    dht22_data->humidity      = -1.0;
+    dht22_data->temperature_f = -1.0;
+    dht22_data->temperature_c = -1.0;
+    dht22_data->state         = k_dht22_uninitialized; /* Start uninitialized */
 
-  dht22_data->humidity      = -1.0;
-  dht22_data->temperature_f = -1.0;
-  dht22_data->temperature_c = -1.0;
-  dht22_data->state         = k_dht22_uninitialized; /* start uninitialized */
-
-  esp_err_t ret = priv_gpio_init(dht22_data_io);
-  if (ret != ESP_OK) {
-    ESP_LOGE(dht22_tag, "Failed to configure GPIO: %s", esp_err_to_name(ret));
-    return ret;
-  }
-
-  /* Pull the line high (logic 1) before starting communication.
-   * Explanation:
-   * - The DHT22 expects the line to be high during idle states.
-   * - After pulling the line low to send a start signal, the line must be released 
-   *   (set high) so the DHT22 can pull the line low in response.
-   * - Keeping the line high ensures proper communication between the sensor and MCU. */
-  gpio_set_level(dht22_data_io, 1);
-
-  if (dht22_data->sensor_mutex == NULL) {
-    dht22_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (dht22_data->sensor_mutex == NULL) {
-      ESP_LOGE(dht22_tag, "Failed to create sensor mutex");
-
-      dht22_data->state = k_dht22_error;
-      return ESP_ERR_NO_MEM;
+    esp_err_t ret = priv_gpio_init(dht22_data_io);
+    if (ret != ESP_OK) {
+        ESP_LOGE(dht22_tag, "Failed to configure GPIO: %s", esp_err_to_name(ret));
+        return ret;
     }
-  }
 
-  dht22_data->state = k_dht22_ready;
-  ESP_LOGI(dht22_tag, "Sensor Configuration Complete");
-  return ESP_OK;
+    /* Pull the line high (logic 1) before starting communication */
+    gpio_set_level(dht22_data_io, 1);
+
+    dht22_data->state = k_dht22_ready;
+    ESP_LOGI(dht22_tag, "Sensor Configuration Complete");
+    return ESP_OK;
 }
 
 void dht22_read(dht22_data_t *sensor_data) 
 {
-  /* Check if the sensor data is NULL */
-  if (sensor_data == NULL) {
-    ESP_LOGE(dht22_tag, "Sensor data pointer is NULL");
-    return;
-  }
+    /* Check if the sensor data is NULL */
+    if (sensor_data == NULL) {
+        ESP_LOGE(dht22_tag, "Sensor data pointer is NULL");
+        return;
+    }
 
-  if (sensor_data->sensor_mutex == NULL) {
-    ESP_LOGE(dht22_tag, "Sensor data pointer's mutex is NULL");
-    return;
-  }
+    /* Attempt to read data from the DHT22 sensor */
+    esp_err_t ret = priv_dht22_read_data(sensor_data);
+    if (ret != ESP_OK) {
+        sensor_data->humidity      = -1.0;
+        sensor_data->temperature_f = -1.0;
+        sensor_data->temperature_c = -1.0;
+        sensor_data->state         = k_dht22_error;
 
-  /* Try to take the mutex to ensure exclusive access to the sensor */
-  if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * dht22_polling_rate_ticks) != pdTRUE) {
-    ESP_LOGE(dht22_tag, "Failed to acquire mutex to access sensor");
-    return;
-  }
+        ESP_LOGE(dht22_tag, "Failed to read data from DHT22");
+        return;
+    }
 
-  /* Attempt to read data from the DHT22 sensor */
-  esp_err_t ret = priv_dht22_read_data(sensor_data);
-  if (ret != ESP_OK) {
-    sensor_data->humidity      = -1.0;
-    sensor_data->temperature_f = -1.0;
-    sensor_data->temperature_c = -1.0;
-    sensor_data->state         = k_dht22_error;
+    sensor_data->state = k_dht22_data_updated;
 
-    ESP_LOGE(dht22_tag, "Failed to read data from DHT22");
-    xSemaphoreGive(sensor_data->sensor_mutex); /* Ensure the semaphore is released */
-    return;
-  }
-
-  ESP_LOGI(dht22_tag, 
-      "Temperature: %.1f F (%1.f C), Humidity: %.1f %%", 
-      sensor_data->temperature_f, 
-      sensor_data->temperature_c, 
-      sensor_data->humidity);
-
-  /* Release the mutex after accessing the sensor */
-  xSemaphoreGive(sensor_data->sensor_mutex);
+    ESP_LOGI(dht22_tag, 
+        "Temperature: %.1f F (%.1f C), Humidity: %.1f %%", 
+        sensor_data->temperature_f, 
+        sensor_data->temperature_c, 
+        sensor_data->humidity);
 }
 
 void dht22_tasks(void *sensor_data) 
 {
-  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  while (1) {
-    dht22_read(dht22_data);
-    vTaskDelay(dht22_polling_rate_ticks);
-  }
+    sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
+    dht22_data_t  *dht22_data      = &all_sensor_data->dht22_data;
+    while (1) {
+        dht22_read(dht22_data);
+        vTaskDelay(dht22_polling_rate_ticks);
+    }
 }
+

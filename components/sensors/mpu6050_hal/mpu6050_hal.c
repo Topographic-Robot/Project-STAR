@@ -1,4 +1,4 @@
-#include "mpu6050_hal.h"
+#include "sensor_hal.h"
 #include "common/i2c.h"
 #include <esp_log.h>
 
@@ -61,14 +61,11 @@ static const uint8_t mpu6050_accel_config_idx = 1; /* Index of chosen values fro
 
 /* Public Functions ***********************************************************/
 
-esp_err_t mpu6050_init(void *sensor_data, bool first_time)
+esp_err_t mpu6050_init(void *sensor_data)
 {
-  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+  sensor_data_t  *all_sensor_data = (sensor_data_t *)sensor_data;
+  mpu6050_data_t *mpu6050_data    = &all_sensor_data->mpu6050_data;
   ESP_LOGI(mpu6050_tag, "Starting Configuration");
-
-  if (first_time) {
-    mpu6050_data->sensor_mutex = NULL; /* Set NULL, and change it later when it's ready */
-  }
 
   mpu6050_data->i2c_address = mpu6050_i2c_address;
   mpu6050_data->i2c_bus     = mpu6050_i2c_bus;
@@ -193,14 +190,6 @@ esp_err_t mpu6050_init(void *sensor_data, bool first_time)
     return ret;
   }
 
-  if (mpu6050_data->sensor_mutex == NULL) {
-    mpu6050_data->sensor_mutex = xSemaphoreCreateMutex();
-    if (mpu6050_data->sensor_mutex == NULL) {
-      ESP_LOGE(mpu6050_tag, "ESP32 ran out of memory");
-      return ESP_ERR_NO_MEM;
-    }
-  }
-
   mpu6050_data->state = k_mpu6050_ready; /* Sensor is initialized */
   ESP_LOGI(mpu6050_tag, "Sensor Configuration Complete");
   return ESP_OK;
@@ -213,23 +202,12 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
     return;
   }
 
-  if (sensor_data->sensor_mutex == NULL) {
-    ESP_LOGE(mpu6050_tag, "Sensor data pointer's mutex is NULL");
-    return;
-  }
-
-  if (xSemaphoreTake(sensor_data->sensor_mutex, 2 * mpu6050_polling_rate_ticks) != pdTRUE) {
-    ESP_LOGW(mpu6050_tag, "Failed to take sensor mutex");
-    return;
-  }
-
   uint8_t accel_data[6], gyro_data[6];
   esp_err_t ret = priv_i2c_read_bytes(accel_data, 6, sensor_data->i2c_bus, 
                                       sensor_data->i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read accelerometer data from MPU6050");
     sensor_data->state = k_mpu6050_error;
-    xSemaphoreGive(sensor_data->sensor_mutex);
     return;
   }
 
@@ -238,7 +216,6 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read gyroscope data from MPU6050");
     sensor_data->state = k_mpu6050_error;
-    xSemaphoreGive(sensor_data->sensor_mutex);
     return;
   }
 
@@ -261,13 +238,12 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
   ESP_LOGI(mpu6050_tag, "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] deg/s", 
       sensor_data->accel_x, sensor_data->accel_y, sensor_data->accel_z,
       sensor_data->gyro_x, sensor_data->gyro_y, sensor_data->gyro_z);
-
-  xSemaphoreGive(sensor_data->sensor_mutex);
 }
 
 void mpu6050_tasks(void *sensor_data)
 {
-  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+  sensor_data_t  *all_sensor_data = (sensor_data_t *)sensor_data;
+  mpu6050_data_t *mpu6050_data    = &all_sensor_data->mpu6050_data;
   while (1) {
     mpu6050_read(mpu6050_data);
     vTaskDelay(mpu6050_polling_rate_ticks);
