@@ -1,3 +1,5 @@
+/* basics/wifi-sta/main/wifi-sta.c */
+
 /* wifi-sta, sta is short for station, station means that this will connect to
  * another wifi network such as a mobile hotspot */
 #include "esp_err.h"

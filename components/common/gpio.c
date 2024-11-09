@@ -1,3 +1,5 @@
+/* components/common/gpio.c */
+
 #include "common/gpio.h"
 
 /* Private Functions **********************************************************/

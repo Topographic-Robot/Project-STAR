@@ -1,4 +1,6 @@
-#include "sensor_hal.h"
+/* components/sensors/bh1750_hal/bh1750_hal.c */
+
+#include "bh1750_hal.h"
 #include "common/i2c.h"
 #include <esp_log.h>
 
@@ -16,8 +18,7 @@ const uint32_t bh1750_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 
 esp_err_t bh1750_init(void *sensor_data)
 {
-  sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
-  bh1750_data_t *bh1750_data     = &all_sensor_data->bh1750_data;
+  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
   ESP_LOGI(bh1750_tag, "Starting Configuration");
 
   bh1750_data->i2c_address = bh1750_i2c_address;     /* Set the I2C address */
@@ -150,8 +151,7 @@ void bh1750_reset_on_error(bh1750_data_t *sensor_data)
 
 void bh1750_tasks(void *sensor_data)
 {
-  sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
-  bh1750_data_t *bh1750_data     = &all_sensor_data->bh1750_data;
+  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
   while (1) {
     bh1750_read(bh1750_data);
     bh1750_reset_on_error(bh1750_data);

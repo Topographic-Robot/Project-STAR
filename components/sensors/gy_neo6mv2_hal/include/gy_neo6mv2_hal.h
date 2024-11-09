@@ -1,3 +1,5 @@
+/* components/sensors/gy_neo6mv2_hal/include/gy_neo6mv2_hal.h */
+
 #ifndef TOPOROBO_GY_NEO6MV2_HAL_H
 #define TOPOROBO_GY_NEO6MV2_HAL_H
 

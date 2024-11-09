@@ -1,3 +1,5 @@
+/* components/common/uart.c */
+
 #include <driver/uart.h>
 #include <esp_log.h>
 

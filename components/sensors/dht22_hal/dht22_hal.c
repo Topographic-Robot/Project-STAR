@@ -1,4 +1,6 @@
-#include "sensor_hal.h"
+/* components/sensors/dht22_hal/dht22_hal.c */
+
+#include "dht22_hal.h"
 #include "common/gpio.h"
 #include <stdio.h>
 #include <string.h>
@@ -244,8 +246,7 @@ static esp_err_t priv_dht22_read_data(dht22_data_t *sensor_data)
 
 esp_err_t dht22_init(void *sensor_data) 
 {
-    sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
-    dht22_data_t  *dht22_data      = &all_sensor_data->dht22_data;
+    dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
     ESP_LOGI(dht22_tag, "Starting Configuration");
 
     dht22_data->humidity      = -1.0;
@@ -298,11 +299,9 @@ void dht22_read(dht22_data_t *sensor_data)
 
 void dht22_tasks(void *sensor_data) 
 {
-    sensor_data_t *all_sensor_data = (sensor_data_t *)sensor_data;
-    dht22_data_t  *dht22_data      = &all_sensor_data->dht22_data;
+    dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
     while (1) {
         dht22_read(dht22_data);
         vTaskDelay(dht22_polling_rate_ticks);
     }
 }
-

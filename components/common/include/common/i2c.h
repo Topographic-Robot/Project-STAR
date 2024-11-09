@@ -1,3 +1,5 @@
+/* components/common/include/common/i2c.h */
+
 #ifndef TOPOROBO_I2C_H
 #define TOPOROBO_I2C_H
 
@@ -81,4 +83,40 @@ esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus,
 esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus, 
                               uint8_t i2c_address, const char *tag);
 
+/* New function declarations */
+
+/**
+ * @brief Write a byte to a specific register of an I2C device.
+ *
+ * @param[in] reg_addr The register address to write to.
+ * @param[in] data The data byte to write to the register.
+ * @param[in] i2c_bus The I2C bus number to communicate over.
+ * @param[in] i2c_address The 7-bit I2C address of the target device.
+ * @param[in] tag The tag for logging errors.
+ *
+ * @return
+ *   - ESP_OK on success.
+ *   - Appropriate ESP_ERR code on failure, with error details logged.
+ */
+esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
+                                  uint8_t i2c_bus, uint8_t i2c_address, const char *tag);
+
+/**
+ * @brief Read multiple bytes starting from a specific register of an I2C device.
+ *
+ * @param[in] reg_addr The starting register address to read from.
+ * @param[out] data Pointer to the buffer where read data will be stored.
+ * @param[in] len The number of bytes to read.
+ * @param[in] i2c_bus The I2C bus number to communicate over.
+ * @param[in] i2c_address The 7-bit I2C address of the target device.
+ * @param[in] tag The tag for logging errors.
+ *
+ * @return
+ *   - ESP_OK on success.
+ *   - Appropriate ESP_ERR code on failure, with error details logged.
+ */
+esp_err_t priv_i2c_read_reg_bytes(uint8_t reg_addr, uint8_t *data, size_t len,
+                                  uint8_t i2c_bus, uint8_t i2c_address, const char *tag);
+
 #endif /* TOPOROBO_I2C_H */
+

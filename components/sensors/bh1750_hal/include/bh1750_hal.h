@@ -1,3 +1,5 @@
+/* components/sensors/bh1750_hal/include/bh1750_hal.h */
+
 #ifndef TOPOROBO_BH1750_HAL_H
 #define TOPOROBO_BH1750_HAL_H
 

@@ -1,3 +1,5 @@
+/* components/sensors/mpu6050_hal/include/mpu6050_hal.h */
+
 #ifndef TOPOROBO_MPU6050_HAL_H
 #define TOPOROBO_MPU6050_HAL_H
 

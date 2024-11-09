@@ -1,3 +1,5 @@
+/* components/sensors/qmc5883l_hal/include/qmc5883l_hal.h */
+
 #ifndef TOPOROBO_QMC5883L_HAL_H
 #define TOPOROBO_QMC5883L_HAL_H
 

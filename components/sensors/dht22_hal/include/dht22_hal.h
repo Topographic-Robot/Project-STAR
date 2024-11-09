@@ -1,3 +1,5 @@
+/* components/sensors/dht22_hal/include/dht22_hal.h */
+
 #ifndef TOPOROBO_DHT22_HAL_H
 #define TOPOROBO_DHT22_HAL_H
 

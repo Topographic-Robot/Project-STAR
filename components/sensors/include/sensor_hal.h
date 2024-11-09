@@ -1,3 +1,5 @@
+/* components/sensors/include/sensor_hal.h */
+
 #ifndef TOPOROBO_SENSOR_HAL_H
 #define TOPOROBO_SENSOR_HAL_H
 

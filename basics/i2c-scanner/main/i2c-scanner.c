@@ -1,3 +1,5 @@
+/* basics/i2c-scanner/main/i2c-scanner.c */
+
 #include "driver/i2c.h"
 #include "esp_log.h"
 

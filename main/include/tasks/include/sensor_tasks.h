@@ -1,3 +1,5 @@
+/* main/include/tasks/include/sensor_tasks.h */
+
 #ifndef TOPOROBO_SENSOR_TASKS_H
 #define TOPOROBO_SENSOR_TASKS_H
 
@@ -10,13 +12,14 @@
  * @brief Structure to hold configuration for each sensor.
  *
  * This structure contains information about each sensor, including its name, 
- * initialization and task functions, and an enabled flag to indicate whether 
- * the sensor should be active in the system.
+ * initialization and task functions, a pointer to its specific data structure,
+ * and an enabled flag to indicate whether the sensor should be active in the system.
  */
 typedef struct {
   const char *sensor_name;             /**< Name of the sensor for identification in logs. */
   esp_err_t  (*init_function)(void *); /**< Function pointer to initialize the sensor. */
   void       (*task_function)(void *); /**< Function pointer to the sensor's data recording task. */
+  void       *data_ptr;                /**< Pointer to the sensor-specific data structure. */
   bool       enabled;                  /**< Flag to indicate if the sensor is enabled (true) or disabled (false). */
 } sensor_config_t;
 
