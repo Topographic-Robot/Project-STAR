@@ -42,16 +42,17 @@
  *
  ******************************************************************************/
 
-
 #include <stdint.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include "esp_err.h"
 
 /* Constants ******************************************************************/
 
 extern const char    *gy_neo6mv2_tag;                /**< Tag for logs */
 extern const uint8_t  gy_neo6mv2_tx_io;              /**< GPIO pin for UART TX */
 extern const uint8_t  gy_neo6mv2_rx_io;              /**< GPIO pin for UART RX */
+extern const uint8_t  gy_neo6mv2_uart_num;           /**< UART Number */
 extern const uint32_t gy_neo6mv2_uart_baudrate;      /**< UART baud rate */
 extern const uint32_t gy_neo6mv2_polling_rate_ticks; /**< Polling rate (5 seconds) */
 
@@ -66,10 +67,10 @@ extern const uint32_t gy_neo6mv2_polling_rate_ticks; /**< Polling rate (5 second
 typedef struct {
   float             latitude;   /**< GPS latitude in degrees */
   float             longitude;  /**< GPS longitude in degrees */
-  float             altitude;   /**< GPS altitude in meters */
+  float             altitude;   /**< GPS altitude in meters (if available) */
   float             speed;      /**< Speed in meters per second */
-  char              time[11];   /**< UTC Time in HHMMSS format */
-  uint8_t           fix_status; /**< GPS fix status (0: no fix, 1: 2D fix, 2: 3D fix) */
+  char              time[11];   /**< UTC Time in HHMMSS.SS format */
+  uint8_t           fix_status; /**< GPS fix status (0: no fix, 1: fix acquired) */
 } gy_neo6mv2_data_t;
 
 /* Public Functions ***********************************************************/

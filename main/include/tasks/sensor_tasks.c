@@ -13,8 +13,8 @@ static sensor_config_t sensors[] = {
   { "BH1750",     bh1750_init,     bh1750_tasks,     NULL, false },  /* confirmed to work */
   { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   NULL, false },  /* confirmed to work */
   { "DHT22",      dht22_init,      dht22_tasks,      NULL, false },  /* confirmed to work */
-  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    NULL, true },  /* pretty sure this doesnt work*/
-  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, NULL, false }, /* creates stack overflow */
+  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    NULL, false },  /* pretty sure this doesnt work*/
+  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, NULL, true }, /* creates stack overflow */
 };
 
 /* Function to Initialize data_ptr Fields *************************************/
@@ -29,7 +29,7 @@ static inline void sensors_init_data_ptrs(sensor_data_t *sensor_data) {
 
 /* Public Functions ***********************************************************/
 
-esp_err_t sensors_comm_init(sensor_data_t *sensor_data) {
+esp_err_t sensors_init(sensor_data_t *sensor_data) {
   esp_err_t status         = ESP_OK;
   esp_err_t overall_status = ESP_OK;
 
@@ -67,7 +67,7 @@ esp_err_t sensor_tasks(sensor_data_t *sensor_data) {
     if (sensors[i].enabled) {
       ESP_LOGI(system_tag, "Creating task for sensor: %s", sensors[i].sensor_name);
       BaseType_t ret = xTaskCreate(sensors[i].task_function, sensors[i].sensor_name, 
-                                   2048, sensors[i].data_ptr, 5, NULL);
+                                   4096, sensors[i].data_ptr, 5, NULL);
       if (ret != pdPASS) {
         ESP_LOGE(system_tag, "Task creation failed for sensor: %s", 
                  sensors[i].sensor_name);

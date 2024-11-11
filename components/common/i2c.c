@@ -103,8 +103,6 @@ esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus,
   return ret; /* Return the error status or ESP_OK */
 }
 
-/* New functions added */
-
 esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
                                   uint8_t i2c_bus, uint8_t i2c_address, const char *tag)
 {

@@ -41,7 +41,7 @@ typedef struct {
  * @param[out] sensor_data Pointer to the `sensor_data_t` struct where sensor readings will be stored.
  * @return ESP_OK if all sensors initialize successfully; ESP_FAIL if any sensor fails.
  */
-esp_err_t sensors_comm_init(sensor_data_t *sensor_data);
+esp_err_t sensors_init(sensor_data_t *sensor_data);
 
 /**
  * @brief Records sensor data and stores it in a given variable.
@@ -53,7 +53,7 @@ esp_err_t sensors_comm_init(sensor_data_t *sensor_data);
  * be used by another function to upload the data to the server.
  * 
  * Pre-condition: 
- * - The `sensors_comm_init()` function must have been successfully run to 
+ * - The `sensors_init()` function must have been successfully run to 
  *   initialize communication with all sensors before calling this function.
  * 
  * Post-condition:

@@ -1,7 +1,6 @@
 /* main/include/tasks/system_tasks.c */
 
 #include "system_tasks.h"
-#include "sensor_tasks.h"
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -52,13 +51,19 @@ esp_err_t system_tasks_init(void)
   }
 
   /* Initialize sensor communication */
-  if (sensors_comm_init(&s_sensor_data) != ESP_OK) {
+  if (sensors_init(&s_sensor_data) != ESP_OK) {
     ESP_LOGE(system_tag, "Sensor communication initialization failed.");
     return ESP_FAIL;
   }
 
+  /* Initialize WiFi */
+  //if (wifi_init_sta() != ESP_OK) {
+  //  ESP_LOGE(system_tag, "Wifi failed to connect / initalize.");
+  //  return ESP_FAIL;
+  //}
+
   /* Initialize motor controllers */
-  /* if (motor_comm_init() != ESP_OK) {
+  /* if (motor_init() != ESP_OK) {
        ESP_LOGE(system_tag, "Motor controller initialization failed.");
        return ESP_FAIL;
      }

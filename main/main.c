@@ -17,7 +17,7 @@ void app_main(void)
   /* Start System-Level Tasks (motor, sensors, webserver, etc) */
   if (system_tasks_start() != ESP_OK) {
     ESP_LOGE(system_tag, "Failed to start system tasks. Exiting.");
-    return;  /* Exit app_main if tasks cannot start */
+    return; /* Exit app_main if tasks cannot start */
   } else {
     ESP_LOGI(system_tag, "System tasks started successfully.");
   }

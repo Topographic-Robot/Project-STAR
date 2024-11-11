@@ -6,4 +6,8 @@
 **/.DS_Store
 TODO
 
+*.zip
+
+wifi_credentials.h
+
 backup_*
