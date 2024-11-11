@@ -12,14 +12,14 @@
 static sensor_config_t sensors[] = {
   { "BH1750",     bh1750_init,     bh1750_tasks,     NULL, false },  /* confirmed to work */
   { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   NULL, false },  /* confirmed to work */
-  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    NULL, true },  /* pretty sure this doesnt work*/
   { "DHT22",      dht22_init,      dht22_tasks,      NULL, false },  /* confirmed to work */
+  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    NULL, true },  /* pretty sure this doesnt work*/
   { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, NULL, false }, /* creates stack overflow */
 };
 
 /* Function to Initialize data_ptr Fields *************************************/
 
-static void sensors_init_data_ptrs(sensor_data_t *sensor_data) {
+static inline void sensors_init_data_ptrs(sensor_data_t *sensor_data) {
   sensors[0].data_ptr = &(sensor_data->bh1750_data);
   sensors[1].data_ptr = &(sensor_data->qmc5883l_data);
   sensors[2].data_ptr = &(sensor_data->mpu6050_data);

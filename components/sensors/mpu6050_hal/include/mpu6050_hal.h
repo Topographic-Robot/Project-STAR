@@ -64,7 +64,60 @@ extern const uint8_t  mpu6050_scl_io;             /**< GPIO pin for I2C Serial C
 extern const uint8_t  mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line */
 extern const uint32_t mpu6050_i2c_freq_hz;        /**< I2C Bus Frequency in Hz */
 extern const uint32_t mpu6050_polling_rate_ticks; /**< Polling rate (5 seconds) */
-extern const uint8_t  mpu6050_sample_rate_div;    /**< Sample Rate = (internal sample rate) / (1 + sample_rate_divider) */
+
+/**
+ * @brief Configure the sample rate divider for the MPU6050 sensor.
+ *
+ * Why is SMPLRT_DIV Important?
+ * The MPU6050 can internally sample data at a default rate of 1 kHz. However, 
+ * depending on your application, you might not need such frequent data updates, 
+ * and processing all the data can create unnecessary load on the microcontroller.
+ * 
+ * Benefits of adjusting the sample rate divider:
+ * - Reducing processing load: Lower sample rates mean less data to process, 
+ *   reducing the burden on the microcontroller's CPU and memory.
+ * - Power saving: Lower data processing requirements can lead to lower overall 
+ *   system power consumption, which is important for battery-powered systems.
+ * - Matching system requirements: Control systems, such as robotic platforms or 
+ *   IMUs, may only require data updates at 50 Hz or 100 Hz, making higher data 
+ *   rates unnecessary.
+ *
+ * Set up the sample rate divider to 100 Hz.
+ * With the MPU6050's default sample rate of 1 kHz for the gyro, 
+ * setting the divider to 9 results in a 100 Hz sample rate.
+ *
+ * Sample Rate = Gyro Output Rate / (1 + SMPLRT_DIV)
+ */
+extern const uint8_t mpu6050_sample_rate_div;
+
+/**
+ * @brief Configure the Digital Low Pass Filter (DLPF) setting for the MPU6050 sensor.
+ *
+ * Why is DLPF Important?
+ * The DLPF controls the low-pass filter cutoff frequency for the accelerometer and gyroscope data.
+ * By setting an appropriate DLPF value, you can reduce high-frequency noise, which is beneficial 
+ * for applications where smooth data output is important.
+ *
+ * Benefits of adjusting the DLPF setting:
+ * - Noise reduction: Lowering the DLPF frequency reduces high-frequency noise, making the 
+ *   data cleaner and more stable, which can be useful in applications sensitive to vibrations 
+ *   and rapid movements.
+ * - Improved stability: A lower cutoff frequency can improve measurement stability, particularly 
+ *   in stationary or low-speed movements, by filtering out fast oscillations.
+ * - Reduced latency: A higher DLPF cutoff frequency allows faster response times, making it suitable 
+ *   for applications requiring quick reaction to movement, like gaming and high-speed robotics.
+ *
+ * Set up the DLPF to balance noise reduction and response time.
+ * For example, setting the DLPF to 44 Hz (k_mpu6050_config_dlpf_44hz) provides a balance between
+ * noise reduction and responsiveness, which works well for general applications that need 
+ * clean, real-time motion data.
+ *
+ * DLPF Setting Reference:
+ * - 260 Hz: Minimal filtering, fastest response.
+ * - 44 Hz: Moderate filtering, suitable for many applications.
+ * - 5 Hz: Strong filtering, suitable for applications requiring minimal noise at the expense of response time.
+ */
+extern const uint8_t mpu6050_config_dlpf;
 
 /* Enums **********************************************************************/
 
