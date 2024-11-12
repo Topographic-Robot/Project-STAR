@@ -65,12 +65,12 @@ extern const uint32_t gy_neo6mv2_polling_rate_ticks; /**< Polling rate (5 second
  * This structure holds the data such as latitude, longitude, altitude, speed, and time.
  */
 typedef struct {
-  float             latitude;   /**< GPS latitude in degrees */
-  float             longitude;  /**< GPS longitude in degrees */
-  float             altitude;   /**< GPS altitude in meters (if available) */
-  float             speed;      /**< Speed in meters per second */
-  char              time[11];   /**< UTC Time in HHMMSS.SS format */
-  uint8_t           fix_status; /**< GPS fix status (0: no fix, 1: fix acquired) */
+  float   latitude;   /**< GPS latitude in degrees */
+  float   longitude;  /**< GPS longitude in degrees */
+  float   altitude;   /**< GPS altitude in meters (if available) */
+  float   speed;      /**< Speed in meters per second */
+  char    time[11];   /**< UTC Time in HHMMSS.SS format */
+  uint8_t fix_status; /**< GPS fix status (0: no fix, 1: fix acquired) */
 } gy_neo6mv2_data_t;
 
 /* Public Functions ***********************************************************/

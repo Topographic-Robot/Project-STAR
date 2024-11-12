@@ -16,9 +16,9 @@ const uint32_t gy_neo6mv2_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
 /* Function to parse coordinates from NMEA format to decimal degrees */
 static float parse_coordinate(const char *coord_str, const char *hemisphere)
 {
-  float coord = atof(coord_str);
-  int degrees = (int)(coord / 100);
-  float minutes = coord - (degrees * 100);
+  float coord           = atof(coord_str);
+  int   degrees         = (int)(coord / 100);
+  float minutes         = coord - (degrees * 100);
   float decimal_degrees = degrees + minutes / 60.0;
 
   if (hemisphere[0] == 'S' || hemisphere[0] == 'W') {
@@ -32,13 +32,13 @@ static float parse_coordinate(const char *coord_str, const char *hemisphere)
 static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
 {
   char *tokens[20];
-  int token_index = 0;
+  int   token_index   = 0;
   char *sentence_copy = strdup(sentence); /* Make a copy since strtok modifies the string */
-  char *token = strtok(sentence_copy, ",");
+  char *token         = strtok(sentence_copy, ",");
 
   while (token != NULL && token_index < 20) {
     tokens[token_index++] = token;
-    token = strtok(NULL, ",");
+    token                 = strtok(NULL, ",");
   }
 
   if (token_index < 12) {
@@ -83,8 +83,8 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
   /* Initialize UART using the common UART function */
   esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io,
-                                 gy_neo6mv2_uart_baudrate, gy_neo6mv2_uart_num, 
-                                 gy_neo6mv2_tag);
+      gy_neo6mv2_uart_baudrate, gy_neo6mv2_uart_num, 
+      gy_neo6mv2_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(gy_neo6mv2_tag, "GY-NEO6MV2 UART initialization failed");
     return ret;
@@ -104,7 +104,7 @@ void gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
   uint8_t data[128]; /* Buffer to hold NMEA data */
 
   esp_err_t ret = priv_uart_read(data, sizeof(data) - 1, gy_neo6mv2_uart_num, 
-                                 gy_neo6mv2_tag);
+      gy_neo6mv2_tag);
   if (ret == ESP_OK) {
     data[sizeof(data) - 1] = '\0'; /* Null-terminate the data */
     ESP_LOGI(gy_neo6mv2_tag, "Received NMEA: %s", data);

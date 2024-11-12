@@ -81,10 +81,10 @@ typedef enum {
  * Holds humidity and temperature values in Fahrenheit and Celsius.
  */
 typedef struct {
-  float             temperature_f; /**< Temperature in Fahrenheit. */
-  float             temperature_c; /**< Temperature in Celsius. */
-  float             humidity;      /**< Humidity in percentage. */
-  uint8_t           state;         /**< Sensor state, set in `dht22_states_t` enum. */
+  float   temperature_f; /**< Temperature in Fahrenheit. */
+  float   temperature_c; /**< Temperature in Celsius. */
+  float   humidity;      /**< Humidity in percentage. */
+  uint8_t state;         /**< Sensor state, set in `dht22_states_t` enum. */
 } dht22_data_t;
 
 /* Public Functions ************************************************************/

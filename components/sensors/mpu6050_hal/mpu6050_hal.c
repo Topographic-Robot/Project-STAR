@@ -39,10 +39,10 @@ const uint8_t  mpu6050_config_dlpf        = k_mpu6050_config_dlpf_44hz;
  * - ±16g: 2048 LSB/g
  */
 static const mpu6050_accel_config_t mpu6050_accel_configs[] = {
-  {k_mpu6050_accel_fs_2g,  16384.0}, /**< Sensitivity: 16384 LSB/g */
-  {k_mpu6050_accel_fs_4g,  8192.0},  /**< Sensitivity: 8192 LSB/g */
-  {k_mpu6050_accel_fs_8g,  4096.0},  /**< Sensitivity: 4096 LSB/g */
-  {k_mpu6050_accel_fs_16g, 2048.0},  /**< Sensitivity: 2048 LSB/g */
+  { k_mpu6050_accel_fs_2g,  16384.0 }, /**< Sensitivity: 16384 LSB/g */
+  { k_mpu6050_accel_fs_4g,  8192.0  }, /**< Sensitivity: 8192 LSB/g */
+  { k_mpu6050_accel_fs_8g,  4096.0  }, /**< Sensitivity: 4096 LSB/g */
+  { k_mpu6050_accel_fs_16g, 2048.0  }, /**< Sensitivity: 2048 LSB/g */
 };
 
 /**
@@ -66,10 +66,10 @@ static const mpu6050_accel_config_t mpu6050_accel_configs[] = {
  * - ±2000°/s: 16.4 LSB/°/s
  */
 static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
-  {k_mpu6050_gyro_fs_250dps,  131.0}, /**< Sensitivity: 131 LSB/°/s */
-  {k_mpu6050_gyro_fs_500dps,  65.5},  /**< Sensitivity: 65.5 LSB/°/s */
-  {k_mpu6050_gyro_fs_1000dps, 32.8},  /**< Sensitivity: 32.8 LSB/°/s */
-  {k_mpu6050_gyro_fs_2000dps, 16.4},  /**< Sensitivity: 16.4 LSB/°/s */
+  { k_mpu6050_gyro_fs_250dps,  131.0 }, /**< Sensitivity: 131 LSB/°/s */
+  { k_mpu6050_gyro_fs_500dps,  65.5  }, /**< Sensitivity: 65.5 LSB/°/s */
+  { k_mpu6050_gyro_fs_1000dps, 32.8  }, /**< Sensitivity: 32.8 LSB/°/s */
+  { k_mpu6050_gyro_fs_2000dps, 16.4  }, /**< Sensitivity: 16.4 LSB/°/s */
 };
 
 static const uint8_t mpu6050_gyro_config_idx  = 3; /* Index of chosen values from above (0: ±250°/s, 1: ±500°/s, etc.) */

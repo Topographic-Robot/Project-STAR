@@ -16,11 +16,11 @@
  * and an enabled flag to indicate whether the sensor should be active in the system.
  */
 typedef struct {
-  const char *sensor_name;             /**< Name of the sensor for identification in logs. */
+  const char  *sensor_name;            /**< Name of the sensor for identification in logs. */
   esp_err_t  (*init_function)(void *); /**< Function pointer to initialize the sensor. */
   void       (*task_function)(void *); /**< Function pointer to the sensor's data recording task. */
-  void       *data_ptr;                /**< Pointer to the sensor-specific data structure. */
-  bool       enabled;                  /**< Flag to indicate if the sensor is enabled (true) or disabled (false). */
+  void        *data_ptr;               /**< Pointer to the sensor-specific data structure. */
+  bool         enabled;                /**< Flag to indicate if the sensor is enabled (true) or disabled (false). */
 } sensor_config_t;
 
 /* Public Functions ***********************************************************/

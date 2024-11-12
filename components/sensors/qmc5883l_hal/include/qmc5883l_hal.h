@@ -142,13 +142,13 @@ typedef struct {
  * the calculated heading (yaw), and a state flag used to track the sensor's status.
  */
 typedef struct {
-  uint8_t           i2c_address;  /**< I2C address used for communication */
-  uint8_t           i2c_bus;      /**< I2C bus number used for communication */
-  float             mag_x;        /**< Measured X-axis magnetic field in µT */
-  float             mag_y;        /**< Measured Y-axis magnetic field in µT */
-  float             mag_z;        /**< Measured Z-axis magnetic field in µT */
-  float             heading;      /**< Calculated heading (yaw) in degrees */
-  uint8_t           state;        /**< Sensor state */
+  uint8_t i2c_address; /**< I2C address used for communication */
+  uint8_t i2c_bus;     /**< I2C bus number used for communication */
+  float   mag_x;       /**< Measured X-axis magnetic field in µT */
+  float   mag_y;       /**< Measured Y-axis magnetic field in µT */
+  float   mag_z;       /**< Measured Z-axis magnetic field in µT */
+  float   heading;     /**< Calculated heading (yaw) in degrees */
+  uint8_t state;       /**< Sensor state */
 } qmc5883l_data_t;
 
 /* Public Functions ***********************************************************/

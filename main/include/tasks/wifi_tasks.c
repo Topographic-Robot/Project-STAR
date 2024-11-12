@@ -10,10 +10,10 @@
 
 /* Constants ******************************************************************/
 
-const char    *wifi_tag         = "WiFi";
-const uint8_t wifi_max_retry    = 10;
-const uint8_t wifi_ssid_max_len = 32;
-const uint8_t wifi_pass_max_len = 32;
+const char    *wifi_tag          = "WiFi";
+const uint8_t  wifi_max_retry    = 10;
+const uint8_t  wifi_ssid_max_len = 32;
+const uint8_t  wifi_pass_max_len = 32;
 
 /* Globals (Static) ***********************************************************/
 
@@ -43,7 +43,7 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
  * @param event_data A pointer to the event data specific to the event type.
  */
 static void event_handler(void *arg, esp_event_base_t event_base,
-                          int32_t event_id, void *event_data) 
+    int32_t event_id, void *event_data) 
 {
   static uint8_t s_retry_num = 0;
 

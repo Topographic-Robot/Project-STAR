@@ -18,8 +18,8 @@ const uint8_t  qmc5883l_odr_setting        = k_qmc5883l_odr_100hz;
 
 /* Static const array of QMC5883L configurations and scaling factors */
 static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
-  {k_qmc5883l_range_2g, 200.0 / 32768.0}, /**< ±2 Gauss range, scaling factor */
-  {k_qmc5883l_range_8g, 800.0 / 32768.0}, /**< ±8 Gauss range, scaling factor */
+   {k_qmc5883l_range_2g, 200.0 / 32768.0 }, /**< ±2 Gauss range, scaling factor */
+   {k_qmc5883l_range_8g, 800.0 / 32768.0 }, /**< ±8 Gauss range, scaling factor */
 };
 
 static const uint8_t qmc5883l_scale_config_idx = 0; /* Index of chosen values (0 for ±2G, 1 for ±8G) */
@@ -76,7 +76,7 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data)
     return;
   }
 
-  uint8_t mag_data[6];
+  uint8_t   mag_data[6];
   esp_err_t ret;
 
   /* Read 6 bytes of magnetometer data starting from Data Output X_LSB (0x00) */

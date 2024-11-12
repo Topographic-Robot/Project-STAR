@@ -115,10 +115,10 @@ typedef enum : uint8_t {
  * with the enum.
  */
 typedef struct {
-  uint8_t           i2c_address;  /**< I2C address used for communication */
-  uint8_t           i2c_bus;      /**< I2C bus number used for communication. */
-  float             lux;          /**< Measured light intensity in lux. */
-  uint8_t           state;        /**< Sensor state, set in `bh1750_states_t` enum. */
+  uint8_t i2c_address; /**< I2C address used for communication */
+  uint8_t i2c_bus;     /**< I2C bus number used for communication. */
+  float   lux;         /**< Measured light intensity in lux. */
+  uint8_t state;       /**< Sensor state, set in `bh1750_states_t` enum. */
 } bh1750_data_t;
 
 /* Public Functions ***********************************************************/

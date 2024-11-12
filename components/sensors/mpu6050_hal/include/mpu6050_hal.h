@@ -259,16 +259,16 @@ typedef struct {
  * with the enum.
  */
 typedef struct {
-  uint8_t           i2c_address;  /**< I2C address used for communication */
-  uint8_t           i2c_bus;      /**< I2C bus number used for communication */
-  float             accel_x;      /**< Measured X-axis acceleration */
-  float             accel_y;      /**< Measured Y-axis acceleration */
-  float             accel_z;      /**< Measured Z-axis acceleration */
-  float             gyro_x;       /**< Measured X-axis gyroscope data */
-  float             gyro_y;       /**< Measured Y-axis gyroscope data */
-  float             gyro_z;       /**< Measured Z-axis gyroscope data */
-  float             temperature;  /**< Measured temperature from the sensor */
-  uint8_t           state;        /**< Sensor state, set in `mpu6050_states_t` */
+  uint8_t i2c_address; /**< I2C address used for communication */
+  uint8_t i2c_bus;     /**< I2C bus number used for communication */
+  float   accel_x;     /**< Measured X-axis acceleration */
+  float   accel_y;     /**< Measured Y-axis acceleration */
+  float   accel_z;     /**< Measured Z-axis acceleration */
+  float   gyro_x;      /**< Measured X-axis gyroscope data */
+  float   gyro_y;      /**< Measured Y-axis gyroscope data */
+  float   gyro_z;      /**< Measured Z-axis gyroscope data */
+  float   temperature; /**< Measured temperature from the sensor */
+  uint8_t state;       /**< Sensor state, set in `mpu6050_states_t` */
 } mpu6050_data_t;
 
 /* Public Functions ***********************************************************/

@@ -166,7 +166,7 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards);
  * @return ESP_OK on success, or an error code on failure.
  */
 esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mask, 
-    uint8_t board_id, float angle);
+                            uint8_t board_id, float angle);
 
 #endif /* TOPOROBO_PCA9685_HAL_H */
 
