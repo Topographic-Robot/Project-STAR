@@ -259,6 +259,13 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
+ * @brief Convert BH1750 data to JSON.
+ * 
+ * @param[in] sensor_data Pointer to `bh1750_data_t` structure
+ */
+char *bh1750_data_to_json(const bh1750_data_t *data);
+
+/**
  * @brief Initializes the BH1750 sensor for continuous high-resolution mode.
  *
  * The `bh1750_init` function sets up the I2C interface for the BH1750 sensor and 
@@ -294,9 +301,13 @@ esp_err_t bh1750_init(void *sensor_data);
  *                            - `lux`: Updated with the light intensity in lux (output).
  *                            - `state`: Updated to indicate the read status (output).
  *
+ * @return
+ * - `ESP_OK` on successful read.
+ * - `ESP_FAIL` on unsuccessful read.
+ *
  * @note Ensure the BH1750 sensor is initialized with `bh1750_init` before calling this function.
  */
-void bh1750_read(bh1750_data_t *sensor_data);
+esp_err_t bh1750_read(bh1750_data_t *sensor_data);
 
 /**
  * @brief Manages exponential backoff and retries for BH1750 sensor reinitialization on error.

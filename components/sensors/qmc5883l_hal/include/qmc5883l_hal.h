@@ -234,6 +234,13 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
+ * @brief Convert QMC5883L data to JSON.
+ * 
+ * @param[in] sensor_data Pointer to `qmc5883l_data_t` structure
+ */
+char *qmc5883l_data_to_json(const qmc5883l_data_t *data);
+
+/**
  * @brief Initializes the QMC5883L sensor for continuous measurement mode.
  *
  * This function initializes the I2C driver for the QMC5883L sensor, powering on the device,
@@ -265,9 +272,13 @@ esp_err_t qmc5883l_init(void *sensor_data);
  *                            - `heading`: Updated with the calculated heading in degrees (output).
  *                            - `state`: Updated to indicate data retrieval status (output).
  *
+ * @return
+ * - `ESP_OK` on successful read.
+ * - `ESP_FAIL` on unsuccessful read.
+ *
  * @note Ensure the QMC5883L sensor is initialized with `qmc5883l_init` before calling this function.
  */
-void qmc5883l_read(qmc5883l_data_t *sensor_data);
+esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data);
 
 /**
  * @brief Manages exponential backoff and retries for QMC5883L sensor reinitialization on error.

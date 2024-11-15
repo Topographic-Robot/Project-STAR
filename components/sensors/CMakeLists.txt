@@ -15,6 +15,8 @@ idf_component_register(
   PRIV_REQUIRES 
     driver 
     common
+    json
+    main
     esp_timer
 )
 

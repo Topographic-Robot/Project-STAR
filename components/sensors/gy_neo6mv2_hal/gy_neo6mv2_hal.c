@@ -3,9 +3,14 @@
 #include "gy_neo6mv2_hal.h"
 #include <string.h>
 #include <stdlib.h>
+#include "webserver_tasks.h"
+#include "cJSON.h"
 #include "common/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+
+/* NOTE: this doesnt fully follow the pattern of the other sensors, like it doesnt
+ * do XXX->state the same way. Maybe this should be updated to match. */
 
 /* Constants *******************************************************************/
 
@@ -115,6 +120,19 @@ static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
 
 /* Public Functions ***********************************************************/
 
+char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data) 
+{
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddStringToObject(json, "sensor_type", "gps");
+  cJSON_AddNumberToObject(json, "latitude", data->latitude);
+  cJSON_AddNumberToObject(json, "longitude", data->longitude);
+  cJSON_AddNumberToObject(json, "speed", data->speed);
+  cJSON_AddStringToObject(json, "time", data->time);
+  char *json_string = cJSON_PrintUnformatted(json);
+  cJSON_Delete(json);
+  return json_string;
+}
+
 esp_err_t gy_neo6mv2_init(void *sensor_data)
 {
   ESP_LOGI(gy_neo6mv2_tag, "Starting Configuration");
@@ -139,11 +157,11 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   return ESP_OK;
 }
 
-void gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
+esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
     ESP_LOGE(gy_neo6mv2_tag, "GPS data pointer is NULL");
-    return;
+    return ESP_FAIL;
   }
 
   uint8_t data[128]; /* Buffer to hold NMEA data */
@@ -165,7 +183,9 @@ void gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
     }
   } else {
     ESP_LOGW(gy_neo6mv2_tag, "No data read from UART");
+    return ESP_FAIL;
   }
+  return ESP_OK;
 }
 
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
@@ -200,8 +220,13 @@ void gy_neo6mv2_tasks(void *sensor_data)
 {
   gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
   while (1) {
-    gy_neo6mv2_read(gy_neo6mv2_data);
-    gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
+    if (gy_neo6mv2_read(gy_neo6mv2_data) == ESP_OK) {
+      char *json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
+      send_sensor_data_to_webserver(json);
+      free(json);
+    } else {
+      gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
+    }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }
 }

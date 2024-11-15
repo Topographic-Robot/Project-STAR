@@ -76,13 +76,6 @@ esp_err_t system_tasks_init(void)
      }
   */
 
-  /* Initialize web server */
-  /* if (web_server_init() != ESP_OK) {
-       ESP_LOGE(system_tag, "Web server initialization failed.");
-       return ESP_FAIL;
-     }
-  */
-
   ESP_LOGI(system_tag, "All system components initialized successfully.");
   return ESP_OK;
 }
@@ -105,13 +98,6 @@ esp_err_t system_tasks_start(void)
   /* Start storage tasks, if applicable */
   /* if (storage_tasks_start() != ESP_OK) {
        ESP_LOGE(system_tag, "Storage tasks start failed.");
-       return ESP_FAIL;
-     }
-  */
-
-  /* Start web server tasks */
-  /* if (web_server_tasks_start() != ESP_OK) {
-       ESP_LOGE(system_tag, "Web server tasks start failed.");
        return ESP_FAIL;
      }
   */

@@ -2,6 +2,8 @@
 
 #include "qmc5883l_hal.h"
 #include <math.h>
+#include "webserver_tasks.h"
+#include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
 
@@ -28,6 +30,19 @@ static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
 static const uint8_t qmc5883l_scale_config_idx = 0; /* Index of chosen values (0 for ±2G, 1 for ±8G) */
 
 /* Public Functions ***********************************************************/
+
+char *qmc5883l_data_to_json(const qmc5883l_data_t *data)
+{
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddStringToObject(json, "sensor_type", "magnetometer");
+  cJSON_AddNumberToObject(json, "mag_x", data->mag_x);
+  cJSON_AddNumberToObject(json, "mag_y", data->mag_y);
+  cJSON_AddNumberToObject(json, "mag_z", data->mag_z);
+  cJSON_AddNumberToObject(json, "heading", data->heading);
+  char *json_string = cJSON_PrintUnformatted(json);
+  cJSON_Delete(json);
+  return json_string;
+}
 
 esp_err_t qmc5883l_init(void *sensor_data)
 {
@@ -70,11 +85,11 @@ esp_err_t qmc5883l_init(void *sensor_data)
   return ESP_OK;
 }
 
-void qmc5883l_read(qmc5883l_data_t *sensor_data)
+esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
     ESP_LOGE(qmc5883l_tag, "Sensor data pointer is NULL");
-    return;
+    return ESP_FAIL;
   }
 
   uint8_t   mag_data[6];
@@ -85,7 +100,7 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data)
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
     sensor_data->state = k_qmc5883l_error;
-    return;
+    return ESP_FAIL;
   }
 
   sensor_data->state = k_qmc5883l_data_updated;
@@ -108,6 +123,8 @@ void qmc5883l_read(qmc5883l_data_t *sensor_data)
   ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
            sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, 
            sensor_data->heading);
+  sensor_data->state = k_qmc5883l_data_updated;
+  return ESP_OK;
 }
 
 void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data)
@@ -139,8 +156,13 @@ void qmc5883l_tasks(void *sensor_data)
 {
   qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
   while (1) {
-    qmc5883l_read(qmc5883l_data);
-    qmc5883l_reset_on_error(qmc5883l_data);
+    if (qmc5883l_read(qmc5883l_data) == ESP_OK) {
+      char *json = qmc5883l_data_to_json(qmc5883l_data);
+      send_sensor_data_to_webserver(json);
+      free(json);
+    } else {
+      qmc5883l_reset_on_error(qmc5883l_data);
+    }
     vTaskDelay(qmc5883l_polling_rate_ticks);
   }
 }

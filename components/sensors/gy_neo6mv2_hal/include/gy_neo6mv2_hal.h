@@ -170,6 +170,13 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
+ * @brief Convert GY-NEO6MV2 data to JSON.
+ * 
+ * @param[in] sensor_data Pointer to `gy_neo6mv2_data_t` structure
+ */
+char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data);
+
+/**
  * @brief Initializes the GY-NEO6MV2 GPS module over UART.
  *
  * This function sets up the UART connection for communication with the GY-NEO6MV2 GPS module.
@@ -202,9 +209,13 @@ esp_err_t gy_neo6mv2_init(void *sensor_data);
  *                              updated with the latest GPS data (output).
  *                            - `state` is set to indicate a successful read or error (output).
  *
+ * @return
+ * - `ESP_OK` on successful read.
+ * - `ESP_FAIL` on unsuccessful read.
+ *
  * @note Ensure the GPS module is initialized using `gy_neo6mv2_init` before calling this function.
  */
-void gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
+esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
 
 /**
  * @brief Manages error detection and recovery for the GY-NEO6MV2 GPS module using exponential backoff.

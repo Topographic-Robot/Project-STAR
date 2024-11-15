@@ -1,6 +1,8 @@
 /* components/sensors/bh1750_hal/bh1750_hal.c */
 
 #include "bh1750_hal.h"
+#include "webserver_tasks.h"
+#include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
 
@@ -18,6 +20,16 @@ const uint32_t bh1750_initial_retry_interval = pdMS_TO_TICKS(15);
 const uint32_t bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
 /* Public Functions ***********************************************************/
+
+char *bh1750_data_to_json(const bh1750_data_t *data) 
+{
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddStringToObject(json, "sensor_type", "light");
+  cJSON_AddNumberToObject(json, "lux", data->lux);
+  char *json_string = cJSON_PrintUnformatted(json);
+  cJSON_Delete(json);
+  return json_string;
+}
 
 esp_err_t bh1750_init(void *sensor_data)
 {
@@ -60,7 +72,7 @@ esp_err_t bh1750_init(void *sensor_data)
   return ESP_OK;
 }
 
-void bh1750_read(bh1750_data_t *sensor_data) 
+esp_err_t bh1750_read(bh1750_data_t *sensor_data) 
 {
   uint8_t   data[2];
   esp_err_t ret = priv_i2c_read_bytes(data, 2, bh1750_i2c_bus, 
@@ -69,12 +81,15 @@ void bh1750_read(bh1750_data_t *sensor_data)
     sensor_data->lux   = -1.0;
     sensor_data->state = k_bh1750_error;
     ESP_LOGE(bh1750_tag, "Failed to read data from BH1750");
-    return;
+    return ESP_FAIL;
   }
 
   uint16_t raw_light_intensity = (data[0] << 8) | data[1];
   sensor_data->lux             = raw_light_intensity / 1.2;
   ESP_LOGI(bh1750_tag, "Measured light intensity: %f lux", sensor_data->lux);
+
+  sensor_data->state = k_bh1750_data_updated;
+  return ESP_OK;
 }
 
 void bh1750_reset_on_error(bh1750_data_t *sensor_data) 
@@ -106,8 +121,13 @@ void bh1750_tasks(void *sensor_data)
 {
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
   while (1) {
-    bh1750_read(bh1750_data);
-    bh1750_reset_on_error(bh1750_data);
+    if (bh1750_read(bh1750_data) == ESP_OK) {
+      char *json = bh1750_data_to_json(bh1750_data);
+      send_sensor_data_to_webserver(json);
+      free(json);
+    } else {
+      bh1750_reset_on_error(bh1750_data);
+    }
     vTaskDelay(bh1750_polling_rate_ticks);
   }
 }

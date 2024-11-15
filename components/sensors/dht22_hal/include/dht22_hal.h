@@ -176,6 +176,13 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
+ * @brief Convert DHT22 data to JSON.
+ * 
+ * @param[in] sensor_data Pointer to `dht22_data_t` structure
+ */
+char *dht22_data_to_json(const dht22_data_t *data);
+
+/**
  * @brief Initializes the DHT22 sensor for temperature and humidity measurement.
  *
  * The `dht22_init` function sets up the GPIO pin connected to the data line 
@@ -210,9 +217,13 @@ esp_err_t dht22_init(void *sensor_data);
  *                            - `humidity`: Updated with humidity percentage (output).
  *                            - `state`: Updated with the new sensor state (output).
  *
+ * @return
+ * - `ESP_OK` on successful read.
+ * - `ESP_FAIL` on unsuccessful read.
+ *
  * @note Ensure the sensor is initialized using `dht22_init` before calling this function.
  */
-void dht22_read(dht22_data_t *sensor_data);
+esp_err_t dht22_read(dht22_data_t *sensor_data);
 
 /**
  * @brief Manages error detection and recovery for the DHT22 sensor using exponential backoff.

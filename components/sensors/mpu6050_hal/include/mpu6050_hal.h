@@ -308,8 +308,14 @@ typedef struct {
   uint8_t state;       /**< Sensor state, set in `mpu6050_states_t` */
 } mpu6050_data_t;
 
-
 /* Public Functions ***********************************************************/
+
+/**
+ * @brief Convert MPU6050 data to JSON.
+ * 
+ * @param[in] sensor_data Pointer to `mpu6050_data_t` structure
+ */
+char *mpu6050_data_to_json(const mpu6050_data_t *data);
 
 /**
  * @brief Initializes the MPU6050 sensor for accelerometer and gyroscope data collection.
@@ -343,9 +349,13 @@ esp_err_t mpu6050_init(void *sensor_data);
  *                            - `gyro_x`, `gyro_y`, `gyro_z`: Updated with angular velocity data in degrees/second (output).
  *                            - `state`: Set to indicate the read status (output).
  *
+ * @return
+ * - `ESP_OK` on successful read.
+ * - `ESP_FAIL` on unsuccessful read.
+ *
  * @note Ensure the MPU6050 sensor is initialized using `mpu6050_init` before calling this function.
  */
-void mpu6050_read(mpu6050_data_t *sensor_data);
+esp_err_t mpu6050_read(mpu6050_data_t *sensor_data);
 
 /**
  * @brief Manages error detection and recovery for the MPU6050 sensor using exponential backoff.

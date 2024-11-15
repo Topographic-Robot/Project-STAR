@@ -1,6 +1,8 @@
 /* components/sensors/mpu6050_hal/mpu6050_hal.c */
 
 #include "mpu6050_hal.h"
+#include "webserver_tasks.h"
+#include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
 
@@ -76,6 +78,21 @@ static const uint8_t mpu6050_gyro_config_idx  = 3; /* Index of chosen values fro
 static const uint8_t mpu6050_accel_config_idx = 3; /* Index of chosen values from above (0: ±2g, 1: ±4g, etc.) */
 
 /* Public Functions ***********************************************************/
+
+char *mpu6050_data_to_json(const mpu6050_data_t *data) 
+{
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddStringToObject(json, "sensor_type", "accelerometer_gyroscope");
+  cJSON_AddNumberToObject(json, "accel_x", data->accel_x);
+  cJSON_AddNumberToObject(json, "accel_y", data->accel_y);
+  cJSON_AddNumberToObject(json, "accel_z", data->accel_z);
+  cJSON_AddNumberToObject(json, "gyro_x", data->gyro_x);
+  cJSON_AddNumberToObject(json, "gyro_y", data->gyro_y);
+  cJSON_AddNumberToObject(json, "gyro_z", data->gyro_z);
+  char *json_string = cJSON_PrintUnformatted(json);
+  cJSON_Delete(json);
+  return json_string;
+}
 
 esp_err_t mpu6050_init(void *sensor_data)
 {
@@ -180,11 +197,11 @@ esp_err_t mpu6050_init(void *sensor_data)
   return ESP_OK;
 }
 
-void mpu6050_read(mpu6050_data_t *sensor_data)
+esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
     ESP_LOGE(mpu6050_tag, "Sensor data pointer is NULL");
-    return;
+    return ESP_FAIL;
   }
 
   uint8_t accel_data[6];
@@ -197,7 +214,7 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read accelerometer data from MPU6050");
     sensor_data->state = k_mpu6050_error;
-    return;
+    return ESP_FAIL;
   }
 
   /* Read gyroscope data starting from GYRO_XOUT_H */
@@ -206,7 +223,7 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read gyroscope data from MPU6050");
     sensor_data->state = k_mpu6050_error;
-    return;
+    return ESP_FAIL;
   }
 
   /* Combine high and low bytes to form the raw accelerometer data */
@@ -236,6 +253,7 @@ void mpu6050_read(mpu6050_data_t *sensor_data)
            sensor_data->gyro_x, sensor_data->gyro_y, sensor_data->gyro_z);
 
   sensor_data->state = k_mpu6050_data_updated;
+  return ESP_OK;
 }
 
 void mpu6050_reset_on_error(mpu6050_data_t *sensor_data)
@@ -261,8 +279,13 @@ void mpu6050_tasks(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   while (1) {
-    mpu6050_read(mpu6050_data);
-    mpu6050_reset_on_error(mpu6050_data);
+    if (mpu6050_read(mpu6050_data) == ESP_OK) {
+      char *json = mpu6050_data_to_json(mpu6050_data);
+      send_sensor_data_to_webserver(json);
+      free(json);
+    } else {
+      mpu6050_reset_on_error(mpu6050_data);
+    }
     vTaskDelay(mpu6050_polling_rate_ticks);
   }
 }

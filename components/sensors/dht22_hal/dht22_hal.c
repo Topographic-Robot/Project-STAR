@@ -3,6 +3,8 @@
 #include "dht22_hal.h"
 #include <stdio.h>
 #include <string.h>
+#include "webserver_tasks.h"
+#include "cJSON.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -264,6 +266,17 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
 
 /* Public Functions ************************************************************/
 
+char *dht22_data_to_json(const dht22_data_t *data) 
+{
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddStringToObject(json, "sensor_type", "temperature_humidity");
+  cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c);
+  cJSON_AddNumberToObject(json, "humidity", data->humidity);
+  char *json_string = cJSON_PrintUnformatted(json);
+  cJSON_Delete(json);
+  return json_string;
+}
+
 esp_err_t dht22_init(void *sensor_data)
 {
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
@@ -289,11 +302,11 @@ esp_err_t dht22_init(void *sensor_data)
   return ESP_OK;
 }
 
-void dht22_read(dht22_data_t *sensor_data)
+esp_err_t dht22_read(dht22_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
     ESP_LOGE(dht22_tag, "Sensor data pointer is NULL");
-    return;
+    return ESP_FAIL;
   }
 
   uint8_t   data_buffer[5] = {0};
@@ -307,7 +320,7 @@ void dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Failed to receive response from DHT22");
-    return;
+    return ESP_FAIL;
   }
 
   /* Read data bits */
@@ -315,7 +328,7 @@ void dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Failed to read data bits from DHT22");
-    return;
+    return ESP_FAIL;
   }
 
   /* Verify checksum */
@@ -323,7 +336,7 @@ void dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Checksum verification failed");
-    return;
+    return ESP_FAIL;
   }
 
   /* Convert raw data to meaningful values */
@@ -344,6 +357,7 @@ void dht22_read(dht22_data_t *sensor_data)
            sensor_data->temperature_f,
            sensor_data->temperature_c,
            sensor_data->humidity);
+  return ESP_OK;
 }
 
 void dht22_reset_on_error(dht22_data_t *sensor_data)
@@ -379,8 +393,13 @@ void dht22_tasks(void *sensor_data)
 {
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
   while (1) {
-    dht22_read(dht22_data);
-    dht22_reset_on_error(dht22_data);
+    if (dht22_read(dht22_data) == ESP_OK) {
+      char *json = dht22_data_to_json(dht22_data);
+      send_sensor_data_to_webserver(json);
+      free(json);
+    } else {
+      dht22_reset_on_error(dht22_data);
+    }
     vTaskDelay(dht22_polling_rate_ticks);
   }
 }
