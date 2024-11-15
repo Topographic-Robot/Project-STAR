@@ -6,7 +6,7 @@
 /* NOTE: check wifi_credentials.txt is included, but wifi_credentials.h isn't
  * copy wifi_credentials.txt to wifi_credentials.h and replace the values */
 #include "wifi_credentials.h"
-#include <esp_err.h>
+#include "esp_err.h"
 
 /* Constants ******************************************************************/
 

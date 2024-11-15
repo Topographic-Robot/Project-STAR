@@ -1,62 +1,143 @@
 /* components/sensors/qmc5883l_hal/include/qmc5883l_hal.h */
 
-#ifndef TOPOROBO_QMC5883L_HAL_H
-#define TOPOROBO_QMC5883L_HAL_H
-
-/* QMC5883L 3-axis Magnetometer Sensor IC */
-/* Communicates over I2C protocol with a configurable address 0x0D */
-
-/*******************************************************************************
+/* QMC5883L HAL (Hardware Abstraction Layer) Header File
+ * This file provides the interface for interacting with the QMC5883L 3-axis magnetometer sensor.
+ * The QMC5883L is a digital magnetometer that provides data over I2C, suitable for applications
+ * requiring magnetic field detection and orientation sensing.
  *
- *     +-----------------------+
- *     |       QMC5883L        |
- *     |-----------------------|
- *     | VCC  | 3.3V or 5V     |----------> VCC
- *     | GND  | Ground         |----------> GND
- *     | SCL  | I2C Clock      |----------> GPIO_NUM_22 (100,000Hz)
- *     | SDA  | I2C Data       |----------> GPIO_NUM_21 (100,000Hz)
- *     | DRDY | Data Ready Pin |----------> Floating (optional)
- *     +-----------------------+
+ *******************************************************************************
  *
- *     Block Diagram for Wiring
+ *    +-----------------------+
+ *    |       QMC5883L        |
+ *    |-----------------------|
+ *    | VCC  | 3.3V or 5V     |----------> VCC
+ *    | GND  | Ground         |----------> GND
+ *    | SCL  | I2C Clock      |----------> GPIO_NUM_22 (100,000Hz)
+ *    | SDA  | I2C Data       |----------> GPIO_NUM_21 (100,000Hz)
+ *    | DRDY | Data Ready Pin |----------> Floating (optional)
+ *    +-----------------------+
  *
- *     +----------------------------------------------------+
- *     |                    QMC5883L                        |
- *     |                                                    |
- *     |   +----------------+    +-------------------+      |
- *     |   | Magnetometer   |--->| Signal Processing |      |
- *     |   | Sensor         |    | Unit              |      |
- *     |   +----------------+    +-------------------+      |
- *     |                                                    |
- *     |   +------------------+                             |
- *     |   | I2C Interface    |<----------------------------|
- *     |   | (SDA, SCL)       |                             |
- *     |   +------------------+                             |
- *     |                                                    |
- *     |   +------------------+                             |
- *     |   | Power Supply Unit|                             |
- *     |   | (PSU)            |                             |
- *     |   +------------------+                             |
- *     +----------------------------------------------------+
+ *    Block Diagram for Wiring
  *
- *     Internal Structure
+ *    +----------------------------------------------------+
+ *    |                    QMC5883L                        |
+ *    |                                                    |
+ *    |   +----------------+    +-------------------+      |
+ *    |   | Magnetometer   |--->| Signal Processing |      |
+ *    |   | Sensor         |    | Unit              |      |
+ *    |   +----------------+    +-------------------+      |
+ *    |                                                    |
+ *    |   +------------------+                             |
+ *    |   | I2C Interface    |<----------------------------|
+ *    |   | (SDA, SCL)       |                             |
+ *    |   +------------------+                             |
+ *    |                                                    |
+ *    |   +------------------+                             |
+ *    |   | Power Supply Unit|                             |
+ *    |   | (PSU)            |                             |
+ *    |   +------------------+                             |
+ *    +----------------------------------------------------+
+ *
+ *    Internal Structure
  *
  ******************************************************************************/
 
+#ifndef TOPOROBO_QMC5883L_HAL_H
+#define TOPOROBO_QMC5883L_HAL_H
+
 #include <stdint.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
+#include "freertos/FreeRTOS.h"
+#include "esp_err.h"
+#include "freertos/semphr.h"
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  qmc5883l_i2c_address;        /**< I2C address for QMC5883L */
-extern const uint8_t  qmc5883l_i2c_bus;            /**< I2C bus which the ESP32 uses */
-extern const char    *qmc5883l_tag;                /**< Tag for logs */
-extern const uint8_t  qmc5883l_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
-extern const uint8_t  qmc5883l_sda_io;             /**< GPIO pin for I2C Serial Data Line */
-extern const uint32_t qmc5883l_i2c_freq_hz;        /**< I2C Bus Frequency in Hz */
-extern const uint32_t qmc5883l_polling_rate_ticks; /**< Polling rate */
-extern const uint8_t  qmc5883l_odr_setting;        /**< Output Data Rate setting */
+/** 
+ * @brief The I2C address for the QMC5883L sensor.
+ * 
+ * This constant defines the fixed I2C address of the QMC5883L sensor used 
+ * for communication. This address must be used in all I2C communication 
+ * commands sent to the QMC5883L sensor.
+ */
+extern const uint8_t qmc5883l_i2c_address;
+
+/** 
+ * @brief The I2C bus number used by the ESP32 for communication with the QMC5883L sensor.
+ * 
+ * This constant defines the I2C bus that the ESP32 will use to interface 
+ * with the QMC5883L sensor. It should be set to the appropriate I2C bus number.
+ */
+extern const uint8_t qmc5883l_i2c_bus;
+
+/** 
+ * @brief Tag for logging messages related to the QMC5883L sensor.
+ * 
+ * This constant defines a tag used for ESP_LOG messages, categorizing log output
+ * related to the QMC5883L sensor, which simplifies log review.
+ */
+extern const char *qmc5883l_tag;
+
+/** 
+ * @brief GPIO pin used for the I2C Serial Clock Line (SCL).
+ * 
+ * Specifies the GPIO pin number connected to the SCL line 
+ * of the I2C bus.
+ */
+extern const uint8_t qmc5883l_scl_io;
+
+/** 
+ * @brief GPIO pin used for the I2C Serial Data Line (SDA).
+ * 
+ * Specifies the GPIO pin number connected to the SDA line 
+ * of the I2C bus.
+ */
+extern const uint8_t qmc5883l_sda_io;
+
+/** 
+ * @brief I2C bus frequency in Hertz for communication with the QMC5883L sensor.
+ * 
+ * This constant defines the frequency of the I2C bus for communication 
+ * with the QMC5883L sensor.
+ */
+extern const uint32_t qmc5883l_i2c_freq_hz;
+
+/** 
+ * @brief Polling rate for the QMC5883L sensor in ticks.
+ * 
+ * Defines the interval at which the ESP32 reads data from 
+ * the QMC5883L sensor in the `qmc5883l_tasks` function.
+ */
+extern const uint32_t qmc5883l_polling_rate_ticks;
+
+/** 
+ * @brief Output Data Rate (ODR) setting for the QMC5883L sensor.
+ * 
+ * This constant specifies the data rate for magnetometer measurements.
+ */
+extern const uint8_t qmc5883l_odr_setting;
+
+/** 
+ * @brief Maximum number of retry attempts for sensor reinitialization.
+ * 
+ * Defines the maximum number of consecutive retry attempts for reinitialization
+ * in case of error, after which the retry interval doubles.
+ */
+extern const uint8_t qmc5883l_max_retries;
+
+/** 
+ * @brief Initial interval between retry attempts in ticks.
+ * 
+ * Defines the initial interval between retry attempts for reinitialization,
+ * used in exponential backoff strategy.
+ */
+extern const uint32_t qmc5883l_initial_retry_interval;
+
+/** 
+ * @brief Maximum interval for exponential backoff between retries in ticks.
+ * 
+ * Sets the upper limit for the retry interval in exponential backoff.
+ */
+extern const uint32_t qmc5883l_max_backoff_interval;
 
 /* Enums **********************************************************************/
 
@@ -109,12 +190,12 @@ typedef enum : uint8_t {
  * This enum defines the possible states for the BH1750 sensor.
  */
 typedef enum : uint8_t {
-  k_qmc5883l_ready              = 0x00, /**< Sensor is ready to read data. */
-  k_qmc5883l_data_updated       = 0x01, /**< Sensor data has been updated. */
-  k_qmc5883l_uninitialized      = 0x10, /**< Sensor is not initialized. */
-  k_qmc5883l_error              = 0xF0, /**< A general catch all error */
-  k_qmc5883l_power_on_error     = 0xA1, /**< An error occurred during power on. */
-  k_qmc5883l_reset_error        = 0xA2, /**< An error occurred during reset. */
+  k_qmc5883l_ready          = 0x00, /**< Sensor is ready to read data. */
+  k_qmc5883l_data_updated   = 0x01, /**< Sensor data has been updated. */
+  k_qmc5883l_uninitialized  = 0x10, /**< Sensor is not initialized. */
+  k_qmc5883l_error          = 0xF0, /**< A general catch all error */
+  k_qmc5883l_power_on_error = 0xA1, /**< An error occurred during power on. */
+  k_qmc5883l_reset_error    = 0xA2, /**< An error occurred during reset. */
 } qmc5883l_states_t;
 
 /* Structs ********************************************************************/
@@ -123,10 +204,6 @@ typedef enum : uint8_t {
  * @struct qmc5883l_scale_t
  * @brief Structure that holds both the register value and the scaling factor for 
  *        the QMC5883L magnetometer.
- *
- * The QMC5883L outputs 16-bit signed integers representing the magnetic field in 
- * the X, Y, and Z axes. To convert the raw data into meaningful values (in microteslas), 
- * we use a scaling factor based on the selected range.
  */
 typedef struct {
   uint8_t range; /**< Register value to set the full-scale range in QMC5883L */
@@ -142,60 +219,100 @@ typedef struct {
  * the calculated heading (yaw), and a state flag used to track the sensor's status.
  */
 typedef struct {
-  uint8_t i2c_address; /**< I2C address used for communication */
-  uint8_t i2c_bus;     /**< I2C bus number used for communication */
-  float   mag_x;       /**< Measured X-axis magnetic field in µT */
-  float   mag_y;       /**< Measured Y-axis magnetic field in µT */
-  float   mag_z;       /**< Measured Z-axis magnetic field in µT */
-  float   heading;     /**< Calculated heading (yaw) in degrees */
-  uint8_t state;       /**< Sensor state */
+  uint8_t    i2c_address;        /**< I2C address used for communication */
+  uint8_t    i2c_bus;            /**< I2C bus number used for communication */
+  float      mag_x;              /**< Measured X-axis magnetic field in µT */
+  float      mag_y;              /**< Measured Y-axis magnetic field in µT */
+  float      mag_z;              /**< Measured Z-axis magnetic field in µT */
+  float      heading;            /**< Calculated heading (yaw) in degrees */
+  uint8_t    state;              /**< Sensor state */
+  uint8_t    retry_count;        /**< Retry counter for exponential backoff */
+  uint32_t   retry_interval;     /**< Current retry interval */
+  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt */
 } qmc5883l_data_t;
 
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Initialize the QMC5883L sensor over I2C.
+ * @brief Initializes the QMC5883L sensor for continuous measurement mode.
  *
- * This function initializes the I2C driver for the QMC5883L sensor and sets
- * it up for measurement mode. It powers on the device, resets it, and configures
- * the sensor for magnetic field data collection.
+ * This function initializes the I2C driver for the QMC5883L sensor, powering on the device,
+ * resetting it, and configuring it to start taking measurements. The sensor configuration
+ * settings include the operating mode, output data rate, and range.
  *
- * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure that
- *   will hold the I2C bus number.
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure containing:
+ *                            - `i2c_address`: Address for I2C communication (input).
+ *                            - `i2c_bus`: Bus number for I2C communication (input).
+ *                            - `state`: Updated to indicate initialization status (output).
  *
  * @return
- *   - ESP_OK on success.
- *   - An error code from the `esp_err_t` enumeration on failure.
+ * - `ESP_OK` on successful initialization.
+ * - An error code from `esp_err_t` if initialization fails.
+ *
+ * @note Call this function once during setup to handle initial sensor configuration.
  */
 esp_err_t qmc5883l_init(void *sensor_data);
 
 /**
  * @brief Reads magnetic field data from the QMC5883L sensor.
  *
- * This function reads data from the QMC5883L sensor and converts the
- * raw data into magnetic field values in microteslas, and calculates the heading (yaw).
+ * This function retrieves magnetic field data from the QMC5883L sensor, converting
+ * the raw output values from the sensor's X, Y, and Z registers into microtesla units. 
+ * Additionally, it calculates the heading (yaw) based on the X and Y components.
  *
- * @param[in,out] sensor_data Pointer to a `qmc5883l_data_t` struct that contains:
- *   - `i2c_bus`: The I2C bus number to use for communication (input).
- *   - `mag`: Will be updated with the magnetic field data (output).
- *   - `heading`: Will be updated with the calculated heading (output).
+ * @param[in,out] sensor_data Pointer to `qmc5883l_data_t` structure that contains:
+ *                            - `mag_x`, `mag_y`, `mag_z`: Updated with the magnetic field data in µT (output).
+ *                            - `heading`: Updated with the calculated heading in degrees (output).
+ *                            - `state`: Updated to indicate data retrieval status (output).
+ *
+ * @note Ensure the QMC5883L sensor is initialized with `qmc5883l_init` before calling this function.
  */
 void qmc5883l_read(qmc5883l_data_t *sensor_data);
 
 /**
- * @brief Executes periodic tasks for the QMC5883L sensor.
+ * @brief Manages exponential backoff and retries for QMC5883L sensor reinitialization on error.
  *
- * This function reads magnetic field data from the QMC5883L sensor and
- * checks for any errors in the sensor state. If an error is detected, the sensor
- * is reset to attempt recovery.
+ * This function checks the sensor's state for errors. If an error is present, it initiates 
+ * a reinitialization attempt, applying an exponential backoff mechanism that increases the 
+ * retry interval after each failure up to a maximum interval. On successful reinitialization,
+ * it resets the retry counter and interval.
  *
- * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure that
- *                            contains sensor data used for reading and error checking.
+ * **Logic and Flow:**
+ * - On error (`state` set to non-zero), the function checks the time since the 
+ *   last reinitialization attempt.
+ * - If the retry interval has elapsed, a reinitialization attempt is made.
+ *   - On success, `state` is set to `k_qmc5883l_ready`, and the retry counter and 
+ *     interval are reset.
+ *   - On failure, `retry_count` is incremented.
+ * - When the max retries (`qmc5883l_max_retries`) are reached, `retry_count` resets, 
+ *   and the interval doubles up to a limit (`qmc5883l_max_backoff_interval`).
  *
- * @note The delay between data reads is controlled by the `qmc5883l_polling_rate_ticks` 
- *       global variable, which defines the polling rate in system ticks.
+ * @param[in,out] sensor_data Pointer to `qmc5883l_data_t` structure containing:
+ *                            - `state`: Sensor state (input/output), where a non-zero 
+ *                              value indicates an error.
+ *                            - `retry_count`: Retry attempt counter (input/output).
+ *                            - `retry_interval`: Retry interval in ticks (input/output).
+ *                            - `last_attempt_ticks`: Time of last reinitialization attempt (input/output).
+ *
+ * @note This function should be called within `qmc5883l_tasks` to ensure regular 
+ *       error monitoring and recovery attempts with exponential backoff.
+ */
+void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data);
+
+/**
+ * @brief Executes periodic tasks for the QMC5883L sensor, including data reading and error handling.
+ *
+ * The `qmc5883l_tasks` function is intended to run continuously in a loop. It periodically 
+ * reads data from the QMC5883L sensor at intervals defined by `qmc5883l_polling_rate_ticks`, 
+ * checking for errors and using `qmc5883l_reset_on_error` to manage retries with backoff.
+ *
+ * @param[in,out] sensor_data Pointer to `qmc5883l_data_t` structure containing:
+ *                            - `mag_x`, `mag_y`, `mag_z`, `heading`: Holds the latest sensor data (output).
+ *                            - `state`, `retry_count`, `retry_interval`: Managed for error recovery (input/output).
+ *
+ * @note Execute this function as part of a FreeRTOS task to maintain continuous 
+ *       data acquisition and error management for the QMC5883L sensor.
  */
 void qmc5883l_tasks(void *sensor_data);
 
 #endif /* TOPOROBO_QMC5883L_HAL_H */
-

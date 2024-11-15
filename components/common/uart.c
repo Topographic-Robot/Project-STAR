@@ -1,7 +1,8 @@
 /* components/common/uart.c */
 
-#include <driver/uart.h>
-#include <esp_log.h>
+#include "common/uart.h"
+#include "driver/uart.h"
+#include "esp_log.h"
 
 /* Constants ******************************************************************/
 

@@ -1,12 +1,14 @@
 /* components/sensors/mpu6050_hal/include/mpu6050_hal.h */
 
-#ifndef TOPOROBO_MPU6050_HAL_H
-#define TOPOROBO_MPU6050_HAL_H
-
-/* MPU6050 6-axis Gyroscope and Accelerometer Sensor IC */
-/* Communicates over I2C protocol with configurable address 0x68 or 0x69 */
-
-/*******************************************************************************
+/* MPU6050 HAL (Hardware Abstraction Layer) Header File
+ * This file provides the interface for interacting with the MPU6050 6-axis accelerometer and gyroscope.
+ * The MPU6050 sensor outputs acceleration and gyroscope data through an I2C interface and integrates
+ * an internal Digital Motion Processor (DMP) to handle complex motion data fusion.
+ *
+ * This header file defines the functions, constants, structures, and enumerations required to 
+ * initialize, configure, read data from, and handle errors in the MPU6050 sensor.
+ *
+ *******************************************************************************
  *
  *     +-----------------------+
  *     |       MPU6050         |
@@ -49,73 +51,106 @@
  *
  *     Internal Structure
  *
- ******************************************************************************/
+ *******************************************************************************/
+
+#ifndef TOPOROBO_MPU6050_HAL_H
+#define TOPOROBO_MPU6050_HAL_H
 
 #include <stdint.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  mpu6050_i2c_address;        /**< I2C address for MPU6050 */
-extern const uint8_t  mpu6050_i2c_bus;            /**< I2C bus for MPU6050 */
-extern const char    *mpu6050_tag;                /**< Tag for logs */
-extern const uint8_t  mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line */
-extern const uint8_t  mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line */
-extern const uint32_t mpu6050_i2c_freq_hz;        /**< I2C Bus Frequency in Hz */
-extern const uint32_t mpu6050_polling_rate_ticks; /**< Polling rate (5 seconds) */
-
-/**
- * @brief Configure the sample rate divider for the MPU6050 sensor.
- *
- * Why is SMPLRT_DIV Important?
- * The MPU6050 can internally sample data at a default rate of 1 kHz. However, 
- * depending on your application, you might not need such frequent data updates, 
- * and processing all the data can create unnecessary load on the microcontroller.
+/** 
+ * @brief The I2C address for the MPU6050 sensor.
  * 
- * Benefits of adjusting the sample rate divider:
- * - Reducing processing load: Lower sample rates mean less data to process, 
- *   reducing the burden on the microcontroller's CPU and memory.
- * - Power saving: Lower data processing requirements can lead to lower overall 
- *   system power consumption, which is important for battery-powered systems.
- * - Matching system requirements: Control systems, such as robotic platforms or 
- *   IMUs, may only require data updates at 50 Hz or 100 Hz, making higher data 
- *   rates unnecessary.
+ * This constant defines the fixed I2C address of the MPU6050 sensor used 
+ * for communication. By default, the address is 0x68 when the ADD pin is connected
+ * to GND. Connecting the ADD pin to VCC changes the address to 0x69, allowing
+ * flexibility if multiple sensors are needed on the same I2C bus.
+ */
+extern const uint8_t mpu6050_i2c_address;
+
+/** 
+ * @brief The I2C bus number used by the ESP32 for communication with the MPU6050 sensor.
+ * 
+ * Defines the I2C bus that the ESP32 uses to interface with the MPU6050 sensor.
+ * This allows for flexibility when multiple I2C buses are available on the ESP32.
+ */
+extern const uint8_t mpu6050_i2c_bus;
+
+/** 
+ * @brief Tag for logging messages related to the MPU6050 sensor.
+ * 
+ * Used as a tag in ESP_LOG messages, allowing easy identification of MPU6050-related log entries,
+ * which is useful for debugging and monitoring sensor operations.
+ */
+extern const char *mpu6050_tag;
+
+/** 
+ * @brief GPIO pin used for the I2C Serial Clock Line (SCL).
+ * 
+ * Specifies the GPIO pin number connected to the I2C SCL line. Must be set based on wiring
+ * configurations between the ESP32 and MPU6050.
+ */
+extern const uint8_t mpu6050_scl_io;
+
+/** 
+ * @brief GPIO pin used for the I2C Serial Data Line (SDA).
+ * 
+ * Specifies the GPIO pin number connected to the I2C SDA line. Must be set based on wiring
+ * configurations between the ESP32 and MPU6050.
+ */
+extern const uint8_t mpu6050_sda_io;
+
+/** 
+ * @brief I2C bus frequency in Hertz for communication with the MPU6050 sensor.
+ * 
+ * Defines the frequency of the I2C bus used for communication. The standard 
+ * frequency of 100,000 Hz (100 kHz) ensures reliable data transfer. Higher
+ * frequencies might be achievable depending on wiring and sensor quality.
+ */
+extern const uint32_t mpu6050_i2c_freq_hz;
+
+/** 
+ * @brief Polling rate for the MPU6050 sensor in system ticks.
+ * 
+ * Specifies the interval for reading data from the MPU6050 sensor in the
+ * `mpu6050_tasks` function, allowing for consistent and efficient data collection.
+ */
+extern const uint32_t mpu6050_polling_rate_ticks;
+
+/** 
+ * @brief Configures the sample rate divider for the MPU6050 sensor.
+ * 
+ * Adjusting the sample rate divider can reduce processing load, save power, and 
+ * align with application requirements. By setting the divider to 9, the sensor 
+ * samples data at 100 Hz (with the default 1 kHz internal rate).
  *
- * Set up the sample rate divider to 100 Hz.
- * With the MPU6050's default sample rate of 1 kHz for the gyro, 
- * setting the divider to 9 results in a 100 Hz sample rate.
- *
- * Sample Rate = Gyro Output Rate / (1 + SMPLRT_DIV)
+ * Benefits:
+ * - Reduces load on the CPU by adjusting data rates to match application needs.
+ * - Saves power, particularly for battery-powered applications.
+ * 
+ * Calculation:
+ * - Sample Rate = Gyro Output Rate / (1 + SMPLRT_DIV).
  */
 extern const uint8_t mpu6050_sample_rate_div;
 
-/**
- * @brief Configure the Digital Low Pass Filter (DLPF) setting for the MPU6050 sensor.
+/** 
+ * @brief Configures the Digital Low Pass Filter (DLPF) setting for the MPU6050 sensor.
+ * 
+ * Sets the DLPF to filter out high-frequency noise, making data cleaner and more
+ * stable for motion-sensitive applications.
  *
- * Why is DLPF Important?
- * The DLPF controls the low-pass filter cutoff frequency for the accelerometer and gyroscope data.
- * By setting an appropriate DLPF value, you can reduce high-frequency noise, which is beneficial 
- * for applications where smooth data output is important.
- *
- * Benefits of adjusting the DLPF setting:
- * - Noise reduction: Lowering the DLPF frequency reduces high-frequency noise, making the 
- *   data cleaner and more stable, which can be useful in applications sensitive to vibrations 
- *   and rapid movements.
- * - Improved stability: A lower cutoff frequency can improve measurement stability, particularly 
- *   in stationary or low-speed movements, by filtering out fast oscillations.
- * - Reduced latency: A higher DLPF cutoff frequency allows faster response times, making it suitable 
- *   for applications requiring quick reaction to movement, like gaming and high-speed robotics.
- *
- * Set up the DLPF to balance noise reduction and response time.
- * For example, setting the DLPF to 44 Hz (k_mpu6050_config_dlpf_44hz) provides a balance between
- * noise reduction and responsiveness, which works well for general applications that need 
- * clean, real-time motion data.
- *
- * DLPF Setting Reference:
- * - 260 Hz: Minimal filtering, fastest response.
- * - 44 Hz: Moderate filtering, suitable for many applications.
- * - 5 Hz: Strong filtering, suitable for applications requiring minimal noise at the expense of response time.
+ * Benefits:
+ * - Noise reduction: filters out high-frequency noise.
+ * - Improved stability: better for low-speed movement detection.
+ * - Reduced latency: provides faster response times.
+ * 
+ * Example DLPF Settings:
+ * - 260 Hz: minimal filtering, fastest response.
+ * - 44 Hz: balanced filtering, suitable for general applications.
  */
 extern const uint8_t mpu6050_config_dlpf;
 
@@ -123,9 +158,10 @@ extern const uint8_t mpu6050_config_dlpf;
 
 /**
  * @enum mpu6050_commands_t
- * @brief Enum to represent the I2C commadns for the MPU6050 sensor.
+ * @brief Enum representing the I2C commands for the MPU6050 sensor.
  *
- * This enum defines the possible I2C commands for the MPU6050 sensor.
+ * Defines commands for configuring and operating the MPU6050 sensor, including power management,
+ * data reading, and setting up sensitivity levels for accelerometer and gyroscope.
  */
 typedef enum : uint8_t {
   /* Below are power commands: */
@@ -188,21 +224,19 @@ typedef enum : uint8_t {
 
 /**
  * @enum mpu6050_states_t
- * @brief Enum to represent the state of the MPU6050 sensor.
+ * @brief Enum representing possible states of the MPU6050 sensor.
  *
- * This enum defines the possible states for the MPU6050 sensor.
+ * Provides distinct states for tracking the status of the MPU6050 sensor,
+ * particularly in error handling and data acquisition tasks.
  */
 typedef enum : uint8_t {
-  k_mpu6050_ready               = 0x00, /**< Sensor is ready to read data */
-  k_mpu6050_data_updated        = 0x01, /**< Sensor data has been updated */
-  k_mpu6050_uninitialized       = 0x10, /**< Sensor is not initialized */
-  k_mpu6050_error               = 0xF0, /**< A general catch-all error */
-  k_mpu6050_power_on_error      = 0xA1, /**< An error occurred during power on */
-  k_mpu6050_power_down_error    = 0xA2, /**< An error occurred during power down (sleep) */
-  k_mpu6050_reset_error         = 0xA3, /**< An error occurred during reset */
-  k_mpu6050_dlp_config_error    = 0xA4, /**< An error occurred while setting DLPF configuration */
-  k_mpu6050_sensor_config_error = 0xA5, /**< An error occurred while setting sensor configurations (accel, gyro) */
-  k_mpu6050_power_cycle_error   = 0xA6, /**< An error occurred during the power cycle */
+  k_mpu6050_ready            = 0x00, /**< Sensor is ready to read data */
+  k_mpu6050_data_updated     = 0x01, /**< Sensor data has been updated */
+  k_mpu6050_uninitialized    = 0x10, /**< Sensor is not initialized */
+  k_mpu6050_error            = 0xF0, /**< General error state */
+  k_mpu6050_power_on_error   = 0xA1, /**< Error occurred during power on */
+  k_mpu6050_reset_error      = 0xA3, /**< Error during reset command */
+  k_mpu6050_dlp_config_error = 0xA4, /**< Error setting DLPF configuration */
 } mpu6050_states_t;
 
 /* Structs ********************************************************************/
@@ -249,14 +283,17 @@ typedef struct {
 
 /**
  * @struct mpu6050_data_t
- * @brief Structure to store MPU6050 sensor data.
+ * @brief Structure to store MPU6050 sensor data and state.
  *
- * This structure holds the I2C bus number used for communication,
- * the accelerometer and gyroscope values measured by the MPU6050 sensor,
- * and a state flag used to track the sensor's status.
+ * This structure holds essential data for interfacing with the MPU6050 sensor,
+ * including accelerometer and gyroscope readings, state, and sensor configuration.
  *
- * These flags are set in the `mpu6050_states_t` enum, always verify
- * with the enum.
+ * Fields:
+ * - `i2c_address`: I2C address for communication.
+ * - `i2c_bus`: I2C bus that the ESP32 uses.
+ * - `accel_x`, `accel_y`, `accel_z`: Acceleration readings in g-force.
+ * - `gyro_x`, `gyro_y`, `gyro_z`: Gyroscope readings in degrees per second.
+ * - `state`: Tracks sensor's operational state.
  */
 typedef struct {
   uint8_t i2c_address; /**< I2C address used for communication */
@@ -271,87 +308,81 @@ typedef struct {
   uint8_t state;       /**< Sensor state, set in `mpu6050_states_t` */
 } mpu6050_data_t;
 
+
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Initialize the MPU6050 sensor over I2C.
+ * @brief Initializes the MPU6050 sensor for accelerometer and gyroscope data collection.
  *
- * This function initializes the I2C driver for the MPU6050 sensor and sets
- * it up for measurement mode. It powers on the device, resets it, and configures
- * the sensor for accelerometer and gyroscope data collection. If the device fails
- * to be configured, this function will attempt to reset the device and configure it again.
- * However, this might not always work, and calling the function `mpu6050_reset_on_error` 
- * until the `mpu6050_data_t`'s `state` flag is `0x00` is recommended.
+ * The `mpu6050_init` function configures the I2C interface for communication with the MPU6050 sensor,
+ * initializing the accelerometer and gyroscope in continuous measurement mode. It also sets the 
+ * desired sample rate, DLPF settings, and initial state. If initialization fails, an error state
+ * is set in the `mpu6050_data_t` structure.
  *
- * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure that 
- *   will hold the I2C bus number. The `i2c_bus` member will be set during 
- *   initialization.
+ * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure for initializing sensor data.
+ *                            - `i2c_address`: I2C address for the MPU6050 (input).
+ *                            - `state`: Updated to indicate initialization success or failure (output).
  *
- * @return
- *   - ESP_OK on success.
- *   - An error code from the `esp_err_t` enumeration on failure.
+ * @return 
+ * - `ESP_OK` on successful initialization.
+ * - An error code from `esp_err_t` if initialization fails.
  *
- * @note 
- *   - This should only be called once.
- *   - Delays are introduced after power on, reset, and sensor settings to ensure 
- *     proper initialization.
- *   The chosen configuration includes:
- *     - DLPF: 44 Hz to filter out high-frequency noise, useful for reducing 
- *       vibrations and smoothing the sensor data.
- *     - Gyroscope Full Scale: ±500°/s, providing enough sensitivity for regular 
- *       movements and turning, but capable of handling faster angular rates without 
- *       saturating.
- *     - Accelerometer Full Scale: ±4g, allowing for a moderate range of linear 
- *       acceleration without losing precision during regular motion.
+ * @note This function should be called once during setup to prepare the MPU6050 sensor for data acquisition.
  */
 esp_err_t mpu6050_init(void *sensor_data);
 
 /**
- * @brief Reads acceleration and gyroscope data from the MPU6050 sensor.
+ * @brief Reads accelerometer and gyroscope data from the MPU6050 sensor.
  *
- * This function reads data from the MPU6050 sensor and converts the
- * raw data into acceleration (g-force) and gyroscope (degrees per second) values.
- * 
- * @param[in,out] sensor_data Pointer to a `mpu6050_data_t` struct that contains:
- *   - `i2c_bus`: The I2C bus number to use for communication (input).
- *   - `accel`: Will be updated with the acceleration data (output).
- *   - `gyro`: Will be updated with the gyroscope data (output).
- *            If the reading fails, the values will be set to defaults or error codes.
+ * This function retrieves the latest data from the MPU6050 sensor, including acceleration
+ * and angular velocity measurements. The data is converted and stored in the `mpu6050_data_t`
+ * structure. If a read error occurs, the structure's fields are not updated.
  *
- * @note Ensure the MPU6050 is initialized before calling this function.
+ * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure:
+ *                            - `accel_x`, `accel_y`, `accel_z`: Updated with acceleration data in g-force (output).
+ *                            - `gyro_x`, `gyro_y`, `gyro_z`: Updated with angular velocity data in degrees/second (output).
+ *                            - `state`: Set to indicate the read status (output).
+ *
+ * @note Ensure the MPU6050 sensor is initialized using `mpu6050_init` before calling this function.
  */
 void mpu6050_read(mpu6050_data_t *sensor_data);
 
 /**
- * @brief Checks if the MPU6050 sensor encountered an error and attempts to reset it.
+ * @brief Manages error detection and recovery for the MPU6050 sensor using exponential backoff.
  *
- * This function checks the `state` flag of the `mpu6050_data_t` structure to 
- * determine if an error occurred. If an error is detected, it runs the MPU6050
- * initialization function to reset the sensor. If the reset is successful, the 
- * `state` flag will be updated to indicate that the sensor is ready.
+ * The `mpu6050_reset_on_error` function checks the sensor's state for errors and, if detected,
+ * attempts to reinitialize the MPU6050 with an exponential backoff strategy. Successful reinitialization
+ * resets the retry count and interval. If repeated attempts fail, the retry interval doubles up to 
+ * a defined maximum.
  *
- * @param[in,out] sensor_data Pointer to a `mpu6050_data_t` struct that contains:
- *   - `state`: The current state of the sensor (input/output). 
- *              A non-zero value indicates an error. After a successful reset, 
- *              this flag is reset.
+ * **Logic and Flow:**
+ * - Checks if an error is detected (`state` has a non-zero value).
+ * - If the retry interval has elapsed, attempts reinitialization.
+ *   - On success, `state` is reset, and the retry count and interval are reset.
+ *   - On failure, `retry_count` increments, and the interval doubles up to `mpu6050_max_backoff_interval`.
+ *
+ * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure:
+ *                            - `state`: Current operational state (input/output).
+ *                            - `retry_count`: Counter tracking reinitialization attempts (input/output).
+ *                            - `retry_interval`: Current retry interval in ticks (input/output).
+ *
+ * @note This function should be periodically called within `mpu6050_tasks` to handle errors and manage retries.
  */
 void mpu6050_reset_on_error(mpu6050_data_t *sensor_data);
 
 /**
- * @brief Executes periodic tasks for the MPU6050 sensor.
- * 
- * This function reads acceleration and gyroscope data from the MPU6050 sensor and
- * checks for any errors in the sensor state. If an error is detected, the sensor 
- * is reset to attempt recovery. The function also introduces a delay based 
- * on the polling rate to ensure continuous operation at the desired intervals.
- * 
- * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure that
- *                            contains sensor data used for reading and error checking.
- * 
- * @note The delay is calculated from the `mpu6050_polling_rate_ticks` global variable
- *       which defines the pollign rate in system ticks.
+ * @brief Periodically reads data from the MPU6050 sensor and manages errors.
+ *
+ * The `mpu6050_tasks` function runs continuously within a FreeRTOS task, reading data from the 
+ * MPU6050 sensor at intervals defined by `mpu6050_polling_rate_ticks`. If an error occurs, 
+ * it calls `mpu6050_reset_on_error` to handle retries with exponential backoff.
+ *
+ * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure for:
+ *                            - `accel_x`, `accel_y`, `accel_z`, `gyro_x`, `gyro_y`, `gyro_z`: Sensor data fields (output).
+ *                            - Retry-related fields `retry_count`, `retry_interval` for error handling (input/output).
+ *
+ * @note Execute this function as part of a FreeRTOS task to maintain continuous data acquisition and error management.
  */
 void mpu6050_tasks(void *sensor_data);
 
 #endif /* TOPOROBO_MPU6050_HAL_H */
-
