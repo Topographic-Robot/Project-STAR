@@ -10,10 +10,10 @@
 
 /* Constants ******************************************************************/
 
-const char    *wifi_tag          = "WiFi";
-const uint8_t  wifi_max_retry    = 10;
-const uint8_t  wifi_ssid_max_len = 32;
-const uint8_t  wifi_pass_max_len = 32;
+const char   *wifi_tag          = "WiFi";
+const uint8_t wifi_max_retry    = 10;
+const uint8_t wifi_ssid_max_len = 32;
+const uint8_t wifi_pass_max_len = 32;
 
 /* Globals (Static) ***********************************************************/
 
@@ -43,7 +43,7 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
  * @param event_data A pointer to the event data specific to the event type.
  */
 static void event_handler(void *arg, esp_event_base_t event_base,
-    int32_t event_id, void *event_data) 
+                          int32_t event_id, void *event_data) 
 {
   static uint8_t s_retry_num = 0;
 
@@ -137,15 +137,15 @@ esp_err_t wifi_init_sta(void)
   /* Register event handlers for WiFi and IP events */
   ESP_LOGI(wifi_tag, "Registering event handlers for WiFi and IP events.");
   esp_event_handler_instance_t instance_any_id, instance_got_ip;
-  ret = esp_event_handler_instance_register(
-      WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, &instance_any_id);
+  ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, 
+                                            &event_handler, NULL, &instance_any_id);
   if (ret != ESP_OK) {
     ESP_LOGE(wifi_tag, "Failed to register WiFi event handler: %d", ret);
     return ret;
   }
 
-  ret = esp_event_handler_instance_register(
-      IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, &instance_got_ip);
+  ret = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, 
+                                            &event_handler, NULL, &instance_got_ip);
   if (ret != ESP_OK) {
     ESP_LOGE(wifi_tag, "Failed to register IP event handler: %d", ret);
     return ret;

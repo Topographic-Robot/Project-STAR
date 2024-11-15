@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "driver/uart.h"
-#include "driver/gpio.h"
 
 /* Constants ******************************************************************/
 

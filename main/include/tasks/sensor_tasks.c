@@ -4,7 +4,6 @@
 
 #include "sensor_tasks.h"
 #include "system_tasks.h"
-#include "driver/gpio.h"
 #include "esp_log.h"
 
 /* Globals (Static) ***********************************************************/

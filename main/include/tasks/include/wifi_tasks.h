@@ -17,10 +17,10 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-extern const char    *wifi_tag;          /**< Tag for logging */
-extern const uint8_t  wifi_max_retry;    /**< The max number of times to try and connect to the station */
-extern const uint8_t  wifi_ssid_max_len; /**< The max length for wifi's SSID defined by esp */
-extern const uint8_t  wifi_pass_max_len; /**< The max legnth for wifi's password defined by esp */
+extern const char   *wifi_tag;          /**< Tag for logging */
+extern const uint8_t wifi_max_retry;    /**< The max number of times to try and connect to the station */
+extern const uint8_t wifi_ssid_max_len; /**< The max length for wifi's SSID defined by esp */
+extern const uint8_t wifi_pass_max_len; /**< The max legnth for wifi's password defined by esp */
 
 
 /* Public Functions ***********************************************************/

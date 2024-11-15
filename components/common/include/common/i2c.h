@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "driver/i2c.h"
-#include "driver/gpio.h"
 
 /* Constants ******************************************************************/
 
@@ -99,7 +98,8 @@ esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus,
  *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
 esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
-                                  uint8_t i2c_bus, uint8_t i2c_address, const char *tag);
+                                  uint8_t i2c_bus, uint8_t i2c_address, 
+                                  const char *tag);
 
 /**
  * @brief Read multiple bytes starting from a specific register of an I2C device.
@@ -116,7 +116,8 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
  *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
 esp_err_t priv_i2c_read_reg_bytes(uint8_t reg_addr, uint8_t *data, size_t len,
-                                  uint8_t i2c_bus, uint8_t i2c_address, const char *tag);
+                                  uint8_t i2c_bus, uint8_t i2c_address, 
+                                  const char *tag);
 
 #endif /* TOPOROBO_I2C_H */
 
