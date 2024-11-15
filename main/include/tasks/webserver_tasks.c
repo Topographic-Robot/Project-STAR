@@ -1,14 +1,10 @@
 /* main/include/tasks/webserver_tasks.c */
 
 #include "webserver_tasks.h"
+#include "webserver_info.h"
 #include "system_tasks.h"
 #include "esp_http_client.h"
-#include "cJSON.h"
 #include "esp_log.h"
-
-/* Constants ******************************************************************/
-
-#define webserver_url ("http://10.246.119.34:8888")
 
 /* Public Functions ***********************************************************/
 

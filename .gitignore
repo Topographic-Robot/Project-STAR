@@ -9,5 +9,6 @@ TODO
 *.zip
 
 wifi_credentials.h
+webserver_info.h
 
 backup_*

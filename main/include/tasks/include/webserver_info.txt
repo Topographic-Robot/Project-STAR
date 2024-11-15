@@ -1,0 +1,10 @@
+/* main/include/tasks/include/webserver_info.h */
+
+/* NOTE: This file will not be pushed to git, but a templated .txt version will */
+
+#ifndef TOPOROBO_PRIV_WEBSERVER_INFO_H
+#define TOPOROBO_PRIV_WEBSERVER_INFO_H
+
+#define webserver_url ("")
+
+#endif /* TOPOROBO_PRIV_WEBSERVER_INFO_H */
