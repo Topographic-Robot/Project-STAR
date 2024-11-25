@@ -9,8 +9,6 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-/* NOTE: this doesnt fully follow the pattern of the other sensors, like it doesnt
- * do XXX->state the same way. Maybe this should be updated to match. */
 
 /* Constants *******************************************************************/
 
@@ -23,6 +21,7 @@ const uint32_t gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
 const uint8_t  gy_neo6mv2_max_retries            = 4;
 const uint32_t gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
+const uint8_t  gy_neo6mv2_sentence_buffer_size   = 128;
 
 /* Static (Private) Functions **************************************************/
 
@@ -62,12 +61,20 @@ static float parse_coordinate(const char *coord_str, const char *hemisphere)
  *
  * The GPRMC sentence contains essential information such as time, latitude, longitude,
  * speed, and GPS fix status. This function extracts these fields and updates the
- * `gy_neo6mv2_data_t` structure.
+ * `gy_neo6mv2_data_t` structure. It uses a stack-allocated buffer to avoid dynamic 
+ * memory allocation within the task, preventing potential stack overflows that could
+ * occur with heap allocation using functions like `strdup`.
  *
  * **Logic and Flow:**
- * - Tokenize the GPRMC sentence using commas as delimiters.
- * - Check if the sentence is valid and extract latitude, longitude, time, and speed.
- * - Update the GPS data structure accordingly.
+ * - Creates a copy of the input sentence in a local buffer on the stack to avoid 
+ *   modifying the original string.
+ * - Tokenizes the GPRMC sentence using commas as delimiters.
+ * - Checks if the sentence is valid (enough tokens) and the GPS fix status.
+ * - If the fix is valid ('A' status), extracts latitude, longitude, time, and speed.
+ * - Updates the GPS data structure with the extracted information and sets the state
+ *   to `k_gy_neo6mv2_data_updated`.
+ * - If the fix status is invalid ('V' status) or the sentence is incomplete, updates
+ *   the state to `k_gy_neo6mv2_error`.
  *
  * @param[in] sentence Pointer to the GPRMC NMEA sentence string.
  * @param[out] sensor_data Pointer to `gy_neo6mv2_data_t` structure to store extracted GPS data.
@@ -75,9 +82,14 @@ static float parse_coordinate(const char *coord_str, const char *hemisphere)
 static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
 {
   char *tokens[20];
-  int   token_index   = 0;
-  char *sentence_copy = strdup(sentence); /* Make a copy since strtok modifies the string */
-  char *token         = strtok(sentence_copy, ",");
+  int   token_index = 0;
+
+  /* Use stack-allocated buffer to avoid heap allocation */
+  char sentence_copy[gy_neo6mv2_sentence_buffer_size]; 
+  strncpy(sentence_copy, sentence, sizeof(sentence_copy) - 1);
+  sentence_copy[sizeof(sentence_copy) - 1] = '\0';
+
+  char *token = strtok(sentence_copy, ",");
 
   while (token != NULL && token_index < 20) {
     tokens[token_index++] = token;
@@ -86,7 +98,7 @@ static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
 
   if (token_index < 12) {
     ESP_LOGE(gy_neo6mv2_tag, "Incomplete GPRMC sentence");
-    free(sentence_copy);
+    sensor_data->state = k_gy_neo6mv2_error;
     return;
   }
 
@@ -94,8 +106,8 @@ static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
   if (tokens[2][0] != 'A') {
     /* Status V means invalid data */
     sensor_data->fix_status = 0;
+    sensor_data->state      = k_gy_neo6mv2_error;
     ESP_LOGW(gy_neo6mv2_tag, "No GPS fix");
-    free(sentence_copy);
     return;
   } else {
     sensor_data->fix_status = 1;
@@ -115,7 +127,7 @@ static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
   float speed_knots  = atof(tokens[7]);
   sensor_data->speed = speed_knots * 0.514444; /* 1 knot = 0.514444 m/s */
 
-  free(sentence_copy);
+  sensor_data->state = k_gy_neo6mv2_data_updated;
 }
 
 /* Public Functions ***********************************************************/
@@ -147,8 +159,14 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
     return ret;
   }
 
+  /* Initialize GPS data and state */
   gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
-  gy_neo6mv2_data->fix_status         = 0;
+  gy_neo6mv2_data->latitude           = 0.0;
+  gy_neo6mv2_data->longitude          = 0.0;
+  gy_neo6mv2_data->speed              = 0.0;
+  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
+  gy_neo6mv2_data->fix_status         = 0; // Initially no fix
+  gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;
   gy_neo6mv2_data->retry_count        = 0;
   gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval;
   gy_neo6mv2_data->last_attempt_ticks = 0;
@@ -164,7 +182,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
     return ESP_FAIL;
   }
 
-  uint8_t data[128]; /* Buffer to hold NMEA data */
+  uint8_t data[gy_neo6mv2_sentence_buffer_size]; /* Buffer to hold NMEA data */
 
   esp_err_t ret = priv_uart_read(data, sizeof(data) - 1, gy_neo6mv2_uart_num, 
                                  gy_neo6mv2_tag);
@@ -183,14 +201,17 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
     }
   } else {
     ESP_LOGW(gy_neo6mv2_tag, "No data read from UART");
+    sensor_data->state = k_gy_neo6mv2_error; /* Set error state if read fails */
     return ESP_FAIL;
   }
+
+
   return ESP_OK;
 }
 
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 {
-  if (sensor_data->fix_status == 0) {
+  if (sensor_data->state == k_gy_neo6mv2_error) {
     TickType_t current_ticks = xTaskGetTickCount();
 
     if ((current_ticks - sensor_data->last_attempt_ticks) > sensor_data->retry_interval) {
@@ -198,7 +219,7 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 
       esp_err_t ret = gy_neo6mv2_init(sensor_data);
       if (ret == ESP_OK) {
-        sensor_data->fix_status     = 1; /* Assume fix acquired after successful init */
+        sensor_data->state = k_gy_neo6mv2_ready;
         sensor_data->retry_count    = 0;
         sensor_data->retry_interval = gy_neo6mv2_initial_retry_interval;
         ESP_LOGI(gy_neo6mv2_tag, "GY-NEO6MV2 GPS module reset successfully.");
@@ -230,4 +251,3 @@ void gy_neo6mv2_tasks(void *sensor_data)
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }
 }
-

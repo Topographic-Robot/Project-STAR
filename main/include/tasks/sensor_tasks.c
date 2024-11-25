@@ -9,22 +9,12 @@
 /* Globals (Static) ***********************************************************/
 
 static sensor_config_t sensors[] = {
-  { "BH1750",     bh1750_init,     bh1750_tasks,     NULL, false },  /* confirmed to work */
-  { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   NULL, false },  /* confirmed to work */
-  { "DHT22",      dht22_init,      dht22_tasks,      NULL, false },  /* confirmed to work */
-  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    NULL, false },  /* pretty sure this doesnt work*/
-  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, NULL, true  },  /* creates stack overflow */
+  { "BH1750",     bh1750_init,     bh1750_tasks,     &(s_sensor_data.bh1750_data),     false }, 
+  { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   &(s_sensor_data.qmc5883l_data),   false },
+  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    &(s_sensor_data.mpu6050_data),    false },
+  { "DHT22",      dht22_init,      dht22_tasks,      &(s_sensor_data.dht22_data),      false },
+  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, &(s_sensor_data.gy_neo6mv2_data), true  },
 };
-
-/* Function to Initialize data_ptr Fields *************************************/
-
-static inline void sensors_init_data_ptrs(sensor_data_t *sensor_data) {
-  sensors[0].data_ptr = &(sensor_data->bh1750_data);
-  sensors[1].data_ptr = &(sensor_data->qmc5883l_data);
-  sensors[2].data_ptr = &(sensor_data->mpu6050_data);
-  sensors[3].data_ptr = &(sensor_data->dht22_data);
-  sensors[4].data_ptr = &(sensor_data->gy_neo6mv2_data);
-}
 
 /* Public Functions ***********************************************************/
 
@@ -32,9 +22,6 @@ esp_err_t sensors_init(sensor_data_t *sensor_data)
 {
   esp_err_t status         = ESP_OK;
   esp_err_t overall_status = ESP_OK;
-
-  /* Initialize data_ptr fields */
-  sensors_init_data_ptrs(sensor_data);
 
   for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
     if (sensors[i].enabled) {
@@ -60,9 +47,6 @@ esp_err_t sensors_init(sensor_data_t *sensor_data)
 esp_err_t sensor_tasks(sensor_data_t *sensor_data) 
 {
   esp_err_t overall_status = ESP_OK;
-
-  /* Ensure data_ptr fields are initialized */
-  sensors_init_data_ptrs(sensor_data);
 
   for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
     if (sensors[i].enabled) {

@@ -1,11 +1,9 @@
 idf_component_register(
   SRCS 
-    "i2c.c"
-    "uart.c"
-    "spi.c"
+    "ov7670_hal/ov7670_hal.c"
   INCLUDE_DIRS 
-    "include"
+    "ov7670_hal/include"
   PRIV_REQUIRES 
-    driver
+    driver 
 )
 

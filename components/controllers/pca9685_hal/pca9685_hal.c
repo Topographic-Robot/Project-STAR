@@ -64,11 +64,12 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
     /* Initialize the I2C communication for the board */
     new_board->i2c_address = pca9685_i2c_address + i;
     new_board->i2c_bus     = pca9685_i2c_bus;
-    ret = priv_i2c_init(pca9685_scl_io, pca9685_sda_io, pca9685_i2c_freq_hz, 
-                        pca9685_i2c_bus, pca9685_tag);
+    ret                    = priv_i2c_init(pca9685_scl_io, pca9685_sda_io, 
+                                           pca9685_i2c_freq_hz, 
+                                           pca9685_i2c_bus, pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to initialize I2C for PCA9685 board %d", i);
-      free(new_board);
+      free(new_board); /* Free allocated memory on error */
       return ret;
     }
 

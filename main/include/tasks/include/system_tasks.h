@@ -14,6 +14,10 @@
  */
 extern const char *system_tag;
 
+/* Globals ********************************************************************/
+
+extern sensor_data_t s_sensor_data;
+
 /* Public Functions ***********************************************************/
 
 /**

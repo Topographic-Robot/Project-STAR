@@ -1,3 +1,12 @@
+| CJMCU-4232 Pin | ESP32 Pin | JTAG Signal            |
+|----------------|-----------|------------------------|
+| AD0            | D13       | TCK (Test Clock)       |
+| AD1            | D12       | TDI (Test Data In)     |
+| AD2            | D15       | TDO (Test Data Out)    |
+| AD3            | D14       | TMS (Test Mode Select) |
+| GND            | GND       | Ground                 |
+| 3V3            | 3V3       | Power                  |
+
 openocd -f board/esp32-wrover-kit-3.3v.cfg -c "ftdi vid_pid 0x<VID> 0x<PID>"
 
 

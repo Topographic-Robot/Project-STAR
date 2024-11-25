@@ -137,34 +137,70 @@ extern const uint32_t gy_neo6mv2_initial_retry_interval;
  */
 extern const uint32_t gy_neo6mv2_max_backoff_interval;
 
+/**
+ * @brief Maximum size of the buffer used for storing NMEA sentences from the GY-NEO6MV2 GPS module.
+ *
+ * This constant defines the maximum number of characters that can be stored in the buffer
+ * used for processing NMEA sentences received from the GPS module.  It is crucial to choose
+ * an appropriate size to accommodate the longest expected NMEA sentence, including the
+ * null terminator.  Setting a sufficient buffer size prevents potential buffer overflows
+ * during sentence processing.
+ * 
+ * A larger buffer size provides more flexibility for handling longer sentences but consumes
+ * more memory.  A smaller buffer size saves memory but risks truncating longer sentences,
+ * potentially leading to incorrect data interpretation or parsing errors.  The chosen
+ * size should balance memory usage and sentence length requirements.
+ */
+extern const uint8_t gy_neo6mv2_sentence_buffer_size;
+
+/* Enums **********************************************************************/
+
+/**
+ * @enum gy_neo6mv2_states_t
+ * @brief Represents the operational states of the GY-NEO6MV2 GPS module.
+ * 
+ * This enumeration defines the different states the GPS module can be in, 
+ * allowing for efficient state tracking and error handling within the system.
+ * Each state corresponds to a specific condition or phase of the module's operation.
+ */
+typedef enum {
+  k_gy_neo6mv2_ready         = 0x00, /**< Module is initialized and ready. */
+  k_gy_neo6mv2_data_updated  = 0x01, /**< New GPS data has been successfully read. */
+  k_gy_neo6mv2_uninitialized = 0x10, /**< Module is not yet initialized. */
+  k_gy_neo6mv2_error         = 0xF0, /**< A general error has occurred. */
+} gy_neo6mv2_states_t;
+
 /* Structs ********************************************************************/
 
 /**
  * @struct gy_neo6mv2_data_t
  * @brief Structure to store GPS data read from the GY-NEO6MV2 module.
  *
- * This structure holds the data such as latitude, longitude, speed, and time.
- * Additionally, it keeps track of retry information for managing communication errors.
+ * This structure holds the GPS data such as latitude, longitude, speed, time, and fix status.
+ * Additionally, it maintains retry information for managing communication errors and
+ * tracks the operational state of the GPS module.
  *
  * **Fields:**
- * - `latitude`: Latitude in degrees.
- * - `longitude`: Longitude in degrees.
+ * - `latitude`: Latitude in degrees. Negative values indicate South.
+ * - `longitude`: Longitude in degrees. Negative values indicate West.
  * - `speed`: Speed over ground in meters per second.
  * - `time`: UTC Time in HHMMSS.SS format.
  * - `fix_status`: GPS fix status (0 for no fix, 1 for fix acquired).
+ * - `state`: The current operational state of the GPS module (gy_neo6mv2_states_t).
  * - `retry_count`: The current count of retry attempts after encountering an error.
  * - `retry_interval`: The current interval in ticks between retry attempts.
  * - `last_attempt_ticks`: The tick count of the last attempt to reinitialize the module.
  */
 typedef struct {
-  float      latitude;           /**< GPS latitude in degrees */
-  float      longitude;          /**< GPS longitude in degrees */
-  float      speed;              /**< Speed in meters per second */
-  char       time[11];           /**< UTC Time in HHMMSS.SS format */
-  uint8_t    fix_status;         /**< GPS fix status (0: no fix, 1: fix acquired) */
-  uint8_t    retry_count;        /**< Retry counter for exponential backoff */
-  uint32_t   retry_interval;     /**< Current retry interval in ticks */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt */
+  float               latitude;           /**< GPS latitude in degrees */
+  float               longitude;          /**< GPS longitude in degrees */
+  float               speed;              /**< Speed in meters per second */
+  char                time[11];           /**< UTC Time in HHMMSS.SS format */
+  uint8_t             fix_status;         /**< GPS fix status (0: no fix, 1: fix acquired) */
+  gy_neo6mv2_states_t state;              /**< Current state of the GPS module (gy_neo6mv2_states_t). */
+  uint8_t             retry_count;        /**< Retry counter for exponential backoff */
+  uint32_t            retry_interval;     /**< Current retry interval in ticks */
+  TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt */
 } gy_neo6mv2_data_t;
 
 /* Public Functions ***********************************************************/

@@ -14,7 +14,7 @@ const char    *bh1750_tag                    = "BH1750";
 const uint8_t  bh1750_scl_io                 = GPIO_NUM_22;
 const uint8_t  bh1750_sda_io                 = GPIO_NUM_21;
 const uint32_t bh1750_i2c_freq_hz            = 100000;
-const uint32_t bh1750_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
+const uint32_t bh1750_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
 const uint8_t  bh1750_max_retries            = 4;
 const uint32_t bh1750_initial_retry_interval = pdMS_TO_TICKS(15);
 const uint32_t bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
@@ -34,7 +34,7 @@ char *bh1750_data_to_json(const bh1750_data_t *data)
 esp_err_t bh1750_init(void *sensor_data)
 {
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
-  ESP_LOGI(bh1750_tag, "Starting Configuration");
+  ESP_LOGI(bh1750_tag, "Starting BH1750 Configuration");
 
   bh1750_data->i2c_address        = bh1750_i2c_address;
   bh1750_data->i2c_bus            = bh1750_i2c_bus;
@@ -52,23 +52,40 @@ esp_err_t bh1750_init(void *sensor_data)
     return ret;
   }
 
-  /* Power on and reset the sensor */
+  /* Power on the sensor */
   ret = priv_i2c_write_byte(k_bh1750_power_on_cmd, bh1750_i2c_bus, 
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_power_on_error;
+    ESP_LOGE(bh1750_tag, "BH1750 Power On failed: %s", esp_err_to_name(ret));
     return ret;
   }
+  vTaskDelay(10 / portTICK_PERIOD_MS);
 
+  /* Reset the sensor */
   ret = priv_i2c_write_byte(k_bh1750_reset_cmd, bh1750_i2c_bus, 
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_reset_error;
+    ESP_LOGE(bh1750_tag, "BH1750 Reset failed: %s", esp_err_to_name(ret));
     return ret;
   }
+  vTaskDelay(10 / portTICK_PERIOD_MS);
+
+    /* Set continuous measurement mode (low res) */
+    ret = priv_i2c_write_byte(k_bh1750_cont_low_res_mode_cmd, bh1750_i2c_bus,
+                              bh1750_i2c_address, bh1750_tag);
+
+    if (ret != ESP_OK) {
+      bh1750_data->state = k_bh1750_cont_low_res_error;
+      ESP_LOGE(bh1750_tag, "BH1750 Set Mode failed: %s", esp_err_to_name(ret));
+      return ret;
+    }
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+
 
   bh1750_data->state = k_bh1750_ready;
-  ESP_LOGI(bh1750_tag, "Sensor Configuration Complete");
+  ESP_LOGI(bh1750_tag, "BH1750 Configuration Complete");
   return ESP_OK;
 }
 
