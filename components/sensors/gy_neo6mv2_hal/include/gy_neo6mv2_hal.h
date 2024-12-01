@@ -137,6 +137,8 @@ extern const uint32_t gy_neo6mv2_initial_retry_interval;
  */
 extern const uint32_t gy_neo6mv2_max_backoff_interval;
 
+/* Macros *********************************************************************/
+
 /**
  * @brief Maximum size of the buffer used for storing NMEA sentences from the GY-NEO6MV2 GPS module.
  *

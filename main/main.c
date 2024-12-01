@@ -1,5 +1,9 @@
 /* main/main.c */
 
+/* TODO: Add so the SD Card can work, with the time and the filesystem.
+ *       Then add in each file for data collection writing/adding to the queue
+ *       to write to files on the SD card */
+
 #include "system_tasks.h"
 #include "esp_log.h"
 

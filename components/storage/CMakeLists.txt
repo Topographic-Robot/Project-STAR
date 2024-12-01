@@ -5,5 +5,6 @@ idf_component_register(
     "sd_card_hal/include"
   PRIV_REQUIRES
     driver
+    fatfs
 )
 
