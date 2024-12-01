@@ -10,7 +10,7 @@
 /**
  * @brief Logging tag for the file write manager.
  *
- * This tag is used in ESP_LOG messages to categorize log output
+ * This tag is used in ESP_LOG messages to categorize log outpu
  * related to the file write manager. It simplifies debugging and
  * log filtering.
  */
@@ -19,7 +19,7 @@ extern const char *file_manager_tag;
 /**
  * @brief Maximum number of queued file write requests.
  *
- * Defines the maximum number of pending write operations that
+ * Defines the maximum number of pending write operations tha
  * can be enqueued. Requests beyond this limit will be rejected
  * to prevent queue overflow.
  */

@@ -32,7 +32,7 @@ static QueueHandle_t file_write_queue;
 /**
  * @brief Formats the current date and time as a string.
  *
- * This function retrieves the current system time and formats it
+ * This function retrieves the current system time and formats i
  * as a string in the format `YYYY-MM-DD HH:MM:SS`.
  *
  * @param[out] buffer A buffer to store the formatted timestamp.

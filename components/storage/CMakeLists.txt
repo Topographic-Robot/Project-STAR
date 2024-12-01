@@ -6,5 +6,6 @@ idf_component_register(
   PRIV_REQUIRES
     driver
     fatfs
+    common
 )
 
