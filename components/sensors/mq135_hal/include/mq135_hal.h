@@ -79,7 +79,7 @@ extern const uint8_t mq135_dout_pin;
  * @brief Polling rate for reading data from the MQ135 sensor.
  *
  * This constant defines the interval at which the ESP32 polls the MQ135 sensor
- * for new data, in FreeRTOS ticks. The polling rate should allow sufficien
+ * for new data, in FreeRTOS ticks. The polling rate should allow sufficient
  * time for the sensor to stabilize between readings.
  */
 extern const uint32_t mq135_polling_rate_ticks;
@@ -180,7 +180,7 @@ char *mq135_data_to_json(const mq135_data_t *data);
  * @brief Initialize the MQ135 sensor.
  *
  * This function configures the GPIO and ADC settings for the MQ135 sensor and
- * starts the warm-up period. During the warm-up period, the sensor is no
+ * starts the warm-up period. During the warm-up period, the sensor is not
  * considered ready for data collection.
  *
  * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure where
@@ -193,7 +193,7 @@ esp_err_t mq135_init(void *sensor_data);
  * @brief Read gas concentration data from the MQ135 sensor.
  *
  * This function reads the raw analog value from the sensor's AOUT pin and
- * calculates the gas concentration in ppm. If the warm-up period has no
+ * calculates the gas concentration in ppm. If the warm-up period has not
  * completed, the function returns an error.
  *
  * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure where

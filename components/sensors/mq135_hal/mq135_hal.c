@@ -29,7 +29,7 @@ const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
  *
  * This static global variable is used to manage the ADC configuration and
  * operations for reading the analog output (AOUT) of the MQ135 sensor. The ADC
- * handle is initialized during the `mq135_init` function and used in subsequen
+ * handle is initialized during the `mq135_init` function and used in subsequent
  * read operations.
  */
 static adc_oneshot_unit_handle_t adc1_handle;

@@ -190,17 +190,17 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
-  uint8_t gy_neo6mv2_data[gy_neo6mv2_sentence_buffer_size];
-  int32_t length = 0; /* Variable to hold the length of gy_neo6mv2_data read */
+  uint8_t uart_rx_buffer[gy_neo6mv2_sentence_buffer_size];
+  int32_t length = 0; /* Variable to hold the length of uart_rx_buffer read */
 
-  /* Read gy_neo6mv2_data from UART */
-  esp_err_t ret = priv_uart_read(gy_neo6mv2_data, sizeof(gy_neo6mv2_data), &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  /* Read uart_rx_buffer from UART */
+  esp_err_t ret = priv_uart_read(uart_rx_buffer, sizeof(uart_rx_buffer), &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
 
   if (ret == ESP_OK && length > 0) {
-    ESP_LOGI(gy_neo6mv2_tag, "Raw GPS gy_neo6mv2_data: %.*s", (int)length, (char *)gy_neo6mv2_data);
+    ESP_LOGI(gy_neo6mv2_tag, "Raw GPS uart_rx_buffer: %.*s", (int)length, (char *)uart_rx_buffer);
 
     for (int i = 0; i < length; i++) {
-      if (gy_neo6mv2_data[i] == '\n' || gy_neo6mv2_data[i] == '\r') { /* End of NMEA sentence */
+      if (uart_rx_buffer[i] == '\n' || uart_rx_buffer[i] == '\r') { /* End of NMEA sentence */
         if (sentence_index > 0) {
           sentence_buffer[sentence_index] = '\0';
           if (strncmp(sentence_buffer, "$GPRMC", 6) == 0) {
@@ -209,12 +209,12 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           sentence_index = 0; /* Reset buffer */
         }
       } else if (sentence_index < sizeof(sentence_buffer) - 1) {
-        sentence_buffer[sentence_index++] = gy_neo6mv2_data[i];
+        sentence_buffer[sentence_index++] = uart_rx_buffer[i];
       }
     }
     return ESP_OK;
   } else {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to read GPS gy_neo6mv2_data");
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to read GPS uart_rx_buffer");
     sensor_data->state = k_gy_neo6mv2_error;
     return ESP_FAIL;
   }

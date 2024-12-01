@@ -133,7 +133,7 @@ extern const uint32_t bh1750_polling_rate_ticks;
 /**
  * @brief Maximum number of retry attempts for sensor reinitialization.
  *
- * This constant sets the maximum number of consecutive retry attempts tha
+ * This constant sets the maximum number of consecutive retry attempts that
  * the system will make to reinitialize the BH1750 sensor in case of an error.
  * After reaching this limit, the retry interval is doubled as part of
  * the exponential backoff strategy. This allows the system to gracefully

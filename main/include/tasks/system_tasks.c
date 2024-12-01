@@ -58,7 +58,7 @@ esp_err_t system_tasks_init(void)
 
   /* Initialize WiFi */
   if (wifi_init_sta() != ESP_OK) {
-    ESP_LOGE(system_tag, "Wifi failed to connect / initalize.");
+    ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
     return ESP_FAIL;
   }
 

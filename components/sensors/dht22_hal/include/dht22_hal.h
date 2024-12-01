@@ -150,7 +150,7 @@ typedef enum {
  * @brief Structure to store DHT22 sensor data and state.
  *
  * The `dht22_data_t` structure is used to maintain the data read from the
- * DHT22 sensor, including temperature and humidity values in both Fahrenhei
+ * DHT22 sensor, including temperature and humidity values in both Fahrenheit
  * and Celsius, as well as the current state of the sensor, retry information,
  * and timing parameters for error handling.
  *

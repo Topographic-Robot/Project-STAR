@@ -260,7 +260,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
 /**
  * @brief Manages error detection and recovery for the GY-NEO6MV2 GPS module using exponential backoff.
  *
- * This function checks the operational state of the GPS module and attempts to reinitialize i
+ * This function checks the operational state of the GPS module and attempts to reinitialize it
  * if an error is detected. It uses an exponential backoff strategy to manage the retry intervals,
  * preventing excessive retries and allowing the module time to recover.
  *

@@ -46,8 +46,8 @@
  *
  *******************************************************************************/
 
-#ifndef TOBOROBO_SD_CARD_HAL_H
-#define TOBOROBO_SD_CARD_HAL_H
+#ifndef TOPOROBO_SD_CARD_HAL_H
+#define TOPOROBO_SD_CARD_HAL_H
 
 #include "esp_err.h"
 #include "driver/spi_common.h"
@@ -133,5 +133,5 @@ extern const uint32_t sd_card_allocation_unit_size;
  */
 esp_err_t sd_card_init(void);
 
-#endif /* TOBOROBO_SD_CARD_HAL_H */
+#endif /* TOPOROBO_SD_CARD_HAL_H */
 

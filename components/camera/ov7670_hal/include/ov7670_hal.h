@@ -3,7 +3,7 @@
 /* OV7670 HAL (Hardware Abstraction Layer) Header File
  *
  * This file provides the interface for interacting with the OV7670 camera module.
- * The OV7670 is a CMOS image sensor capable of capturing still images and video. I
+ * The OV7670 is a CMOS image sensor capable of capturing still images and video. It
  * outputs data over an 8-bit parallel interface with synchronization signals, which
  * are managed externally by an FPGA or microcontroller.
  *
