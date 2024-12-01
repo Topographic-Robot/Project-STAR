@@ -21,7 +21,7 @@ const uint32_t bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
 /* Public Functions ***********************************************************/
 
-char *bh1750_data_to_json(const bh1750_data_t *data) 
+char *bh1750_data_to_json(const bh1750_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   cJSON_AddStringToObject(json, "sensor_type", "light");
@@ -45,7 +45,7 @@ esp_err_t bh1750_init(void *sensor_data)
   bh1750_data->last_attempt_ticks = 0;
 
   /* Initialize the I2C bus */
-  esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_i2c_freq_hz, 
+  esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_i2c_freq_hz,
                                 bh1750_i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(bh1750_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
@@ -53,7 +53,7 @@ esp_err_t bh1750_init(void *sensor_data)
   }
 
   /* Power on the sensor */
-  ret = priv_i2c_write_byte(k_bh1750_power_on_cmd, bh1750_i2c_bus, 
+  ret = priv_i2c_write_byte(k_bh1750_power_on_cmd, bh1750_i2c_bus,
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_power_on_error;
@@ -63,7 +63,7 @@ esp_err_t bh1750_init(void *sensor_data)
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
   /* Reset the sensor */
-  ret = priv_i2c_write_byte(k_bh1750_reset_cmd, bh1750_i2c_bus, 
+  ret = priv_i2c_write_byte(k_bh1750_reset_cmd, bh1750_i2c_bus,
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_reset_error;
@@ -89,10 +89,10 @@ esp_err_t bh1750_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t bh1750_read(bh1750_data_t *sensor_data) 
+esp_err_t bh1750_read(bh1750_data_t *sensor_data)
 {
   uint8_t   data[2];
-  esp_err_t ret = priv_i2c_read_bytes(data, 2, bh1750_i2c_bus, 
+  esp_err_t ret = priv_i2c_read_bytes(data, 2, bh1750_i2c_bus,
                                       bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     sensor_data->lux   = -1.0;
@@ -109,7 +109,7 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data)
   return ESP_OK;
 }
 
-void bh1750_reset_on_error(bh1750_data_t *sensor_data) 
+void bh1750_reset_on_error(bh1750_data_t *sensor_data)
 {
   if (sensor_data->state & k_bh1750_error) {
     TickType_t now_ticks = xTaskGetTickCount();
@@ -126,7 +126,7 @@ void bh1750_reset_on_error(bh1750_data_t *sensor_data)
         if (sensor_data->retry_count >= bh1750_max_retries) {
           sensor_data->retry_count    = 0;
           sensor_data->retry_interval = (sensor_data->retry_interval * 2 <= bh1750_max_backoff_interval) ?
-                                        sensor_data->retry_interval * 2 : 
+                                        sensor_data->retry_interval * 2 :
                                         bh1750_max_backoff_interval;
         }
       }

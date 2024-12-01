@@ -3,14 +3,14 @@
 #ifndef TOPOROBO_WIFI_TASKS_H
 #define TOPOROBO_WIFI_TASKS_H
 
-/* NOTE: check wifi_credentials.txt is included, but wifi_credentials.h isn't
+/* NOTE: check wifi_credentials.txt is included, but wifi_credentials.h isn'
  * copy wifi_credentials.txt to wifi_credentials.h and replace the values */
 #include "wifi_credentials.h"
 #include "esp_err.h"
 
 /* Constants ******************************************************************/
 
-/* The event group allows multiple bits for each event, but we only care about
+/* The event group allows multiple bits for each event, but we only care abou
  * two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
@@ -27,7 +27,7 @@ extern const uint8_t wifi_pass_max_len; /**< The max legnth for wifi's password 
 
 /**
  * @brief Initializes the WiFi in station mode and connects to the specified Access Point (AP).
- * 
+ *
  * This function performs the following steps:
  *   1. Creates an event group to manage WiFi events.
  *   2. Initializes the underlying TCP/IP stack.

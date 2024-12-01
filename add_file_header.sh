@@ -9,7 +9,7 @@ find . -path ./build -prune -o -type f \( -name "*.c" -o -name "*.h" \) -print |
     filepath="${file#./}"
     # Escape slashes and special characters for sed
     escaped_filepath=$(printf '%s\n' "$filepath" | sed 's/[\/&]/\\&/g')
-    # Check if the file already contains the comment
+    # Check if the file already contains the commen
     if ! grep -q "^/\* $escaped_filepath \*/" "$file"; then
         # Insert the comment at the top of the file
         sed -i '' "1s;^;/* $filepath */\n\n;" "$file"

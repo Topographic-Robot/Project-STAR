@@ -42,8 +42,8 @@
 |                 | D2            | Controlled by DE10-Lite                  |
 |                 | D1            | Controlled by DE10-Lite                  |
 |                 | D0            | Controlled by DE10-Lite                  |
-|                 | RET           | GPIO_NUM_2 (D2)                          |
-|                 | PWDN          | GPIO_NUM_27 (D27)                        |
+|                 | RET           | Controlled by DE10-Lite                  |
+|                 | PWDN          | Controlled by DE10-Lite                  |
 | Micro-SD Reader |               |                                          |
 |                 | 3V3           | 3.3V                                     |
 |                 | CS            | GPIO_NUM_5 (D5)                          |

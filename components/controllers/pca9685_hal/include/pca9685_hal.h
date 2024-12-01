@@ -70,7 +70,7 @@ extern const char    *pca9685_tag;              /**< Tag for logs */
 /* Enums **********************************************************************/
 
 /**
- * @enum pca9685_states_t
+ * @enum pca9685_states_
  * @brief Enum to represent the state of the PCA9685.
  *
  * This enum defines the possible states of a PCA9685 board, indicating whether
@@ -86,15 +86,15 @@ typedef enum : uint8_t {
 } pca9685_states_t;
 
 /**
- * @enum pca9685_commands_t
+ * @enum pca9685_commands_
  * @brief Enum to represent the I2C commands for the PCA9685.
  *
  * This enum defines the I2C register addresses and relevant commands
  * for configuring and controlling the PCA9685 PWM driver.
  *
- * @note Only the channel 0 register addresses are explicitly defined. 
- * For other channels (channel 1 to channel 15), the register addresses 
- * can be calculated by adding 4 to the base address of channel 0. 
+ * @note Only the channel 0 register addresses are explicitly defined.
+ * For other channels (channel 1 to channel 15), the register addresses
+ * can be calculated by adding 4 to the base address of channel 0.
  * For example:
  * - Channel 1 on low byte address = `k_pca9685_channel0_on_l_cmd + 4`
  * - Channel 2 on low byte address = `k_pca9685_channel0_on_l_cmd + 8`
@@ -119,11 +119,11 @@ typedef enum : uint8_t {
 /* Structs ********************************************************************/
 
 /**
- * @struct pca9685_board_t
+ * @struct pca9685_board_
  * @brief Structure representing each PCA9685 board in the system.
  *
  * This structure holds information about each PCA9685 board, including the
- * I2C bus number, current state, the board ID, and the number of boards. It
+ * I2C bus number, current state, the board ID, and the number of boards. I
  * also contains a pointer to the next board in a singly linked list.
  */
 typedef struct pca9685_board_t {
@@ -165,7 +165,7 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards);
  *
  * @return ESP_OK on success, or an error code on failure.
  */
-esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mask, 
+esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mask,
                             uint8_t board_id, float angle);
 
 #endif /* TOPOROBO_PCA9685_HAL_H */

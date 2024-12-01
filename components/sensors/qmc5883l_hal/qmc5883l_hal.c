@@ -21,6 +21,8 @@ const uint8_t  qmc5883l_max_retries            = 4;
 const uint32_t qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
 const uint32_t qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
+/* Globals (Static) ***********************************************************/
+
 /* Static const array of QMC5883L configurations and scaling factors */
 static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
   {k_qmc5883l_range_2g, 200.0 / 32768.0 }, /**< ±2 Gauss range, scaling factor */
@@ -57,7 +59,7 @@ esp_err_t qmc5883l_init(void *sensor_data)
   qmc5883l_data->retry_interval     = qmc5883l_initial_retry_interval;
   qmc5883l_data->last_attempt_ticks = 0;
 
-  esp_err_t ret = priv_i2c_init(qmc5883l_scl_io, qmc5883l_sda_io, 
+  esp_err_t ret = priv_i2c_init(qmc5883l_scl_io, qmc5883l_sda_io,
                                 qmc5883l_i2c_freq_hz, qmc5883l_i2c_bus,
                                 qmc5883l_tag);
 
@@ -72,7 +74,7 @@ esp_err_t qmc5883l_init(void *sensor_data)
                   k_qmc5883l_osr_512;
 
   ret = priv_i2c_write_reg_byte(k_qmc5883l_ctrl1_cmd, ctrl1,
-                                qmc5883l_i2c_bus, qmc5883l_i2c_address, 
+                                qmc5883l_i2c_bus, qmc5883l_i2c_address,
                                 qmc5883l_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "Configuration of CTRL1 register failed");
@@ -94,8 +96,8 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
 
   uint8_t   mag_data[6];
   esp_err_t ret = priv_i2c_read_reg_bytes(0x00, mag_data, 6,
-                                          sensor_data->i2c_bus, 
-                                          sensor_data->i2c_address, 
+                                          sensor_data->i2c_bus,
+                                          sensor_data->i2c_address,
                                           qmc5883l_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
@@ -120,8 +122,8 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
   }
   sensor_data->heading = heading;
 
-  ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees", 
-           sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z, 
+  ESP_LOGI(qmc5883l_tag, "Mag X: %f, Mag Y: %f, Mag Z: %f, Heading: %f degrees",
+           sensor_data->mag_x, sensor_data->mag_y, sensor_data->mag_z,
            sensor_data->heading);
   sensor_data->state = k_qmc5883l_data_updated;
   return ESP_OK;
@@ -144,7 +146,7 @@ void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data)
         if (sensor_data->retry_count >= qmc5883l_max_retries) {
           sensor_data->retry_count    = 0;
           sensor_data->retry_interval = (sensor_data->retry_interval * 2 <= qmc5883l_max_backoff_interval) ?
-                                        sensor_data->retry_interval * 2 : 
+                                        sensor_data->retry_interval * 2 :
                                         qmc5883l_max_backoff_interval;
         }
       }

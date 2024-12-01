@@ -1,14 +1,16 @@
 /* components/sensors/gy_neo6mv2_hal/gy_neo6mv2_hal.c */
 
+/* TODO: Test this */
+
 #include "gy_neo6mv2_hal.h"
 #include <string.h>
 #include <stdlib.h>
+#include "esp_err.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-
 
 /* Constants *******************************************************************/
 
@@ -21,33 +23,51 @@ const uint32_t gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
 const uint8_t  gy_neo6mv2_max_retries            = 4;
 const uint32_t gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
-const uint8_t  gy_neo6mv2_sentence_buffer_size   = 128;
+
+/* Globals (Static) ***********************************************************/
+
+/**
+ * @brief Buffer for assembling fragmented NMEA sentences.
+ *
+ * This static buffer stores parts of NMEA sentences received from the GPS module.
+ * It accumulates characters until a complete sentence is formed, identified by a newline character.
+ * The buffer helps handle cases where sentences are split across multiple UART reads.
+ */
+static char sentence_buffer[gy_neo6mv2_sentence_buffer_size];
+
+/**
+ * @brief Index to track the current position in the sentence buffer.
+ *
+ * This static variable keeps track of the current insertion point in the `sentence_buffer`.
+ * It increments with each character read and resets when a complete sentence is processed.
+ */
+static uint32_t sentence_index = 0;
 
 /* Static (Private) Functions **************************************************/
 
 /**
  * @brief Parses a GPS coordinate from NMEA format to decimal degrees.
  *
- * The GY-NEO6MV2 GPS module outputs coordinates in the NMEA format, which represents
- * latitude and longitude in degrees and minutes. This function converts the NMEA string
- * representation to decimal degrees, adjusting for the hemisphere if necessary.
+ * This function converts a coordinate from the NMEA format used by the GY-NEO6MV2 GPS module into
+ * decimal degrees. NMEA coordinates are in the format DDMM.MMMM, where DD is degrees and MM.MMMM is minutes.
+ * The function also adjusts the coordinate based on the hemisphere.
  *
  * **Logic and Flow:**
- * - Extract the degrees from the NMEA coordinate string.
- * - Calculate the decimal degrees using the minutes part.
- * - Adjust the final value based on the hemisphere (negative for South or West).
+ * - Parses the coordinate string into degrees and minutes.
+ * - Converts minutes into decimal degrees.
+ * - Adjusts the sign based on the hemisphere.
  *
  * @param[in] coord_str Pointer to a string containing the coordinate in NMEA format.
- * @param[in] hemisphere Pointer to a string containing the hemisphere character ('N', 'S', 'E', 'W').
+ * @param[in] hemisphere Pointer to a character indicating the hemisphere ('N', 'S', 'E', 'W').
  *
- * @return The parsed coordinate in decimal degrees.
+ * @return The coordinate in decimal degrees.
  */
-static float parse_coordinate(const char *coord_str, const char *hemisphere)
+static float priv_parse_coordinate(const char *coord_str, const char *hemisphere)
 {
-  float coord           = atof(coord_str);
-  int   degrees         = (int)(coord / 100);
-  float minutes         = coord - (degrees * 100);
-  float decimal_degrees = degrees + (minutes / 60.0);
+  float    coord           = atof(coord_str);
+  uint32_t degrees         = (uint32_t)(coord / 100);
+  float    minutes         = coord - (degrees * 100);
+  float    decimal_degrees = degrees + (minutes / 60.0);
 
   if (hemisphere[0] == 'S' || hemisphere[0] == 'W') {
     decimal_degrees = -decimal_degrees;
@@ -59,38 +79,32 @@ static float parse_coordinate(const char *coord_str, const char *hemisphere)
 /**
  * @brief Parses the GPRMC NMEA sentence to extract GPS information.
  *
- * The GPRMC sentence contains essential information such as time, latitude, longitude,
- * speed, and GPS fix status. This function extracts these fields and updates the
- * `gy_neo6mv2_data_t` structure. It uses a stack-allocated buffer to avoid dynamic 
- * memory allocation within the task, preventing potential stack overflows that could
- * occur with heap allocation using functions like `strdup`.
+ * This function parses a GPRMC (Recommended Minimum Specific GPS/Transit Data) sentence from the GPS module
+ * and extracts the time, latitude, longitude, speed, and fix status. It updates the provided
+ * `gy_neo6mv2_data_t` structure with the extracted data.
  *
  * **Logic and Flow:**
- * - Creates a copy of the input sentence in a local buffer on the stack to avoid 
- *   modifying the original string.
- * - Tokenizes the GPRMC sentence using commas as delimiters.
- * - Checks if the sentence is valid (enough tokens) and the GPS fix status.
- * - If the fix is valid ('A' status), extracts latitude, longitude, time, and speed.
- * - Updates the GPS data structure with the extracted information and sets the state
- *   to `k_gy_neo6mv2_data_updated`.
- * - If the fix status is invalid ('V' status) or the sentence is incomplete, updates
- *   the state to `k_gy_neo6mv2_error`.
+ * - Copies the sentence to a local buffer to avoid modifying the original.
+ * - Tokenizes the sentence using commas.
+ * - Validates the sentence structure and fix status.
+ * - Parses and converts latitude and longitude to decimal degrees.
+ * - Parses speed over ground in knots and converts it to meters per second.
+ * - Updates the `sensor_data` structure with the parsed values.
  *
  * @param[in] sentence Pointer to the GPRMC NMEA sentence string.
- * @param[out] sensor_data Pointer to `gy_neo6mv2_data_t` structure to store extracted GPS data.
+ * @param[out] sensor_data Pointer to `gy_neo6mv2_data_t` structure to store the extracted GPS data.
  */
-static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
+static void priv_parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
 {
-  char *tokens[20];
-  int   token_index = 0;
+  char    *tokens[20];
+  uint32_t token_index = 0;
 
   /* Use stack-allocated buffer to avoid heap allocation */
-  char sentence_copy[gy_neo6mv2_sentence_buffer_size]; 
+  char sentence_copy[gy_neo6mv2_sentence_buffer_size];
   strncpy(sentence_copy, sentence, sizeof(sentence_copy) - 1);
   sentence_copy[sizeof(sentence_copy) - 1] = '\0';
 
   char *token = strtok(sentence_copy, ",");
-
   while (token != NULL && token_index < 20) {
     tokens[token_index++] = token;
     token                 = strtok(NULL, ",");
@@ -103,8 +117,7 @@ static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
   }
 
   /* Check status */
-  if (tokens[2][0] != 'A') {
-    /* Status V means invalid data */
+  if (tokens[2][0] != 'A') { /* Status: V = invalid, A = valid */
     sensor_data->fix_status = 0;
     sensor_data->state      = k_gy_neo6mv2_error;
     ESP_LOGW(gy_neo6mv2_tag, "No GPS fix");
@@ -118,21 +131,23 @@ static void parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
   sensor_data->time[sizeof(sensor_data->time) - 1] = '\0';
 
   /* Parse latitude */
-  sensor_data->latitude = parse_coordinate(tokens[3], tokens[4]);
+  sensor_data->latitude = priv_parse_coordinate(tokens[3], tokens[4]);
 
   /* Parse longitude */
-  sensor_data->longitude = parse_coordinate(tokens[5], tokens[6]);
+  sensor_data->longitude = priv_parse_coordinate(tokens[5], tokens[6]);
 
   /* Parse speed over ground in knots, convert to meters per second */
   float speed_knots  = atof(tokens[7]);
   sensor_data->speed = speed_knots * 0.514444; /* 1 knot = 0.514444 m/s */
 
   sensor_data->state = k_gy_neo6mv2_data_updated;
+  ESP_LOGI(gy_neo6mv2_tag, "Parsed GPRMC: Lat=%.6f, Lon=%.6f, Speed=%.2f m/s",
+      sensor_data->latitude, sensor_data->longitude, sensor_data->speed);
 }
 
 /* Public Functions ***********************************************************/
 
-char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data) 
+char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   cJSON_AddStringToObject(json, "sensor_type", "gps");
@@ -147,66 +162,62 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data)
 
 esp_err_t gy_neo6mv2_init(void *sensor_data)
 {
-  ESP_LOGI(gy_neo6mv2_tag, "Starting Configuration");
+  ESP_LOGI(gy_neo6mv2_tag, "Initializing GPS module");
 
   /* Initialize UART using the common UART function */
-  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io,
-                                 gy_neo6mv2_uart_baudrate, 
-                                 gy_neo6mv2_uart_num, 
-                                 gy_neo6mv2_tag);
+  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io, gy_neo6mv2_uart_baudrate,
+                                 gy_neo6mv2_uart_num, gy_neo6mv2_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(gy_neo6mv2_tag, "GY-NEO6MV2 UART initialization failed");
+    ESP_LOGE(gy_neo6mv2_tag, "UART initialization failed");
     return ret;
   }
 
-  /* Initialize GPS data and state */
-  gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
-  gy_neo6mv2_data->latitude           = 0.0;
-  gy_neo6mv2_data->longitude          = 0.0;
-  gy_neo6mv2_data->speed              = 0.0;
-  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
-  gy_neo6mv2_data->fix_status         = 0; // Initially no fix
-  gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;
-  gy_neo6mv2_data->retry_count        = 0;
-  gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval;
-  gy_neo6mv2_data->last_attempt_ticks = 0;
+  /* Allow time for the GPS module to warm up */
+  vTaskDelay(pdMS_TO_TICKS(5000));
 
-  ESP_LOGI(gy_neo6mv2_tag, "Sensor Configuration Complete");
+  /* Initialize GPS data and state */
+  gy_neo6mv2_data_t *data = (gy_neo6mv2_data_t *)sensor_data;
+  data->latitude          = 0.0;
+  data->longitude         = 0.0;
+  data->speed             = 0.0;
+  memset(data->time, 0, sizeof(data->time));
+  data->fix_status = 0; /* Initially no fix */
+  data->state      = k_gy_neo6mv2_uninitialized;
+
+  ESP_LOGI(gy_neo6mv2_tag, "GPS module initialized successfully");
   return ESP_OK;
 }
 
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
-  if (sensor_data == NULL) {
-    ESP_LOGE(gy_neo6mv2_tag, "GPS data pointer is NULL");
-    return ESP_FAIL;
-  }
+  uint8_t data[gy_neo6mv2_sentence_buffer_size];
+  int32_t length = 0; /* Variable to hold the length of data read */
 
-  uint8_t data[gy_neo6mv2_sentence_buffer_size]; /* Buffer to hold NMEA data */
+  /* Read data from UART */
+  esp_err_t ret = priv_uart_read(data, sizeof(data), &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
 
-  esp_err_t ret = priv_uart_read(data, sizeof(data) - 1, gy_neo6mv2_uart_num, 
-                                 gy_neo6mv2_tag);
-  if (ret == ESP_OK) {
-    data[sizeof(data) - 1] = '\0'; /* Null-terminate the data */
-    ESP_LOGI(gy_neo6mv2_tag, "Received NMEA: %s", data);
+  if (ret == ESP_OK && length > 0) {
+    ESP_LOGI(gy_neo6mv2_tag, "Raw GPS data: %.*s", (int)length, (char *)data);
 
-    /* Process NMEA sentences */
-    char *line = strtok((char *)data, "\n");
-    while (line != NULL) {
-      if (strncmp(line, "$GPRMC", 6) == 0) {
-        parse_gprmc(line, sensor_data);
-        break;
+    for (int i = 0; i < length; i++) {
+      if (data[i] == '\n' || data[i] == '\r') { /* End of NMEA sentence */
+        if (sentence_index > 0) {
+          sentence_buffer[sentence_index] = '\0';
+          if (strncmp(sentence_buffer, "$GPRMC", 6) == 0) {
+            priv_parse_gprmc(sentence_buffer, sensor_data);
+          }
+          sentence_index = 0; /* Reset buffer */
+        }
+      } else if (sentence_index < sizeof(sentence_buffer) - 1) {
+        sentence_buffer[sentence_index++] = data[i];
       }
-      line = strtok(NULL, "\n");
     }
+    return ESP_OK;
   } else {
-    ESP_LOGW(gy_neo6mv2_tag, "No data read from UART");
-    sensor_data->state = k_gy_neo6mv2_error; /* Set error state if read fails */
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to read GPS data");
+    sensor_data->state = k_gy_neo6mv2_error;
     return ESP_FAIL;
   }
-
-
-  return ESP_OK;
 }
 
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
@@ -219,7 +230,7 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 
       esp_err_t ret = gy_neo6mv2_init(sensor_data);
       if (ret == ESP_OK) {
-        sensor_data->state = k_gy_neo6mv2_ready;
+        sensor_data->state          = k_gy_neo6mv2_ready;
         sensor_data->retry_count    = 0;
         sensor_data->retry_interval = gy_neo6mv2_initial_retry_interval;
         ESP_LOGI(gy_neo6mv2_tag, "GY-NEO6MV2 GPS module reset successfully.");
@@ -227,8 +238,8 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
         sensor_data->retry_count++;
         if (sensor_data->retry_count >= gy_neo6mv2_max_retries) {
           sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > gy_neo6mv2_max_backoff_interval) ? 
-                                        gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
+          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > gy_neo6mv2_max_backoff_interval) ?
+            gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
         }
       }
 
@@ -239,15 +250,17 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 
 void gy_neo6mv2_tasks(void *sensor_data)
 {
-  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  gy_neo6mv2_data_t *data = (gy_neo6mv2_data_t *)sensor_data;
   while (1) {
-    if (gy_neo6mv2_read(gy_neo6mv2_data) == ESP_OK) {
-      char *json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
+    if (gy_neo6mv2_read(data) == ESP_OK) {
+      char *json = gy_neo6mv2_data_to_json(data);
       send_sensor_data_to_webserver(json);
       free(json);
     } else {
-      gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
+      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS data, resetting...");
+      gy_neo6mv2_reset_on_error(data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }
 }
+

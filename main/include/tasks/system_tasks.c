@@ -18,13 +18,13 @@ sensor_data_t s_sensor_data = {};
 
 /**
  * @brief Clears and initializes the ESP32's Non-Volatile Storage (NVS) flash.
- * 
- * Attempts to initialize the NVS flash. If no free pages are found 
+ *
+ * Attempts to initialize the NVS flash. If no free pages are found
  * or a new version of NVS is detected, it erases the flash and reinitializes it.
- * 
+ *
  * @return ESP_OK if successful; otherwise, returns an error code.
  */
-static esp_err_t priv_clear_nvs_flash(void) 
+static esp_err_t priv_clear_nvs_flash(void)
 {
   esp_err_t ret = nvs_flash_init();
 

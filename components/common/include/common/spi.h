@@ -49,7 +49,7 @@ extern const uint32_t spi_timeout_ticks;
  *    - ESP_FAIL on failure
  */
 esp_err_t priv_spi_init(spi_host_device_t host_id, uint8_t sclk, uint8_t mosi,
-                        uint8_t miso, uint8_t cs, spi_device_handle_t* handle_out, 
+                        uint8_t miso, uint8_t cs, spi_device_handle_t* handle_out,
                         const char *tag);
 
 /**
@@ -97,7 +97,7 @@ esp_err_t priv_spi_write_byte(spi_device_handle_t handle, uint8_t data, const ch
  *   - ESP_OK if data is successfully written to the register.
  *   - ESP_FAIL or another error code if the operation fails.
  */
-esp_err_t priv_spi_write_reg_byte(spi_device_handle_t handle, uint8_t reg_addr, 
+esp_err_t priv_spi_write_reg_byte(spi_device_handle_t handle, uint8_t reg_addr,
                                   uint8_t data, const char *tag);
 
 #endif /* TOPOROBO_SPI_H */

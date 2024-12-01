@@ -3,10 +3,10 @@
 #include "system_tasks.h"
 #include "esp_log.h"
 
-void app_main(void) 
+void app_main(void)
 {
   /* Initialize System-Level Tasks (motor, sensors, webserver, etc) */
-  /* One sensor might have failed, but others might still be good, 
+  /* One sensor might have failed, but others might still be good,
    * dont exit here */
   if (system_tasks_init() != ESP_OK) {
     ESP_LOGE(system_tag, "System tasks initialization failed.");

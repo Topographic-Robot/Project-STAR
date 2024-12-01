@@ -1,9 +1,9 @@
 idf_component_register(
-  SRCS 
+  SRCS
     "sd_card_hal/sd_card_hal.c"
-  INCLUDE_DIRS 
+  INCLUDE_DIRS
     "sd_card_hal/include"
-  PRIV_REQUIRES 
-    driver 
+  PRIV_REQUIRES
+    driver
 )
 

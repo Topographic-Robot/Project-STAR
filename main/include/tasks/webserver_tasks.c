@@ -8,7 +8,7 @@
 
 /* Public Functions ***********************************************************/
 
-esp_err_t send_sensor_data_to_webserver(const char *json_string) 
+esp_err_t send_sensor_data_to_webserver(const char *json_string)
 {
   if (json_string == NULL) {
     ESP_LOGE(system_tag, "JSON string is NULL.");
@@ -16,7 +16,7 @@ esp_err_t send_sensor_data_to_webserver(const char *json_string)
   }
 
   esp_http_client_config_t config = {
-    .url = webserver_url,
+    .url    = webserver_url,
     .method = HTTP_METHOD_POST,
   };
   esp_http_client_handle_t client = esp_http_client_init(&config);

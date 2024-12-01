@@ -5,8 +5,7 @@
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
-
-/* TODO: interrupt, FIFO, PWR_MGMT_2(remove axises we don't need to safe power */
+#include "driver/gpio.h"
 
 /* Constants ******************************************************************/
 
@@ -19,19 +18,20 @@ const uint32_t mpu6050_i2c_freq_hz        = 100000;
 const uint32_t mpu6050_polling_rate_ticks = pdMS_TO_TICKS(0.5 * 1000);
 const uint8_t  mpu6050_sample_rate_div    = 9;
 const uint8_t  mpu6050_config_dlpf        = k_mpu6050_config_dlpf_44hz;
+const uint8_t  mpu6050_int_io             = GPIO_NUM_26;
 
 /**
  * @brief Static constant array of accelerometer configurations and scaling factors.
  *
  * The MPU6050 accelerometer has several sensitivity options that define the maximum
  * measurable acceleration range. Each configuration has a corresponding sensitivity
- * value, given in LSB/g, which allows conversion from raw sensor output to 
+ * value, given in LSB/g, which allows conversion from raw sensor output to
  * acceleration in g.
  *
  * Benefits of configuring accelerometer sensitivity:
- * - Higher sensitivity (e.g., ±2g) offers finer resolution for small movements, 
+ * - Higher sensitivity (e.g., ±2g) offers finer resolution for small movements,
  *   ideal for low-speed applications or where precision is required.
- * - Lower sensitivity (e.g., ±16g) provides a wider measurement range, suitable 
+ * - Lower sensitivity (e.g., ±16g) provides a wider measurement range, suitable
  *   for detecting high-impact or fast movements.
  *
  * Sensitivity options (in LSB/g) as per the MPU6050 datasheet:
@@ -51,14 +51,14 @@ static const mpu6050_accel_config_t mpu6050_accel_configs[] = {
  * @brief Static constant array of gyroscope configurations and scaling factors.
  *
  * The MPU6050 gyroscope provides several sensitivity options that define the maximum
- * measurable rotational speed range. Each configuration has an associated sensitivity 
- * value in LSB/°/s, enabling conversion from raw sensor output to angular velocity 
+ * measurable rotational speed range. Each configuration has an associated sensitivity
+ * value in LSB/°/s, enabling conversion from raw sensor output to angular velocity
  * in degrees per second (°/s).
  *
  * Benefits of configuring gyroscope sensitivity:
- * - Higher sensitivity (e.g., ±250°/s) allows finer resolution for slow rotations, 
+ * - Higher sensitivity (e.g., ±250°/s) allows finer resolution for slow rotations,
  *   which is ideal for applications requiring precision.
- * - Lower sensitivity (e.g., ±2000°/s) enables a wider measurement range, useful 
+ * - Lower sensitivity (e.g., ±2000°/s) enables a wider measurement range, useful
  *   for detecting fast or high-impact rotations.
  *
  * Sensitivity options (in LSB/°/s) as per the MPU6050 datasheet:
@@ -74,12 +74,49 @@ static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
   { k_mpu6050_gyro_fs_2000dps, 16.4  }, /**< Sensitivity: 16.4 LSB/°/s */
 };
 
+/**
+ * @brief Index of chosen gyroscope configuration from mpu6050_gyro_configs array.
+ *
+ * This index selects the gyroscope full-scale range and sensitivity to be used.
+ * For example, an index of 3 corresponds to ±2000°/s full-scale range.
+ */
 static const uint8_t mpu6050_gyro_config_idx  = 3; /* Index of chosen values from above (0: ±250°/s, 1: ±500°/s, etc.) */
+
+/**
+ * @brief Index of chosen accelerometer configuration from mpu6050_accel_configs array.
+ *
+ * This index selects the accelerometer full-scale range and sensitivity to be used.
+ * For example, an index of 3 corresponds to ±16g full-scale range.
+ */
 static const uint8_t mpu6050_accel_config_idx = 3; /* Index of chosen values from above (0: ±2g, 1: ±4g, etc.) */
+
+/* Static (Private) Functions **************************************************/
+
+/**
+ * @brief Interrupt Service Routine (ISR) for handling MPU6050 data ready interrupts.
+ *
+ * This function is called when the MPU6050 asserts its INT pin, indicating that new data
+ * is ready to be read. It gives the `data_ready_sem` semaphore to unblock the task waiting
+ * to read the data.
+ *
+ * @param[in] arg Pointer to the `mpu6050_data_t` structure.
+ */
+static void IRAM_ATTR mpu6050_interrupt_handler(void *arg)
+{
+  mpu6050_data_t* sensor_data = (mpu6050_data_t *)arg;
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+  /* Give the semaphore to signal that data is ready */
+  xSemaphoreGiveFromISR(sensor_data->data_ready_sem, &xHigherPriorityTaskWoken);
+
+  if (xHigherPriorityTaskWoken == pdTRUE) {
+    portYIELD_FROM_ISR();
+  }
+}
 
 /* Public Functions ***********************************************************/
 
-char *mpu6050_data_to_json(const mpu6050_data_t *data) 
+char *mpu6050_data_to_json(const mpu6050_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   cJSON_AddStringToObject(json, "sensor_type", "accelerometer_gyroscope");
@@ -105,7 +142,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   mpu6050_data->accel_x     = mpu6050_data->accel_y = mpu6050_data->accel_z = 0.0f;
   mpu6050_data->state       = k_mpu6050_uninitialized; /* Start in uninitialized state */
 
-  esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io, 
+  esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io,
                                 mpu6050_i2c_freq_hz, mpu6050_i2c_bus, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
@@ -192,6 +229,48 @@ esp_err_t mpu6050_init(void *sensor_data)
     return ret;
   }
 
+  /* Create a binary semaphore for data readiness */
+  mpu6050_data->data_ready_sem = xSemaphoreCreateBinary();
+  if (mpu6050_data->data_ready_sem == NULL) {
+    ESP_LOGE(mpu6050_tag, "Failed to create semaphore");
+    return ESP_FAIL;
+  }
+
+  /* Configure the MPU6050 to generate Data Ready interrupts */
+  ret = priv_i2c_write_reg_byte(k_mpu6050_int_enable_cmd, k_mpu6050_int_enable_data_rdy,
+                                mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+  if (ret != ESP_OK) {
+    ESP_LOGE(mpu6050_tag, "Failed to enable interrupts on MPU6050");
+    return ret;
+  }
+
+  /* Configure the INT (interrupt) pin on the ESP32 */
+  gpio_config_t io_conf = {};
+  io_conf.intr_type = GPIO_INTR_NEGEDGE;  // MPU6050 INT pin is active low
+  io_conf.pin_bit_mask = (1ULL << mpu6050_int_io);
+  io_conf.mode = GPIO_MODE_INPUT;
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+  io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+  ret = gpio_config(&io_conf);
+  if (ret != ESP_OK) {
+    ESP_LOGE(mpu6050_tag, "GPIO configuration failed for INT pin");
+    return ret;
+  }
+
+  /* Install GPIO ISR service */
+  ret = gpio_install_isr_service(0);
+  if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+    ESP_LOGE(mpu6050_tag, "GPIO ISR service install failed");
+    return ret;
+  }
+
+  /* Add ISR handler */
+  ret = gpio_isr_handler_add(mpu6050_int_io, mpu6050_interrupt_handler, (void*) mpu6050_data);
+  if (ret != ESP_OK) {
+    ESP_LOGE(mpu6050_tag, "Failed to add ISR handler for INT pin");
+    return ret;
+  }
+
   mpu6050_data->state = k_mpu6050_ready; /* Sensor is initialized */
   ESP_LOGI(mpu6050_tag, "Sensor Configuration Complete");
   return ESP_OK;
@@ -209,7 +288,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
 
   /* Read accelerometer data starting from ACCEL_XOUT_H */
   esp_err_t ret = priv_i2c_read_reg_bytes(k_mpu6050_accel_xout_h_cmd, accel_data, 6,
-                                          sensor_data->i2c_bus, sensor_data->i2c_address, 
+                                          sensor_data->i2c_bus, sensor_data->i2c_address,
                                           mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read accelerometer data from MPU6050");
@@ -279,14 +358,15 @@ void mpu6050_tasks(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   while (1) {
-    if (mpu6050_read(mpu6050_data) == ESP_OK) {
-      char *json = mpu6050_data_to_json(mpu6050_data);
-      send_sensor_data_to_webserver(json);
-      free(json);
-    } else {
-      mpu6050_reset_on_error(mpu6050_data);
+    /* Wait indefinitely for the data_ready_sem semaphore */
+    if (xSemaphoreTake(mpu6050_data->data_ready_sem, portMAX_DELAY) == pdTRUE) {
+      if (mpu6050_read(mpu6050_data) == ESP_OK) {
+        char *json = mpu6050_data_to_json(mpu6050_data);
+        send_sensor_data_to_webserver(json);
+        free(json);
+      } else {
+        mpu6050_reset_on_error(mpu6050_data);
+      }
     }
-    vTaskDelay(mpu6050_polling_rate_ticks);
   }
 }
-

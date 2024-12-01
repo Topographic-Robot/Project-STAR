@@ -1,0 +1,467 @@
+/* components/sensors/mpu6050_hal/mpu6050_hal.c */
+
+/* MPU6050 HAL (Hardware Abstraction Layer) Source File
+ *
+ * This file provides the implementation for interacting with the MPU6050 6-axis accelerometer and gyroscope.
+ *
+ * Note: The MPU6050's INT pin is an **aggregate interrupt output**. This means that it asserts
+ * (typically goes low) when any of the enabled interrupt sources are active. The microcontroller
+ * must read the `INT_STATUS` register to determine which interrupt(s) have occurred.
+ *
+ *******************************************************************************/
+
+#include "mpu6050_hal.h"
+#include "webserver_tasks.h"
+#include "cJSON.h"
+#include "common/i2c.h"
+#include "esp_log.h"
+#include "driver/gpio.h"  /**< Include for GPIO functionalities */
+
+/* Constants ******************************************************************/
+
+const uint8_t  mpu6050_i2c_address        = 0x68;
+const uint8_t  mpu6050_i2c_bus            = I2C_NUM_0;
+const char    *mpu6050_tag                = "MPU6050";
+const uint8_t  mpu6050_scl_io             = GPIO_NUM_22;
+const uint8_t  mpu6050_sda_io             = GPIO_NUM_21;
+const uint32_t mpu6050_i2c_freq_hz        = 100000;
+const uint32_t mpu6050_polling_rate_ticks = pdMS_TO_TICKS(0.5 * 1000);
+const uint8_t  mpu6050_sample_rate_div    = 9;
+const uint8_t  mpu6050_config_dlpf        = 0x03;  /**< DLPF setting for 44Hz */
+const uint8_t  mpu6050_int_io             = GPIO_NUM_26;  /**< GPIO pin used for the MPU6050 interrupt */
+
+/* Enumerations ***************************************************************/
+
+/**
+ * @enum mpu6050_int_enable_bits_
+ * @brief Enumeration of interrupt enable bits for the MPU6050 sensor.
+ *
+ * These constants represent the bits used to enable specific interrupts in the
+ * MPU6050's INT_ENABLE register.
+ */
+typedef enum {
+    k_mpu6050_int_enable_data_rdy   = 0x01,  /**< Data Ready interrupt enable bit */
+    k_mpu6050_int_enable_dmp_int    = 0x02,  /**< DMP interrupt enable bit */
+    k_mpu6050_int_enable_pll_rdy    = 0x04,  /**< PLL Ready interrupt enable bit */
+    k_mpu6050_int_enable_i2c_mst    = 0x08,  /**< I2C Master interrupt enable bit */
+    k_mpu6050_int_enable_fifo_oflow = 0x10,  /**< FIFO Overflow interrupt enable bit */
+    k_mpu6050_int_enable_zmot       = 0x20,  /**< Zero Motion Detection interrupt enable bit */
+    k_mpu6050_int_enable_mot        = 0x40,  /**< Motion Detection interrupt enable bit */
+    k_mpu6050_int_enable_ff         = 0x80   /**< Free-Fall Detection interrupt enable bit */
+} mpu6050_int_enable_bits_t;
+
+/**
+ * @enum mpu6050_event_bits_
+ * @brief Enumeration of event bits for the MPU6050 interrupt events.
+ *
+ * These constants represent the bits used in the event group to signal specific
+ * interrupt events from the MPU6050 sensor.
+ */
+typedef enum {
+    k_mpu6050_event_data_ready      = (1 << 0),  /**< Bit for Data Ready event */
+    k_mpu6050_event_motion_detected = (1 << 1),  /**< Bit for Motion Detected event */
+    k_mpu6050_event_zero_motion     = (1 << 2),  /**< Bit for Zero Motion event */
+    k_mpu6050_event_free_fall       = (1 << 3),  /**< Bit for Free-Fall event */
+    k_mpu6050_event_fifo_overflow   = (1 << 4),  /**< Bit for FIFO Overflow event */
+    k_mpu6050_event_i2c_mst         = (1 << 5),  /**< Bit for I2C Master event */
+    k_mpu6050_event_dmp             = (1 << 6),  /**< Bit for DMP event */
+    k_mpu6050_event_pll_ready       = (1 << 7)   /**< Bit for PLL Ready event */
+} mpu6050_event_bits_t;
+
+/* Structures *****************************************************************/
+
+/* Function Prototypes ********************************************************/
+
+static void IRAM_ATTR mpu6050_interrupt_handler(void* arg);
+
+/* Static Variables ***********************************************************/
+
+/* Accelerometer and Gyroscope Configurations */
+static const mpu6050_accel_config_t mpu6050_accel_configs[] = {
+    { 0x00, 16384.0 },  /**< Sensitivity: 16384 LSB/g */
+    { 0x08, 8192.0  },  /**< Sensitivity: 8192 LSB/g */
+    { 0x10, 4096.0  },  /**< Sensitivity: 4096 LSB/g */
+    { 0x18, 2048.0  }   /**< Sensitivity: 2048 LSB/g */
+};
+
+static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
+    { 0x00, 131.0 },  /**< Sensitivity: 131 LSB/°/s */
+    { 0x08, 65.5  },  /**< Sensitivity: 65.5 LSB/°/s */
+    { 0x10, 32.8  },  /**< Sensitivity: 32.8 LSB/°/s */
+    { 0x18, 16.4  }   /**< Sensitivity: 16.4 LSB/°/s */
+};
+
+static const uint8_t mpu6050_gyro_config_idx  = 3;
+static const uint8_t mpu6050_accel_config_idx = 3;
+
+/* Public Functions ***********************************************************/
+
+char *mpu6050_data_to_json(const mpu6050_data_t *data)
+{
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddStringToObject(json, "sensor_type", "accelerometer_gyroscope");
+    cJSON_AddNumberToObject(json, "accel_x", data->accel_x);
+    cJSON_AddNumberToObject(json, "accel_y", data->accel_y);
+    cJSON_AddNumberToObject(json, "accel_z", data->accel_z);
+    cJSON_AddNumberToObject(json, "gyro_x", data->gyro_x);
+    cJSON_AddNumberToObject(json, "gyro_y", data->gyro_y);
+    cJSON_AddNumberToObject(json, "gyro_z", data->gyro_z);
+    char *json_string = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    return json_string;
+}
+
+esp_err_t mpu6050_init(void *sensor_data)
+{
+    mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+    ESP_LOGI(mpu6050_tag, "Starting Configuration");
+
+    mpu6050_data->i2c_address = mpu6050_i2c_address;
+    mpu6050_data->i2c_bus     = mpu6050_i2c_bus;
+    mpu6050_data->gyro_x      = 0.0f;
+    mpu6050_data->gyro_y      = 0.0f;
+    mpu6050_data->gyro_z      = 0.0f;
+    mpu6050_data->accel_x     = 0.0f;
+    mpu6050_data->accel_y     = 0.0f;
+    mpu6050_data->accel_z     = 0.0f;
+    mpu6050_data->state       = 0;  /**< Sensor state */
+
+    esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io,
+                                  mpu6050_i2c_freq_hz, mpu6050_i2c_bus, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    /* Wake up the MPU6050 sensor */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_power_on_cmd,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 power on failed");
+        return ret;
+    }
+
+    /* Delay to allow the sensor to power on */
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+    /* Reset the MPU6050 sensor */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_reset_cmd,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 reset failed");
+        return ret;
+    }
+
+    /* Delay to allow the reset to take effect */
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+    /* Wake up the sensor again after reset */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_power_on_cmd,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 power on after reset failed");
+        return ret;
+    }
+
+    /* Delay to allow the sensor to wake up */
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+    /* Configure the sample rate divider */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_smplrt_div_cmd, mpu6050_sample_rate_div,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 sample rate configuration failed");
+        return ret;
+    }
+
+    /* Configure the Digital Low Pass Filter (DLPF) */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_config_cmd, mpu6050_config_dlpf,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 DLPF configuration failed");
+        return ret;
+    }
+
+    /* Configure the gyroscope full-scale range */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_gyro_config_cmd,
+                                  mpu6050_gyro_configs[mpu6050_gyro_config_idx].gyro_config,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 gyroscope configuration failed");
+        return ret;
+    }
+
+    /* Configure the accelerometer full-scale range */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_accel_config_cmd,
+                                  mpu6050_accel_configs[mpu6050_accel_config_idx].accel_config,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 accelerometer configuration failed");
+        return ret;
+    }
+
+    /* Verify the sensor by reading the WHO_AM_I register */
+    uint8_t who_am_i = 0;
+    ret = priv_i2c_read_reg_bytes(k_mpu6050_who_am_i_cmd, &who_am_i, 1,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK || who_am_i != 0x68) {
+        ESP_LOGE(mpu6050_tag, "MPU6050 WHO_AM_I verification failed (read: 0x%02X)", who_am_i);
+        return ret;
+    }
+
+    /* Create an event group for interrupt events */
+    mpu6050_data->event_group = xEventGroupCreate();
+    if (mpu6050_data->event_group == NULL) {
+        ESP_LOGE(mpu6050_tag, "Failed to create event group");
+        return ESP_FAIL;
+    }
+
+    /* Configure Motion Detection Thresholds */
+    uint8_t motion_threshold = 20;  /**< Adjust as needed */
+    uint8_t motion_duration = 40;   /**< Adjust as needed */
+    ret = priv_i2c_write_reg_byte(k_mpu6050_mot_thr_cmd, motion_threshold,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    ret |= priv_i2c_write_reg_byte(k_mpu6050_mot_dur_cmd, motion_duration,
+                                   mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+
+    uint8_t zero_motion_threshold = 20;  /**< Adjust as needed */
+    uint8_t zero_motion_duration = 40;   /**< Adjust as needed */
+    ret |= priv_i2c_write_reg_byte(k_mpu6050_zmot_thr_cmd, zero_motion_threshold,
+                                   mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    ret |= priv_i2c_write_reg_byte(k_mpu6050_zmot_dur_cmd, zero_motion_duration,
+                                   mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+
+    uint8_t free_fall_threshold = 20;  /**< Adjust as needed */
+    uint8_t free_fall_duration = 40;   /**< Adjust as needed */
+    ret |= priv_i2c_write_reg_byte(k_mpu6050_ff_thr_cmd, free_fall_threshold,
+                                   mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    ret |= priv_i2c_write_reg_byte(k_mpu6050_ff_dur_cmd, free_fall_duration,
+                                   mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "Failed to set thresholds");
+        return ret;
+    }
+
+    /* Enable all desired interrupts */
+    uint8_t int_enable_bits = k_mpu6050_int_enable_data_rdy   |
+                              k_mpu6050_int_enable_mot        |
+                              k_mpu6050_int_enable_zmot       |
+                              k_mpu6050_int_enable_ff         |
+                              k_mpu6050_int_enable_fifo_oflow |
+                              k_mpu6050_int_enable_i2c_mst    |
+                              k_mpu6050_int_enable_dmp_int    |
+                              k_mpu6050_int_enable_pll_rdy;
+    ret = priv_i2c_write_reg_byte(k_mpu6050_int_enable_cmd, int_enable_bits,
+                                  mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "Failed to enable interrupts");
+        return ret;
+    }
+
+    /* Configure the INT (interrupt) pin on the ESP32 */
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_NEGEDGE;  /**< MPU6050 INT pin is active low */
+    io_conf.pin_bit_mask = (1ULL << mpu6050_int_io);
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    ret = gpio_config(&io_conf);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "GPIO configuration failed for INT pin");
+        return ret;
+    }
+
+    /* Install GPIO ISR service */
+    ret = gpio_install_isr_service(0);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(mpu6050_tag, "GPIO ISR service install failed");
+        return ret;
+    }
+
+    /* Add ISR handler */
+    ret = gpio_isr_handler_add(mpu6050_int_io, mpu6050_interrupt_handler, (void*) mpu6050_data);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "Failed to add ISR handler for INT pin");
+        return ret;
+    }
+
+    ESP_LOGI(mpu6050_tag, "Sensor Configuration Complete");
+    return ESP_OK;
+}
+
+esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
+{
+    if (sensor_data == NULL) {
+        ESP_LOGE(mpu6050_tag, "Sensor data pointer is NULL");
+        return ESP_FAIL;
+    }
+
+    uint8_t accel_data[6];
+    uint8_t gyro_data[6];
+
+    /* Read accelerometer data starting from ACCEL_XOUT_H */
+    esp_err_t ret = priv_i2c_read_reg_bytes(k_mpu6050_accel_xout_h_cmd, accel_data, 6,
+                                            sensor_data->i2c_bus, sensor_data->i2c_address,
+                                            mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "Failed to read accelerometer data from MPU6050");
+        return ESP_FAIL;
+    }
+
+    /* Read gyroscope data starting from GYRO_XOUT_H */
+    ret = priv_i2c_read_reg_bytes(k_mpu6050_gyro_xout_h_cmd, gyro_data, 6,
+                                  sensor_data->i2c_bus, sensor_data->i2c_address, mpu6050_tag);
+    if (ret != ESP_OK) {
+        ESP_LOGE(mpu6050_tag, "Failed to read gyroscope data from MPU6050");
+        return ESP_FAIL;
+    }
+
+    /* Combine high and low bytes to form the raw accelerometer data */
+    int16_t accel_x_raw = (int16_t)((accel_data[0] << 8) | accel_data[1]);
+    int16_t accel_y_raw = (int16_t)((accel_data[2] << 8) | accel_data[3]);
+    int16_t accel_z_raw = (int16_t)((accel_data[4] << 8) | accel_data[5]);
+
+    /* Combine high and low bytes to form the raw gyroscope data */
+    int16_t gyro_x_raw = (int16_t)((gyro_data[0] << 8) | gyro_data[1]);
+    int16_t gyro_y_raw = (int16_t)((gyro_data[2] << 8) | gyro_data[3]);
+    int16_t gyro_z_raw = (int16_t)((gyro_data[4] << 8) | gyro_data[5]);
+
+    /* Convert raw data to physical units by dividing by sensitivity */
+    float accel_sensitivity = mpu6050_accel_configs[mpu6050_accel_config_idx].accel_scale;
+    float gyro_sensitivity  = mpu6050_gyro_configs[mpu6050_gyro_config_idx].gyro_scale;
+
+    sensor_data->accel_x = accel_x_raw / accel_sensitivity;
+    sensor_data->accel_y = accel_y_raw / accel_sensitivity;
+    sensor_data->accel_z = accel_z_raw / accel_sensitivity;
+
+    sensor_data->gyro_x = gyro_x_raw / gyro_sensitivity;
+    sensor_data->gyro_y = gyro_y_raw / gyro_sensitivity;
+    sensor_data->gyro_z = gyro_z_raw / gyro_sensitivity;
+
+    ESP_LOGI(mpu6050_tag, "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] deg/s",
+             sensor_data->accel_x, sensor_data->accel_y, sensor_data->accel_z,
+             sensor_data->gyro_x, sensor_data->gyro_y, sensor_data->gyro_z);
+
+    return ESP_OK;
+}
+
+void mpu6050_reset_on_error(mpu6050_data_t *sensor_data)
+{
+    /* Implement error handling and reset logic as needed */
+}
+
+void mpu6050_tasks(void *sensor_data)
+{
+    mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+    EventBits_t uxBits;
+    const EventBits_t xAllBits = k_mpu6050_event_data_ready      |
+                                 k_mpu6050_event_motion_detected |
+                                 k_mpu6050_event_zero_motion     |
+                                 k_mpu6050_event_free_fall       |
+                                 k_mpu6050_event_fifo_overflow   |
+                                 k_mpu6050_event_i2c_mst         |
+                                 k_mpu6050_event_dmp             |
+                                 k_mpu6050_event_pll_ready;
+
+    while (1) {
+        /* Wait for any interrupt event */
+        uxBits = xEventGroupWaitBits(mpu6050_data->event_group, xAllBits,
+                                     pdTRUE, pdFALSE, portMAX_DELAY);
+
+        if (uxBits & k_mpu6050_event_data_ready) {
+            /* Handle Data Ready event */
+            if (mpu6050_read(mpu6050_data) == ESP_OK) {
+                char *json = mpu6050_data_to_json(mpu6050_data);
+                send_sensor_data_to_webserver(json);
+                free(json);
+            } else {
+                mpu6050_reset_on_error(mpu6050_data);
+            }
+        }
+        if (uxBits & k_mpu6050_event_motion_detected) {
+            /* Handle Motion Detected event */
+            ESP_LOGI(mpu6050_tag, "Motion detected!");
+            /* Additional handling code here */
+        }
+        if (uxBits & k_mpu6050_event_zero_motion) {
+            /* Handle Zero Motion Detected event */
+            ESP_LOGI(mpu6050_tag, "Zero motion detected!");
+            /* Additional handling code here */
+        }
+        if (uxBits & k_mpu6050_event_free_fall) {
+            /* Handle Free-Fall Detected event */
+            ESP_LOGI(mpu6050_tag, "Free-fall detected!");
+            /* Additional handling code here */
+        }
+        if (uxBits & k_mpu6050_event_fifo_overflow) {
+            /* Handle FIFO Overflow event */
+            ESP_LOGW(mpu6050_tag, "FIFO overflow occurred!");
+            /* Additional handling code here */
+        }
+        if (uxBits & k_mpu6050_event_i2c_mst) {
+            /* Handle I2C Master event */
+            ESP_LOGI(mpu6050_tag, "I2C Master interrupt occurred!");
+            /* Additional handling code here */
+        }
+        if (uxBits & k_mpu6050_event_dmp) {
+            /* Handle DMP Interrupt event */
+            ESP_LOGI(mpu6050_tag, "DMP interrupt occurred!");
+            /* Additional handling code here */
+        }
+        if (uxBits & k_mpu6050_event_pll_ready) {
+            /* Handle PLL Ready event */
+            ESP_LOGI(mpu6050_tag, "PLL ready!");
+            /* Additional handling code here */
+        }
+    }
+}
+
+/* Private Functions **********************************************************/
+
+static void IRAM_ATTR mpu6050_interrupt_handler(void* arg)
+{
+    mpu6050_data_t* sensor_data = (mpu6050_data_t*) arg;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    uint8_t int_status;
+    esp_err_t ret = priv_i2c_read_reg_bytes(k_mpu6050_int_status_cmd, &int_status, 1,
+                                            sensor_data->i2c_bus, sensor_data->i2c_address, mpu6050_tag);
+    if (ret == ESP_OK) {
+        EventBits_t uxBitsToSet = 0;
+
+        if (int_status & k_mpu6050_int_enable_data_rdy) {
+            uxBitsToSet |= k_mpu6050_event_data_ready;
+        }
+        if (int_status & k_mpu6050_int_enable_mot) {
+            uxBitsToSet |= k_mpu6050_event_motion_detected;
+        }
+        if (int_status & k_mpu6050_int_enable_zmot) {
+            uxBitsToSet |= k_mpu6050_event_zero_motion;
+        }
+        if (int_status & k_mpu6050_int_enable_ff) {
+            uxBitsToSet |= k_mpu6050_event_free_fall;
+        }
+        if (int_status & k_mpu6050_int_enable_fifo_oflow) {
+            uxBitsToSet |= k_mpu6050_event_fifo_overflow;
+        }
+        if (int_status & k_mpu6050_int_enable_i2c_mst) {
+            uxBitsToSet |= k_mpu6050_event_i2c_mst;
+        }
+        if (int_status & k_mpu6050_int_enable_dmp_int) {
+            uxBitsToSet |= k_mpu6050_event_dmp;
+        }
+        if (int_status & k_mpu6050_int_enable_pll_rdy) {
+            uxBitsToSet |= k_mpu6050_event_pll_ready;
+        }
+
+        if (uxBitsToSet != 0) {
+            xEventGroupSetBitsFromISR(sensor_data->event_group, uxBitsToSet, &xHigherPriorityTaskWoken);
+        }
+    }
+
+    if (xHigherPriorityTaskWoken == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
+}
+

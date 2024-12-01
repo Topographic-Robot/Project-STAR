@@ -26,16 +26,16 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
 
 /**
  * @brief Handles various events related to WiFi and IP connectivity.
- * 
+ *
  * This function processes two main categories of events:
  *   1. WiFi Events: Manages WiFi station start and disconnection events.
  *      - WIFI_EVENT_STA_START: Initiates connection to the Access Point (AP).
  *      - WIFI_EVENT_STA_DISCONNECTED: Attempts to reconnect to the AP on
  *        disconnection, with a maximum retry limit.
  *   2. IP Events: Manages the event when the station receives an IP address.
- *      - IP_EVENT_STA_GOT_IP: Logs the obtained IP address and sets a bit
+ *      - IP_EVENT_STA_GOT_IP: Logs the obtained IP address and sets a bi
  *        indicating successful connection.
- * 
+ *
  * @param arg A pointer to the argument provided during event registration.
  * @param event_base The base identifier for the event (e.g., WIFI_EVENT or
  *                   IP_EVENT).
@@ -43,15 +43,15 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
  * @param event_data A pointer to the event data specific to the event type.
  */
 static void event_handler(void *arg, esp_event_base_t event_base,
-                          int32_t event_id, void *event_data) 
+                          int32_t event_id, void *event_data)
 {
   static uint8_t s_retry_num = 0;
 
   /* NOTE:
    * esp_event_base_t is a `const char *` and WIFI_EVENT is a
    * `const char *`, but in C you cannot compare two `const char *` with ==
-   * However, to save memory esp has made it that the event_base will be set to 
-   * the address of WIFI_EVENT when the event is a WiFi event. This is why we 
+   * However, to save memory esp has made it that the event_base will be set to
+   * the address of WIFI_EVENT when the event is a WiFi event. This is why we
    * can compare with == and we don't need to use strcmp/strncmp.
    *
    * The same is for the other events such as IP events and this is also how
@@ -92,7 +92,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
 /* Public Functions ***********************************************************/
 
-esp_err_t wifi_init_sta(void) 
+esp_err_t wifi_init_sta(void)
 {
   ESP_LOGI(wifi_tag, "Starting WiFi initialization in station mode.");
 
@@ -137,14 +137,14 @@ esp_err_t wifi_init_sta(void)
   /* Register event handlers for WiFi and IP events */
   ESP_LOGI(wifi_tag, "Registering event handlers for WiFi and IP events.");
   esp_event_handler_instance_t instance_any_id, instance_got_ip;
-  ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, 
+  ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                             &event_handler, NULL, &instance_any_id);
   if (ret != ESP_OK) {
     ESP_LOGE(wifi_tag, "Failed to register WiFi event handler: %d", ret);
     return ret;
   }
 
-  ret = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, 
+  ret = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                             &event_handler, NULL, &instance_got_ip);
   if (ret != ESP_OK) {
     ESP_LOGE(wifi_tag, "Failed to register IP event handler: %d", ret);

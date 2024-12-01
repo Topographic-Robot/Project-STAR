@@ -10,7 +10,7 @@ const uint32_t uart_timeout_ticks = pdMS_TO_TICKS(1000); /* Timeout for UART ope
 
 /* Private Functions **********************************************************/
 
-esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate, 
+esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate,
                          uart_port_t uart_num, const char *tag)
 {
   uart_config_t uart_config = {
@@ -44,17 +44,19 @@ esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate,
   return ret; /* Return the error status or ESP_OK */
 }
 
-esp_err_t priv_uart_read(uint8_t *data, size_t len, uart_port_t uart_num, 
-                         const char *tag)
+esp_err_t priv_uart_read(uint8_t *data, size_t len, int32_t *out_length,
+                         uart_port_t uart_num, const char *tag)
 {
   /* Read UART data from the specified UART port */
-  int length = uart_read_bytes(uart_num, data, len, uart_timeout_ticks);
+  int32_t length = uart_read_bytes(uart_num, data, len, uart_timeout_ticks);
 
   if (length > 0) {
-    ESP_LOGI(tag, "Received UART data: %.*s", length, data); /* Log the received data */
+    *out_length = length; /* Store the length of data read */
+    ESP_LOGI(tag, "Received UART data: %.*s", (int)length, data); /* Log the received data */
     return ESP_OK;
   } else {
     ESP_LOGE(tag, "UART read failed or timed out");
+    *out_length = 0; /* No data read */
     return ESP_FAIL;
   }
 }

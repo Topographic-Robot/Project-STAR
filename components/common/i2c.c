@@ -10,7 +10,7 @@ const uint32_t i2c_timeout_ticks = pdMS_TO_TICKS(1000);
 
 /* Private Functions **********************************************************/
 
-esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz, 
+esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
                         uint8_t i2c_bus, const char *tag)
 {
   /* The I2C configuration structure */
@@ -34,7 +34,7 @@ esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
   return i2c_driver_install(i2c_bus, conf.mode, 0, 0, 0);
 }
 
-esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus, 
+esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus,
                               uint8_t i2c_address, const char *tag)
 {
   /* Create an I2C command link handle */
@@ -66,7 +66,7 @@ esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus,
   return ret; /* Return the error status or ESP_OK */
 }
 
-esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus, 
+esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus,
                               uint8_t i2c_address, const char *tag)
 {
   /* Create an I2C command link handle */
@@ -105,7 +105,7 @@ esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus,
 }
 
 esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
-                                  uint8_t i2c_bus, uint8_t i2c_address, 
+                                  uint8_t i2c_bus, uint8_t i2c_address,
                                   const char *tag)
 {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -128,7 +128,7 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
 }
 
 esp_err_t priv_i2c_read_reg_bytes(uint8_t reg_addr, uint8_t *data, size_t len,
-                                  uint8_t i2c_bus, uint8_t i2c_address, 
+                                  uint8_t i2c_bus, uint8_t i2c_address,
                                   const char *tag)
 {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();

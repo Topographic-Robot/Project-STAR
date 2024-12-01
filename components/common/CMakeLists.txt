@@ -1,11 +1,11 @@
 idf_component_register(
-  SRCS 
+  SRCS
     "i2c.c"
     "uart.c"
     "spi.c"
-  INCLUDE_DIRS 
+  INCLUDE_DIRS
     "include"
-  PRIV_REQUIRES 
+  PRIV_REQUIRES
     driver
 )
 
