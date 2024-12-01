@@ -99,7 +99,7 @@ extern const uint32_t gy_neo6mv2_uart_baudrate;
  * @brief Polling rate for reading data from the GY-NEO6MV2 GPS module in system ticks.
  *
  * This constant defines the interval between consecutive reads of the GPS module.
- * It is expressed in FreeRTOS system ticks to ensure accurate timing and efficien
+ * It is expressed in FreeRTOS system ticks to ensure accurate timing and efficient
  * scheduling of GPS data reads.
  */
 extern const uint32_t gy_neo6mv2_polling_rate_ticks;
@@ -107,7 +107,7 @@ extern const uint32_t gy_neo6mv2_polling_rate_ticks;
 /**
  * @brief Maximum number of retry attempts for module reinitialization.
  *
- * This constant sets the maximum number of consecutive retry attempts tha
+ * This constant sets the maximum number of consecutive retry attempts that
  * the system will make to reinitialize the GY-NEO6MV2 module in case of an error.
  * After reaching this limit, the retry interval is doubled as part of the
  * exponential backoff strategy. This allows the system to gracefully handle
@@ -158,7 +158,7 @@ extern const uint32_t gy_neo6mv2_max_backoff_interval;
 /* Enums **********************************************************************/
 
 /**
- * @enum gy_neo6mv2_states_
+ * @enum gy_neo6mv2_states_t
  * @brief Represents the operational states of the GY-NEO6MV2 GPS module.
  *
  * This enumeration defines the different states the GPS module can be in,
@@ -175,7 +175,7 @@ typedef enum {
 /* Structs ********************************************************************/
 
 /**
- * @struct gy_neo6mv2_data_
+ * @struct gy_neo6mv2_data_t
  * @brief Structure to store GPS data read from the GY-NEO6MV2 module.
  *
  * This structure holds the GPS data such as latitude, longitude, speed, time, and fix status.

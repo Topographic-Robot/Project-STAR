@@ -1,5 +1,7 @@
 /* components/sensors/mpu6050_hal/mpu6050_hal.c */
 
+/* TODO: Test this */
+
 #include "mpu6050_hal.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
@@ -103,8 +105,8 @@ static const uint8_t mpu6050_accel_config_idx = 3; /* Index of chosen values fro
  */
 static void IRAM_ATTR mpu6050_interrupt_handler(void *arg)
 {
-  mpu6050_data_t* sensor_data = (mpu6050_data_t *)arg;
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  mpu6050_data_t *sensor_data              = (mpu6050_data_t *)arg;
+  BaseType_t      xHigherPriorityTaskWoken = pdFALSE;
 
   /* Give the semaphore to signal that data is ready */
   xSemaphoreGiveFromISR(sensor_data->data_ready_sem, &xHigherPriorityTaskWoken);
@@ -221,11 +223,12 @@ esp_err_t mpu6050_init(void *sensor_data)
 
   /* Verify the sensor by reading the WHO_AM_I register */
   uint8_t who_am_i = 0;
-  ret = priv_i2c_read_reg_bytes(k_mpu6050_who_am_i_cmd, &who_am_i, 1,
-                                mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
+  ret              = priv_i2c_read_reg_bytes(k_mpu6050_who_am_i_cmd, &who_am_i, 
+                                             1, mpu6050_i2c_bus, mpu6050_i2c_address, 
+                                             mpu6050_tag);
   if (ret != ESP_OK || who_am_i != k_mpu6050_who_am_i_response) {
     ESP_LOGE(mpu6050_tag, "MPU6050 WHO_AM_I verification failed (read: 0x%02X)",
-        who_am_i);
+             who_am_i);
     return ret;
   }
 
@@ -244,14 +247,15 @@ esp_err_t mpu6050_init(void *sensor_data)
     return ret;
   }
 
+  /* TODO: If this works, move this to common/gpio.h */
   /* Configure the INT (interrupt) pin on the ESP32 */
   gpio_config_t io_conf = {};
-  io_conf.intr_type = GPIO_INTR_NEGEDGE;  // MPU6050 INT pin is active low
-  io_conf.pin_bit_mask = (1ULL << mpu6050_int_io);
-  io_conf.mode = GPIO_MODE_INPUT;
-  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-  io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
-  ret = gpio_config(&io_conf);
+  io_conf.intr_type     = GPIO_INTR_NEGEDGE;  /* MPU6050 INT pin is active low */
+  io_conf.pin_bit_mask  = (1ULL << mpu6050_int_io);
+  io_conf.mode          = GPIO_MODE_INPUT;
+  io_conf.pull_up_en    = GPIO_PULLUP_DISABLE;
+  io_conf.pull_down_en  = GPIO_PULLDOWN_ENABLE;
+  ret                   = gpio_config(&io_conf);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "GPIO configuration failed for INT pin");
     return ret;
@@ -298,7 +302,8 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
 
   /* Read gyroscope data starting from GYRO_XOUT_H */
   ret = priv_i2c_read_reg_bytes(k_mpu6050_gyro_xout_h_cmd, gyro_data, 6,
-      sensor_data->i2c_bus, sensor_data->i2c_address, mpu6050_tag);
+                                sensor_data->i2c_bus, 
+                                sensor_data->i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to read gyroscope data from MPU6050");
     sensor_data->state = k_mpu6050_error;

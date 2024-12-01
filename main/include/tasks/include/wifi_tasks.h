@@ -3,14 +3,14 @@
 #ifndef TOPOROBO_WIFI_TASKS_H
 #define TOPOROBO_WIFI_TASKS_H
 
-/* NOTE: check wifi_credentials.txt is included, but wifi_credentials.h isn'
+/* NOTE: check wifi_credentials.txt is included, but wifi_credentials.h isn't
  * copy wifi_credentials.txt to wifi_credentials.h and replace the values */
 #include "wifi_credentials.h"
 #include "esp_err.h"
 
 /* Constants ******************************************************************/
 
-/* The event group allows multiple bits for each event, but we only care abou
+/* The event group allows multiple bits for each event, but we only care about
  * two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */

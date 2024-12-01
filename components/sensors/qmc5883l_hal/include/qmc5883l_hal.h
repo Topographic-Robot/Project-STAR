@@ -72,7 +72,7 @@ extern const uint8_t qmc5883l_i2c_bus;
 /**
  * @brief Tag for logging messages related to the QMC5883L sensor.
  *
- * This constant defines a tag used for ESP_LOG messages, categorizing log outpu
+ * This constant defines a tag used for ESP_LOG messages, categorizing log output
  * related to the QMC5883L sensor, which simplifies log review.
  */
 extern const char *qmc5883l_tag;
@@ -142,7 +142,7 @@ extern const uint32_t qmc5883l_max_backoff_interval;
 /* Enums **********************************************************************/
 
 /**
- * @enum qmc5883l_commands_
+ * @enum qmc5883l_commands_t
  * @brief Enum to represent the I2C commands for the QMC5883L sensor.
  *
  * This enum defines the possible I2C commands for the QMC5883L sensor.
@@ -184,7 +184,7 @@ typedef enum : uint8_t {
 } qmc5883l_commands_t;
 
 /**
- * @enum qmc5883l_states_
+ * @enum qmc5883l_states_t
  * @brief Enum to represent the state of the BH1750 sensor.
  *
  * This enum defines the possible states for the BH1750 sensor.
@@ -201,7 +201,7 @@ typedef enum : uint8_t {
 /* Structs ********************************************************************/
 
 /**
- * @struct qmc5883l_scale_
+ * @struct qmc5883l_scale_t
  * @brief Structure that holds both the register value and the scaling factor for
  *        the QMC5883L magnetometer.
  */
@@ -211,7 +211,7 @@ typedef struct {
 } qmc5883l_scale_t;
 
 /**
- * @struct qmc5883l_data_
+ * @struct qmc5883l_data_t
  * @brief Structure to store QMC5883L sensor data.
  *
  * This structure holds the I2C bus number used for communication,

@@ -1,5 +1,7 @@
 /* components/sensors/mpu6050_hal/mpu6050_hal.c */
 
+/* TODO: Test this method after testing the inital mpu6050_hal.c */
+
 /* MPU6050 HAL (Hardware Abstraction Layer) Source File
  *
  * This file provides the implementation for interacting with the MPU6050 6-axis accelerometer and gyroscope.

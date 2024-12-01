@@ -97,7 +97,7 @@ extern const uint8_t dht22_bit_count;
 /**
  * @brief Maximum number of retry attempts for sensor reinitialization.
  *
- * This constant sets the maximum number of consecutive retry attempts tha
+ * This constant sets the maximum number of consecutive retry attempts that
  * the system will make to reinitialize the DHT22 sensor in case of an error.
  * After reaching this limit, the retry interval is doubled as part of
  * the exponential backoff strategy. This allows the system to gracefully
@@ -130,7 +130,7 @@ extern const uint32_t dht22_max_backoff_interval;
 /* Enums **********************************************************************/
 
 /**
- * @enum dht22_states_
+ * @enum dht22_states_t
  * @brief Enum to represent the state of the DHT22 sensor.
  *
  * This enum defines the possible states for the DHT22 sensor, providing
@@ -146,7 +146,7 @@ typedef enum {
 /* Data Structures ************************************************************/
 
 /**
- * @struct dht22_data_
+ * @struct dht22_data_t
  * @brief Structure to store DHT22 sensor data and state.
  *
  * The `dht22_data_t` structure is used to maintain the data read from the

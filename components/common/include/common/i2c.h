@@ -44,7 +44,7 @@ esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
  * link, sends the I2C address with the write flag, writes the data byte, and
  * then completes the transaction by stopping the I2C communication.
  *
- * @note This function is intended for internal use and does not implemen
+ * @note This function is intended for internal use and does not implement
  *       semaphore checks or concurrency protections.
  *
  * @param[in] data The byte of data to send to the I2C device.

@@ -33,7 +33,7 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
  *      - WIFI_EVENT_STA_DISCONNECTED: Attempts to reconnect to the AP on
  *        disconnection, with a maximum retry limit.
  *   2. IP Events: Manages the event when the station receives an IP address.
- *      - IP_EVENT_STA_GOT_IP: Logs the obtained IP address and sets a bi
+ *      - IP_EVENT_STA_GOT_IP: Logs the obtained IP address and sets a bit
  *        indicating successful connection.
  *
  * @param arg A pointer to the argument provided during event registration.

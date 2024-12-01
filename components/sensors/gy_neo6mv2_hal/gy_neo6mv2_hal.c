@@ -81,7 +81,7 @@ static float priv_parse_coordinate(const char *coord_str, const char *hemisphere
  *
  * This function parses a GPRMC (Recommended Minimum Specific GPS/Transit Data) sentence from the GPS module
  * and extracts the time, latitude, longitude, speed, and fix status. It updates the provided
- * `gy_neo6mv2_data_t` structure with the extracted data.
+ * `gy_neo6mv2_data_t` structure with the extracted gy_neo6mv2_data.
  *
  * **Logic and Flow:**
  * - Copies the sentence to a local buffer to avoid modifying the original.
@@ -92,7 +92,7 @@ static float priv_parse_coordinate(const char *coord_str, const char *hemisphere
  * - Updates the `sensor_data` structure with the parsed values.
  *
  * @param[in] sentence Pointer to the GPRMC NMEA sentence string.
- * @param[out] sensor_data Pointer to `gy_neo6mv2_data_t` structure to store the extracted GPS data.
+ * @param[out] sensor_data Pointer to `gy_neo6mv2_data_t` structure to store the extracted GPS gy_neo6mv2_data.
  */
 static void priv_parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
 {
@@ -147,14 +147,14 @@ static void priv_parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_dat
 
 /* Public Functions ***********************************************************/
 
-char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data)
+char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 {
   cJSON *json = cJSON_CreateObject();
   cJSON_AddStringToObject(json, "sensor_type", "gps");
-  cJSON_AddNumberToObject(json, "latitude", data->latitude);
-  cJSON_AddNumberToObject(json, "longitude", data->longitude);
-  cJSON_AddNumberToObject(json, "speed", data->speed);
-  cJSON_AddStringToObject(json, "time", data->time);
+  cJSON_AddNumberToObject(json, "latitude", gy_neo6mv2_data->latitude);
+  cJSON_AddNumberToObject(json, "longitude", gy_neo6mv2_data->longitude);
+  cJSON_AddNumberToObject(json, "speed", gy_neo6mv2_data->speed);
+  cJSON_AddStringToObject(json, "time", gy_neo6mv2_data->time);
   char *json_string = cJSON_PrintUnformatted(json);
   cJSON_Delete(json);
   return json_string;
@@ -175,14 +175,14 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   /* Allow time for the GPS module to warm up */
   vTaskDelay(pdMS_TO_TICKS(5000));
 
-  /* Initialize GPS data and state */
-  gy_neo6mv2_data_t *data = (gy_neo6mv2_data_t *)sensor_data;
-  data->latitude          = 0.0;
-  data->longitude         = 0.0;
-  data->speed             = 0.0;
-  memset(data->time, 0, sizeof(data->time));
-  data->fix_status = 0; /* Initially no fix */
-  data->state      = k_gy_neo6mv2_uninitialized;
+  /* Initialize GPS gy_neo6mv2_data and state */
+  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  gy_neo6mv2_data->latitude          = 0.0;
+  gy_neo6mv2_data->longitude         = 0.0;
+  gy_neo6mv2_data->speed             = 0.0;
+  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
+  gy_neo6mv2_data->fix_status = 0; /* Initially no fix */
+  gy_neo6mv2_data->state      = k_gy_neo6mv2_uninitialized;
 
   ESP_LOGI(gy_neo6mv2_tag, "GPS module initialized successfully");
   return ESP_OK;
@@ -190,17 +190,17 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
-  uint8_t data[gy_neo6mv2_sentence_buffer_size];
-  int32_t length = 0; /* Variable to hold the length of data read */
+  uint8_t gy_neo6mv2_data[gy_neo6mv2_sentence_buffer_size];
+  int32_t length = 0; /* Variable to hold the length of gy_neo6mv2_data read */
 
-  /* Read data from UART */
-  esp_err_t ret = priv_uart_read(data, sizeof(data), &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  /* Read gy_neo6mv2_data from UART */
+  esp_err_t ret = priv_uart_read(gy_neo6mv2_data, sizeof(gy_neo6mv2_data), &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
 
   if (ret == ESP_OK && length > 0) {
-    ESP_LOGI(gy_neo6mv2_tag, "Raw GPS data: %.*s", (int)length, (char *)data);
+    ESP_LOGI(gy_neo6mv2_tag, "Raw GPS gy_neo6mv2_data: %.*s", (int)length, (char *)gy_neo6mv2_data);
 
     for (int i = 0; i < length; i++) {
-      if (data[i] == '\n' || data[i] == '\r') { /* End of NMEA sentence */
+      if (gy_neo6mv2_data[i] == '\n' || gy_neo6mv2_data[i] == '\r') { /* End of NMEA sentence */
         if (sentence_index > 0) {
           sentence_buffer[sentence_index] = '\0';
           if (strncmp(sentence_buffer, "$GPRMC", 6) == 0) {
@@ -209,12 +209,12 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           sentence_index = 0; /* Reset buffer */
         }
       } else if (sentence_index < sizeof(sentence_buffer) - 1) {
-        sentence_buffer[sentence_index++] = data[i];
+        sentence_buffer[sentence_index++] = gy_neo6mv2_data[i];
       }
     }
     return ESP_OK;
   } else {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to read GPS data");
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to read GPS gy_neo6mv2_data");
     sensor_data->state = k_gy_neo6mv2_error;
     return ESP_FAIL;
   }
@@ -250,15 +250,15 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 
 void gy_neo6mv2_tasks(void *sensor_data)
 {
-  gy_neo6mv2_data_t *data = (gy_neo6mv2_data_t *)sensor_data;
+  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
   while (1) {
-    if (gy_neo6mv2_read(data) == ESP_OK) {
-      char *json = gy_neo6mv2_data_to_json(data);
+    if (gy_neo6mv2_read(gy_neo6mv2_data) == ESP_OK) {
+      char *json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
       send_sensor_data_to_webserver(json);
       free(json);
     } else {
-      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS data, resetting...");
-      gy_neo6mv2_reset_on_error(data);
+      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS gy_neo6mv2_data, resetting...");
+      gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }

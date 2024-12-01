@@ -70,7 +70,7 @@ extern const char    *pca9685_tag;              /**< Tag for logs */
 /* Enums **********************************************************************/
 
 /**
- * @enum pca9685_states_
+ * @enum pca9685_states_t
  * @brief Enum to represent the state of the PCA9685.
  *
  * This enum defines the possible states of a PCA9685 board, indicating whether
@@ -86,7 +86,7 @@ typedef enum : uint8_t {
 } pca9685_states_t;
 
 /**
- * @enum pca9685_commands_
+ * @enum pca9685_commands_t
  * @brief Enum to represent the I2C commands for the PCA9685.
  *
  * This enum defines the I2C register addresses and relevant commands
@@ -119,7 +119,7 @@ typedef enum : uint8_t {
 /* Structs ********************************************************************/
 
 /**
- * @struct pca9685_board_
+ * @struct pca9685_board_t
  * @brief Structure representing each PCA9685 board in the system.
  *
  * This structure holds information about each PCA9685 board, including the

@@ -1,6 +1,7 @@
 /* components/sensors/mq135_hal/mq135_hal.c */
 
 /* TODO: Test this */
+/* TODO: Move adc init to common/adc.h if needed */
 
 #include "mq135_hal.h"
 #include <math.h>
