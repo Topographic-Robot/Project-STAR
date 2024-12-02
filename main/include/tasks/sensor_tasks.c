@@ -8,7 +8,7 @@
 
 /* Globals (Static) ***********************************************************/
 
-static sensor_config_t sensors[] = {
+static sensor_config_t s_sensors[] = {
   { "BH1750",     bh1750_init,     bh1750_tasks,     &(s_sensor_data.bh1750_data),     false },
   { "QMC5883L",   qmc5883l_init,   qmc5883l_tasks,   &(s_sensor_data.qmc5883l_data),   false },
   { "MPU6050",    mpu6050_init,    mpu6050_tasks,    &(s_sensor_data.mpu6050_data),    false },
@@ -25,43 +25,43 @@ esp_err_t sensors_init(sensor_data_t *sensor_data)
   esp_err_t status         = ESP_OK;
   esp_err_t overall_status = ESP_OK;
 
-  for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
-    if (sensors[i].enabled) {
-      ESP_LOGI(system_tag, "Initializing sensor: %s", sensors[i].sensor_name);
-      status = sensors[i].init_function(sensors[i].data_ptr);
+  for (int i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
+    if (s_sensors[i].enabled) {
+      ESP_LOGI(system_tag, "Initializing sensor: %s", s_sensors[i].sensor_name);
+      status = s_sensors[i].init_function(s_sensors[i].data_ptr);
 
       if (status == ESP_OK) {
         ESP_LOGI(system_tag, "Sensor %s initialized successfully",
-            sensors[i].sensor_name);
+            s_sensors[i].sensor_name);
       } else {
         ESP_LOGE(system_tag, "Sensor %s initialization failed with error: %d",
-            sensors[i].sensor_name, status);
+            s_sensors[i].sensor_name, status);
         overall_status = ESP_FAIL;
       }
     } else {
-      ESP_LOGI(system_tag, "Sensor %s is disabled", sensors[i].sensor_name);
+      ESP_LOGI(system_tag, "Sensor %s is disabled", s_sensors[i].sensor_name);
     }
   }
 
-  return overall_status; /* Return ESP_OK only if all sensors initialized successfully */
+  return overall_status; /* Return ESP_OK only if all s_sensors initialized successfully */
 }
 
 esp_err_t sensor_tasks(sensor_data_t *sensor_data)
 {
   esp_err_t overall_status = ESP_OK;
 
-  for (int i = 0; i < sizeof(sensors) / sizeof(sensor_config_t); i++) {
-    if (sensors[i].enabled) {
-      ESP_LOGI(system_tag, "Creating task for sensor: %s", sensors[i].sensor_name);
-      BaseType_t ret = xTaskCreate(sensors[i].task_function, sensors[i].sensor_name,
-          4096, sensors[i].data_ptr, 5, NULL);
+  for (int i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
+    if (s_sensors[i].enabled) {
+      ESP_LOGI(system_tag, "Creating task for sensor: %s", s_sensors[i].sensor_name);
+      BaseType_t ret = xTaskCreate(s_sensors[i].task_function, s_sensors[i].sensor_name,
+          4096, s_sensors[i].data_ptr, 5, NULL);
       if (ret != pdPASS) {
         ESP_LOGE(system_tag, "Task creation failed for sensor: %s",
-            sensors[i].sensor_name);
+            s_sensors[i].sensor_name);
         overall_status = ESP_FAIL;
       }
     } else {
-      ESP_LOGI(system_tag, "Task for sensor %s is disabled", sensors[i].sensor_name);
+      ESP_LOGI(system_tag, "Task for sensor %s is disabled", s_sensors[i].sensor_name);
     }
   }
 

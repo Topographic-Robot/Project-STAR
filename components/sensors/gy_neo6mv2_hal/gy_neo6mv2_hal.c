@@ -19,7 +19,7 @@ const uint8_t  gy_neo6mv2_tx_io                  = GPIO_NUM_17;
 const uint8_t  gy_neo6mv2_rx_io                  = GPIO_NUM_16;
 const uint8_t  gy_neo6mv2_uart_num               = UART_NUM_2;
 const uint32_t gy_neo6mv2_uart_baudrate          = 9600;
-const uint32_t gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
+const uint32_t gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 100);
 const uint8_t  gy_neo6mv2_max_retries            = 4;
 const uint32_t gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
@@ -33,17 +33,30 @@ const uint32_t gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
  * It accumulates characters until a complete sentence is formed, identified by a newline character.
  * The buffer helps handle cases where sentences are split across multiple UART reads.
  */
-static char sentence_buffer[gy_neo6mv2_sentence_buffer_size];
+static char s_gy_neo6mv2_sentence_buffer[gy_neo6mv2_sentence_buffer_size];
 
 /**
  * @brief Index to track the current position in the sentence buffer.
  *
- * This static variable keeps track of the current insertion point in the `sentence_buffer`.
+ * This static variable keeps track of the current insertion point in the `s_gy_neo6mv2_sentence_buffer`.
  * It increments with each character read and resets when a complete sentence is processed.
  */
-static uint32_t sentence_index = 0;
+static uint32_t s_gy_neo6mv2_sentence_index = 0;
 
-/* Static (Private) Functions **************************************************/
+/**
+ * @brief Buffer to store parsed satellite information.
+ *
+ * This buffer retains information about satellites parsed from GPGSV sentences,
+ * including their PRN, elevation, azimuth, and SNR.
+ */
+static satellite_t s_gy_neo6mv2_satellites[gy_neo6mv2_max_satellites];
+
+/**
+ * @brief Counter for the number of satellites currently stored in the buffer.
+ */
+static uint8_t s_gy_neo6mv2_satellite_count = 0;
+
+/* Static (Private) Functions *************************************************/
 
 /**
  * @brief Parses a GPS coordinate from NMEA format to decimal degrees.
@@ -62,7 +75,7 @@ static uint32_t sentence_index = 0;
  *
  * @return The coordinate in decimal degrees.
  */
-static float priv_parse_coordinate(const char *coord_str, const char *hemisphere)
+static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, const char *hemisphere)
 {
   float    coord           = atof(coord_str);
   uint32_t degrees         = (uint32_t)(coord / 100);
@@ -77,72 +90,126 @@ static float priv_parse_coordinate(const char *coord_str, const char *hemisphere
 }
 
 /**
- * @brief Parses the GPRMC NMEA sentence to extract GPS information.
+ * @brief Validates the checksum of an NMEA sentence.
  *
- * This function parses a GPRMC (Recommended Minimum Specific GPS/Transit Data) sentence from the GPS module
- * and extracts the time, latitude, longitude, speed, and fix status. It updates the provided
- * `gy_neo6mv2_data_t` structure with the extracted gy_neo6mv2_data.
+ * This function computes the checksum for an NMEA sentence and compares it with the checksum
+ * provided in the sentence to determine validity.
  *
  * **Logic and Flow:**
- * - Copies the sentence to a local buffer to avoid modifying the original.
- * - Tokenizes the sentence using commas.
- * - Validates the sentence structure and fix status.
- * - Parses and converts latitude and longitude to decimal degrees.
- * - Parses speed over ground in knots and converts it to meters per second.
- * - Updates the `sensor_data` structure with the parsed values.
+ * - The checksum is XORed for all characters between the `$` and `*`.
+ * - Compares the computed checksum with the provided checksum in the sentence.
  *
- * @param[in] sentence Pointer to the GPRMC NMEA sentence string.
- * @param[out] sensor_data Pointer to `gy_neo6mv2_data_t` structure to store the extracted GPS gy_neo6mv2_data.
+ * @param[in] sentence Pointer to a null-terminated NMEA sentence string.
+ *
+ * @return `true` if the checksum matches, `false` otherwise.
  */
-static void priv_parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_data)
+static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
 {
-  char    *tokens[20];
-  uint32_t token_index = 0;
-
-  /* Use stack-allocated buffer to avoid heap allocation */
-  char sentence_copy[gy_neo6mv2_sentence_buffer_size];
-  strncpy(sentence_copy, sentence, sizeof(sentence_copy) - 1);
-  sentence_copy[sizeof(sentence_copy) - 1] = '\0';
-
-  char *token = strtok(sentence_copy, ",");
-  while (token != NULL && token_index < 20) {
-    tokens[token_index++] = token;
-    token                 = strtok(NULL, ",");
+  if (!sentence || sentence[0] != '$') {
+    return false;
   }
 
-  if (token_index < 12) {
-    ESP_LOGE(gy_neo6mv2_tag, "Incomplete GPRMC sentence");
-    sensor_data->state = k_gy_neo6mv2_error;
+  const char *checksum_start = strchr(sentence, '*');
+  if (!checksum_start || (checksum_start - sentence) > strlen(sentence)) {
+    return false;
+  }
+
+  uint8_t calculated_checksum = 0;
+  for (const char *p = sentence + 1; p < checksum_start; p++) {
+    calculated_checksum ^= *p;
+  }
+
+  uint8_t sent_checksum = (uint8_t)strtol(checksum_start + 1, NULL, 16);
+  return calculated_checksum == sent_checksum;
+}
+
+/**
+ * @brief Splits an NMEA sentence into fields.
+ *
+ * This function tokenizes an NMEA sentence based on commas and stores the resulting
+ * fields in the provided array. Fields that cannot be populated are set to `NULL`.
+ *
+ * @param[in,out] sentence Pointer to the NMEA sentence (modified in place).
+ * @param[out] fields Array of pointers to store extracted fields.
+ * @param[in] max_fields Maximum number of fields to extract.
+ */
+static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, size_t max_fields)
+{
+  if (!sentence || !fields) {
     return;
   }
 
-  /* Check status */
-  if (tokens[2][0] != 'A') { /* Status: V = invalid, A = valid */
-    sensor_data->fix_status = 0;
-    sensor_data->state      = k_gy_neo6mv2_error;
-    ESP_LOGW(gy_neo6mv2_tag, "No GPS fix");
-    return;
+  size_t index = 0;
+  char  *token = strtok(sentence, ",");
+  while (token != NULL && index < max_fields) {
+    fields[index++] = token;
+    token           = strtok(NULL, ",");
+  }
+
+  for (; index < max_fields; index++) {
+    fields[index] = NULL;
+  }
+}
+
+/**
+ * @brief Adds a satellite's data to the buffer.
+ *
+ * This function adds a satellite's information to the buffer if space is available.
+ * If the buffer is full, the satellite's data is discarded, and a warning is logged.
+ *
+ * @param[in] prn Satellite ID (PRN).
+ * @param[in] elevation Satellite elevation in degrees above the horizon.
+ * @param[in] azimuth Satellite azimuth in degrees from true north.
+ * @param[in] snr Signal-to-Noise Ratio (SNR).
+ */
+static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16_t azimuth, uint8_t snr)
+{
+  if (s_gy_neo6mv2_satellite_count < gy_neo6mv2_max_satellites) {
+    satellite_t *sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
+    sat->prn         = prn;
+    sat->elevation   = elevation;
+    sat->azimuth     = azimuth;
+    sat->snr         = snr;
+    s_gy_neo6mv2_satellite_count++;
+
+    ESP_LOGI(gy_neo6mv2_tag, "Satellite added: PRN=%d, Elevation=%d, Azimuth=%d, SNR=%d",
+             prn, elevation, azimuth, snr);
   } else {
-    sensor_data->fix_status = 1;
+    ESP_LOGW(gy_neo6mv2_tag, "Satellite buffer full, cannot add PRN=%d", prn);
   }
+}
 
-  /* Parse time */
-  strncpy(sensor_data->time, tokens[1], sizeof(sensor_data->time));
-  sensor_data->time[sizeof(sensor_data->time) - 1] = '\0';
+/**
+ * @brief Clears the satellite buffer.
+ *
+ * This function resets the satellite buffer by clearing all stored satellite information
+ * and resetting the satellite count to zero.
+ */
+static void priv_gy_neo6mv2_clear_satellites(void)
+{
+  s_gy_neo6mv2_satellite_count = 0;
+  memset(s_gy_neo6mv2_satellites, 0, sizeof(s_gy_neo6mv2_satellites));
+  ESP_LOGI(gy_neo6mv2_tag, "Satellite buffer cleared.");
+}
 
-  /* Parse latitude */
-  sensor_data->latitude = priv_parse_coordinate(tokens[3], tokens[4]);
+/**
+ * @brief Retrieves the satellite data buffer.
+ *
+ * This function provides access to the satellite buffer for external processing.
+ *
+ * @param[out] satellites Pointer to the buffer where satellite data will be copied.
+ * @param[in] max_count Maximum number of satellites to retrieve.
+ *
+ * @return The number of satellites copied into the output buffer.
+ */
+static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, uint8_t max_count)
+{
+  uint8_t count = (s_gy_neo6mv2_satellite_count < max_count) ?
+                   s_gy_neo6mv2_satellite_count : max_count;
 
-  /* Parse longitude */
-  sensor_data->longitude = priv_parse_coordinate(tokens[5], tokens[6]);
-
-  /* Parse speed over ground in knots, convert to meters per second */
-  float speed_knots  = atof(tokens[7]);
-  sensor_data->speed = speed_knots * 0.514444; /* 1 knot = 0.514444 m/s */
-
-  sensor_data->state = k_gy_neo6mv2_data_updated;
-  ESP_LOGI(gy_neo6mv2_tag, "Parsed GPRMC: Lat=%.6f, Lon=%.6f, Speed=%.2f m/s",
-      sensor_data->latitude, sensor_data->longitude, sensor_data->speed);
+  memcpy(satellites, s_gy_neo6mv2_satellites, count * sizeof(satellite_t));
+  ESP_LOGI(gy_neo6mv2_tag, "Retrieved %d satellites from the buffer.", count);
+  return count;
 }
 
 /* Public Functions ***********************************************************/
@@ -150,12 +217,78 @@ static void priv_parse_gprmc(const char *sentence, gy_neo6mv2_data_t *sensor_dat
 char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "gps");
-  cJSON_AddNumberToObject(json, "latitude", gy_neo6mv2_data->latitude);
-  cJSON_AddNumberToObject(json, "longitude", gy_neo6mv2_data->longitude);
-  cJSON_AddNumberToObject(json, "speed", gy_neo6mv2_data->speed);
-  cJSON_AddStringToObject(json, "time", gy_neo6mv2_data->time);
+  if (!json) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "gps")) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "latitude", gy_neo6mv2_data->latitude)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add latitude to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "longitude", gy_neo6mv2_data->longitude)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add longitude to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "speed", gy_neo6mv2_data->speed)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add speed to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "time", gy_neo6mv2_data->time)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add time to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "fix_status", gy_neo6mv2_data->fix_status)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add fix_status to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "satellite_count", gy_neo6mv2_data->satellite_count)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add satellite_count to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "hdop", gy_neo6mv2_data->hdop)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add hdop to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "retry_count", gy_neo6mv2_data->retry_count)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add retry_count to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "retry_interval", gy_neo6mv2_data->retry_interval)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add retry_interval to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }
@@ -175,14 +308,19 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   /* Allow time for the GPS module to warm up */
   vTaskDelay(pdMS_TO_TICKS(5000));
 
-  /* Initialize GPS gy_neo6mv2_data and state */
-  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
-  gy_neo6mv2_data->latitude          = 0.0;
-  gy_neo6mv2_data->longitude         = 0.0;
-  gy_neo6mv2_data->speed             = 0.0;
-  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
-  gy_neo6mv2_data->fix_status = 0; /* Initially no fix */
-  gy_neo6mv2_data->state      = k_gy_neo6mv2_uninitialized;
+  /* Initialize GPS gy_neo6mv2_data fields */
+  gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
+  gy_neo6mv2_data->latitude           = 0.0;                             /* Default latitude */
+  gy_neo6mv2_data->longitude          = 0.0;                             /* Default longitude */
+  gy_neo6mv2_data->speed              = 0.0;                             /* Default speed */
+  gy_neo6mv2_data->fix_status         = 0;                               /* No fix initially */
+  gy_neo6mv2_data->satellite_count    = 0;                               /* No satellites initially */
+  gy_neo6mv2_data->hdop               = 99.99;                           /* Default HDOP value */
+  gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;      /* Initial state */
+  gy_neo6mv2_data->retry_count        = 0;                               /* Reset retry count */
+  gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval; /* Default retry interval */
+  gy_neo6mv2_data->last_attempt_ticks = 0;                              /* Reset last attempt ticks */
+  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));      /* Clear time field */
 
   ESP_LOGI(gy_neo6mv2_tag, "GPS module initialized successfully");
   return ESP_OK;
@@ -191,30 +329,127 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
   uint8_t uart_rx_buffer[gy_neo6mv2_sentence_buffer_size];
-  int32_t length = 0; /* Variable to hold the length of uart_rx_buffer read */
+  int32_t length = 0;
 
-  /* Read uart_rx_buffer from UART */
-  esp_err_t ret = priv_uart_read(uart_rx_buffer, sizeof(uart_rx_buffer), &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  /* Read from UART */
+  esp_err_t ret = priv_uart_read(uart_rx_buffer, sizeof(uart_rx_buffer),
+                                 &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
 
   if (ret == ESP_OK && length > 0) {
-    ESP_LOGI(gy_neo6mv2_tag, "Raw GPS uart_rx_buffer: %.*s", (int)length, (char *)uart_rx_buffer);
+    for (uint32_t i = 0; i < length; i++) {
+      char c = uart_rx_buffer[i];
 
-    for (int i = 0; i < length; i++) {
-      if (uart_rx_buffer[i] == '\n' || uart_rx_buffer[i] == '\r') { /* End of NMEA sentence */
-        if (sentence_index > 0) {
-          sentence_buffer[sentence_index] = '\0';
-          if (strncmp(sentence_buffer, "$GPRMC", 6) == 0) {
-            priv_parse_gprmc(sentence_buffer, sensor_data);
-          }
-          sentence_index = 0; /* Reset buffer */
+      /* Accumulate characters in the sentence buffer */
+      if (s_gy_neo6mv2_sentence_index < sizeof(s_gy_neo6mv2_sentence_buffer) - 1) {
+        s_gy_neo6mv2_sentence_buffer[s_gy_neo6mv2_sentence_index++] = c;
+      }
+
+      /* Process a complete sentence (ends with \n) */
+      if (c == '\n') {
+        s_gy_neo6mv2_sentence_buffer[s_gy_neo6mv2_sentence_index] = '\0'; /* Null-terminate */
+
+        /* Strip trailing \r and \n characters */
+        while (s_gy_neo6mv2_sentence_index > 0 &&
+            (s_gy_neo6mv2_sentence_buffer[s_gy_neo6mv2_sentence_index - 1] == '\r' ||
+             s_gy_neo6mv2_sentence_buffer[s_gy_neo6mv2_sentence_index - 1] == '\n')) {
+          s_gy_neo6mv2_sentence_buffer[--s_gy_neo6mv2_sentence_index] = '\0';
         }
-      } else if (sentence_index < sizeof(sentence_buffer) - 1) {
-        sentence_buffer[sentence_index++] = uart_rx_buffer[i];
+
+        /* Log raw sentence */
+        ESP_LOGI(gy_neo6mv2_tag, "Raw NMEA sentence: %s", s_gy_neo6mv2_sentence_buffer);
+
+        /* Validate checksum */
+        if (!priv_gy_neo6mv2_validate_nmea_checksum(s_gy_neo6mv2_sentence_buffer)) {
+          ESP_LOGW(gy_neo6mv2_tag, "Invalid NMEA checksum: %s", s_gy_neo6mv2_sentence_buffer);
+          s_gy_neo6mv2_sentence_index = 0;
+          continue;
+        }
+
+        /* Parse specific sentences */
+        if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPRMC") == s_gy_neo6mv2_sentence_buffer) {
+          /* Parse GPRMC sentence */
+          char *fields[12] = {0};
+          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 12);
+
+          /* Extract and log status */
+          if (fields[2]) {
+            const char *status = fields[2];
+            ESP_LOGI(gy_neo6mv2_tag, "GPRMC Status: %s (%s)",
+                     status, (status[0] == 'A') ? "Fix acquired" : "No fix");
+
+            /* Process only valid readings */
+            if (status[0] == 'A') {
+              /* Extract latitude, longitude, and other data */
+              sensor_data->latitude  = priv_gy_neo6mv2_parse_coordinate(fields[3], fields[4]);
+              sensor_data->longitude = priv_gy_neo6mv2_parse_coordinate(fields[5], fields[6]);
+              sensor_data->speed     = fields[7] ? atof(fields[7]) : 0.0;
+
+              /* Update valid fix status */
+              sensor_data->fix_status = 1; /* Fix acquired */
+              strncpy(sensor_data->time, fields[1], sizeof(sensor_data->time) - 1);
+
+              ESP_LOGI(gy_neo6mv2_tag, "Valid fix: Lat=%f, Lon=%f, Speed=%f",
+                       sensor_data->latitude, sensor_data->longitude, 
+                       sensor_data->speed);
+            } else {
+              sensor_data->fix_status = 0; /* No fix */
+              ESP_LOGW(gy_neo6mv2_tag, "Skipping invalid GPS reading.");
+            }
+          }
+        } else if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPGSV") == s_gy_neo6mv2_sentence_buffer) {
+          /* Parse GPGSV sentence for satellite information */
+          char *fields[20] = {0};
+          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 20);
+
+          uint8_t total_sentences  = fields[1] ? (uint8_t)atoi(fields[1]) : 0;
+          uint8_t sentence_number  = fields[2] ? (uint8_t)atoi(fields[2]) : 0;
+          uint8_t total_satellites = fields[3] ? (uint8_t)atoi(fields[3]) : 0;
+
+          ESP_LOGI(gy_neo6mv2_tag, "GPGSV: Sentence %u of %u, Total Satellites in view: %u",
+                   sentence_number, total_sentences, total_satellites);
+
+          /* Clear satellite data if this is the first sentence */
+          if (sentence_number == 1) {
+            priv_gy_neo6mv2_clear_satellites();
+          }
+
+          /* Parse satellite details (up to 4 satellites per GPGSV sentence) */
+          for (uint8_t i = 4; i < 20; i += 4) {
+            if (fields[i] && fields[i + 1] && fields[i + 2] && fields[i + 3]) {
+              uint8_t prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
+              uint8_t elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */
+              uint16_t azimuth  = (uint16_t)atoi(fields[i + 2]); /* Azimuth in degrees */
+              uint8_t snr       = (uint8_t)atoi(fields[i + 3]);  /* SNR (Signal-to-Noise Ratio) */
+
+              /* Store satellite data */
+              priv_gy_neo6mv2_add_satellite(prn, elevation, azimuth, snr);
+            }
+          }
+        }
+
+        /* Reset buffer for next sentence */
+        s_gy_neo6mv2_sentence_index = 0;
       }
     }
+
+    /* After processing sentences, retrieve satellite data */
+    satellite_t local_satellites[gy_neo6mv2_max_satellites];
+    uint8_t     satellite_count = priv_gy_neo6mv2_get_satellites(local_satellites, 
+                                                                 gy_neo6mv2_max_satellites);
+
+    /* Update sensor_data with satellite count */
+    sensor_data->satellite_count = satellite_count;
+
+    /* Process satellite data as needed */
+    for (uint8_t i = 0; i < satellite_count; i++) {
+      ESP_LOGI(gy_neo6mv2_tag, "Retrieved Satellite PRN=%d, Elevation=%d, Azimuth=%d, SNR=%d",
+               local_satellites[i].prn, local_satellites[i].elevation,
+               local_satellites[i].azimuth, local_satellites[i].snr);
+    }
+
     return ESP_OK;
   } else {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to read GPS uart_rx_buffer");
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to read from GPS module");
     sensor_data->state = k_gy_neo6mv2_error;
     return ESP_FAIL;
   }
@@ -239,7 +474,7 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
         if (sensor_data->retry_count >= gy_neo6mv2_max_retries) {
           sensor_data->retry_count    = 0;
           sensor_data->retry_interval = (sensor_data->retry_interval * 2 > gy_neo6mv2_max_backoff_interval) ?
-            gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
+                                         gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
         }
       }
 
@@ -257,7 +492,7 @@ void gy_neo6mv2_tasks(void *sensor_data)
       send_sensor_data_to_webserver(json);
       free(json);
     } else {
-      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS gy_neo6mv2_data, resetting...");
+      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS data, resetting...");
       gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);

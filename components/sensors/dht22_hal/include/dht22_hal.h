@@ -127,6 +127,33 @@ extern const uint32_t dht22_initial_retry_interval;
  */
 extern const uint32_t dht22_max_backoff_interval;
 
+/**
+ * @brief Start signal delay for DHT22 in milliseconds.
+ *
+ * This constant specifies the delay required after sending the start signal
+ * to the DHT22 sensor. It ensures the sensor has sufficient time to prepare
+ * its response and initiate data transmission.
+ */
+extern const uint32_t dht22_start_delay_ms;
+
+/**
+ * @brief Timeout for the response from the DHT22 sensor in microseconds.
+ *
+ * This constant defines the maximum duration to wait for the DHT22 sensor to
+ * respond after the start signal. If the sensor does not respond within this
+ * time frame, it is considered unresponsive, and error handling is initiated.
+ */
+extern const uint32_t dht22_response_timeout_us;
+
+/**
+ * @brief Threshold for distinguishing between '1' and '0' bits in microseconds.
+ *
+ * This constant represents the timing threshold used to differentiate between
+ * logical '1' and logical '0' bits in the data signal from the DHT22 sensor.
+ * The value is based on the pulse width of the signal.
+ */
+extern const uint32_t dht22_bit_threshold_us;
+
 /* Enums **********************************************************************/
 
 /**

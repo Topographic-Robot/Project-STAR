@@ -20,11 +20,9 @@ const uint8_t  dht22_bit_count              = 40;
 const uint8_t  dht22_max_retries            = 4;
 const uint32_t dht22_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t dht22_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
-
-/* Timing Constants for DHT22 communication */
-static const uint32_t dht22_start_delay_ms      = 20; /**< Start signal delay for DHT22 in milliseconds */
-static const uint32_t dht22_response_timeout_us = 80; /**< Timeout for response from DHT22 in microseconds */
-static const uint32_t dht22_bit_threshold_us    = 40; /**< Threshold for distinguishing between '1' and '0' bits */
+const uint32_t dht22_start_delay_ms         = 20;
+const uint32_t dht22_response_timeout_us    = 80;
+const uint32_t dht22_bit_threshold_us       = 40;
 
 /* Static (Private) Functions **************************************************/
 
@@ -46,7 +44,7 @@ static const uint32_t dht22_bit_threshold_us    = 40; /**< Threshold for disting
  * - `ESP_OK` if the GPIO was configured successfully.
  * - An `esp_err_t` code if an error occurred during configuration.
  */
-static esp_err_t priv_gpio_init(uint8_t data_io)
+static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
 {
   gpio_config_t io_conf;
   io_conf.pin_bit_mask = (1ULL << data_io);
@@ -269,10 +267,36 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
 char *dht22_data_to_json(const dht22_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "temperature_humidity");
-  cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c);
-  cJSON_AddNumberToObject(json, "humidity", data->humidity);
+  if (!json) {
+    ESP_LOGE(dht22_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "temperature_humidity")) {
+    ESP_LOGE(dht22_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c)) {
+    ESP_LOGE(dht22_tag, "Failed to add temperature_c to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "humidity", data->humidity)) {
+    ESP_LOGE(dht22_tag, "Failed to add humidity to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(dht22_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }
@@ -290,7 +314,7 @@ esp_err_t dht22_init(void *sensor_data)
   dht22_data->retry_interval     = dht22_initial_retry_interval;
   dht22_data->last_attempt_ticks = 0;
 
-  esp_err_t ret = priv_gpio_init(dht22_data_io);
+  esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
     ESP_LOGE(dht22_tag, "Failed to configure GPIO: %s", esp_err_to_name(ret));
     return ret;

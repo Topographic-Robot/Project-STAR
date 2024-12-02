@@ -103,7 +103,7 @@ static const uint8_t mpu6050_accel_config_idx = 3; /* Index of chosen values fro
  *
  * @param[in] arg Pointer to the `mpu6050_data_t` structure.
  */
-static void IRAM_ATTR mpu6050_interrupt_handler(void *arg)
+static void IRAM_ATTR priv_mpu6050_interrupt_handler(void *arg)
 {
   mpu6050_data_t *sensor_data              = (mpu6050_data_t *)arg;
   BaseType_t      xHigherPriorityTaskWoken = pdFALSE;
@@ -121,14 +121,60 @@ static void IRAM_ATTR mpu6050_interrupt_handler(void *arg)
 char *mpu6050_data_to_json(const mpu6050_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "accelerometer_gyroscope");
-  cJSON_AddNumberToObject(json, "accel_x", data->accel_x);
-  cJSON_AddNumberToObject(json, "accel_y", data->accel_y);
-  cJSON_AddNumberToObject(json, "accel_z", data->accel_z);
-  cJSON_AddNumberToObject(json, "gyro_x", data->gyro_x);
-  cJSON_AddNumberToObject(json, "gyro_y", data->gyro_y);
-  cJSON_AddNumberToObject(json, "gyro_z", data->gyro_z);
+  if (!json) {
+    ESP_LOGE(mpu6050_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "accelerometer_gyroscope")) {
+    ESP_LOGE(mpu6050_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "accel_x", data->accel_x)) {
+    ESP_LOGE(mpu6050_tag, "Failed to add accel_x to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "accel_y", data->accel_y)) {
+    ESP_LOGE(mpu6050_tag, "Failed to add accel_y to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "accel_z", data->accel_z)) {
+    ESP_LOGE(mpu6050_tag, "Failed to add accel_z to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "gyro_x", data->gyro_x)) {
+    ESP_LOGE(mpu6050_tag, "Failed to add gyro_x to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "gyro_y", data->gyro_y)) {
+    ESP_LOGE(mpu6050_tag, "Failed to add gyro_y to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "gyro_z", data->gyro_z)) {
+    ESP_LOGE(mpu6050_tag, "Failed to add gyro_z to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(mpu6050_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }
@@ -269,7 +315,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   }
 
   /* Add ISR handler */
-  ret = gpio_isr_handler_add(mpu6050_int_io, mpu6050_interrupt_handler, (void*) mpu6050_data);
+  ret = gpio_isr_handler_add(mpu6050_int_io, priv_mpu6050_interrupt_handler, (void*) mpu6050_data);
   if (ret != ESP_OK) {
     ESP_LOGE(mpu6050_tag, "Failed to add ISR handler for INT pin");
     return ret;

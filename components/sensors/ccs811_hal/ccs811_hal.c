@@ -29,10 +29,36 @@ const uint32_t ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
 char *ccs811_data_to_json(const ccs811_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "air_quality");
-  cJSON_AddNumberToObject(json, "eCO2", data->eco2);
-  cJSON_AddNumberToObject(json, "TVOC", data->tvoc);
+  if (!json) {
+    ESP_LOGE(ccs811_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "air_quality")) {
+    ESP_LOGE(ccs811_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "eCO2", data->eco2)) {
+    ESP_LOGE(ccs811_tag, "Failed to add eCO2 to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "TVOC", data->tvoc)) {
+    ESP_LOGE(ccs811_tag, "Failed to add TVOC to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(ccs811_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }

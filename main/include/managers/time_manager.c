@@ -8,6 +8,8 @@
 #include "esp_sntp.h"
 #include "esp_log.h"
 
+/* Globals (Constants) ********************************************************/
+
 static const char *time_manager_tag = "TIME_MANAGER";
 
 /* Private Functions **********************************************************/
@@ -19,7 +21,7 @@ static const char *time_manager_tag = "TIME_MANAGER";
  * server is "pool.ntp.org". SNTP operates in polling mode, periodically
  * refreshing the system clock.
  */
-static void initialize_sntp(void)
+static void priv_initialize_sntp(void)
 {
   ESP_LOGI(time_manager_tag, "Initializing SNTP");
 
@@ -39,7 +41,7 @@ static void initialize_sntp(void)
 
 esp_err_t time_manager_initialize(void)
 {
-  initialize_sntp();
+  priv_initialize_sntp();
 
   /* Wait for NTP synchronization */
   time_t    now         = 0;

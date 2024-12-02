@@ -18,7 +18,7 @@ const uint16_t pca9685_max_pwm_value    = 4095;
 const uint16_t pca9685_pwm_period_us    = 20000;
 const char    *pca9685_tag              = "PCA9685";
 
-/* Private Functions **********************************************************/
+/* Private Functions (Static) *************************************************/
 
 /**
  * @brief Private helper function to calculate prescaler value based on desired PWM
@@ -27,7 +27,8 @@ const char    *pca9685_tag              = "PCA9685";
  * @param[in] pwm_freq Desired PWM frequency in Hz.
  * @return The prescaler value.
  */
-static uint8_t priv_calculate_prescaler(uint16_t pwm_freq) {
+static uint8_t priv_calculate_prescaler(uint16_t pwm_freq) 
+{
   return (uint8_t)((pca9685_osc_freq / (pca9685_pwm_resolution * pwm_freq)) - 1);
 }
 

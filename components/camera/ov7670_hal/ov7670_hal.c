@@ -15,7 +15,7 @@ const uint8_t  ov7670_sda_io             = GPIO_NUM_21;
 const uint8_t  ov7670_i2c_address        = 0x42;
 const uint32_t ov7670_polling_rate_ticks = pdMS_TO_TICKS(5000);
 
-/* Private Functions **********************************************************/
+/* Private Functions (Static) *************************************************/
 
 /**
  * @brief Applies default configuration settings to the OV7670 module.
@@ -24,7 +24,7 @@ const uint32_t ov7670_polling_rate_ticks = pdMS_TO_TICKS(5000);
  * - `ESP_OK` on success.
  * - Error codes from `esp_err_t` on failure.
  */
-static esp_err_t ov7670_configure_defaults(void)
+static esp_err_t priv_ov7670_configure_defaults(void)
 {
   esp_err_t ret;
 
@@ -61,7 +61,7 @@ esp_err_t ov7670_init(ov7670_data_t *sensor_data)
   }
 
   /* Apply default settings */
-  ret = ov7670_configure_defaults();
+  ret = priv_ov7670_configure_defaults();
   if (ret != ESP_OK) {
     ESP_LOGE(ov7670_tag, "Default configuration failed");
     sensor_data->state = k_ov7670_config_error;

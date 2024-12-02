@@ -4,5 +4,5 @@ An advanced terrain-mapping robot designed to traverse various landscapes, inclu
 
 ## Installation and Documentation
 
-Follow the [documentation](https://topographic-robot.github.io/Documentation/index.html) and do the [installation](https://topographic-robot.github.io/Documentation/installation/environment_setup.html) of dependencies
+Follow the [documentation](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html).
 

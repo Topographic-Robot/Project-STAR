@@ -137,6 +137,7 @@ extern const uint32_t gy_neo6mv2_initial_retry_interval;
  */
 extern const uint32_t gy_neo6mv2_max_backoff_interval;
 
+
 /* Macros *********************************************************************/
 
 /**
@@ -154,6 +155,14 @@ extern const uint32_t gy_neo6mv2_max_backoff_interval;
  * size should balance memory usage and sentence length requirements.
  */
 #define gy_neo6mv2_sentence_buffer_size (128)
+
+/**
+ * @brief Maximum number of satellites to store in the buffer.
+ *
+ * This constant defines the limit for how many satellites' data can be retained at once.
+ * It ensures we don't exceed memory limits or process unnecessary data.
+ */
+#define gy_neo6mv2_max_satellites (32)
 
 /* Enums **********************************************************************/
 
@@ -178,32 +187,56 @@ typedef enum {
  * @struct gy_neo6mv2_data_t
  * @brief Structure to store GPS data read from the GY-NEO6MV2 module.
  *
- * This structure holds the GPS data such as latitude, longitude, speed, time, and fix status.
- * Additionally, it maintains retry information for managing communication errors and
- * tracks the operational state of the GPS module.
+ * This structure holds GPS data such as latitude, longitude, speed, and UTC time.
+ * It also maintains diagnostic information including the fix status, number of satellites, 
+ * horizontal dilution of precision (HDOP), and retry-related fields for managing errors.
  *
  * **Fields:**
- * - `latitude`: Latitude in degrees. Negative values indicate South.
- * - `longitude`: Longitude in degrees. Negative values indicate West.
+ * - `latitude`: Latitude in decimal degrees. Negative values indicate South.
+ * - `longitude`: Longitude in decimal degrees. Negative values indicate West.
  * - `speed`: Speed over ground in meters per second.
- * - `time`: UTC Time in HHMMSS.SS format.
+ * - `time`: UTC time in HHMMSS.SS format.
  * - `fix_status`: GPS fix status (0 for no fix, 1 for fix acquired).
+ * - `satellite_count`: Number of satellites used in the solution.
+ * - `hdop`: Horizontal Dilution of Precision (lower is better; values < 1.0 are ideal).
  * - `state`: The current operational state of the GPS module (gy_neo6mv2_states_t).
- * - `retry_count`: The current count of retry attempts after encountering an error.
+ * - `retry_count`: The number of retry attempts after encountering an error.
  * - `retry_interval`: The current interval in ticks between retry attempts.
- * - `last_attempt_ticks`: The tick count of the last attempt to reinitialize the module.
+ * - `last_attempt_ticks`: The tick count of the last reinitialization attempt.
  */
 typedef struct {
-  float               latitude;           /**< GPS latitude in degrees */
-  float               longitude;          /**< GPS longitude in degrees */
-  float               speed;              /**< Speed in meters per second */
-  char                time[11];           /**< UTC Time in HHMMSS.SS format */
-  uint8_t             fix_status;         /**< GPS fix status (0: no fix, 1: fix acquired) */
-  gy_neo6mv2_states_t state;              /**< Current state of the GPS module (gy_neo6mv2_states_t). */
-  uint8_t             retry_count;        /**< Retry counter for exponential backoff */
-  uint32_t            retry_interval;     /**< Current retry interval in ticks */
-  TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt */
+  float               latitude;           /**< GPS latitude in decimal degrees. Negative values indicate South. */
+  float               longitude;          /**< GPS longitude in decimal degrees. Negative values indicate West. */
+  float               speed;              /**< Speed over ground in meters per second. */
+  char                time[11];           /**< UTC time in HHMMSS.SS format. */
+  uint8_t             fix_status;         /**< GPS fix status (0: no fix, 1: fix acquired). */
+  uint8_t             satellite_count;    /**< Number of satellites used in the solution. */
+  float               hdop;               /**< Horizontal Dilution of Precision (accuracy measure; lower is better). */
+  gy_neo6mv2_states_t state;              /**< Current operational state of the GPS module. */
+  uint8_t             retry_count;        /**< Retry counter for managing exponential backoff. */
+  uint32_t            retry_interval;     /**< Current retry interval in ticks. */
+  TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
 } gy_neo6mv2_data_t;
+
+/**
+ * @struct satellite_t
+ * @brief Structure to store satellite information parsed from GPGSV sentences.
+ *
+ * This structure holds the details of a single satellite, including its identifier (PRN),
+ * elevation, azimuth, and signal strength (SNR). The data is extracted from the GPGSV NMEA sentences.
+ *
+ * **Fields:**
+ * - `prn`: Satellite's unique identifier (PRN - Pseudo Random Noise code).
+ * - `elevation`: Satellite's elevation angle in degrees above the horizon.
+ * - `azimuth`: Satellite's azimuth angle in degrees from true north.
+ * - `snr`: Signal-to-Noise Ratio (SNR) indicating signal strength (0 to 99).
+ */
+typedef struct {
+  uint8_t  prn;       /**< Satellite ID (PRN). */
+  uint8_t  elevation; /**< Satellite elevation in degrees. */
+  uint16_t azimuth;   /**< Satellite azimuth in degrees. */
+  uint8_t  snr;       /**< Signal-to-Noise Ratio (SNR), 0-99. */
+} satellite_t;
 
 /* Public Functions ***********************************************************/
 

@@ -43,6 +43,30 @@ extern const uint32_t max_pending_writes;
  */
 #define max_data_length (256)
 
+/* Structs ********************************************************************/
+
+/**
+ * @struct file_write_request_t
+ * @brief Structure representing a file write request.
+ *
+ * This structure encapsulates the necessary information for writing data to a file,
+ * including the file path and the data to be written.
+ *
+ * **Fields:**
+ * - `file_path`: The path to the file where data should be written. The length is defined
+ *   by the `max_file_path_length` constant to ensure proper memory allocation and avoid overflow.
+ * - `data`: The content to be written to the file. The length is defined by the
+ *   `max_data_length` constant to ensure proper memory allocation and avoid overflow.
+ *
+ * **Usage Notes:**
+ * - Ensure that `file_path` is null-terminated and points to a valid path.
+ * - `data` must be null-terminated if it contains string data.
+ */
+typedef struct {
+  char file_path[max_file_path_length]; /**< Path to the target file. */
+  char data[max_data_length];           /**< Data to be written to the file. */
+} file_write_request_t;
+
 /* Public Functions ***********************************************************/
 
 /**

@@ -66,8 +66,8 @@
 |                 | A0            | GPIO_NUM_34 (D34)                        |
 | GY-NEO6MV2      |               |                                          |
 |                 | GND           | GND                                      |
-|                 | TX            | GPIO_NUM_17 (TX2)                        |
-|                 | RX            | GPIO_NUM_16 (RX2)                        |
+|                 | TX            | GPIO_NUM_16 (RX2)                        |
+|                 | RX            | GPIO_NUM_17 (TX2)                        |
 |                 | VCC           | 3.3V                                     |
 | PCA9685         |               |                                          |
 |                 | GND           | GND                                      |

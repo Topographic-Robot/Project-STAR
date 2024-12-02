@@ -21,9 +21,6 @@ const uint8_t  qmc5883l_max_retries            = 4;
 const uint32_t qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
 const uint32_t qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
-/* Globals (Static) ***********************************************************/
-
-/* Static const array of QMC5883L configurations and scaling factors */
 static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
   {k_qmc5883l_range_2g, 200.0 / 32768.0 }, /**< ±2 Gauss range, scaling factor */
   {k_qmc5883l_range_8g, 800.0 / 32768.0 }, /**< ±8 Gauss range, scaling factor */
@@ -36,12 +33,48 @@ static const uint8_t qmc5883l_scale_config_idx = 0; /* Index of chosen values (0
 char *qmc5883l_data_to_json(const qmc5883l_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "magnetometer");
-  cJSON_AddNumberToObject(json, "mag_x", data->mag_x);
-  cJSON_AddNumberToObject(json, "mag_y", data->mag_y);
-  cJSON_AddNumberToObject(json, "mag_z", data->mag_z);
-  cJSON_AddNumberToObject(json, "heading", data->heading);
+  if (!json) {
+    ESP_LOGE(qmc5883l_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "magnetometer")) {
+    ESP_LOGE(qmc5883l_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "mag_x", data->mag_x)) {
+    ESP_LOGE(qmc5883l_tag, "Failed to add mag_x to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "mag_y", data->mag_y)) {
+    ESP_LOGE(qmc5883l_tag, "Failed to add mag_y to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "mag_z", data->mag_z)) {
+    ESP_LOGE(qmc5883l_tag, "Failed to add mag_z to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "heading", data->heading)) {
+    ESP_LOGE(qmc5883l_tag, "Failed to add heading to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(qmc5883l_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }

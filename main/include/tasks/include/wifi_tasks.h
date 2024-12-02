@@ -5,6 +5,7 @@
 
 /* NOTE: check wifi_credentials.txt is included, but wifi_credentials.h isn't
  * copy wifi_credentials.txt to wifi_credentials.h and replace the values */
+#include <stdbool.h>
 #include "wifi_credentials.h"
 #include "esp_err.h"
 
@@ -21,7 +22,6 @@ extern const char   *wifi_tag;          /**< Tag for logging */
 extern const uint8_t wifi_max_retry;    /**< The max number of times to try and connect to the station */
 extern const uint8_t wifi_ssid_max_len; /**< The max length for wifi's SSID defined by esp */
 extern const uint8_t wifi_pass_max_len; /**< The max length for wifi's password defined by esp */
-
 
 /* Public Functions ***********************************************************/
 

@@ -24,9 +24,30 @@ const uint32_t bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 char *bh1750_data_to_json(const bh1750_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "light");
-  cJSON_AddNumberToObject(json, "lux", data->lux);
+  if (!json) {
+    ESP_LOGE(bh1750_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "light")) {
+    ESP_LOGE(bh1750_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "lux", data->lux)) {
+    ESP_LOGE(bh1750_tag, "Failed to add lux to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(bh1750_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }

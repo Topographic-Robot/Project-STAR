@@ -32,7 +32,7 @@ const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
  * handle is initialized during the `mq135_init` function and used in subsequent
  * read operations.
  */
-static adc_oneshot_unit_handle_t adc1_handle;
+static adc_oneshot_unit_handle_t s_adc1_handle;
 
 /* Static (Private) Functions **************************************************/
 
@@ -47,7 +47,7 @@ static adc_oneshot_unit_handle_t adc1_handle;
  *
  * @return Gas concentration in ppm.
  */
-static float mq135_calculate_ppm(int raw_adc_value)
+static float priv_mq135_calculate_ppm(int raw_adc_value)
 {
   float resistance = (4095.0 / raw_adc_value - 1.0) * 10.0; /* Assuming RL = 10k */
   float ppm        = 116.6020682 * pow(resistance / 10.0, -2.769034857); /* Example curve from datasheet */
@@ -59,9 +59,30 @@ static float mq135_calculate_ppm(int raw_adc_value)
 char *mq135_data_to_json(const mq135_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "sensor_type", "gas");
-  cJSON_AddNumberToObject(json, "gas_concentration", data->gas_concentration);
+  if (!json) {
+    ESP_LOGE(mq135_tag, "Failed to create JSON object.");
+    return NULL;
+  }
+
+  if (!cJSON_AddStringToObject(json, "sensor_type", "gas")) {
+    ESP_LOGE(mq135_tag, "Failed to add sensor_type to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
+  if (!cJSON_AddNumberToObject(json, "gas_concentration", data->gas_concentration)) {
+    ESP_LOGE(mq135_tag, "Failed to add gas_concentration to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   char *json_string = cJSON_PrintUnformatted(json);
+  if (!json_string) {
+    ESP_LOGE(mq135_tag, "Failed to serialize JSON object.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   cJSON_Delete(json);
   return json_string;
 }
@@ -77,7 +98,7 @@ esp_err_t mq135_init(void *sensor_data)
   mq135_data->warmup_start_ticks = xTaskGetTickCount();
 
   adc_oneshot_unit_init_cfg_t adc1_init_cfg = { .unit_id = ADC_UNIT_1 };
-  esp_err_t ret = adc_oneshot_new_unit(&adc1_init_cfg, &adc1_handle);
+  esp_err_t ret = adc_oneshot_new_unit(&adc1_init_cfg, &s_adc1_handle);
   if (ret != ESP_OK) {
     ESP_LOGE(mq135_tag, "Failed to initialize ADC unit: %s", esp_err_to_name(ret));
     return ret;
@@ -87,7 +108,7 @@ esp_err_t mq135_init(void *sensor_data)
     .atten    = ADC_ATTEN_DB_12,
     .bitwidth = ADC_BITWIDTH_DEFAULT,
   };
-  ret = adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &chan_cfg);
+  ret = adc_oneshot_config_channel(s_adc1_handle, ADC_CHANNEL_6, &chan_cfg);
   if (ret != ESP_OK) {
     ESP_LOGE(mq135_tag, "Failed to configure ADC channel: %s", esp_err_to_name(ret));
     return ret;
@@ -109,7 +130,7 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   }
 
   int       raw_adc;
-  esp_err_t ret = adc_oneshot_read(adc1_handle, ADC_CHANNEL_6, &raw_adc);
+  esp_err_t ret = adc_oneshot_read(s_adc1_handle, ADC_CHANNEL_6, &raw_adc);
   if (ret != ESP_OK) {
     mq135_data->state = k_mq135_read_error;
     ESP_LOGE(mq135_tag, "Failed to read from ADC: %s", esp_err_to_name(ret));
@@ -117,7 +138,7 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   }
 
   mq135_data->raw_adc_value     = raw_adc;
-  mq135_data->gas_concentration = mq135_calculate_ppm(raw_adc);
+  mq135_data->gas_concentration = priv_mq135_calculate_ppm(raw_adc);
 
   ESP_LOGI(mq135_tag, "Raw ADC Value: %d, Gas Concentration: %.2f ppm", raw_adc, mq135_data->gas_concentration);
 
