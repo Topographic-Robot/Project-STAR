@@ -1,3 +1,5 @@
+- ESP GND must be connected to battery GND if sensors are connected to battery for VCC and GND
+
 | Component       | Component Pin | ESP32 Pin                                |
 -----------------------------------------------------------------------------|
 | DHT22           |               |                                          |

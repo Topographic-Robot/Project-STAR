@@ -2,6 +2,10 @@
 
 /* TODO: Test this */
 
+/* TODO: check how i did it for webserver tasks when sending something 
+ * to a webserver, also maybe webserver tasks should rly be moved into 
+ * managers. anyways. when there isnt wifi it seg faults */
+
 #include "time_manager.h"
 #include <time.h>
 #include <sys/time.h>
