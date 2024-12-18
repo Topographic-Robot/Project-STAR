@@ -2,8 +2,13 @@
 
 An advanced terrain-mapping robot designed to traverse various landscapes, including hills and valleys, to create detailed 3D mesh topology maps
 
-![Topographic-Robot-ESP32_schem](https://github.com/user-attachments/assets/b952fe46-451d-44c7-822f-4fa5216f5f21)
-** NOTE **: The schematic is shows 74LS157, but this is not the part used. The actual part should be 74HC157. The difference is 5V vs 3.3V outputs.
+![Print Schematic-2](https://github.com/user-attachments/assets/91e3658f-626d-4d3d-8d84-060d94f8161d)
+
+![Print Schematic-3](https://github.com/user-attachments/assets/b480c20d-7b98-4bb1-b207-027b9d4634cc)
+
+![Print Schematic-4](https://github.com/user-attachments/assets/fd70dec2-0874-4dc0-99f8-d9a695c5698a)
+
+![Print Schematic-5](https://github.com/user-attachments/assets/cfb79a64-f3b6-4450-9d41-8d787df71902)
 
 ## Installation and Documentation
 
