@@ -5,11 +5,6 @@
 
 #include "esp_err.h"
 
-/* Macros *********************************************************************/
-
-#define max_file_path_length (64)  /* Maximum file path length */
-#define max_data_length      (256) /* Maximum data length per write */
-
 /* Public Functions ***********************************************************/
 
 /**
@@ -29,7 +24,7 @@
  *
  * @note Call this function once during system initialization.
  */
-esp_err_t time_manager_initialize(void);
+esp_err_t time_manager_init(void);
 
 #endif /* TOPOROBO_TIME_MANAGER_H */
 

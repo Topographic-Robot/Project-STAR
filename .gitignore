@@ -11,4 +11,9 @@ TODO
 wifi_credentials.h
 webserver_info.h
 
+.cproject
+.project
+.clangd
+.clang-format
+
 backup_*

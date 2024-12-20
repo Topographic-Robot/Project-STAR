@@ -114,6 +114,7 @@ typedef enum : uint8_t {
   k_pca9685_allcall_cmd            = 0x01, /**< ALLCALL bit for addressing all PCA9685 devices simultaneously */
   k_pca9685_output_change_ack_cmd  = 0x01, /**< Output change on ACK bit in MODE2 register */
   k_pca9685_output_change_stop_cmd = 0x00, /**< Output change on STOP condition in MODE2 register */
+  k_pca9685_output_logic_mode      = 0x04, /**< OUTDRV bit for setting output driver mode (totem pole vs. open-drain) in MODE2 register */
 } pca9685_commands_t;
 
 /* Structs ********************************************************************/
@@ -132,6 +133,7 @@ typedef struct pca9685_board_t {
   uint8_t                 state;       /**< Current state of the PCA9685, using the pca9685_states_t enum */
   uint8_t                 board_id;    /**< The board's ID; used to distinguish boards in multi-board setups */
   uint8_t                 num_boards;  /**< Number of initialized PCA9685 boards */
+  float                   degrees[16]; /**< The current position in degrees of each motor on the board */
   struct pca9685_board_t *next;        /**< Pointer to the next board in the PCA9685 singly linked list */
 } pca9685_board_t;
 

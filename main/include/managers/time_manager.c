@@ -43,7 +43,7 @@ static void priv_initialize_sntp(void)
 
 /* Public Functions ***********************************************************/
 
-esp_err_t time_manager_initialize(void)
+esp_err_t time_manager_init(void)
 {
   priv_initialize_sntp();
 

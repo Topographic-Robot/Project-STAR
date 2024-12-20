@@ -6,6 +6,8 @@
 #include "esp_err.h"
 #include "sensor_tasks.h"
 #include "wifi_tasks.h"
+#include "motor_tasks.h"
+#include "pca9685_hal.h"
 
 /* Constants ******************************************************************/
 
@@ -16,7 +18,11 @@ extern const char *system_tag;
 
 /* Globals ********************************************************************/
 
-extern sensor_data_t s_sensor_data;
+/* TODO: Add doc comment */
+extern sensor_data_t g_sensor_data;
+
+/* TODO: Add doc comment */
+extern pca9685_board_t *g_pwm_controller_linked_list;
 
 /* Public Functions ***********************************************************/
 

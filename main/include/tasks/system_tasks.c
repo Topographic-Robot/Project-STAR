@@ -2,9 +2,11 @@
 
 #include "system_tasks.h"
 #include "esp_log.h"
+#include "file_write_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include "time_manager.h"
 
 /* Constants ******************************************************************/
 
@@ -12,7 +14,8 @@ const char *system_tag = "Topographic-Robot";
 
 /* Globals ********************************************************************/
 
-sensor_data_t s_sensor_data = {};
+sensor_data_t    g_sensor_data                = {};
+pca9685_board_t *g_pwm_controller_linked_list = {};
 
 /* Private (Static) Functions *************************************************/
 
@@ -51,31 +54,34 @@ esp_err_t system_tasks_init(void)
   }
 
   /* Initialize sensor communication */
-  if (sensors_init(&s_sensor_data) != ESP_OK) {
+  if (sensors_init(&g_sensor_data) != ESP_OK) {
     ESP_LOGE(system_tag, "Sensor communication initialization failed.");
+    return ESP_FAIL;
+  }
+  
+  /* Initialize motor controllers */
+  if (motors_init(&g_pwm_controller_linked_list) != ESP_OK) {
+    ESP_LOGE(system_tag, "Motor controller initialization failed.");
     return ESP_FAIL;
   }
 
   /* Initialize WiFi */
- /* if (wifi_init_sta() != ESP_OK) {
+  if (wifi_init_sta() != ESP_OK) {
     ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
     return ESP_FAIL;
   }
-  */
-
-  /* Initialize motor controllers */
-  /* if (motor_init() != ESP_OK) {
-       ESP_LOGE(system_tag, "Motor controller initialization failed.");
-       return ESP_FAIL;
-     }
-  */
-
+  
+  /* Initialize time (SNTP) */
+  if (time_manager_init() != ESP_OK) {
+		ESP_LOGE(system_tag ,"Time initialization failed.");
+		return ESP_FAIL;
+	}
+  
   /* Initialize storage (e.g., SD card or SPIFFS) */
-  /* if (storage_init() != ESP_OK) {
-       ESP_LOGE(system_tag, "Storage initialization failed.");
-       return ESP_FAIL;
-     }
-  */
+  if (file_write_manager_init() != ESP_OK) {
+    ESP_LOGE(system_tag, "Storage initialization failed.");
+    return ESP_FAIL;
+  }
 
   ESP_LOGI(system_tag, "All system components initialized successfully.");
   return ESP_OK;
@@ -84,24 +90,16 @@ esp_err_t system_tasks_init(void)
 esp_err_t system_tasks_start(void)
 {
   /* Start sensor tasks */
-  if (sensor_tasks(&s_sensor_data) != ESP_OK) {
+  if (sensor_tasks(&g_sensor_data) != ESP_OK) {
     ESP_LOGE(system_tag, "Sensor tasks start failed.");
     return ESP_FAIL;
   }
 
   /* Start motor control tasks */
-  /* if (motor_tasks_start() != ESP_OK) {
-       ESP_LOGE(system_tag, "Motor tasks start failed.");
-       return ESP_FAIL;
-     }
-  */
-
-  /* Start storage tasks, if applicable */
-  /* if (storage_tasks_start() != ESP_OK) {
-       ESP_LOGE(system_tag, "Storage tasks start failed.");
-       return ESP_FAIL;
-     }
-  */
+  if (motor_tasks_start(g_pwm_controller_linked_list) != ESP_OK) {
+    ESP_LOGE(system_tag, "Motor tasks start failed.");
+    return ESP_FAIL;
+  }
 
   ESP_LOGI(system_tag, "System tasks started successfully.");
   return ESP_OK;

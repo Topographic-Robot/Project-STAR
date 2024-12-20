@@ -3,34 +3,78 @@
 #include "pca9685_hal.h"
 #include "common/i2c.h"
 #include "esp_log.h"
+#include <stdlib.h>
 
 /* Constants ******************************************************************/
 
+/* GPIO and I2C configuration */
 const uint8_t  pca9685_scl_io           = GPIO_NUM_22;
 const uint8_t  pca9685_sda_io           = GPIO_NUM_21;
 const uint32_t pca9685_i2c_freq_hz      = 100000;
 const uint8_t  pca9685_i2c_address      = 0x40;
 const uint8_t  pca9685_i2c_bus          = I2C_NUM_0;
-const uint32_t pca9685_osc_freq         = 25000000;
-const uint16_t pca9685_pwm_resolution   = 4096;
-const uint16_t pca9685_default_pwm_freq = 50;
-const uint16_t pca9685_max_pwm_value    = 4095;
-const uint16_t pca9685_pwm_period_us    = 20000;
+const uint32_t pca9685_osc_freq         = 25000000;   /* 25MHz internal osc */
+const uint16_t pca9685_pwm_resolution   = 4096;       /* 12-bit resolution */
+const uint16_t pca9685_default_pwm_freq = 50;         /* Standard servo freq */
+const uint16_t pca9685_max_pwm_value    = 4095;       /* 0 to 4095 */
+const uint16_t pca9685_pwm_period_us    = 20000;      /* 50Hz = 20ms */
 const char    *pca9685_tag              = "PCA9685";
+
+/* Constants (Static) **********************************************************/
+
+static const uint16_t servo_min_pulse_us = 500;   /* ~0.5ms for 0° */
+static const uint16_t servo_max_pulse_us = 2750;  /* ~2.5ms for 180° */
 
 /* Private Functions (Static) *************************************************/
 
 /**
- * @brief Private helper function to calculate prescaler value based on desired PWM
- *        frequency.
+ * @brief Calculate the prescaler value based on the desired PWM frequency.
  *
  * @param[in] pwm_freq Desired PWM frequency in Hz.
  * @return The prescaler value.
  */
-static uint8_t priv_calculate_prescaler(uint16_t pwm_freq) 
+static inline uint8_t priv_calculate_prescaler(uint16_t pwm_freq) 
 {
+  /* Formula from PCA9685 datasheet:
+     prescale = round((osc_clk / (4096 * freq)) - 1) */
   return (uint8_t)((pca9685_osc_freq / (pca9685_pwm_resolution * pwm_freq)) - 1);
 }
+
+/**
+ * @brief Convert an angle [0°,180°] to a suitable PWM value for the PCA9685.
+ *
+ * The working code snippet uses a known good mapping:
+ * At 0°, the value ~204
+ * At 180°, the value ~409
+ *
+ * This corresponds roughly to 1ms-2ms pulses on a 20ms frame.
+ * 
+ * Adjust these constants if needed for your servo.
+ *
+ * @param[in] angle Angle in degrees [0,180].
+ * @return The 12-bit pulse length (0–4095).
+ */
+static inline uint16_t priv_angle_to_pulse_length(float angle)
+{
+  if (angle < 0.0f) {
+    angle = 0.0f;
+  } else if (angle > 180.0f) {
+    angle = 180.0f;
+  }
+
+  float pulse_us = servo_min_pulse_us + (angle / 180.0f) * (servo_max_pulse_us - servo_min_pulse_us);
+  
+  /* Convert pulse width (us) to PCA9685 steps:
+     steps = (pulse_us / 20000us) * 4096 */
+  float steps_f = (pulse_us / (float)pca9685_pwm_period_us) * (float)pca9685_max_pwm_value;
+  uint16_t steps = (uint16_t)(steps_f + 0.5f);
+  
+  if (steps > pca9685_max_pwm_value) {
+    steps = pca9685_max_pwm_value;
+  }
+  return steps;
+}
+
 
 /* Public Functions ***********************************************************/
 
@@ -62,15 +106,16 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
       return ESP_ERR_NO_MEM;
     }
 
-    /* Initialize the I2C communication for the board */
     new_board->i2c_address = pca9685_i2c_address + i;
     new_board->i2c_bus     = pca9685_i2c_bus;
-    ret                    = priv_i2c_init(pca9685_scl_io, pca9685_sda_io,
-                                           pca9685_i2c_freq_hz,
-                                           pca9685_i2c_bus, pca9685_tag);
+
+    /* Initialize I2C */
+    ret = priv_i2c_init(pca9685_scl_io, pca9685_sda_io,
+                        pca9685_i2c_freq_hz,
+                        pca9685_i2c_bus, pca9685_tag);
     if (ret != ESP_OK) {
       ESP_LOGE(pca9685_tag, "Failed to initialize I2C for PCA9685 board %d", i);
-      free(new_board); /* Free allocated memory on error */
+      free(new_board);
       return ret;
     }
 
@@ -104,12 +149,31 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
       return ret;
     }
 
+    /* Set MODE2 to define output logic */
+    ret = priv_i2c_write_reg_byte(k_pca9685_mode2_cmd, k_pca9685_output_logic_mode,
+                                  pca9685_i2c_bus, new_board->i2c_address,
+                                  pca9685_tag);
+    if (ret != ESP_OK) {
+      ESP_LOGE(pca9685_tag, "Failed to set MODE2 for PCA9685 board %d", i);
+      free(new_board);
+      return ret;
+    }
+
     /* Set board state and link it into the list */
     new_board->state      = k_pca9685_ready;
     new_board->board_id   = i;
     new_board->num_boards = num_boards;
     new_board->next       = *controller_data;
-    *controller_data      = new_board;
+
+    /* Initialize all motors to 90 degrees */
+    ret = pca9685_set_angle(new_board, 0xFFFF, i, 90.0f); /* 0xFFFF sets all motors */
+    if (ret != ESP_OK) {
+      ESP_LOGE(pca9685_tag, "Failed to set all motors to 90 degrees on PCA9685 board %d", i);
+      free(new_board);
+      return ret;
+    }
+
+    *controller_data = new_board;
   }
 
   return ESP_OK;
@@ -123,7 +187,7 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
     return ESP_ERR_INVALID_ARG;
   }
 
-  /* Check if board_id is within the valid range of boards */
+  /* Check if board_id is within the valid range */
   if (board_id >= controller_data->num_boards) {
     ESP_LOGE(pca9685_tag, "Invalid board_id: %d. Number of boards: %d", board_id,
              controller_data->num_boards);
@@ -140,19 +204,22 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
         return ESP_FAIL;
       }
 
-      /* Calculate pulse length for the given angle */
-      uint16_t pulse_length = (uint16_t)((angle / 180.0f) * pca9685_max_pwm_value);
+      /* Convert angle to the appropriate pulse length using working snippet logic */
+      uint16_t pulse_length = priv_angle_to_pulse_length(angle);
 
       /* Set the angle for each motor in the mask */
       for (uint8_t channel = 0; channel < 16; ++channel) {
-        /* Check if this motor's bit is set in the mask */
         if (motor_mask & (1 << channel)) {
           uint8_t led_on_l_reg  = k_pca9685_channel0_on_l_cmd  + 4 * channel;
           uint8_t led_on_h_reg  = k_pca9685_channel0_on_h_cmd  + 4 * channel;
           uint8_t led_off_l_reg = k_pca9685_channel0_off_l_cmd + 4 * channel;
           uint8_t led_off_h_reg = k_pca9685_channel0_off_h_cmd + 4 * channel;
 
-          /* Set ON time to 0 (start of pulse) */
+          /* Log operation for debugging */
+          ESP_LOGD(pca9685_tag, "Setting channel %d on board %d to %.2f°, pulse %u",
+                   channel, current_board->board_id, angle, pulse_length);
+
+          /* Set ON time to 0 */
           esp_err_t ret = priv_i2c_write_reg_byte(led_on_l_reg, 0x00, pca9685_i2c_bus,
                                                   current_board->i2c_address,
                                                   pca9685_tag);
@@ -170,23 +237,27 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
             return ret;
           }
 
-          /* Set OFF time to pulse length (end of pulse) */
-          ret = priv_i2c_write_reg_byte(led_off_l_reg, pulse_length & 0xFF, pca9685_i2c_bus,
-                                        current_board->i2c_address,
-                                        pca9685_tag); /* Lower byte of pulse length */
+          /* Set OFF time to pulse_length */
+          ret = priv_i2c_write_reg_byte(led_off_l_reg, pulse_length & 0xFF,
+                                        pca9685_i2c_bus, current_board->i2c_address,
+                                        pca9685_tag);
           if (ret != ESP_OK) {
             ESP_LOGE(pca9685_tag, "Failed to set OFF_L for motor %d on PCA9685 board %d",
                      channel, current_board->board_id);
             return ret;
           }
+
           ret = priv_i2c_write_reg_byte(led_off_h_reg, (pulse_length >> 8) & 0xFF,
                                         pca9685_i2c_bus, current_board->i2c_address,
-                                        pca9685_tag); /* Upper byte of pulse length */
+                                        pca9685_tag);
           if (ret != ESP_OK) {
             ESP_LOGE(pca9685_tag, "Failed to set OFF_H for motor %d on PCA9685 board %d",
                      channel, current_board->board_id);
             return ret;
           }
+
+          /* Update the stored angle */
+          current_board->degrees[channel] = angle;
         }
       }
       return ESP_OK;
@@ -197,4 +268,3 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
   ESP_LOGE(pca9685_tag, "PCA9685 board with board_id %d not found", board_id);
   return ESP_ERR_NOT_FOUND;
 }
-
