@@ -1,6 +1,6 @@
 # Project-Star: Survey and Terrain Analysis Robot (STAR)
 
-[![Documentation Status](https://readthedocs.org/projects/topographic-robot-documentation/badge/?version=latest)](https://topographic-robot-documentation.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html)
 
 **STAR** is an advanced terrain-mapping robot designed to traverse various landscapes, including hills and valleys, to create detailed 3D mesh topology maps. This repository contains the firmware for the ESP32 microcontroller that powers STAR, along with configuration files, hardware information, and supporting scripts.
 
