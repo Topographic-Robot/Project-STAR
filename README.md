@@ -171,7 +171,7 @@ The `JTAG-info.txt` file provides instructions for setting up JTAG debugging usi
 
 For more detailed information about the project, including hardware specifications, software architecture, and API documentation, please refer to the online documentation:
 
-[https://topographic-robot-documentation.readthedocs.io/en/latest/](https://topographic-robot-documentation.readthedocs.io/en/latest/)
+[https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html)
 
 ## Contributing
 
