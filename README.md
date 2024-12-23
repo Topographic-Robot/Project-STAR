@@ -2,7 +2,7 @@
 
 [![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html)
 
-**STAR** is an advanced terrain-mapping robot designed to traverse various landscapes, including hills and valleys, to create detailed 3D mesh topology maps. This repository contains the firmware for the ESP32 microcontroller that powers STAR, along with configuration files, hardware information, and supporting scripts.
+**STAR (Survey and Terrain Analysis Robot)** is an advanced terrain-mapping robot designed to autonomously navigate and create detailed 3D mesh topology maps of various landscapes, including hills and valleys. This repository contains the firmware for the ESP32 microcontroller that powers STAR. You can find comprehensive information, including hardware specifications, software architecture, and API documentation, on the project's dedicated documentation site hosted on GitHub Pages.
 
 ## Table of Contents
 
@@ -148,28 +148,109 @@ The `Wiring.txt` file in the repository provides detailed pin connections betwee
 
 ## JTAG Debugging
 
-The `JTAG-info.txt` file provides instructions for setting up JTAG debugging using a CJMCU-4232 debugger and OpenOCD. Here's a summarized procedure:
+JTAG (Joint Test Action Group) debugging is crucial for in-depth troubleshooting and development. It allows you to step through code, set breakpoints, inspect memory, and diagnose issues that might be difficult to identify otherwise. This project supports JTAG debugging using a CJMCU-4232 debugger, OpenOCD (Open On-Chip Debugger), and GDB.
 
-1. **Connect the CJMCU-4232:** Refer to the pin mapping in `JTAG-info.txt` to connect the debugger to the ESP32's JTAG pins.
-2. **Install OpenOCD:** If you don't have OpenOCD installed, follow the instructions for your operating system.
-3. **Identify the ESP32 with `lsusb` (or equivalent):** This will help you find the correct `VID` and `PID` values.
-4. **Run OpenOCD:**
+**Hardware Setup:**
 
-    ```bash
-    openocd -f board/esp32-wrover-kit-3.3v.cfg -c "ftdi_vid_pid 0x0403 0x6011"
+1. **CJMCU-4232 Debugger:** This project uses the CJMCU-4232, a low-cost FT2232-based USB to JTAG interface.
+2. **Connections:** Connect the CJMCU-4232 to the ESP32 according to the following table, which is also found in the `JTAG-info.txt` file:
+
+    | CJMCU-4232 Pin | ESP32 Pin | JTAG Signal            |
+    |----------------|-----------|------------------------|
+    | AD0            | D13       | TCK (Test Clock)       |
+    | AD1            | D12       | TDI (Test Data In)     |
+    | AD2            | D15       | TDO (Test Data Out)    |
+    | AD3            | D14       | TMS (Test Mode Select) |
+    | GND            | GND       | Ground                 |
+    | 3V3            | 3V3       | Power                  |
+
+**Software Setup:**
+
+1. **Install OpenOCD:** If you don't have OpenOCD installed, follow the installation instructions for your operating system. You can usually find it in your system's package manager (e.g., `apt-get` on Ubuntu/Debian, `brew` on macOS). If you installed the ESP-IDF, you should already have OpenOCD.
+
+2. **Install GDB:** You need the Xtensa-specific GDB for debugging the ESP32. If you installed the ESP-IDF, then it should be in your path. Test this by running `xtensa-esp32-elf-gdb --version`
+
+**Debugging Steps:**
+
+1. **Identify the ESP32 (Optional but Recommended):**
+    *   Run `lsusb` (on Linux/macOS) or the equivalent command on your OS to list connected USB devices.
+    *   Look for the entry corresponding to the CJMCU-4232 or a similar FTDI device.
+    *   Note the Vendor ID (VID) and Product ID (PID). You might need these values for OpenOCD configuration. Example output, which identifies the `VID:PID` as `0403:6011`:
+        ```
+        Bus 000 Device 004: ID 0403:6011 Future Technology Devices International Limited Quad RS232-HS
+        ```
+2. **Start OpenOCD:**
+    *   Open a terminal and run the following command:
+
+        ```bash
+        openocd -f board/esp32-wrover-kit-3.3v.cfg -c "ftdi_vid_pid 0x0403 0x6011"
+        ```
+
+        *   **`-f board/esp32-wrover-kit-3.3v.cfg`:** This specifies the configuration file for the ESP32-WROVER-KIT board, which has similar JTAG settings. You can adapt this to other ESP32 boards if needed.
+        *   **`-c "ftdi_vid_pid 0x0403 0x6011"`:** This sets the VID and PID for the CJMCU-4232. Replace `0x0403` and `0x6011` with the values you identified in step 1 if they are different.
+    *   You should see output indicating that OpenOCD has started successfully and is listening on port 3333 for GDB connections. Example Output:
+        ```
+        Info : clock speed 20000 kHz
+        Info : JTAG tap: esp32.esp32.tap0 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
+        Info : JTAG tap: esp32.esp32.tap1 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
+        Info : esp32.cpu0: Debug controller was reset.
+        Info : esp32.cpu0: Core was reset.
+        Info : esp32.cpu1: Debug controller was reset.
+        Info : esp32.cpu1: Core was reset.
+        Info : Listening on port 3333 for gdb connections
+        ```
+
+3. **Connect with GDB:**
+    *   Open another terminal.
+    *   Navigate to your project directory.
+    *   Run the following command to start GDB and connect to OpenOCD:
+
+        ```bash
+        xtensa-esp32-elf-gdb -ex "target remote localhost:3333" build/Topographic-Robot.elf
+        ```
+        *   Assuming the project's ELF file is named `Topographic-Robot.elf` and is located in the `build` directory. Adjust the path if necessary.
+    *   You should now be in the GDB prompt, connected to your ESP32.
+
+**Basic GDB Commands:**
+
+*   `monitor reset halt`: Reset and halt the ESP32.
+*   `b <function_name or file:line_number>`: Set a breakpoint.
+*   `c`: Continue execution.
+*   `p <variable_name>`: Print the value of a variable.
+*   `n`: Step to the next line.
+*   `s`: Step into a function.
+*   `q`: Quit GDB.
+
+**Example Debugging Session:**
+
+1. Start OpenOCD (as described above).
+2. Connect with GDB (as described above).
+3. Set a breakpoint at the beginning of your `app_main` function:
+
+    ```
+    (gdb) b app_main
+    Breakpoint 1 at 0x400d1234: file main/main.c, line 123.
     ```
 
-    *   Replace `0x0403` and `0x6011` with the `VID` and `PID` values for your ESP32 if necessary.
+4. Continue execution:
 
-5. **Connect with GDB:**
-
-    ```bash
-    xtensa-esp32-elf-gdb -ex "target remote localhost:3333" build/Topographic-Robot.elf
     ```
+    (gdb) c
+    Continuing.
+    ```
+
+5. The program will run until it hits the breakpoint at `app_main`.
+6. You can now step through the code, inspect variables, and use other GDB commands to debug your program.
+
+**Important Notes:**
+
+*   **Make sure your ESP32 is not being flashed or monitored by another program** when using JTAG, as this can cause conflicts.
+*   **Consult the OpenOCD documentation** for more advanced configuration options and troubleshooting: [http://openocd.org/](http://openocd.org/)
+*   **Refer to the GDB documentation** for a comprehensive list of commands: [https://sourceware.org/gdb/current/onlinedocs/gdb/](https://sourceware.org/gdb/current/onlinedocs/gdb/)
 
 ## Documentation
 
-For more detailed information about the project, including hardware specifications, software architecture, and API documentation, please refer to the online documentation:
+For more detailed information about the project, including hardware specifications, software architecture, and API documentation, please refer to the online documentation hosted on GitHub Pages:
 
 [https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html)
 
