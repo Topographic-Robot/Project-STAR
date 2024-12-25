@@ -37,8 +37,10 @@ static const uint16_t servo_max_pulse_us = 2750; /**< ~2.5ms for 180° */
 static inline uint8_t priv_calculate_prescaler(uint16_t pwm_freq) 
 {
   /* Formula from PCA9685 datasheet:
-     prescale = round((osc_clk / (4096 * freq)) - 1) */
-  return (uint8_t)((pca9685_osc_freq / (pca9685_pwm_resolution * pwm_freq)) - 1);
+   * prescale = round((osc_clk / (4096 * freq)) - 1) 
+   * (the +0.5 accounts for rounding)
+   */
+  return (uint8_t)(((float)pca9685_osc_freq / (pca9685_pwm_resolution * pwm_freq)) - 1 + 0.5);
 }
 
 /**
