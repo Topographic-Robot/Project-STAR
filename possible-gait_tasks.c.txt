@@ -1,0 +1,121 @@
+/* main/include/tasks/gait_tasks.c */
+
+#include "gait_tasks.h"
+#include <math.h>
+#include "pca9685_hal.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+
+/* Constants ******************************************************************/
+
+const char   *gait_tag          = "Gait Tasks";
+const uint8_t max_active_servos = 3;
+
+/* Constants (Static) *********************************************************/
+
+static const uint16_t tripod_gait_legs_1    = 0b001011; /**< Tripod group 1: Legs 1, 3, 5 */
+static const uint16_t tripod_gait_legs_2    = 0b110100; /**< Tripod group 2: Legs 2, 4, 6 */
+
+/**< Sequential leg masks for wave gait */
+static const uint16_t wave_gait_legs[]      = {0b000001, 0b000010, 0b000100, 
+                                               0b001000, 0b010000, 0b100000};
+/**< Ripple gait leg pairs */
+static const uint16_t ripple_gait_legs[]    = {0b000011, 0b000110, 0b001100, 
+                                               0b011000, 0b110000, 0b100001};
+/**< Quadruped gait groups */
+static const uint16_t quadruped_gait_legs[] = {0b101010, 0b010101};
+
+/* Private Functions **********************************************************/
+
+/**
+ * @brief Moves legs using a specified motor mask.
+ *
+ * @param[in] pwm_controller Pointer to the PCA9685 board controller.
+ * @param[in] motor_mask     Mask of motors to move.
+ * @param[in] angle          Target angle for the servos.
+ * @return ESP_OK on success, ESP_FAIL on failure.
+ */
+static esp_err_t priv_move_legs(pca9685_board_t *pwm_controller, uint16_t motor_mask, float angle)
+{
+  return pca9685_set_angle(pwm_controller, motor_mask, 0, angle);
+}
+
+/**
+ * @brief Executes a gait sequence using specified leg masks and step parameters.
+ *
+ * @param[in] pwm_controller Pointer to the PCA9685 board controller.
+ * @param[in] leg_masks      Array of motor masks representing gait steps.
+ * @param[in] leg_count      Number of steps in the gait sequence.
+ * @param[in] step_size      Step size in degrees.
+ * @param[in] delay_ms       Delay between steps in milliseconds.
+ * @return ESP_OK on success, ESP_FAIL on failure.
+ */
+static esp_err_t priv_execute_gait(pca9685_board_t *pwm_controller, const uint16_t *leg_masks, 
+                                   size_t leg_count, float step_size, uint32_t delay_ms)
+{
+  for (size_t i = 0; i < leg_count; ++i) {
+    ESP_LOGD(gait_tag, "Executing gait step %d with leg mask: 0x%04X", (int)i, leg_masks[i]);
+    if (priv_move_legs(pwm_controller, leg_masks[i], step_size) != ESP_OK) {
+      ESP_LOGE(gait_tag, "Failed to execute gait step %d", (int)i);
+      return ESP_FAIL;
+    }
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
+  }
+  return ESP_OK;
+}
+
+/* Public Functions ***********************************************************/
+
+esp_err_t tripod_gait(pca9685_board_t *pwm_controller, float heading, float distance)
+{
+  ESP_LOGI(gait_tag, "Starting tripod gait: heading=%.2f, distance=%.2f", heading, distance);
+
+  float step_size = fmin(distance * 10.0f, 30.0f); /**< Scale step size by distance, capped at 30° */
+  uint32_t steps = (uint32_t)ceil(distance / step_size);
+
+  for (uint32_t i = 0; i < steps; ++i) {
+    if (priv_move_legs(pwm_controller, tripod_gait_legs_1, step_size) != ESP_OK ||
+        priv_move_legs(pwm_controller, tripod_gait_legs_2, 0.0f) != ESP_OK) {
+      return ESP_FAIL;
+    }
+    vTaskDelay(pdMS_TO_TICKS(pca9685_step_delay_ms));
+
+    if (priv_move_legs(pwm_controller, tripod_gait_legs_2, step_size) != ESP_OK ||
+        priv_move_legs(pwm_controller, tripod_gait_legs_1, 0.0f) != ESP_OK) {
+      return ESP_FAIL;
+    }
+    vTaskDelay(pdMS_TO_TICKS(pca9685_step_delay_ms));
+  }
+  return ESP_OK;
+}
+
+esp_err_t wave_gait(pca9685_board_t *pwm_controller, float heading, float distance)
+{
+  ESP_LOGI(gait_tag, "Starting wave gait: heading=%.2f, distance=%.2f", heading, distance);
+
+  float step_size = fmin(distance * 10.0f, 15.0f); /**< Scale step size by distance, capped at 15° */
+  size_t leg_count = sizeof(wave_gait_legs) / sizeof(wave_gait_legs[0]);
+
+  return priv_execute_gait(pwm_controller, wave_gait_legs, leg_count, step_size, pca9685_step_delay_ms);
+}
+
+esp_err_t ripple_gait(pca9685_board_t *pwm_controller, float heading, float distance)
+{
+  ESP_LOGI(gait_tag, "Starting ripple gait: heading=%.2f, distance=%.2f", heading, distance);
+
+  float step_size = fmin(distance * 10.0f, 20.0f); /**< Scale step size by distance, capped at 20° */
+  size_t leg_count = sizeof(ripple_gait_legs) / sizeof(ripple_gait_legs[0]);
+
+  return priv_execute_gait(pwm_controller, ripple_gait_legs, leg_count, step_size, pca9685_step_delay_ms);
+}
+
+esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, float heading, float distance)
+{
+  ESP_LOGI(gait_tag, "Starting quadruped gait: heading=%.2f, distance=%.2f", heading, distance);
+
+  float step_size = fmin(distance * 10.0f, 25.0f); /**< Scale step size by distance, capped at 25° */
+  size_t leg_count = sizeof(quadruped_gait_legs) / sizeof(quadruped_gait_legs[0]);
+
+  return priv_execute_gait(pwm_controller, quadruped_gait_legs, leg_count, step_size, pca9685_step_delay_ms);
+}

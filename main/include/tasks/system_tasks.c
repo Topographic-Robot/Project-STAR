@@ -15,7 +15,7 @@ const char *system_tag = "Topographic-Robot";
 /* Globals ********************************************************************/
 
 sensor_data_t    g_sensor_data                = {};
-pca9685_board_t *g_pwm_controller_linked_list = {};
+pca9685_board_t *g_pwm_controller = {};
 
 /* Private (Static) Functions *************************************************/
 
@@ -60,7 +60,7 @@ esp_err_t system_tasks_init(void)
   }
   
   /* Initialize motor controllers */
-  if (motors_init(&g_pwm_controller_linked_list) != ESP_OK) {
+  if (motors_init(&g_pwm_controller) != ESP_OK) {
     ESP_LOGE(system_tag, "Motor controller initialization failed.");
     return ESP_FAIL;
   }
@@ -96,7 +96,7 @@ esp_err_t system_tasks_start(void)
   }
 
   /* Start motor control tasks */
-  if (motor_tasks_start(g_pwm_controller_linked_list) != ESP_OK) {
+  if (motor_tasks_start(g_pwm_controller) != ESP_OK) {
     ESP_LOGE(system_tag, "Motor tasks start failed.");
     return ESP_FAIL;
   }

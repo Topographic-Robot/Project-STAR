@@ -18,11 +18,15 @@ extern const char *system_tag;
 
 /* Globals ********************************************************************/
 
-/* TODO: Add doc comment */
+/**
+ * @brief Global variable that holds the sensor data.
+ */
 extern sensor_data_t g_sensor_data;
 
-/* TODO: Add doc comment */
-extern pca9685_board_t *g_pwm_controller_linked_list;
+/**
+ * @brief Global variable that holds the PWM controller linked list.
+ */
+extern pca9685_board_t *g_pwm_controller;
 
 /* Public Functions ***********************************************************/
 

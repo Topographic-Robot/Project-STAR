@@ -66,6 +66,8 @@ extern const uint16_t pca9685_default_pwm_freq; /**< Default PWM frequency (50 H
 extern const uint16_t pca9685_max_pwm_value;    /**< Maximum value for PWM duty cycle (4095) */
 extern const uint16_t pca9685_pwm_period_us;    /**< Total PWM period for 50Hz (20000 µs) */
 extern const char    *pca9685_tag;              /**< Tag for logs */
+extern const uint8_t  pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
+extern const uint32_t pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
 
 /* Enums **********************************************************************/
 

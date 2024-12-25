@@ -13,11 +13,23 @@ extern const char   *motor_tag;          /**< Tag for logs */
 
 /* Public Functions ***********************************************************/
 
-/* TODO: Add doc comments */
-esp_err_t motors_init(pca9685_board_t **pwm_controller_linked_list);
+/**
+ * @brief Initialize the motor tasks
+ *
+ * @param pwm_controller Linked list of all the pwm controllers
+ *
+ * @return ESP_OK on success, otherwise an error code
+ */
+esp_err_t motors_init(pca9685_board_t **pwm_controller);
 
-/* TODO: Add doc comments */
-esp_err_t motor_tasks_start(pca9685_board_t *pwm_controller_linked_list);
+/**
+  * @brief Start the motor tasks
+  *
+  * @param pwm_controller Linked list of all the pwm controllers
+  *
+  * @return ESP_OK on success, otherwise an error code
+  */
+esp_err_t motor_tasks_start(pca9685_board_t *pwm_controller);
 
 #endif /* TOPOROBO_MOTOR_TASKS_H */
 
