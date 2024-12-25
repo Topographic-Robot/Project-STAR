@@ -207,7 +207,7 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
 
       for (uint8_t channel = 0; channel < 16; ++channel) {
         if (motor_mask & (1 << channel)) {
-          float current_angle = current_board->degrees[channel];
+          float current_angle = current_board->motors[channel].pos_deg;
           float angle_step    = (target_angle > current_angle) ? 
                                 pca9685_step_size_deg : -pca9685_step_size_deg;
 
@@ -266,7 +266,7 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
             ESP_LOGD(pca9685_tag, "Moved channel %d on board %d to %.2f°, pulse %u",
                      channel, current_board->board_id, current_angle, pulse_length);
 
-            current_board->degrees[channel] = current_angle;
+            current_board->motors[channel].pos_deg = current_angle;
 
             vTaskDelay(pdMS_TO_TICKS(pca9685_step_delay_ms));
           }

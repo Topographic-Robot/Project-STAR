@@ -67,7 +67,7 @@ static void priv_event_handler(void *arg, esp_event_base_t event_base,
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI(wifi_tag, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
-    xTimerStop(s_wifi_connect_timer, 0); // Stop the timer as connection succeeded
+    xTimerStop(s_wifi_connect_timer, 0); /* Stop the timer as connection succeeded */
     xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
   }
 }

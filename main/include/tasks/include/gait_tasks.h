@@ -9,7 +9,6 @@
 /* Constants ******************************************************************/
 
 extern const char   *gait_tag;          /**< Tag for logs */
-extern const uint8_t max_active_servos; /**< Maximum number of servos that can be active at a time */
 
 /* Public Functions ***********************************************************/
 
@@ -25,7 +24,7 @@ extern const uint8_t max_active_servos; /**< Maximum number of servos that can b
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
 esp_err_t tripod_gait(pca9685_board_t *pwm_controller, float heading, 
-                      float distance);
+                      uint16_t distance);
 /**
  * @brief Executes a wave gait motion for the hexapod robot.
  *
@@ -38,7 +37,7 @@ esp_err_t tripod_gait(pca9685_board_t *pwm_controller, float heading,
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
 esp_err_t wave_gait(pca9685_board_t *pwm_controller, float heading, 
-                    float distance);
+                    uint16_t distance);
 
 /**
  * @brief Executes a ripple gait motion for the hexapod robot.
@@ -52,7 +51,7 @@ esp_err_t wave_gait(pca9685_board_t *pwm_controller, float heading,
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
 esp_err_t ripple_gait(pca9685_board_t *pwm_controller, float heading, 
-                      float distance);
+                      uint16_t distance);
 
 /**
  * @brief Executes a quadruped gait motion for the hexapod robot.
@@ -66,7 +65,7 @@ esp_err_t ripple_gait(pca9685_board_t *pwm_controller, float heading,
  * @return ESP_OK on success, ESP_FAIL on failure.
  */
 esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, float heading, 
-                         float distance);
+                         uint16_t distance);
 
 #endif /* TOPOROBO_GAIT_TASKS_H */
 

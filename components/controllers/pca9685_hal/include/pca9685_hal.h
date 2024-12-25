@@ -51,6 +51,7 @@
  ******************************************************************************/
 
 #include <stdint.h>
+#include "hexapod_geometry.h"
 #include "esp_err.h"
 
 /* Constants ******************************************************************/
@@ -130,13 +131,13 @@ typedef enum : uint8_t {
  * also contains a pointer to the next board in a singly linked list.
  */
 typedef struct pca9685_board_t {
-  uint8_t                 i2c_address; /**< Base I2C address */
-  uint8_t                 i2c_bus;     /**< I2C bus number used for communication */
-  uint8_t                 state;       /**< Current state of the PCA9685, using the pca9685_states_t enum */
-  uint8_t                 board_id;    /**< The board's ID; used to distinguish boards in multi-board setups */
-  uint8_t                 num_boards;  /**< Number of initialized PCA9685 boards */
-  float                   degrees[16]; /**< The current position in degrees of each motor on the board */
-  struct pca9685_board_t *next;        /**< Pointer to the next board in the PCA9685 singly linked list */
+  uint8_t                 i2c_address;    /**< Base I2C address */
+  uint8_t                 i2c_bus;        /**< I2C bus number used for communication */
+  uint8_t                 state;          /**< Current state of the PCA9685, using the pca9685_states_t enum */
+  uint8_t                 board_id;       /**< The board's ID; used to distinguish boards in multi-board setups */
+  uint8_t                 num_boards;     /**< Number of initialized PCA9685 boards */
+  motor_t                 motors[16];     /**< Each motor on the board */
+  struct pca9685_board_t *next;           /**< Pointer to the next board in the PCA9685 singly linked list */
 } pca9685_board_t;
 
 /* Public Functions ***********************************************************/

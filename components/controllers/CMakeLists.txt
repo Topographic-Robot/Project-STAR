@@ -5,6 +5,7 @@ idf_component_register(
     "include"
     "pca9685_hal/include"
   PRIV_REQUIRES
+    main
     driver
     common
 )

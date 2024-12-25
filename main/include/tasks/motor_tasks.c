@@ -20,7 +20,10 @@ esp_err_t motors_init(pca9685_board_t **pwm_controller)
     ESP_LOGE(motor_tag, "Failed to initialize all PWM boards.");
     return ret;
   }
-  ESP_LOGI(motor_tag, "Initialized all PWM boards.");
+  ESP_LOGI(motor_tag, "Initialized all PWM boards with default values.");
+
+  /* TODO: Map the motors with their identifications e.g hip/femur/tibia */
+
   return ESP_OK;
 }
 
