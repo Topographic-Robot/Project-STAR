@@ -65,8 +65,31 @@ typedef enum : uint8_t {
  */
 typedef struct motor_t {
   joint_type_t joint_type; /**< Type of joint this motor controls. */
-  float        pos_deg;    /**< Current position of the motor in degrees. */
+  float        pos_deg;    /**< Current position of the motor in degrees (from 0 to 180deg). */
+  uint8_t      board_id;   /**< The ID of the PCA9685 board (0 or 1) */
+  uint8_t      motor_id;   /**< The ID of the motor on the board (0 to 15) */
 } motor_t;
+
+/**
+ * @brief Represents the configuration of a single leg in the hexapod robot.
+ *
+ * This structure holds the data necessary to control and identify a specific leg
+ * in the hexapod. Each leg has an associated ID and pointers to the motor configurations
+ * for its hip, knee, and tibia joints, enabling precise movement and control.
+ *
+ * The `hip_motor`, `knee_motor`, and `tibia_motor` pointers link to the respective
+ * motor configurations stored in the PCA9685 board's motor map. These pointers allow
+ * the gait logic to access motor settings and commands seamlessly.
+ *
+ * @note This structure is designed to be used with the hexapod's gait algorithms, 
+ * ensuring proper initialization and management of each leg's motors.
+ */
+typedef struct leg_t {
+  uint8_t  id;          /**< The ID for the leg (0 to 5). */
+  motor_t *hip_motor;   /**< A pointer to the hip motor struct stored in the PCA9685 controller. */
+  motor_t *knee_motor;  /**< A pointer to the knee motor struct stored in the PCA9685 controller. */
+  motor_t *tibia_motor; /**< A pointer to the tibia motor struct stored in the PCA9685 controller. */
+} leg_t;
 
 #endif /* TOPOROBO_HEXAPOD_GEOMETRY */
 

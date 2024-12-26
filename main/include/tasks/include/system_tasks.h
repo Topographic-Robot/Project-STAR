@@ -8,6 +8,7 @@
 #include "wifi_tasks.h"
 #include "motor_tasks.h"
 #include "pca9685_hal.h"
+#include "gait_movement.h"
 
 /* Constants ******************************************************************/
 
