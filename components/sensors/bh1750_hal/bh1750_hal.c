@@ -8,16 +8,16 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t  bh1750_i2c_address            = 0x23;
-const uint8_t  bh1750_i2c_bus                = I2C_NUM_0;
-const char    *bh1750_tag                    = "BH1750";
-const uint8_t  bh1750_scl_io                 = GPIO_NUM_22;
-const uint8_t  bh1750_sda_io                 = GPIO_NUM_21;
-const uint32_t bh1750_i2c_freq_hz            = 100000;
-const uint32_t bh1750_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
-const uint8_t  bh1750_max_retries            = 4;
-const uint32_t bh1750_initial_retry_interval = pdMS_TO_TICKS(15);
-const uint32_t bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
+const uint8_t    bh1750_i2c_address            = 0x23;
+const i2c_port_t bh1750_i2c_bus                = I2C_NUM_0;
+const char      *bh1750_tag                    = "BH1750";
+const uint8_t    bh1750_scl_io                 = GPIO_NUM_22;
+const uint8_t    bh1750_sda_io                 = GPIO_NUM_21;
+const uint32_t   bh1750_i2c_freq_hz            = 100000;
+const uint32_t   bh1750_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
+const uint8_t    bh1750_max_retries            = 4;
+const uint32_t   bh1750_initial_retry_interval = pdMS_TO_TICKS(15);
+const uint32_t   bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
 /* Public Functions ***********************************************************/
 

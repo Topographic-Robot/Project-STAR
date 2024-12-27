@@ -10,19 +10,19 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t  ccs811_i2c_address            = 0x5A;
-const uint8_t  ccs811_i2c_bus                = I2C_NUM_0;
-const char    *ccs811_tag                    = "CCS811";
-const uint8_t  ccs811_scl_io                 = GPIO_NUM_22;
-const uint8_t  ccs811_sda_io                 = GPIO_NUM_21;
-const uint8_t  ccs811_wake_io                = GPIO_NUM_33;
-const uint8_t  ccs811_rst_io                 = GPIO_NUM_32;
-const uint8_t  ccs811_int_io                 = GPIO_NUM_25;
-const uint32_t ccs811_i2c_freq_hz            = 100000;
-const uint32_t ccs811_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
-const uint8_t  ccs811_max_retries            = 4;
-const uint32_t ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
-const uint32_t ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
+const uint8_t    ccs811_i2c_address            = 0x5A;
+const i2c_port_t ccs811_i2c_bus                = I2C_NUM_0;
+const char      *ccs811_tag                    = "CCS811";
+const uint8_t    ccs811_scl_io                 = GPIO_NUM_22;
+const uint8_t    ccs811_sda_io                 = GPIO_NUM_21;
+const uint8_t    ccs811_wake_io                = GPIO_NUM_33;
+const uint8_t    ccs811_rst_io                 = GPIO_NUM_32;
+const uint8_t    ccs811_int_io                 = GPIO_NUM_25;
+const uint32_t   ccs811_i2c_freq_hz            = 100000;
+const uint32_t   ccs811_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
+const uint8_t    ccs811_max_retries            = 4;
+const uint32_t   ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
+const uint32_t   ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
 
 /* Public Functions ***********************************************************/
 

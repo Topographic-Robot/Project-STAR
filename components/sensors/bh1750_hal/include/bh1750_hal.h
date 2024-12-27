@@ -55,6 +55,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
@@ -77,7 +78,7 @@ extern const uint8_t bh1750_i2c_address;
  * for flexibility if multiple I2C buses are available or different devices
  * are attached to separate buses.
  */
-extern const uint8_t bh1750_i2c_bus;
+extern const i2c_port_t bh1750_i2c_bus;
 
 /**
  * @brief Tag for logging messages related to the BH1750 sensor.

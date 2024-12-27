@@ -53,22 +53,23 @@
 #include <stdint.h>
 #include "hexapod_geometry.h"
 #include "esp_err.h"
+#include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  pca9685_scl_io;           /**< GPIO pin for I2C Serial Clock Line */
-extern const uint8_t  pca9685_sda_io;           /**< GPIO pin for I2C Serial Data Line */
-extern const uint32_t pca9685_i2c_freq_hz;      /**< I2C Bus Frequency in Hz */
-extern const uint8_t  pca9685_i2c_address;      /**< Base I2C address for PCA9685 */
-extern const uint8_t  pca9685_i2c_bus;          /**< I2C bus for PCA9685 */
-extern const uint32_t pca9685_osc_freq;         /**< Internal Oscillator Frequency (25 MHz) */
-extern const uint16_t pca9685_pwm_resolution;   /**< 12-bit PWM resolution (4096 steps) */
-extern const uint16_t pca9685_default_pwm_freq; /**< Default PWM frequency (50 Hz for servos) */
-extern const uint16_t pca9685_max_pwm_value;    /**< Maximum value for PWM duty cycle (4095) */
-extern const uint16_t pca9685_pwm_period_us;    /**< Total PWM period for 50Hz (20000 µs) */
-extern const char    *pca9685_tag;              /**< Tag for logs */
-extern const uint8_t  pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
-extern const uint32_t pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
+extern const uint8_t    pca9685_scl_io;           /**< GPIO pin for I2C Serial Clock Line */
+extern const uint8_t    pca9685_sda_io;           /**< GPIO pin for I2C Serial Data Line */
+extern const uint32_t   pca9685_i2c_freq_hz;      /**< I2C Bus Frequency in Hz */
+extern const uint8_t    pca9685_i2c_address;      /**< Base I2C address for PCA9685 */
+extern const i2c_port_t pca9685_i2c_bus;          /**< I2C bus for PCA9685 */
+extern const uint32_t   pca9685_osc_freq;         /**< Internal Oscillator Frequency (25 MHz) */
+extern const uint16_t   pca9685_pwm_resolution;   /**< 12-bit PWM resolution (4096 steps) */
+extern const uint16_t   pca9685_default_pwm_freq; /**< Default PWM frequency (50 Hz for servos) */
+extern const uint16_t   pca9685_max_pwm_value;    /**< Maximum value for PWM duty cycle (4095) */
+extern const uint16_t   pca9685_pwm_period_us;    /**< Total PWM period for 50Hz (20000 µs) */
+extern const char      *pca9685_tag;              /**< Tag for logs */
+extern const uint8_t    pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
+extern const uint32_t   pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
 
 /* Enums **********************************************************************/
 

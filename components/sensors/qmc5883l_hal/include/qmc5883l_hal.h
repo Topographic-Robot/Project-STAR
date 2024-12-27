@@ -49,6 +49,7 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_err.h"
 #include "freertos/semphr.h"
+#include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
@@ -67,7 +68,7 @@ extern const uint8_t qmc5883l_i2c_address;
  * This constant defines the I2C bus that the ESP32 will use to interface
  * with the QMC5883L sensor. It should be set to the appropriate I2C bus number.
  */
-extern const uint8_t qmc5883l_i2c_bus;
+extern const i2c_port_t qmc5883l_i2c_bus;
 
 /**
  * @brief Tag for logging messages related to the QMC5883L sensor.

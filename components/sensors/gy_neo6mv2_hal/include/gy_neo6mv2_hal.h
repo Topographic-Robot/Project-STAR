@@ -49,6 +49,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_err.h"
+#include "driver/uart.h"
 
 /* Constants ******************************************************************/
 
@@ -85,7 +86,7 @@ extern const uint8_t gy_neo6mv2_rx_io;
  * This constant defines the UART number on the ESP32 that is used to
  * communicate with the GY-NEO6MV2 GPS module.
  */
-extern const uint8_t gy_neo6mv2_uart_num;
+extern const uart_port_t gy_neo6mv2_uart_num;
 
 /**
  * @brief UART baud rate for GY-NEO6MV2 communication.

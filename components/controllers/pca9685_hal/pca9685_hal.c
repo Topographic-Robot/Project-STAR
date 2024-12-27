@@ -7,19 +7,19 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t  pca9685_scl_io           = GPIO_NUM_22;
-const uint8_t  pca9685_sda_io           = GPIO_NUM_21;
-const uint32_t pca9685_i2c_freq_hz      = 100000;
-const uint8_t  pca9685_i2c_address      = 0x40;
-const uint8_t  pca9685_i2c_bus          = I2C_NUM_0;
-const uint32_t pca9685_osc_freq         = 25000000; /**< 25MHz internal osc */
-const uint16_t pca9685_pwm_resolution   = 4096;     /**< 12-bit resolution */
-const uint16_t pca9685_default_pwm_freq = 50;       /**< Standard servo freq */
-const uint16_t pca9685_max_pwm_value    = 4095;     /**< 0 to 4095 */
-const uint16_t pca9685_pwm_period_us    = 20000;    /**< 50Hz = 20ms */
-const char    *pca9685_tag              = "PCA9685";
-const uint8_t  pca9685_step_size_deg    = 5;
-const uint32_t pca9685_step_delay_ms    = 20;
+const uint8_t    pca9685_scl_io           = GPIO_NUM_22;
+const uint8_t    pca9685_sda_io           = GPIO_NUM_21;
+const uint32_t   pca9685_i2c_freq_hz      = 100000;
+const uint8_t    pca9685_i2c_address      = 0x40;
+const i2c_port_t pca9685_i2c_bus          = I2C_NUM_0;
+const uint32_t   pca9685_osc_freq         = 25000000; /**< 25MHz internal osc */
+const uint16_t   pca9685_pwm_resolution   = 4096;     /**< 12-bit resolution */
+const uint16_t   pca9685_default_pwm_freq = 50;       /**< Standard servo freq */
+const uint16_t   pca9685_max_pwm_value    = 4095;     /**< 0 to 4095 */
+const uint16_t   pca9685_pwm_period_us    = 20000;    /**< 50Hz = 20ms */
+const char      *pca9685_tag              = "PCA9685";
+const uint8_t    pca9685_step_size_deg    = 5;
+const uint32_t   pca9685_step_delay_ms    = 20;
 
 /* Constants (Static) **********************************************************/
 

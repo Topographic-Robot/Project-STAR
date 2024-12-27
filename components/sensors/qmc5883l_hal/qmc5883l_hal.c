@@ -9,17 +9,17 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t  qmc5883l_i2c_address            = 0x0D;
-const uint8_t  qmc5883l_i2c_bus                = I2C_NUM_0;
-const char    *qmc5883l_tag                    = "QMC5883L";
-const uint8_t  qmc5883l_scl_io                 = GPIO_NUM_22;
-const uint8_t  qmc5883l_sda_io                 = GPIO_NUM_21;
-const uint32_t qmc5883l_i2c_freq_hz            = 100000;
-const uint32_t qmc5883l_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
-const uint8_t  qmc5883l_odr_setting            = k_qmc5883l_odr_100hz;
-const uint8_t  qmc5883l_max_retries            = 4;
-const uint32_t qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
-const uint32_t qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
+const uint8_t    qmc5883l_i2c_address            = 0x0D;
+const i2c_port_t qmc5883l_i2c_bus                = I2C_NUM_0;
+const char      *qmc5883l_tag                    = "QMC5883L";
+const uint8_t    qmc5883l_scl_io                 = GPIO_NUM_22;
+const uint8_t    qmc5883l_sda_io                 = GPIO_NUM_21;
+const uint32_t   qmc5883l_i2c_freq_hz            = 100000;
+const uint32_t   qmc5883l_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
+const uint8_t    qmc5883l_odr_setting            = k_qmc5883l_odr_100hz;
+const uint8_t    qmc5883l_max_retries            = 4;
+const uint32_t   qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
+const uint32_t   qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
 static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
   {k_qmc5883l_range_2g, 200.0 / 32768.0 }, /**< ±2 Gauss range, scaling factor */

@@ -11,16 +11,16 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t  mpu6050_i2c_address        = 0x68;
-const uint8_t  mpu6050_i2c_bus            = I2C_NUM_0;
-const char    *mpu6050_tag                = "MPU6050";
-const uint8_t  mpu6050_scl_io             = GPIO_NUM_22;
-const uint8_t  mpu6050_sda_io             = GPIO_NUM_21;
-const uint32_t mpu6050_i2c_freq_hz        = 100000;
-const uint32_t mpu6050_polling_rate_ticks = pdMS_TO_TICKS(0.5 * 1000);
-const uint8_t  mpu6050_sample_rate_div    = 9;
-const uint8_t  mpu6050_config_dlpf        = k_mpu6050_config_dlpf_44hz;
-const uint8_t  mpu6050_int_io             = GPIO_NUM_26;
+const uint8_t    mpu6050_i2c_address        = 0x68;
+const i2c_port_t mpu6050_i2c_bus            = I2C_NUM_0;
+const char      *mpu6050_tag                = "MPU6050";
+const uint8_t    mpu6050_scl_io             = GPIO_NUM_22;
+const uint8_t    mpu6050_sda_io             = GPIO_NUM_21;
+const uint32_t   mpu6050_i2c_freq_hz        = 100000;
+const uint32_t   mpu6050_polling_rate_ticks = pdMS_TO_TICKS(0.5 * 1000);
+const uint8_t    mpu6050_sample_rate_div    = 9;
+const uint8_t    mpu6050_config_dlpf        = k_mpu6050_config_dlpf_44hz;
+const uint8_t    mpu6050_int_io             = GPIO_NUM_26;
 
 /**
  * @brief Static constant array of accelerometer configurations and scaling factors.

@@ -61,6 +61,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
@@ -78,7 +79,7 @@ extern const uint8_t ccs811_i2c_address;
  * Set this to the appropriate I2C bus number (`I2C_NUM_0` or `I2C_NUM_1`)
  * configured in your ESP32 project.
  */
-extern const uint8_t ccs811_i2c_bus;
+extern const i2c_port_t ccs811_i2c_bus;
 
 /**
  * @brief Tag used for logging messages related to the CCS811 sensor.

@@ -72,6 +72,7 @@
 #include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
@@ -91,7 +92,7 @@ extern const uint8_t mpu6050_i2c_address;
  * Defines the I2C bus that the ESP32 uses to interface with the MPU6050 sensor.
  * This allows for flexibility when multiple I2C buses are available on the ESP32.
  */
-extern const uint8_t mpu6050_i2c_bus;
+extern const i2c_port_t mpu6050_i2c_bus;
 
 /**
  * @brief Tag for logging messages related to the MPU6050 sensor.

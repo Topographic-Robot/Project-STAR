@@ -34,7 +34,7 @@ extern const uint32_t i2c_timeout_ticks; /* Timeout for I2C commands in ticks */
  *       Make sure the I2C bus is free before calling this function.
  */
 esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
-                        uint8_t i2c_bus, const char *tag);
+                        i2c_port_t i2c_bus, const char *tag);
 
 /**
  * @brief Write a byte to a specific I2C device.
@@ -56,7 +56,7 @@ esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
  *   - ESP_OK on success.
  *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
-esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus,
+esp_err_t priv_i2c_write_byte(uint8_t data, i2c_port_t i2c_bus,
                               uint8_t i2c_address, const char *tag);
 
 /**
@@ -79,7 +79,7 @@ esp_err_t priv_i2c_write_byte(uint8_t data, uint8_t i2c_bus,
  *   - ESP_OK on success.
  *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
-esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus,
+esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, i2c_port_t i2c_bus,
                               uint8_t i2c_address, const char *tag);
 
 /* New function declarations */
@@ -98,7 +98,7 @@ esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, uint8_t i2c_bus,
  *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
 esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
-                                  uint8_t i2c_bus, uint8_t i2c_address,
+                                  i2c_port_t i2c_bus, uint8_t i2c_address,
                                   const char *tag);
 
 /**
@@ -116,7 +116,7 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
  *   - Appropriate ESP_ERR code on failure, with error details logged.
  */
 esp_err_t priv_i2c_read_reg_bytes(uint8_t reg_addr, uint8_t *data, size_t len,
-                                  uint8_t i2c_bus, uint8_t i2c_address,
+                                  i2c_port_t i2c_bus, uint8_t i2c_address,
                                   const char *tag);
 
 #endif /* TOPOROBO_I2C_H */

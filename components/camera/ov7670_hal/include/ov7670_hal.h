@@ -70,15 +70,16 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
-extern const uint8_t  ov7670_scl_io;             /**< GPIO pin for I2C Clock (SCL) */
-extern const uint8_t  ov7670_sda_io;             /**< GPIO pin for I2C Data (SDA) */
-extern const uint32_t ov7670_polling_rate_ticks; /**< Polling rate for checking camera configuration status in ticks */
-extern const uint8_t  ov7670_i2c_address;        /**< OV7670 I2C address */
-extern const uint8_t  ov7670_i2c_bus;            /**< OV7670 I2C bus */
-extern const uint32_t ov7670_i2c_freq_hz;        /**< OV7670 I2C Freq in Hz (100k) */
+extern const uint8_t    ov7670_scl_io;             /**< GPIO pin for I2C Clock (SCL) */
+extern const uint8_t    ov7670_sda_io;             /**< GPIO pin for I2C Data (SDA) */
+extern const uint32_t   ov7670_polling_rate_ticks; /**< Polling rate for checking camera configuration status in ticks */
+extern const uint8_t    ov7670_i2c_address;        /**< OV7670 I2C address */
+extern const i2c_port_t ov7670_i2c_bus;            /**< OV7670 I2C bus */
+extern const uint32_t   ov7670_i2c_freq_hz;        /**< OV7670 I2C Freq in Hz (100k) */
 
 /* Enums **********************************************************************/
 
@@ -175,6 +176,16 @@ typedef struct {
  * - Error codes from `esp_err_t` on failure.
  */
 esp_err_t ov7670_init(ov7670_data_t *sensor_data);
+
+/**
+ * @brief Applies a new set of configuration parameters stored in `camera_data->config`.
+ *
+ * @param[in,out] camera_data Pointer to `ov7670_data_t` that holds the camera state/config.
+ * @return
+ *  - ESP_OK on success.
+ *  - ESP_FAIL on failure.
+ */
+esp_err_t ov7670_configure(ov7670_data_t *camera_data);
 
 /**
  * @brief Handles errors and retries configuration of the OV7670 module.

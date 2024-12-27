@@ -14,11 +14,11 @@ esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate,
                          uart_port_t uart_num, const char *tag)
 {
   uart_config_t uart_config = {
-    .baud_rate = baud_rate,               /* Set the baud rate (communication speed) */
-    .data_bits = UART_DATA_8_BITS,        /* Set data bits (8 bits per word) */
-    .parity    = UART_PARITY_DISABLE,     /* No parity check */
-    .stop_bits = UART_STOP_BITS_1,        /* Set 1 stop bit */
-    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE /* Disable hardware flow control */
+    .baud_rate = baud_rate,                /* Set the baud rate (communication speed) */
+    .data_bits = UART_DATA_8_BITS,         /* Set data bits (8 bits per word) */
+    .parity    = UART_PARITY_DISABLE,      /* No parity check */
+    .stop_bits = UART_STOP_BITS_1,         /* Set 1 stop bit */
+    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE, /* Disable hardware flow control */
   };
 
   /* Configure the UART driver with the specified settings */

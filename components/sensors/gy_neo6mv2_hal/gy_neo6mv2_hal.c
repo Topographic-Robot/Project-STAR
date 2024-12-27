@@ -14,15 +14,15 @@
 
 /* Constants *******************************************************************/
 
-const char    *gy_neo6mv2_tag                    = "GY-NEO6MV2";
-const uint8_t  gy_neo6mv2_tx_io                  = GPIO_NUM_17;
-const uint8_t  gy_neo6mv2_rx_io                  = GPIO_NUM_16;
-const uint8_t  gy_neo6mv2_uart_num               = UART_NUM_2;
-const uint32_t gy_neo6mv2_uart_baudrate          = 9600;
-const uint32_t gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 100);
-const uint8_t  gy_neo6mv2_max_retries            = 4;
-const uint32_t gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
-const uint32_t gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
+const char       *gy_neo6mv2_tag                    = "GY-NEO6MV2";
+const uint8_t     gy_neo6mv2_tx_io                  = GPIO_NUM_17;
+const uint8_t     gy_neo6mv2_rx_io                  = GPIO_NUM_16;
+const uart_port_t gy_neo6mv2_uart_num               = UART_NUM_2;
+const uint32_t    gy_neo6mv2_uart_baudrate          = 9600;
+const uint32_t    gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 100);
+const uint8_t     gy_neo6mv2_max_retries            = 4;
+const uint32_t    gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
+const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
 
 /* Globals (Static) ***********************************************************/
 
