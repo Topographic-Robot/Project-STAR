@@ -73,49 +73,91 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief GPIO pin for I2C Clock (SCL).
- */
-extern const uint8_t ov7670_scl_io;
-
-/**
- * @brief GPIO pin for I2C Data (SDA).
- */
-extern const uint8_t ov7670_sda_io;
-
-/**
- * @brief Polling rate for checking camera configuration status in ticks.
- */
-extern const uint32_t ov7670_polling_rate_ticks;
-
-/**
- * @brief OV7670 I2C address.
- */
-extern const uint8_t ov7670_i2c_address;
+extern const uint8_t  ov7670_scl_io;             /**< GPIO pin for I2C Clock (SCL) */
+extern const uint8_t  ov7670_sda_io;             /**< GPIO pin for I2C Data (SDA) */
+extern const uint32_t ov7670_polling_rate_ticks; /**< Polling rate for checking camera configuration status in ticks */
+extern const uint8_t  ov7670_i2c_address;        /**< OV7670 I2C address */
+extern const uint8_t  ov7670_i2c_bus;            /**< OV7670 I2C bus */
+extern const uint32_t ov7670_i2c_freq_hz;        /**< OV7670 I2C Freq in Hz (100k) */
 
 /* Enums **********************************************************************/
 
 /**
- * @enum ov7670_states_
+ * @enum ov7670_states_t
  * @brief Represents the operational states of the OV7670 camera module.
  */
-typedef enum {
-    k_ov7670_uninitialized = 0x00, /**< Camera is not initialized */
-    k_ov7670_ready         = 0x01, /**< Camera is ready for use */
-    k_ov7670_config_error  = 0xF0  /**< Configuration error occurred */
+typedef enum : uint8_t {
+  k_ov7670_uninitialized = 0x00, /**< Camera is not initialized */
+  k_ov7670_ready         = 0x01, /**< Camera is ready for use */
+  k_ov7670_config_error  = 0xF0, /**< Configuration error occurred */
 } ov7670_states_t;
+
+/**
+ * @enum ov7670_resolution_t
+ * @brief Supported resolutions for the OV7670 camera.
+ */
+typedef enum : uint8_t {
+  k_ov7670_res_vga  = 0x00, /**< VGA (640x480), default */
+  k_ov7670_res_qvga = 0x10, /**< QVGA (320x240) */
+} ov7670_resolution_t;
+
+/**
+ * @enum ov7670_output_format_t
+ * @brief Supported output formats for the OV7670 camera.
+ */
+typedef enum : uint8_t {
+  k_ov7670_output_yuv   = 0x00, /**< YUV422 format, default */
+  k_ov7670_output_rgb   = 0x04, /**< RGB565 format */
+  k_ov7670_output_bayer = 0x01, /**< Bayer RAW format */
+} ov7670_output_format_t;
+
+/**
+ * @enum ov7670_clock_divider_t
+ * @brief Supported clock dividers for the OV7670 camera.
+ */
+typedef enum : uint8_t {
+  k_ov7670_clk_div_1 = 0x00, /**< Clock divider 1 (no division) */
+  k_ov7670_clk_div_2 = 0x01, /**< Clock divider 2 */
+  k_ov7670_clk_div_4 = 0x02, /**< Clock divider 4 */
+  k_ov7670_clk_div_8 = 0x03, /**< Clock divider 8 */
+} ov7670_clock_divider_t;
+
+/**
+ * @enum ov7670_register_t
+ * @brief OV7670 register addresses.
+ */
+typedef enum : uint8_t {
+  k_ov7670_reg_com7   = 0x12, /**< Common Control 7 */
+  k_ov7670_reg_clkrc  = 0x11, /**< Clock Control */
+  k_ov7670_reg_rgb444 = 0x8C, /**< RGB444 Control */
+  k_ov7670_reg_com15  = 0x40, /**< Common Control 15 */
+  k_ov7670_reg_tslb   = 0x3A, /**< Line Buffer Control */
+  k_ov7670_reg_com3   = 0x0C, /**< Common Control 3 */
+  k_ov7670_reg_com14  = 0x3E, /**< Common Control 14 */
+} ov7670_register_t;
 
 /* Structs ********************************************************************/
 
 /**
- * @struct ov7670_data_
+ * @struct ov7670_config_t
+ * @brief Configuration settings for the OV7670 camera module.
+ */
+typedef struct {
+  ov7670_resolution_t    resolution;    /**< Desired resolution (QVGA, VGA, etc.) */
+  ov7670_output_format_t output_format; /**< Desired output format (RGB, YUV, etc.) */
+  ov7670_clock_divider_t clock_divider; /**< Clock divider for internal pixel clock */
+} ov7670_config_t;
+
+/**
+ * @struct ov7670_data_t
  * @brief Structure for storing OV7670 camera module data.
  */
 typedef struct {
-    uint8_t             state; /**< Current state of the camera module */
-    uint8_t             retries; /**< Retry count for configuration errors */
-    uint32_t            retry_interval; /**< Retry interval in ticks */
-    uint32_t            last_attempt_ticks; /**< Tick count of last retry */
+  uint8_t         state;              /**< Current state of the camera module */
+  uint8_t         retries;            /**< Retry count for configuration errors */
+  uint32_t        retry_interval;     /**< Retry interval in ticks */
+  uint32_t        last_attempt_ticks; /**< Tick count of last retry */
+  ov7670_config_t config;             /**< Current configuration settings */
 } ov7670_data_t;
 
 /* Public Functions ***********************************************************/

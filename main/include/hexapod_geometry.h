@@ -16,8 +16,8 @@ extern const float hip_angle_from_90_max; /**< Maximum allowable angle from 90de
 /** 
  * @brief Minimum and maximum angle from 90degs for the knee joint in degrees. 
  */
-extern const float knee_angle_from_90_min;  /**< Minimum allowable angle from 90degs for the knee joint in degrees. */
-extern const float knee_angle_from_90_max;  /**< Maximum allowable angle from 90degs for the knee joint in degrees. */
+extern const float knee_angle_from_90_min; /**< Minimum allowable angle from 90degs for the knee joint in degrees. */
+extern const float knee_angle_from_90_max; /**< Maximum allowable angle from 90degs for the knee joint in degrees. */
 
 /** 
  * @brief Minimum and maximum angle from 90degs for the tibia joint in degrees. 
@@ -63,7 +63,7 @@ typedef enum : uint8_t {
  * This struct encapsulates details about a motor controlling a joint,
  * including its type (hip, knee, or tibia) and its current position in degrees.
  */
-typedef struct motor_t {
+typedef struct {
   joint_type_t joint_type; /**< Type of joint this motor controls. */
   float        pos_deg;    /**< Current position of the motor in degrees (from 0 to 180deg). */
   uint8_t      board_id;   /**< The ID of the PCA9685 board (0 or 1) */
@@ -84,7 +84,7 @@ typedef struct motor_t {
  * @note This structure is designed to be used with the hexapod's gait algorithms, 
  * ensuring proper initialization and management of each leg's motors.
  */
-typedef struct leg_t {
+typedef struct {
   uint8_t  id;          /**< The ID for the leg (0 to 5). */
   motor_t *hip_motor;   /**< A pointer to the hip motor struct stored in the PCA9685 controller. */
   motor_t *knee_motor;  /**< A pointer to the knee motor struct stored in the PCA9685 controller. */

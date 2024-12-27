@@ -9,25 +9,18 @@
 #include "motor_tasks.h"
 #include "pca9685_hal.h"
 #include "gait_movement.h"
+#include "ov7670_hal.h"
 
 /* Constants ******************************************************************/
 
-/**
- * @brief Global logging tag used across the project for consistent logging.
- */
-extern const char *system_tag;
+extern const char *system_tag; /**< Logging tag */
 
 /* Globals ********************************************************************/
 
-/**
- * @brief Global variable that holds the sensor data.
- */
-extern sensor_data_t g_sensor_data;
-
-/**
- * @brief Global variable that holds the PWM controller linked list.
- */
-extern pca9685_board_t *g_pwm_controller;
+extern sensor_data_t    g_sensor_data;    /**< Global variable that holds the sensor data */
+extern pca9685_board_t *g_pwm_controller; /**< Global variable that holds the PWM controller linked list */
+/* TODO: Make this support all 6 cameras */
+extern ov7670_data_t    g_camera_data;    /**< Global variable that holds the camera data */
 
 /* Public Functions ***********************************************************/
 
