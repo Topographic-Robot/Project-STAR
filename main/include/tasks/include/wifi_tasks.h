@@ -27,6 +27,15 @@ extern const uint32_t wifi_connect_timeout_ms; /**< Timeout for WiFi connection 
 /* Public Functions ***********************************************************/
 
 /**
+ * @brief Checks if the system has a valid IP address and thus can reach the internet.
+ *
+ * @return
+ *  - ESP_OK if the network is up and IP is valid.
+ *  - ESP_FAIL if the interface doesn't exist or no IP address is assigned.
+ */
+esp_err_t wifi_check_connection(void);
+
+/**
  * @brief Initializes the WiFi in station mode and connects to the specified Access Point (AP).
  *
  * This function performs the following steps:

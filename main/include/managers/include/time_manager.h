@@ -5,6 +5,10 @@
 
 #include "esp_err.h"
 
+/* Globals (Constants) ********************************************************/
+
+extern const char *time_manager_tag; /**< For Logging */
+
 /* Public Functions ***********************************************************/
 
 /**

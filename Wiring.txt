@@ -47,12 +47,14 @@
 |                 | RET           | Controlled by DE10-Lite                                       |
 |                 | PWDN          | Controlled by DE10-Lite                                       |
 | Micro-SD Reader |               |                                                               |
-|                 | 3V3           | 3.3V                                                          |
+|                 | CD            | Optional                                                      |
 |                 | CS            | GPIO_NUM_5 (D5)                                               |
-|                 | MOSI          | GPIO_NUM_23 (D23)                                             |
+|                 | DI            | GPIO_NUM_23 (D23)                                             |
+|                 | DO            | GPIO_NUM_19 (D19)                                             |
 |                 | CLK           | GPIO_NUM_14 (D14)                                             |
-|                 | MISO          | GPIO_NUM_19 (D19)                                             |
 |                 | GND           | GND                                                           |
+|                 | 3V            | 3.3V                                                          |
+|                 | 5V            | Floating                                                      |
 | SEN-CCS811      |               |                                                               |
 |                 | INT           | GPIO_NUM_25 (D25)                                             |
 |                 | WAKE          | GPIO_NUM_33 (D33)                                             |

@@ -72,6 +72,25 @@ static void priv_event_handler(void *arg, esp_event_base_t event_base,
   }
 }
 
+/* Public Functions ***********************************************************/
+
+esp_err_t wifi_check_connection(void)
+{
+  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (netif == NULL) {
+    ESP_LOGE(wifi_tag, "Network interface not found.");
+    return ESP_FAIL;
+  }
+
+  esp_netif_ip_info_t ip_info;
+  if (esp_netif_get_ip_info(netif, &ip_info) != ESP_OK || ip_info.ip.addr == 0) {
+    ESP_LOGW(wifi_tag, "No IP address. Wi-Fi might be disconnected.");
+    return ESP_FAIL;
+  }
+
+  return ESP_OK;
+}
+
 esp_err_t wifi_init_sta(void)
 {
   ESP_LOGI(wifi_tag, "Starting WiFi initialization in station mode.");

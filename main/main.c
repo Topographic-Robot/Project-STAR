@@ -1,11 +1,17 @@
 /* main/main.c */
 
-/* TODO: Add so the SD Card can work, with the time and the filesystem.
- *       Then add in each file for data collection writing/adding to the queue
- *       to write to files on the SD card */
+/* TODO:
+ * 1. mpu6050 + int
+ * 2. ov7670 configs
+ * 3. sd card + filewrite manager
+ * 4. gps
+ */
 
 #include "system_tasks.h"
 #include "esp_log.h"
+
+/* TODO: TESTING SD CARDs + update filewrite manager if needed */
+#include "sd_card_hal.h"
 
 void app_main(void)
 {
@@ -27,5 +33,7 @@ void app_main(void)
   }
 
   ESP_LOGI(system_tag, "Topographic Robot system initialized and running.");
+
+  /* TODO: TEST SD CARDs */
 }
 

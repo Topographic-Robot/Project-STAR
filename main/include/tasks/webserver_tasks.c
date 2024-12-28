@@ -8,10 +8,6 @@
 
 /* Public Functions ***********************************************************/
 
-#include "esp_netif.h"
-#include "esp_http_client.h"
-#include "esp_log.h"
-
 esp_err_t send_sensor_data_to_webserver(const char *json_string)
 {
   if (json_string == NULL) {
@@ -20,15 +16,8 @@ esp_err_t send_sensor_data_to_webserver(const char *json_string)
   }
 
   /* Check if the network is ready */
-  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-  if (netif == NULL) {
-    ESP_LOGE(system_tag, "Network interface not found.");
-    return ESP_FAIL;
-  }
-
-  esp_netif_ip_info_t ip_info;
-  if (esp_netif_get_ip_info(netif, &ip_info) != ESP_OK || ip_info.ip.addr == 0) {
-    ESP_LOGW(system_tag, "No IP address. Wi-Fi might be disconnected.");
+  if (wifi_check_connection() != ESP_OK) {
+    ESP_LOGE(system_tag, "Network not available. Aborting data send.");
     return ESP_FAIL;
   }
 

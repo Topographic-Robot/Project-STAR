@@ -19,7 +19,7 @@
  *    | VS   | Vertical Sync  |----------> DE10-Lite or External Controller
  *    | HS   | Horizontal Sync|----------> DE10-Lite or External Controller
  *    | PCLK | Pixel Clock    |----------> DE10-Lite or External Controller
- *    | XLK  | External Clock |----------> DE10-Lite or External Clock Source
+ *    | XLK  | External Clock |----------> GPIO_NUM_27 or DE10-Lite or External Clock Source
  *    | D[7] | Parallel Data  |----------> DE10-Lite or External Controller
  *    | D[6] | Parallel Data  |----------> DE10-Lite or External Controller
  *    | D[5] | Parallel Data  |----------> DE10-Lite or External Controller
