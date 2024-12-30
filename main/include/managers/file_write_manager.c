@@ -25,11 +25,13 @@ static QueueHandle_t s_file_write_queue;
 /**
  * @brief Formats the current date and time as a string.
  *
- * This function retrieves the current system time and formats it
- * as a string in the format `YYYY-MM-DD HH:MM:SS`.
+ * Retrieves the current system time and formats it as `YYYY-MM-DD HH:MM:SS`.
  *
- * @param[out] buffer A buffer to store the formatted timestamp.
- * @param[in] buffer_len The length of the buffer.
+ * @param[out] buffer Buffer to store the formatted timestamp.
+ * @param[in]  buffer_len Length of the buffer.
+ *
+ * @note 
+ * - The system time must be properly initialized before calling this function.
  */
 static void priv_get_timestamp(char *buffer, size_t buffer_len)
 {
@@ -41,7 +43,15 @@ static void priv_get_timestamp(char *buffer, size_t buffer_len)
 }
 
 /**
- * @brief File writing task to handle queued write requests.
+ * @brief Task to handle queued file write requests.
+ *
+ * Processes file write requests from a queue and writes data to the specified 
+ * files. The task runs continuously, handling requests asynchronously.
+ *
+ * @param[in] param Pointer to task-specific parameters (e.g., queue handle).
+ *
+ * @note 
+ * - This function is intended to run as a FreeRTOS task.
  */
 static void priv_file_write_task(void *param)
 {

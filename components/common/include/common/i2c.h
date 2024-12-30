@@ -3,121 +3,131 @@
 #ifndef TOPOROBO_I2C_H
 #define TOPOROBO_I2C_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "esp_err.h"
 #include "driver/i2c.h"
 
 /* Constants ******************************************************************/
 
-extern const uint32_t i2c_timeout_ticks; /* Timeout for I2C commands in ticks */
+extern const uint32_t i2c_timeout_ticks; /**< Timeout for I2C commands in ticks */
 
 /* Private Functions **********************************************************/
 
 /**
- * @brief Initialize the I2C interface with the specified parameters.
+ * @brief Initializes the I2C interface with specified parameters.
  *
- * This function configures the I2C bus with the provided SCL and SDA pins,
- * pull-up configuration, and frequency. It sets the I2C mode to master
- * and initializes the driver without requiring a buffer for the master mode.
+ * Configures the I2C interface with given SCL and SDA pins, frequency, and bus number.
+ * Initializes the driver in master mode without allocating buffers.
  *
- * @param[in] scl_io Pin number for the I2C clock line (SCL).
- * @param[in] sda_io Pin number for the I2C data line (SDA).
- * @param[in] freq_hz Clock frequency in Hertz for the I2C bus.
- * @param[in,out] i2c_bus I2C bus number to use for communication.
- * @param[in] tag The tag for logging errors.
+ * @param[in] scl_io  I2C clock line (SCL) pin number.
+ * @param[in] sda_io  I2C data line (SDA) pin number.
+ * @param[in] freq_hz Communication frequency in Hertz.
+ * @param[in] i2c_bus I2C bus number to use.
+ * @param[in] tag     Logging tag for error messages.
  *
  * @return
- *   - ESP_OK on successful initialization.
- *   - An error code from the esp_err_t enumeration on failure.
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` error codes on failure.
  *
- * @note The function enables internal pull-ups for both SDA and SCL pins.
- *       Make sure the I2C bus is free before calling this function.
+ * @note 
+ * - Internal pull-ups are enabled for SDA and SCL.
  */
 esp_err_t priv_i2c_init(uint8_t scl_io, uint8_t sda_io, uint32_t freq_hz,
                         i2c_port_t i2c_bus, const char *tag);
 
 /**
- * @brief Write a byte to a specific I2C device.
+ * @brief Writes a single byte to a specific I2C device.
  *
- * This function transmits a single byte of data to a designated I2C device
- * using the specified I2C bus and device address. It creates an I2C command
- * link, sends the I2C address with the write flag, writes the data byte, and
- * then completes the transaction by stopping the I2C communication.
+ * Sends a byte of data to the specified device using the provided bus and address.
  *
- * @note This function is intended for internal use and does not implement
- *       semaphore checks or concurrency protections.
- *
- * @param[in] data The byte of data to send to the I2C device.
- * @param[in] i2c_bus The I2C bus number to communicate over.
- * @param[in] i2c_address The 7-bit I2C address of the target device.
- * @param[in] tag The tag for logging errors in case of failure.
+ * @param[in] data        Byte of data to send.
+ * @param[in] i2c_bus     I2C bus number.
+ * @param[in] i2c_address 7-bit I2C address of the target device.
+ * @param[in] tag         Logging tag for error messages.
  *
  * @return
- *   - ESP_OK on success.
- *   - Appropriate ESP_ERR code on failure, with error details logged.
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` error codes on failure.
+ *
+ * @note 
+ * - No semaphore checks or concurrency protection is implemented.
  */
 esp_err_t priv_i2c_write_byte(uint8_t data, i2c_port_t i2c_bus,
                               uint8_t i2c_address, const char *tag);
 
 /**
- * @brief Read multiple bytes from a specific I2C device.
+ * @brief Reads multiple bytes from a specific I2C device.
  *
- * This function reads a specified number of bytes from a designated I2C device
- * using the specified I2C bus. It supports reading single or multiple bytes
- * with ACK/NACK handling for proper I2C communication.
+ * Reads data from a device using the specified bus and address.
  *
- * @note This function does not perform semaphore checks and is intended for
- *       internal use.
- *
- * @param[out] data Pointer to the buffer where read data will be stored.
- * @param[in] len The number of bytes to read from the I2C device.
- * @param[in] i2c_bus The I2C bus number to communicate over.
- * @param[in] i2c_address The 7-bit I2C address of the target device.
- * @param[in] tag The tag for logging errors.
+ * @param[out] data       Buffer to store the read data.
+ * @param[in] len         Number of bytes to read.
+ * @param[in] i2c_bus     I2C bus number.
+ * @param[in] i2c_address 7-bit I2C address of the target device.
+ * @param[in] tag         Logging tag for error messages.
  *
  * @return
- *   - ESP_OK on success.
- *   - Appropriate ESP_ERR code on failure, with error details logged.
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` error codes on failure.
+ *
+ * @note 
+ * - This function does not include semaphore checks.
  */
 esp_err_t priv_i2c_read_bytes(uint8_t *data, size_t len, i2c_port_t i2c_bus,
                               uint8_t i2c_address, const char *tag);
 
-/* New function declarations */
-
 /**
- * @brief Write a byte to a specific register of an I2C device.
+ * @brief Writes a byte to a specific register on an I2C device.
  *
- * @param[in] reg_addr The register address to write to.
- * @param[in] data The data byte to write to the register.
- * @param[in] i2c_bus The I2C bus number to communicate over.
- * @param[in] i2c_address The 7-bit I2C address of the target device.
- * @param[in] tag The tag for logging errors.
+ * Writes data to a designated register using the provided bus and device address.
+ *
+ * @param[in] reg_addr    Register address to write to.
+ * @param[in] data        Data byte to write.
+ * @param[in] i2c_bus     I2C bus number.
+ * @param[in] i2c_address 7-bit I2C address of the target device.
+ * @param[in] tag         Logging tag for error messages.
  *
  * @return
- *   - ESP_OK on success.
- *   - Appropriate ESP_ERR code on failure, with error details logged.
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` error codes on failure.
+ *
+ * @note 
+ * - No concurrency protection is implemented.
  */
 esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
                                   i2c_port_t i2c_bus, uint8_t i2c_address,
                                   const char *tag);
 
 /**
- * @brief Read multiple bytes starting from a specific register of an I2C device.
+ * @brief Reads multiple bytes starting from a specific register on an I2C device.
  *
- * @param[in] reg_addr The starting register address to read from.
- * @param[out] data Pointer to the buffer where read data will be stored.
- * @param[in] len The number of bytes to read.
- * @param[in] i2c_bus The I2C bus number to communicate over.
- * @param[in] i2c_address The 7-bit I2C address of the target device.
- * @param[in] tag The tag for logging errors.
+ * Reads data from consecutive registers of a device.
+ *
+ * @param[in] reg_addr    Starting register address to read from.
+ * @param[out] data       Buffer to store the read data.
+ * @param[in] len         Number of bytes to read.
+ * @param[in] i2c_bus     I2C bus number.
+ * @param[in] i2c_address 7-bit I2C address of the target device.
+ * @param[in] tag         Logging tag for error messages.
  *
  * @return
- *   - ESP_OK on success.
- *   - Appropriate ESP_ERR code on failure, with error details logged.
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` error codes on failure.
+ *
+ * @note 
+ * - No semaphore checks or concurrency protection is implemented.
  */
 esp_err_t priv_i2c_read_reg_bytes(uint8_t reg_addr, uint8_t *data, size_t len,
                                   i2c_port_t i2c_bus, uint8_t i2c_address,
                                   const char *tag);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_I2C_H */
 

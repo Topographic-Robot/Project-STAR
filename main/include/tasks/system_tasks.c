@@ -23,12 +23,14 @@ ov7670_data_t    g_camera_data    = {}; /* TODO: Make this support all 6 cameras
 /* Private (Static) Functions *************************************************/
 
 /**
- * @brief Clears and initializes the ESP32's Non-Volatile Storage (NVS) flash.
+ * @brief Initializes and resets the ESP32's Non-Volatile Storage (NVS) flash if needed.
  *
- * Attempts to initialize the NVS flash. If no free pages are found
- * or a new version of NVS is detected, it erases the flash and reinitializes it.
+ * Initializes the NVS flash. If no free pages are available or a version mismatch is detected, 
+ * the flash is erased and reinitialized.
  *
- * @return ESP_OK if successful; otherwise, returns an error code.
+ * @return 
+ * - `ESP_OK` on successful initialization.
+ * - Relevant error code if the operation fails.
  */
 static esp_err_t priv_clear_nvs_flash(void)
 {
@@ -78,11 +80,11 @@ esp_err_t system_tasks_init(void)
     ret = ESP_FAIL;
   }
 
-//  /* Initialize WiFi */
-//  if (wifi_init_sta() != ESP_OK) {
-//    ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
-//    ret = ESP_FAIL;
-//  }
+  /* Initialize WiFi */
+  if (wifi_init_sta() != ESP_OK) {
+    ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
+    ret = ESP_FAIL;
+  }
   
   /* Initialize time (SNTP) */
   if (time_manager_init() != ESP_OK) {

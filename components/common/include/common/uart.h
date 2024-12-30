@@ -3,65 +3,73 @@
 #ifndef TOPOROBO_UART_H
 #define TOPOROBO_UART_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "esp_err.h"
 #include "driver/uart.h"
 
 /* Constants ******************************************************************/
 
-extern const uint32_t uart_timeout_ticks; /* Timeout for UART commands in ticks */
+extern const uint32_t uart_timeout_ticks; /**< Timeout for UART commands in ticks */
 
 /* Private Functions **********************************************************/
 
 /**
- * @brief Initialize the UART interface with the specified parameters.
+ * @brief Initializes the UART interface with specified parameters.
  *
- * This function configures the UART bus with the provided TX and RX pins,
- * baud rate, and UART port number. It sets the UART mode to master, initializes
- * the driver, and sets up communication parameters such as baud rate, data bits,
- * parity, and stop bits.
+ * Configures the UART interface with the specified TX and RX pins, baud rate,
+ * and UART port number. Sets the UART mode to master, initializes the driver,
+ * and configures communication parameters such as baud rate, data bits, parity,
+ * and stop bits. The UART driver is set up with no buffer allocation (TX and RX buffers set to 0).
  *
- * @param[in] tx_io Pin number for the UART TX (transmit) line.
- * @param[in] rx_io Pin number for the UART RX (receive) line.
- * @param[in] baud_rate Baud rate for UART communication (e.g., 9600, 115200).
- * @param[in,out] uart_num UART port number to use for communication (e.g., UART_NUM_1).
- * @param[in] tag The tag for logging errors and events.
+ * @param[in] tx_io        Pin number for the TX (transmit) line.
+ * @param[in] rx_io        Pin number for the RX (receive) line.
+ * @param[in] baud_rate    Communication baud rate (e.g., 9600, 115200).
+ * @param[in,out] uart_num UART port number to configure.
+ * @param[in] tag          Tag for logging errors and events.
  *
- * @return
- *   - ESP_OK on successful initialization.
- *   - An error code from the esp_err_t enumeration on failure.
+ * @return 
+ * - `ESP_OK` on successful initialization.
+ * - Error codes from `esp_err_t` on failure (e.g., invalid arguments or driver errors).
  *
- * @note This function does not require any buffers for the UART driver,
- *       so it sets the buffer size to 0 for both TX and RX.
+ * @note 
+ * - Ensure the specified pins are free and not used by other peripherals.
+ * - This function assumes the UART driver is not already initialized on the given port.
  */
 esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate,
                          uart_port_t uart_num, const char *tag);
 
 /**
- * @brief Read data from the UART interface and return the length of data read.
+ * @brief Reads data from the UART interface and returns the length of data read.
  *
- * This function reads up to `len` bytes from the UART interface specified by `uart_num`.
- * It uses a timeout mechanism to wait for data to be available. If data is received,
- * the length of the data read is stored in `out_length`, and the data is returned
- * in the `data` buffer.
+ * Reads up to `len` bytes from the specified UART interface. Uses a timeout
+ * mechanism to wait for data. On success, the read data is stored in `data`, 
+ * and the number of bytes read is saved in `out_length`.
  *
- * **Logic and Flow:**
- * - Attempts to read data from the UART interface using `uart_read_bytes`.
- * - If data is read successfully, stores the length in `out_length` and logs the data.
- * - If the read fails or times out, sets `out_length` to zero and returns an error.
+ * @param[out] data       Buffer to store the read data.
+ * @param[in] len         Maximum number of bytes to read.
+ * @param[out] out_length Pointer to an integer to store the number of bytes read.
+ * @param[in] uart_num    UART port number to read from.
+ * @param[in] tag         Tag for logging errors and events.
  *
- * @param[out] data Pointer to the buffer where the read data will be stored.
- * @param[in] len The maximum number of bytes to read from the UART interface.
- * @param[out] out_length Pointer to an integer where the length of data read will be stored.
- * @param[in] uart_num UART port number to communicate over (e.g., UART_NUM_1).
- * @param[in] tag The tag for logging errors and events.
+ * @return 
+ * - `ESP_OK`   if data is successfully read.
+ * - `ESP_FAIL` if the read operation fails or times out.
  *
- * @return
- *   - ESP_OK if data is successfully read.
- *   - ESP_FAIL if reading fails or times out.
+ * @note 
+ * - Ensure the UART interface is initialized using `priv_uart_init` before calling this function.
+ * - The `data` buffer must have sufficient space for `len` bytes.
+ * - This function does not implement retry logic; consider adding retries if necessary.
  */
 esp_err_t priv_uart_read(uint8_t *data, size_t len, int32_t *out_length,
                          uart_port_t uart_num, const char *tag);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_UART_H */
 

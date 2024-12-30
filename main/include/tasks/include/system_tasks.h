@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_SYSTEM_TASKS_H
 #define TOPOROBO_SYSTEM_TASKS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "esp_err.h"
 #include "sensor_tasks.h"
 #include "wifi_tasks.h"
@@ -27,28 +31,47 @@ extern ov7670_data_t    g_camera_data;    /**< Global variable that holds the ca
 /**
  * @brief Initializes system-level tasks for handling devices and communication.
  *
- * This function initializes tasks that monitor motors, collect sensor data,
- * relay video to the web server, and handle Wi-Fi operations.
+ * Prepares system tasks required for managing hardware devices and communication 
+ * subsystems. This includes setting up resources for motor monitoring, sensor 
+ * data collection, video streaming to the web server, and Wi-Fi operations. 
+ * Initialization ensures that each task has the necessary prerequisites to start.
  *
- * @return ESP_OK if initialization succeeds; ESP_FAIL otherwise.
+ * @return 
+ * - ESP_OK   if all system-level tasks are initialized successfully.
+ * - ESP_FAIL if any initialization step fails.
+ *
+ * @note This function should be called once during system setup, prior to starting 
+ *       the tasks with `system_tasks_start`.
  */
 esp_err_t system_tasks_init(void);
 
 /**
  * @brief Starts system-level tasks for handling devices and communication.
  *
- * This function creates and starts tasks that monitor motors, collect sensor data,
- * relay video to the web server, and handle Wi-Fi operations. Tasks are pinned
- * to the appropriate cores based on their functionality.
+ * Creates and starts tasks responsible for the following functions:
+ * - Monitoring and controlling motors.
+ * - Collecting and processing sensor data.
+ * - Relaying video streams to the web server.
+ * - Managing Wi-Fi connectivity and related operations.
  *
- * - Wi-Fi handling is pinned to Core 0.
- * - Motor monitoring is pinned to Core 1.
- * - Sensor data collection is pinned to Core 1.
- * - Webserver video relay is pinned to Core 1.
+ * Tasks are pinned to the appropriate ESP32 cores to optimize performance and 
+ * ensure efficient resource utilization:
+ * - Core 0: Wi-Fi handling.
+ * - Core 1: Motor monitoring, sensor data collection, and webserver video relay.
  *
- * @return ESP_OK if all tasks start successfully; ESP_FAIL if any task fails.
+ * @return 
+ * - ESP_OK   if all tasks start successfully.
+ * - ESP_FAIL if any task fails to start.
+ *
+ * @note Ensure that `system_tasks_init` has been called successfully before invoking 
+ *       this function. Task creation may fail if system resources are insufficient 
+ *       or prerequisites are unmet.
  */
 esp_err_t system_tasks_start(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_SYSTEM_TASKS_H */
 

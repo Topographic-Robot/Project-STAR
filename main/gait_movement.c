@@ -19,18 +19,20 @@ const char *gait_tag = "Gait Movement";
 /* Private Functions (Static) *************************************************/
 
 /**
- * @brief Set a relative angle for a motor based on its joint type.
+ * @brief Sets a relative angle for a motor based on its joint type.
  *
- * Converts a relative angle (e.g., -30°, +30°) to an absolute angle (0°–180°) 
- * for the PCA9685 servo and validates the angle based on joint constraints.
+ * Converts a relative angle (e.g., -30°, +30°) to an absolute angle (0°–180°)
+ * for a PCA9685-controlled servo motor and validates it against joint constraints.
  *
  * @param[in] pwm_controller Pointer to the PCA9685 board controller.
- * @param[in] motor_mask Mask indicating which motor(s) to control (bitmask).
- * @param[in] board_id The ID of the PCA9685 board controlling the motor(s).
- * @param[in] joint_type The type of joint (hip, knee, or tibia).
- * @param[in] relative_angle The desired angle relative to 90°.
+ * @param[in] motor_mask     Mask indicating the motor(s) to control.
+ * @param[in] board_id       ID of the PCA9685 board controlling the motor(s).
+ * @param[in] joint_type     Type of joint (e.g., hip, knee, or tibia).
+ * @param[in] relative_angle Desired angle relative to the neutral position (90°).
  *
- * @return ESP_OK on success, or an error code on failure.
+ * @return 
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` codes on failure.
  */
 esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller, uint16_t motor_mask, 
                                   uint8_t board_id, joint_type_t joint_type, 
@@ -75,22 +77,25 @@ esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller, uint16_t moto
 }
 
 /**
- * @brief Assigns motor details to a given motor struct.
+ * @brief Configures a motor with joint type, board ID, and motor ID.
  *
- * This helper function assigns the joint type, board ID, motor ID, and initializes
- * the motor's position to 0.0 degrees. It also ensures that motor indices wrap
- * correctly across multiple PCA9685 boards.
+ * Assigns joint type, board ID, motor ID, and initializes the motor's position 
+ * to 0.0 degrees. Adjusts motor indices to wrap correctly across multiple 
+ * PCA9685 boards when needed.
  *
- * @param[in,out] motor         Pointer to the motor_t structure to be configured.
- * @param[in]     joint_type    The type of joint (hip, knee, tibia).
- * @param[in]     board         Pointer to the current PCA9685 board.
- * @param[in,out] motor_index   Pointer to the motor index on the current board.
- * @param[in,out] board_id      Pointer to the ID of the current PCA9685 board.
+ * @param[in,out] motor       Pointer to the `motor_t` structure to configure.
+ * @param[in]     joint_type  Type of joint (e.g., hip, knee, tibia).
+ * @param[in]     board       Pointer to the current PCA9685 board.
+ * @param[in,out] motor_index Pointer to the motor index on the current board.
+ * @param[in,out] board_id    Pointer to the current PCA9685 board ID.
  *
- * @note This function modifies motor_index and board_id if motor indices exceed
- *       the board's capacity (16 motors).
+ * @note 
+ * - Updates `motor_index` and `board_id` when indices exceed the board's capacity (16 motors).
+ * - Returns an error if a new board is required but unavailable.
  *
- * @return ESP_OK on success, or ESP_FAIL if a new board is required but not available.
+ * @return 
+ * - `ESP_OK`   on success.
+ * - `ESP_FAIL` if a new board is required but unavailable.
  */
 static esp_err_t priv_assign_motor(motor_t *motor, joint_type_t joint_type, 
                                    pca9685_board_t **board, uint8_t *motor_index, 
@@ -116,23 +121,23 @@ static esp_err_t priv_assign_motor(motor_t *motor, joint_type_t joint_type,
 }
 
 /**
- * @brief Calculate the step distance based on the angles of the hip, knee, and tibia joints.
+ * @brief Calculates the step distance based on joint angles.
  *
- * This function computes the horizontal stride distance of a leg based on the input angles
- * for the hip, knee, and tibia joints. It also calculates the vertical clearance for diagnostic
- * purposes. Angles must be within their respective valid ranges (ALL RELATIVE ANGLES).
+ * Computes the horizontal stride distance of a leg using the relative angles 
+ * of the hip, knee, and tibia joints. Also calculates vertical clearance for 
+ * diagnostics. Angles must fall within their respective valid ranges.
  *
- * @param[in] hip_angle_deg   Angle of the hip joint in degrees. Must be within
- *                            the range [hip_angle_from_90_min, hip_angle_from_90_max].
- * @param[in] knee_angle_deg  Angle of the knee joint in degrees. Must be within 
- *                            the range [knee_angle_from_90_min, knee_angle_from_90_max].
- * @param[in] tibia_angle_deg Angle of the tibia joint in degrees. Must be within 
- *                            the range [tibia_angle_from_90_min, tibia_angle_from_90_max].
+ * @param[in] hip_angle_deg   Relative angle of the hip joint in degrees.
+ * @param[in] knee_angle_deg  Relative angle of the knee joint in degrees.
+ * @param[in] tibia_angle_deg Relative angle of the tibia joint in degrees.
  *
- * @return Horizontal stride distance in centimeters if all angles are valid; -1.0f otherwise.
+ * @return 
+ * - Horizontal stride distance in centimeters if angles are valid.
+ * - `-1.0f` if any angle is invalid.
  *
- * @note The femur_length_cm and tibia_length_cm constants must be defined globally.
- *       The gait_tag must be used for logging purposes.
+ * @note 
+ * - Requires `femur_length_cm` and `tibia_length_cm` to be defined globally.
+ * - Uses `gait_tag` for logging errors and diagnostics.
  */
 float priv_calculate_step_distance(float hip_angle_deg, float knee_angle_deg, 
                                    float tibia_angle_deg)
@@ -142,19 +147,19 @@ float priv_calculate_step_distance(float hip_angle_deg, float knee_angle_deg,
   /* Validate input parameters */
   if (hip_angle_deg < hip_angle_from_90_min || hip_angle_deg > hip_angle_from_90_max) {
     ESP_LOGE(gait_tag, "Invalid hip angle: %.2f°. Must be in range [%.2f°, %.2f°].",
-        hip_angle_deg, hip_angle_from_90_min, hip_angle_from_90_max);
+             hip_angle_deg, hip_angle_from_90_min, hip_angle_from_90_max);
     return -1.0f;
   }
 
   if (knee_angle_deg < knee_angle_from_90_min || knee_angle_deg > knee_angle_from_90_max) {
     ESP_LOGE(gait_tag, "Invalid knee angle: %.2f°. Must be in range [%.2f°, %.2f°].",
-        knee_angle_deg, knee_angle_from_90_min, knee_angle_from_90_max);
+             knee_angle_deg, knee_angle_from_90_min, knee_angle_from_90_max);
     return -1.0f;
   }
 
   if (tibia_angle_deg < tibia_angle_from_90_min || tibia_angle_deg > tibia_angle_from_90_max) {
     ESP_LOGE(gait_tag, "Invalid tibia angle: %.2f°. Must be in range [%.2f°, %.2f°].",
-        tibia_angle_deg, tibia_angle_from_90_min, tibia_angle_from_90_max);
+             tibia_angle_deg, tibia_angle_from_90_min, tibia_angle_from_90_max);
     return -1.0f;
   }
 
@@ -172,22 +177,22 @@ float priv_calculate_step_distance(float hip_angle_deg, float knee_angle_deg,
                              tibia_length_cm * cosf(tibia_angle_rad);
 
   ESP_LOGI(gait_tag, "Stride: %.2f cm, Clearance: %.2f cm", 
-      horizontal_stride, vertical_clearance);
+           horizontal_stride, vertical_clearance);
 
   return horizontal_stride;
 }
 
 /**
- * @brief Helper function to extract a chunk of active motors from a mask.
+ * @brief Extracts a chunk of active motors from a motor mask.
  *
- * This function extracts the next chunk of motors from the mask, ensuring that
- * the number of active motors in the chunk does not exceed the specified limit.
+ * Splits the given motor mask into chunks, ensuring the number of active motors 
+ * in the chunk does not exceed the specified limit.
  *
- * @param[in]  mask              The full 16-bit mask of motors.
+ * @param[in]  mask              Full 16-bit motor mask.
  * @param[in]  max_active_servos Maximum number of active motors per chunk.
- * @param[out] chunk             The resulting chunk of motors.
+ * @param[out] chunk             Pointer to store the resulting motor chunk.
  *
- * @return The updated mask after removing the processed chunk.
+ * @return Updated mask with the processed chunk removed.
  */
 static uint16_t priv_extract_chunk(uint16_t mask, uint8_t max_active_servos, 
                                    uint16_t *chunk) 
@@ -209,22 +214,24 @@ static uint16_t priv_extract_chunk(uint16_t mask, uint8_t max_active_servos,
 }
 
 /**
- * @brief Process a motor mask in chunks, ensuring the maximum active servos are not exceeded.
+ * @brief Processes a motor mask in chunks, limiting the number of active servos.
  *
- * This function divides a 16-bit motor mask into smaller chunks, each containing a number
- * of active motors less than or equal to the specified max_active_servos. It then applies
- * the specified target angle to the motors of the selected joint type for each chunk, with
- * a delay between processing to minimize current draw.
+ * Divides a 16-bit motor mask into chunks, each containing up to `max_active_servos` active motors. 
+ * Sets the specified relative angle for the given joint type on the motors in each chunk, with a delay 
+ * between chunks to reduce current draw.
  *
- * @param[in] pwm_controller    Pointer to the PCA9685 board controller object.
- * @param[in] mask              16-bit mask representing the motors to be processed.
- * @param[in] max_active_servos Maximum number of active servos to process at one time.
- * @param[in] relative_angle    Relative angle in degrees to set for the specified joint type.
+ * @param[in] pwm_controller    Pointer to the PCA9685 board controller.
+ * @param[in] mask              16-bit motor mask indicating the motors to process.
+ * @param[in] max_active_servos Maximum number of active servos per chunk.
+ * @param[in] relative_angle    Relative angle in degrees to set for the motors.
  *
- * @return ESP_OK if all chunks are processed successfully; an appropriate esp_err_t code otherwise.
+ * @return 
+ * - `ESP_OK` if all chunks are processed successfully.
+ * - Relevant `esp_err_t` code on failure.
  *
- * @note The joint_type parameter must correspond to an enumerated value defined in joint_type_t.
- *       The function delays execution using vTaskDelay between chunk processing to reduce current draw.
+ * @note 
+ * - The `joint_type` parameter must be a valid value from `joint_type_t`.
+ * - Includes delays (`vTaskDelay`) between chunk processing to minimize current draw.
  */
 esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller, uint16_t mask,
                                       float relative_angle)
@@ -302,7 +309,7 @@ esp_err_t tripod_gait(pca9685_board_t *pwm_controller, float heading,
     uint16_t distance)
 {
   ESP_LOGI(gait_tag, "Starting tripod gait: heading=%.2f, distance=%ucm", 
-      heading, distance);
+           heading, distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -312,7 +319,7 @@ esp_err_t wave_gait(pca9685_board_t *pwm_controller, float heading,
     uint16_t distance)
 {
   ESP_LOGI(gait_tag, "Starting wave gait: heading=%.2f, distance=%ucm", 
-      heading, distance);
+           heading, distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -322,7 +329,7 @@ esp_err_t ripple_gait(pca9685_board_t *pwm_controller, float heading,
     uint16_t distance)
 {
   ESP_LOGI(gait_tag, "Starting ripple gait: heading=%.2f, distance=%ucm", 
-      heading, distance);
+           heading, distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -332,7 +339,7 @@ esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, float heading,
     uint16_t distance)
 {
   ESP_LOGI(gait_tag, "Starting quadruped gait: heading=%.2f, distance=%ucm", 
-      heading, distance);
+           heading, distance);
 
   /* TODO: Implement this */
   return ESP_OK;

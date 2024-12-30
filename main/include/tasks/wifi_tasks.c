@@ -29,11 +29,11 @@ static TimerHandle_t      s_wifi_connect_timer = NULL;
 /* Private (Static) Functions *************************************************/
 
 /**
- * @brief Timer callback for WiFi connection timeout.
+ * @brief Timer callback for handling WiFi connection timeout.
  *
- * This function stops the connection process if the timer expires.
+ * Stops the WiFi connection process if the timer expires.
  *
- * @param xTimer Timer handle (unused in this implementation).
+ * @param[in] xTimer Timer handle (unused in this implementation).
  */
 static void priv_wifi_connect_timeout_cb(TimerHandle_t xTimer)
 {
@@ -42,6 +42,22 @@ static void priv_wifi_connect_timeout_cb(TimerHandle_t xTimer)
   xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT); /* Signal connection failure */
 }
 
+/**
+ * @brief Handles Wi-Fi and IP events for connection management.
+ *
+ * Responds to Wi-Fi and IP-related events, managing actions such as connecting 
+ * to an access point, retrying on disconnection, and handling IP acquisition. 
+ * Ensures connection retries are limited and logs status updates.
+ *
+ * @param[in] arg         Pointer to user-defined data passed during event registration.
+ * @param[in] event_base  Event base (e.g., `WIFI_EVENT`, `IP_EVENT`) that triggered the handler.
+ * @param[in] event_id    Specific event ID within the event base.
+ * @param[in] event_data  Pointer to event-specific data (type varies by event).
+ *
+ * @note 
+ * - Intended for internal use as part of the ESP-IDF event handling system.
+ * - Registered as an event handler during Wi-Fi initialization.
+ */
 static void priv_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
 {

@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_MQ135_HAL_H
 #define TOPOROBO_MQ135_HAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -21,43 +25,34 @@ extern const uint32_t mq135_max_backoff_interval;   /**< Maximum backoff interva
 /* Enums **********************************************************************/
 
 /**
- * @enum mq135_states_
  * @brief Enumeration of MQ135 sensor states.
  *
- * This enum defines the possible operational states of the MQ135 sensor.
- * Each state indicates a specific phase in the sensor's lifecycle or an error
- * condition that requires handling.
- *
- * **States:**
- * - `k_mq135_ready`: The sensor is ready for data collection.
- * - `k_mq135_warming_up`: The sensor is still stabilizing during the warm-up period.
- * - `k_mq135_error`: A general error has occurred.
- * - `k_mq135_read_error`: An error occurred while reading the analog output.
+ * Defines the possible operational states of the MQ135 air quality sensor,
+ * indicating its readiness, warm-up status, or error conditions.
  */
 typedef enum : uint8_t {
-  k_mq135_ready      = 0x00, /**< Sensor is ready for data collection */
-  k_mq135_warming_up = 0x01, /**< Sensor is stabilizing (warm-up period) */
-  k_mq135_error      = 0xF0, /**< General error */
-  k_mq135_read_error = 0xA1, /**< Error reading analog value */
+  k_mq135_ready      = 0x00, /**< Sensor is ready for data collection. */
+  k_mq135_warming_up = 0x01, /**< Sensor is stabilizing during the warm-up period. */
+  k_mq135_error      = 0xF0, /**< General catch-all error state. */
+  k_mq135_read_error = 0xA1, /**< Error occurred while reading the analog output. */
 } mq135_states_t;
 
 /* Structs ********************************************************************/
 
 /**
- * @struct mq135_data_
  * @brief Structure to store MQ135 sensor data and status.
  *
- * This structure encapsulates all relevant data and status information for
- * the MQ135 sensor, including the raw ADC value, calculated gas concentration,
- * retry handling, and the current state.
+ * Holds data and status information for the MQ135 air quality sensor, including
+ * the raw ADC reading, calculated gas concentration in ppm, warm-up timing, and
+ * retry handling for error recovery.
  */
 typedef struct {
-  uint16_t   raw_adc_value;      /**< Raw ADC value from the analog output */
-  float      gas_concentration;  /**< Gas concentration in ppm (calculated) */
-  uint8_t    state;              /**< Current state of the sensor */
-  TickType_t warmup_start_ticks; /**< Tick count of warm-up start */
-  uint8_t    retry_count;        /**< Retry counter for error recovery */
-  uint32_t   retry_interval;     /**< Current retry interval */
+  uint16_t   raw_adc_value;      /**< Raw ADC value read from the analog output of the sensor. */
+  float      gas_concentration;  /**< Calculated gas concentration in parts per million (ppm). */
+  uint8_t    state;              /**< Current operational state of the sensor (see `mq135_states_t`). */
+  TickType_t warmup_start_ticks; /**< Tick count when the warm-up period started. */
+  uint8_t    retry_count;        /**< Counter for consecutive retries during error recovery. */
+  uint32_t   retry_interval;     /**< Current interval between retry attempts, in ticks. */
 } mq135_data_t;
 
 /* Public Functions ***********************************************************/
@@ -123,6 +118,10 @@ void mq135_reset_on_error(mq135_data_t *sensor_data);
  * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure.
  */
 void mq135_tasks(void *sensor_data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_MQ135_HAL_H */
 

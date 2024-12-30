@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_HEXAPOD_GEOMETRY
 #define TOPOROBO_HEXAPOD_GEOMETRY
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /* Constants ******************************************************************/
@@ -21,56 +25,47 @@ extern const uint8_t max_active_servos;       /**< Limit on simultaneously activ
 /* Enums **********************************************************************/
 
 /**
- * @enum joint_type_t
- * @brief Represents the type of joint in a hexapod leg.
- * 
- * This enum defines the three main joint types for a hexapod:
- * - k_hip: The joint connecting the body to the first segment (hip).
- * - k_knee: The joint connecting the femur to the tibia.
- * - k_tibia: The joint connecting the tibia to the ground contact point.
+ * @brief Defines the joint types in the hexapod robot.
+ *
+ * Used to specify the joint controlled by a motor.
  */
 typedef enum : uint8_t {
-  k_hip,   /**< Represents the hip joint. */
-  k_knee,  /**< Represents the knee joint. */
-  k_tibia, /**< Represents the tibia joint. */
+  k_hip,   /**< The hip joint. */
+  k_knee,  /**< The knee joint. */
+  k_tibia, /**< The tibia joint. */
 } joint_type_t;
 
 /* Structs ********************************************************************/
 
 /**
- * @struct motor_t
  * @brief Represents a motor associated with a specific joint.
- * 
- * This struct encapsulates details about a motor controlling a joint,
- * including its type (hip, knee, or tibia) and its current position in degrees.
+ *
+ * Contains information about a motor's type, current position, and identification
+ * on the PCA9685 servo controller boards.
  */
 typedef struct {
-  joint_type_t joint_type; /**< Type of joint this motor controls. */
-  float        pos_deg;    /**< Current position of the motor in degrees (from 0 to 180deg). */
-  uint8_t      board_id;   /**< The ID of the PCA9685 board (0 or 1) */
-  uint8_t      motor_id;   /**< The ID of the motor on the board (0 to 15) */
+  joint_type_t joint_type; /**< Type of joint this motor controls (hip, knee, or tibia). */
+  float        pos_deg;    /**< Current position of the motor in degrees (range: 0 to 180). */
+  uint8_t      board_id;   /**< ID of the PCA9685 board (e.g., 0 or 1). */
+  uint8_t      motor_id;   /**< ID of the motor on the board (range: 0 to 15). */
 } motor_t;
 
 /**
  * @brief Represents the configuration of a single leg in the hexapod robot.
  *
- * This structure holds the data necessary to control and identify a specific leg
- * in the hexapod. Each leg has an associated ID and pointers to the motor configurations
- * for its hip, knee, and tibia joints, enabling precise movement and control.
- *
- * The `hip_motor`, `knee_motor`, and `tibia_motor` pointers link to the respective
- * motor configurations stored in the PCA9685 board's motor map. These pointers allow
- * the gait logic to access motor settings and commands seamlessly.
- *
- * @note This structure is designed to be used with the hexapod's gait algorithms, 
- * ensuring proper initialization and management of each leg's motors.
+ * Contains the leg ID and pointers to the motor configurations for the hip,
+ * knee, and tibia joints.
  */
 typedef struct {
-  uint8_t  id;          /**< The ID for the leg (0 to 5). */
-  motor_t *hip_motor;   /**< A pointer to the hip motor struct stored in the PCA9685 controller. */
-  motor_t *knee_motor;  /**< A pointer to the knee motor struct stored in the PCA9685 controller. */
-  motor_t *tibia_motor; /**< A pointer to the tibia motor struct stored in the PCA9685 controller. */
+  uint8_t  id;          /**< The unique ID of the leg (range: 0 to 5). */
+  motor_t *hip_motor;   /**< Pointer to the hip motor configuration. */
+  motor_t *knee_motor;  /**< Pointer to the knee motor configuration. */
+  motor_t *tibia_motor; /**< Pointer to the tibia motor configuration. */
 } leg_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_HEXAPOD_GEOMETRY */
 

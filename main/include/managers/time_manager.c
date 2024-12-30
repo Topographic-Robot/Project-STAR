@@ -16,9 +16,12 @@ const char *time_manager_tag = "TIME_MANAGER";
 /**
  * @brief Initializes the SNTP service for time synchronization.
  *
- * Sets up SNTP to poll the NTP server for time updates. The default NTP
- * server is "pool.ntp.org". SNTP operates in polling mode, periodically
- * refreshing the system clock.
+ * Configures SNTP to synchronize the system clock with an NTP server. By default, 
+ * it uses "pool.ntp.org" and operates in polling mode to periodically refresh the time.
+ *
+ * @note 
+ * - Ensure network connectivity before calling this function.
+ * - The system time will remain unsynchronized if SNTP initialization fails.
  */
 static void priv_initialize_sntp(void)
 {
@@ -37,11 +40,13 @@ static void priv_initialize_sntp(void)
 }
 
 /**
- * @brief Sets the system time to a default value if network or NTP sync fails.
+ * @brief Sets the system time to a default value as a fallback.
  *
- * This function provides a fallback time setting in scenarios where
- * the Wi-Fi connection is not available, or NTP synchronization
- * cannot complete. It sets the system clock to January 1st, 2023, 00:00:00.
+ * Sets the system clock to January 1st, 2023, 00:00:00 in cases where Wi-Fi 
+ * is unavailable or NTP synchronization fails.
+ *
+ * @note 
+ * - Use this function only as a fallback when time synchronization cannot complete.
  */
 static void priv_set_default_time(void)
 {

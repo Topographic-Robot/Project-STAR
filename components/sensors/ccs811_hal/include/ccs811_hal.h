@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_CCS811_HAL_H
 #define TOPOROBO_CCS811_HAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -23,42 +27,39 @@ extern const uint8_t    ccs811_int_io;      /**< GPIO pin for the sensor's inter
 /* Enums **********************************************************************/
 
 /**
- * @enum ccs811_states_t
  * @brief Enumeration of CCS811 sensor states.
  *
- * This enum defines the possible states of the CCS811 sensor, including ready,
- * data updated, uninitialized, and various error states.
+ * Defines the possible operational states of the CCS811 air quality sensor, 
+ * including normal operation, data updates, initialization status, and error conditions.
  */
 typedef enum : uint8_t {
-  k_ccs811_ready           = 0x00, /**< Sensor is ready for data */
-  k_ccs811_data_updated    = 0x01, /**< Data has been updated */
-  k_ccs811_uninitialized   = 0x10, /**< Sensor is not initialized */
-  k_ccs811_error           = 0xF0, /**< General error */
-  k_ccs811_power_on_error  = 0xA1, /**< Error during power on */
-  k_ccs811_reset_error     = 0xA2, /**< Error during reset */
-  k_ccs811_app_start_error = 0xA3, /**< Error starting application */
-  k_ccs811_read_error      = 0xA4, /**< Error reading sensor data */
+  k_ccs811_ready           = 0x00, /**< Sensor is initialized and ready to provide data. */
+  k_ccs811_data_updated    = 0x01, /**< New data is available from the sensor. */
+  k_ccs811_uninitialized   = 0x10, /**< Sensor has not been initialized. */
+  k_ccs811_error           = 0xF0, /**< General catch-all error state. */
+  k_ccs811_power_on_error  = 0xA1, /**< Error occurred during power-on. */
+  k_ccs811_reset_error     = 0xA2, /**< Error occurred during reset. */
+  k_ccs811_app_start_error = 0xA3, /**< Error occurred when starting the sensor's application. */
+  k_ccs811_read_error      = 0xA4, /**< Error occurred while reading sensor data. */
 } ccs811_states_t;
 
 /* Structs ********************************************************************/
 
 /**
- * @struct ccs811_data_t
- * @brief Structure for storing CCS811 sensor data and status.
+ * @brief Structure for managing CCS811 sensor data and status.
  *
- * This structure encapsulates all relevant data and state information for the
- * CCS811 sensor, including the most recent measurements and retry handling
- * variables for error recovery.
+ * Contains I2C communication details, the latest sensor measurements, and variables 
+ * for handling error recovery and reinitialization.
  */
 typedef struct {
-  uint8_t    i2c_address;        /**< I2C address */
-  uint8_t    i2c_bus;            /**< I2C bus */
-  uint16_t   eco2;               /**< Equivalent CO2 level in ppm */
-  uint16_t   tvoc;               /**< Total Volatile Organic Compounds in ppb */
-  uint8_t    state;              /**< Current state of the sensor */
-  uint8_t    retry_count;        /**< Retry counter for error handling */
-  uint32_t   retry_interval;     /**< Current retry interval */
-  TickType_t last_attempt_ticks; /**< Time of last reinitialization attempt */
+  uint8_t    i2c_address;        /**< I2C address used for communication with the sensor. */
+  uint8_t    i2c_bus;            /**< I2C bus number the sensor is connected to. */
+  uint16_t   eco2;               /**< Latest equivalent CO2 (eCO2) reading in parts per million (ppm). */
+  uint16_t   tvoc;               /**< Latest Total Volatile Organic Compounds (TVOC) reading in parts per billion (ppb). */
+  uint8_t    state;              /**< Current operational state of the sensor (see ccs811_states_t). */
+  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
+  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, increasing with retries. */
+  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
 } ccs811_data_t;
 
 /* Public Functions ***********************************************************/
@@ -113,6 +114,10 @@ void ccs811_reset_on_error(ccs811_data_t *sensor_data);
  * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure.
  */
 void ccs811_tasks(void *sensor_data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_CCS811_HAL_H */
 

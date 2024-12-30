@@ -13,8 +13,8 @@
 const char             *sd_card_tag                  = "SD_CARD";
 const char             *sd_card_mount                = "/sdcard";
 const uint8_t           sd_card_cs                   = GPIO_NUM_5;
-const uint8_t           sd_card_di                   = GPIO_NUM_23;
-const uint8_t           sd_card_do                   = GPIO_NUM_19;
+const uint8_t           sd_card_data_to_card         = GPIO_NUM_23;
+const uint8_t           sd_card_data_from_card       = GPIO_NUM_19;
 const uint8_t           sd_card_clk                  = GPIO_NUM_14;
 const uint32_t          sd_card_spi_freq_hz          = 1000000;     /* 1 MHz SPI frequency */
 const spi_host_device_t sd_card_spi_host             = SPI2_HOST;
@@ -32,8 +32,8 @@ esp_err_t sd_card_init(void)
 
   /* Configure the SPI bus */
   spi_bus_config_t bus_cfg = {
-    .mosi_io_num     = sd_card_di,
-    .miso_io_num     = sd_card_do,
+    .mosi_io_num     = sd_card_data_to_card,
+    .miso_io_num     = sd_card_data_from_card,
     .sclk_io_num     = sd_card_clk,
     .quadwp_io_num   = -1,
     .quadhd_io_num   = -1,

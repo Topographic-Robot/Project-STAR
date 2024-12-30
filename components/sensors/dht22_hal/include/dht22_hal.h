@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_DHT22_HAL_H
 #define TOPOROBO_DHT22_HAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -24,46 +28,33 @@ extern const uint32_t dht22_bit_threshold_us;       /**< Timing threshold for di
 /* Enums **********************************************************************/
 
 /**
- * @enum dht22_states_t
- * @brief Enum to represent the state of the DHT22 sensor.
+ * @brief Enumeration of DHT22 sensor states.
  *
- * This enum defines the possible states for the DHT22 sensor, providing
- * an easy way to track the sensor's current condition and identify errors.
+ * Represents the possible operational states of the DHT22 temperature and humidity sensor,
+ * including normal operation, data updates, initialization status, and error conditions.
  */
-typedef enum {
-  k_dht22_ready         = 0x00, /**< Sensor is ready to read data. */
-  k_dht22_data_updated  = 0x01, /**< Sensor data has been updated. */
-  k_dht22_uninitialized = 0x10, /**< Sensor is not initialized. */
-  k_dht22_error         = 0xF0, /**< A general catch-all error. */
+typedef enum : uint8_t {
+  k_dht22_ready         = 0x00, /**< Sensor is initialized and ready to provide data. */
+  k_dht22_data_updated  = 0x01, /**< New data is available from the sensor. */
+  k_dht22_uninitialized = 0x10, /**< Sensor has not been initialized. */
+  k_dht22_error         = 0xF0, /**< General catch-all error state. */
 } dht22_states_t;
 
-/* Data Structures ************************************************************/
+/* Structs ********************************************************************/
 
 /**
- * @struct dht22_data_t
- * @brief Structure to store DHT22 sensor data and state.
+ * @brief Structure for managing DHT22 sensor data and state.
  *
- * The `dht22_data_t` structure is used to maintain the data read from the
- * DHT22 sensor, including temperature and humidity values in both Fahrenheit
- * and Celsius, as well as the current state of the sensor, retry information,
- * and timing parameters for error handling.
- *
- * **Fields:**
- * - `temperature_f`: The current temperature reading in degrees Fahrenheit.
- * - `temperature_c`: The current temperature reading in degrees Celsius.
- * - `humidity`: The current humidity reading as a percentage.
- * - `state`: The current state of the sensor, as defined by the `dht22_states_t` enum.
- * - `retry_count`: The current count of retry attempts made after encountering an error.
- * - `retry_interval`: The current interval in ticks between retry attempts.
- * - `last_attempt_ticks`: The tick count of the last attempt to reinitialize the sensor.
+ * Contains the latest temperature and humidity readings from the DHT22 sensor,
+ * as well as state and retry management variables for error handling and reinitialization.
  */
 typedef struct {
-  float      temperature_f;      /**< Temperature in Fahrenheit. */
-  float      temperature_c;      /**< Temperature in Celsius. */
-  float      humidity;           /**< Humidity in percentage. */
-  uint8_t    state;              /**< Sensor state, set in `dht22_states_t` enum. */
-  uint8_t    retry_count;        /**< Retry counter for exponential backoff. */
-  uint32_t   retry_interval;     /**< Current retry interval in ticks. */
+  float      temperature_f;      /**< Latest temperature reading in Fahrenheit. */
+  float      temperature_c;      /**< Latest temperature reading in Celsius. */
+  float      humidity;           /**< Latest humidity reading as a percentage. */
+  uint8_t    state;              /**< Current operational state of the sensor (see dht22_states_t). */
+  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
+  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
   TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
 } dht22_data_t;
 
@@ -163,6 +154,9 @@ void dht22_reset_on_error(dht22_data_t *sensor_data);
  */
 void dht22_tasks(void *sensor_data);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_DHT22_HAL_H */
 

@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_FILE_WRITE_MANAGER_H
 #define TOPOROBO_FILE_WRITE_MANAGER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "esp_err.h"
 
 /* Constants ******************************************************************/
@@ -18,25 +22,19 @@ extern const uint32_t max_pending_writes; /**< Maximum number of queued file wri
 /* Structs ********************************************************************/
 
 /**
- * @struct file_write_request_t
- * @brief Structure representing a file write request.
+ * @brief Represents a request to write data to a file.
  *
- * This structure encapsulates the necessary information for writing data to a file,
- * including the file path and the data to be written.
- *
- * **Fields:**
- * - `file_path`: The path to the file where data should be written. The length is defined
- *   by the `max_file_path_length` constant to ensure proper memory allocation and avoid overflow.
- * - `data`: The content to be written to the file. The length is defined by the
- *   `max_data_length` constant to ensure proper memory allocation and avoid overflow.
- *
- * **Usage Notes:**
- * - Ensure that `file_path` is null-terminated and points to a valid path.
- * - `data` must be null-terminated if it contains string data.
+ * Contains the file path and data required for a file write operation.
+ * 
+ * @note
+ * - The `file_path` must be null-terminated and have a length defined by 
+ *   the `max_file_path_length` macro to prevent memory overflow.
+ * - The `data` field must also be null-terminated if it contains a string and
+ *   has a length defined by the `max_data_length` macro.
  */
 typedef struct {
-  char file_path[max_file_path_length]; /**< Path to the target file. */
-  char data[max_data_length];           /**< Data to be written to the file. */
+  char file_path[max_file_path_length]; /**< Path to the target file. Must be null-terminated and within the length limit. */
+  char data[max_data_length];           /**< Data to write to the file. Must be null-terminated if it is a string. */
 } file_write_request_t;
 
 /* Public Functions ***********************************************************/
@@ -44,36 +42,51 @@ typedef struct {
 /**
  * @brief Initializes the file write manager.
  *
- * This function creates a FreeRTOS queue for managing asynchronous
- * file write requests and starts a background task to handle the queued
- * requests. Files are always opened in append mode, creating them
- * if they do not exist. Each line of data written will include a
- * timestamp at the start.
+ * Sets up a FreeRTOS queue for managing asynchronous file write requests 
+ * and starts a background task to process them. Files are always opened 
+ * in append mode, creating them if they do not exist. Each line of data 
+ * written to a file will include a timestamp at the start in the format 
+ * `YYYY-MM-DD HH:MM:SS`.
  *
  * @return
- * - ESP_OK if the initialization is successful.
+ * - ESP_OK   if the initialization is successful.
  * - ESP_FAIL if the queue creation fails.
+ *
+ * @note This function must be called before attempting to enqueue file 
+ *       write requests.
  */
 esp_err_t file_write_manager_init(void);
 
 /**
  * @brief Enqueues a file write request.
  *
- * This function adds a file write request to the queue. The data will
- * be written to the specified file in the background by the file write task.
- * If the file does not exist, it will be created automatically. All writes
- * append data to the file. Each line written includes a timestamp at the
- * beginning in the format `YYYY-MM-DD HH:MM:SS`.
+ * Adds a file write request to the queue for asynchronous processing. 
+ * The data will be written to the specified file in the background by 
+ * the file write task. If the file does not exist, it will be created 
+ * automatically. All writes append data to the file. Each line written 
+ * includes a timestamp at the beginning in the format `YYYY-MM-DD HH:MM:SS`.
  *
- * @param[in] file_path Path to the file (e.g., "/sdcard/sensor1.txt").
- * @param[in] data Null-terminated string to write to the file.
+ * @param[in] file_path Path to the file (e.g., "/sdcard/sensor1.txt"). 
+ *                      This must be a valid file path accessible by 
+ *                      the system.
+ * @param[in] data      Null-terminated string to write to the file. The 
+ *                      string should not exceed the maximum size allowed 
+ *                      by the queue.
  *
  * @return
- * - ESP_OK if the request was successfully enqueued.
- * - ESP_ERR_INVALID_ARG if arguments are invalid.
- * - ESP_FAIL if the queue is full.
+ * - ESP_OK              if the request was successfully enqueued.
+ * - ESP_ERR_INVALID_ARG if any argument is invalid (e.g., NULL pointers).
+ * - ESP_FAIL            if the queue is full.
+ *
+ * @note Ensure `file_write_manager_init` has been called before invoking 
+ *       this function. The function does not block but returns immediately 
+ *       after enqueueing the request.
  */
 esp_err_t file_write_enqueue(const char *file_path, const char *data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_FILE_WRITE_MANAGER_H */
 

@@ -3,20 +3,23 @@
 #ifndef TOPOROBO_SD_CARD_HAL_H
 #define TOPOROBO_SD_CARD_HAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "esp_err.h"
 #include "driver/spi_common.h"
 
 /* Constants ******************************************************************/
 
-/* NOTE: The terms 'DI' (Data In) and 'DO' (Data Out) are used instead of
- * 'MOSI' (Master Out Slave In) and 'MISO' (Master In Slave Out) to avoid
- * outdated terminology like 'master' and 'slave.' This promotes inclusivity
- * and aligns with modern engineering practices, ensuring that technical
+/* NOTE: The terms 'data_to_card' (Data to Card) and 'data_from_card' (Data from Card) are used 
+ * to promote inclusivity and align with modern engineering practices, ensuring that technical
  * language remains respectful and accessible to all developers.
  */
-extern const uint8_t           sd_card_cs;                   /**< GPIO pin sofr SPI Chip Select (CS) */
-extern const uint8_t           sd_card_di;                   /**< GPIO pin for SPI communication into the SD card (DI / MOSI) */
-extern const uint8_t           sd_card_do;                   /**< GPIO pin for SPI communication out of the SD card (DO / MIDO) */
+extern const uint8_t           sd_card_cs;                   /**< GPIO pin for SPI Chip Select (CS) */
+extern const uint8_t           sd_card_data_to_card;         /**< GPIO pin for SPI communication into the SD card (DI) */
+extern const uint8_t           sd_card_data_from_card;       /**< GPIO pin for SPI communication out of the SD card (DO) */
+extern const uint8_t           sd_card_clk;                  /**< GPIO pin for SPI clock (SCLK / CLK) */
 extern const uint8_t           sd_card_clk;                  /**< GPIO pin for SPI clock (SCLK / CLK) */
 extern const uint32_t          sd_card_spi_freq_hz;          /**< SPI bus frequency in Hz for SD card */
 extern const spi_host_device_t sd_card_spi_host;             /**< Default SPI host for SD card interface */
@@ -34,10 +37,14 @@ extern const uint32_t          sd_card_max_transfer_sz;      /**< Maximum transf
  * `sd_card_spi_host`.
  *
  * @return
- * - `ESP_OK` if the initialization is successful.
+ * - `ESP_OK`   if the initialization is successful.
  * - `ESP_FAIL` if mounting fails.
  */
 esp_err_t sd_card_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_SD_CARD_HAL_H */
 

@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_GY_NEO6MV2_HAL_H
 #define TOPOROBO_GY_NEO6MV2_HAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -29,75 +33,52 @@ extern const uint32_t    gy_neo6mv2_max_backoff_interval;   /**< Maximum backoff
 /* Enums **********************************************************************/
 
 /**
- * @enum gy_neo6mv2_states_t
- * @brief Represents the operational states of the GY-NEO6MV2 GPS module.
+ * @brief Enumeration of GY-NEO6MV2 GPS module states.
  *
- * This enumeration defines the different states the GPS module can be in,
- * allowing for efficient state tracking and error handling within the system.
- * Each state corresponds to a specific condition or phase of the module's operation.
+ * Represents the possible operational states of the GY-NEO6MV2 GPS module,
+ * including normal operation, data updates, initialization status, and error conditions.
  */
-typedef enum {
-  k_gy_neo6mv2_ready         = 0x00, /**< Module is initialized and ready. */
-  k_gy_neo6mv2_data_updated  = 0x01, /**< New GPS data has been successfully read. */
-  k_gy_neo6mv2_uninitialized = 0x10, /**< Module is not yet initialized. */
-  k_gy_neo6mv2_error         = 0xF0, /**< A general error has occurred. */
+typedef enum : uint8_t {
+  k_gy_neo6mv2_ready         = 0x00, /**< Module is initialized and ready for operation. */
+  k_gy_neo6mv2_data_updated  = 0x01, /**< New GPS data has been successfully retrieved. */
+  k_gy_neo6mv2_uninitialized = 0x10, /**< Module is not initialized. */
+  k_gy_neo6mv2_error         = 0xF0, /**< General catch-all error state. */
 } gy_neo6mv2_states_t;
 
 /* Structs ********************************************************************/
 
 /**
- * @struct gy_neo6mv2_data_t
- * @brief Structure to store GPS data read from the GY-NEO6MV2 module.
+ * @brief Structure to store GPS data from the GY-NEO6MV2 module.
  *
- * This structure holds GPS data such as latitude, longitude, speed, and UTC time.
- * It also maintains diagnostic information including the fix status, number of satellites, 
- * horizontal dilution of precision (HDOP), and retry-related fields for managing errors.
- *
- * **Fields:**
- * - `latitude`: Latitude in decimal degrees. Negative values indicate South.
- * - `longitude`: Longitude in decimal degrees. Negative values indicate West.
- * - `speed`: Speed over ground in meters per second.
- * - `time`: UTC time in HHMMSS.SS format.
- * - `fix_status`: GPS fix status (0 for no fix, 1 for fix acquired).
- * - `satellite_count`: Number of satellites used in the solution.
- * - `hdop`: Horizontal Dilution of Precision (lower is better; values < 1.0 are ideal).
- * - `state`: The current operational state of the GPS module (gy_neo6mv2_states_t).
- * - `retry_count`: The number of retry attempts after encountering an error.
- * - `retry_interval`: The current interval in ticks between retry attempts.
- * - `last_attempt_ticks`: The tick count of the last reinitialization attempt.
+ * Contains GPS data such as latitude, longitude, speed, and UTC time, along with
+ * diagnostic information like fix status, satellite count, horizontal dilution
+ * of precision (HDOP), and retry management fields for error handling.
  */
 typedef struct {
-  float               latitude;           /**< GPS latitude in decimal degrees. Negative values indicate South. */
-  float               longitude;          /**< GPS longitude in decimal degrees. Negative values indicate West. */
+  float               latitude;           /**< Latitude in decimal degrees. Negative values indicate South. */
+  float               longitude;          /**< Longitude in decimal degrees. Negative values indicate West. */
   float               speed;              /**< Speed over ground in meters per second. */
   char                time[11];           /**< UTC time in HHMMSS.SS format. */
   uint8_t             fix_status;         /**< GPS fix status (0: no fix, 1: fix acquired). */
   uint8_t             satellite_count;    /**< Number of satellites used in the solution. */
-  float               hdop;               /**< Horizontal Dilution of Precision (accuracy measure; lower is better). */
+  float               hdop;               /**< Horizontal Dilution of Precision (accuracy; lower values are better). */
   gy_neo6mv2_states_t state;              /**< Current operational state of the GPS module. */
-  uint8_t             retry_count;        /**< Retry counter for managing exponential backoff. */
-  uint32_t            retry_interval;     /**< Current retry interval in ticks. */
+  uint8_t             retry_count;        /**< Number of consecutive reinitialization attempts. */
+  uint32_t            retry_interval;     /**< Current interval between retry attempts, in ticks. */
   TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
 } gy_neo6mv2_data_t;
 
 /**
- * @struct satellite_t
- * @brief Structure to store satellite information parsed from GPGSV sentences.
+ * @brief Structure to store satellite information from GPGSV sentences.
  *
- * This structure holds the details of a single satellite, including its identifier (PRN),
- * elevation, azimuth, and signal strength (SNR). The data is extracted from the GPGSV NMEA sentences.
- *
- * **Fields:**
- * - `prn`: Satellite's unique identifier (PRN - Pseudo Random Noise code).
- * - `elevation`: Satellite's elevation angle in degrees above the horizon.
- * - `azimuth`: Satellite's azimuth angle in degrees from true north.
- * - `snr`: Signal-to-Noise Ratio (SNR) indicating signal strength (0 to 99).
+ * Holds details about a satellite, including its identifier (PRN), elevation,
+ * azimuth, and signal strength (SNR), as parsed from GPGSV NMEA sentences.
  */
 typedef struct {
-  uint8_t  prn;       /**< Satellite ID (PRN). */
-  uint8_t  elevation; /**< Satellite elevation in degrees. */
-  uint16_t azimuth;   /**< Satellite azimuth in degrees. */
-  uint8_t  snr;       /**< Signal-to-Noise Ratio (SNR), 0-99. */
+  uint8_t  prn;       /**< Satellite ID (PRN - Pseudo Random Noise code). */
+  uint8_t  elevation; /**< Satellite elevation angle in degrees above the horizon. */
+  uint16_t azimuth;   /**< Satellite azimuth angle in degrees from true north. */
+  uint8_t  snr;       /**< Signal-to-Noise Ratio (SNR), ranging from 0 to 99. */
 } satellite_t;
 
 /* Public Functions ***********************************************************/
@@ -184,6 +165,10 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data);
  * @note Run this function as part of a FreeRTOS task to ensure continuous GPS data acquisition and error management.
  */
 void gy_neo6mv2_tasks(void *sensor_data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_GY_NEO6MV2_HAL_H */
 

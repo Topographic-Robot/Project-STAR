@@ -10,9 +10,6 @@
 #include "system_tasks.h"
 #include "esp_log.h"
 
-/* TODO: TESTING SD CARDs + update filewrite manager if needed */
-#include "sd_card_hal.h"
-
 void app_main(void)
 {
   /* Initialize System-Level Tasks (motor, sensors, webserver, etc) */
@@ -33,8 +30,5 @@ void app_main(void)
   }
 
   ESP_LOGI(system_tag, "Topographic Robot system initialized and running.");
-
-  /* TODO: TEST SD CARDs */
-  sd_card_init();
 }
 

@@ -3,6 +3,10 @@
 #ifndef TOPOROBO_PCA9685_HAL_H
 #define TOPOROBO_PCA9685_HAL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "hexapod_geometry.h"
 #include "esp_err.h"
@@ -27,71 +31,65 @@ extern const uint32_t   pca9685_step_delay_ms;    /**< Delay in milliseconds bet
 /* Enums **********************************************************************/
 
 /**
- * @enum pca9685_states_t
- * @brief Enum to represent the state of the PCA9685.
+ * @brief States representing the operational status of the PCA9685.
  *
- * This enum defines the possible states of a PCA9685 board, indicating whether
- * the board is ready, uninitialized, or in an error state.
+ * Defines the possible states of a PCA9685 board, including ready, uninitialized, and various error states.
  */
 typedef enum : uint8_t {
-  k_pca9685_ready               = 0x00, /**< The PCA9685 board is ready and operational */
-  k_pca9685_uninitialized       = 0x01, /**< The PCA9685 board is not yet initialized */
-  k_pca9685_error               = 0xF0, /**< A general catch-all error */
-  k_pca9685_power_on_error      = 0xA1, /**< An error occurred during power-on of the board */
-  k_pca9685_reset_error         = 0xA2, /**< An error occurred during reset of the board */
-  k_pca9685_communication_error = 0xA3  /**< An error occurred during I2C communication */
+  k_pca9685_ready               = 0x00, /**< The PCA9685 board is ready and operational. */
+  k_pca9685_uninitialized       = 0x01, /**< The PCA9685 board is not yet initialized. */
+  k_pca9685_error               = 0xF0, /**< General catch-all error. */
+  k_pca9685_power_on_error      = 0xA1, /**< Error during power-on of the board. */
+  k_pca9685_reset_error         = 0xA2, /**< Error during reset of the board. */
+  k_pca9685_communication_error = 0xA3  /**< Error during I2C communication. */
 } pca9685_states_t;
 
 /**
- * @enum pca9685_commands_t
- * @brief Enum to represent the I2C commands for the PCA9685.
+ * @brief I2C commands and register addresses for the PCA9685.
  *
- * This enum defines the I2C register addresses and relevant commands
- * for configuring and controlling the PCA9685 PWM driver.
+ * Defines the I2C register addresses and associated commands for configuring
+ * and controlling the PCA9685 PWM driver.
  *
- * @note Only the channel 0 register addresses are explicitly defined.
- * For other channels (channel 1 to channel 15), the register addresses
- * can be calculated by adding 4 to the base address of channel 0.
- * For example:
- * - Channel 1 on low byte address = `k_pca9685_channel0_on_l_cmd + 4`
- * - Channel 2 on low byte address = `k_pca9685_channel0_on_l_cmd + 8`
- * - And so on, for subsequent channels.
+ * @note Only the register addresses for channel 0 are explicitly defined.
+ *       Addresses for other channels (1 to 15) can be calculated as follows:
+ *       - Channel 1 low byte = `k_pca9685_channel0_on_l_cmd + 4`
+ *       - Channel 2 low byte = `k_pca9685_channel0_on_l_cmd + 8`
+ *       - Channel N low byte = `k_pca9685_channel0_on_l_cmd + (4 * N)`
  */
 typedef enum : uint8_t {
-  k_pca9685_mode1_cmd              = 0x00, /**< MODE1 register (mode configuration) */
-  k_pca9685_mode2_cmd              = 0x01, /**< MODE2 register (output configuration) */
-  k_pca9685_prescale_cmd           = 0xFE, /**< Prescaler for PWM frequency */
-  k_pca9685_channel0_on_l_cmd      = 0x06, /**< Channel 0 output on time (low byte) */
-  k_pca9685_channel0_on_h_cmd      = 0x07, /**< Channel 0 output on time (high byte) */
-  k_pca9685_channel0_off_l_cmd     = 0x08, /**< Channel 0 output off time (low byte) */
-  k_pca9685_channel0_off_h_cmd     = 0x09, /**< Channel 0 output off time (high byte) */
-  k_pca9685_auto_increment_cmd     = 0x20, /**< Auto-increment bit for MODE1 register */
-  k_pca9685_restart_cmd            = 0x80, /**< Restart bit to enable PWM after setting frequency */
-  k_pca9685_sleep_cmd              = 0x10, /**< Sleep bit to put PCA9685 into low-power mode */
-  k_pca9685_allcall_cmd            = 0x01, /**< ALLCALL bit for addressing all PCA9685 devices simultaneously */
-  k_pca9685_output_change_ack_cmd  = 0x01, /**< Output change on ACK bit in MODE2 register */
-  k_pca9685_output_change_stop_cmd = 0x00, /**< Output change on STOP condition in MODE2 register */
-  k_pca9685_output_logic_mode      = 0x04, /**< OUTDRV bit for setting output driver mode (totem pole vs. open-drain) in MODE2 register */
+  k_pca9685_mode1_cmd              = 0x00, /**< MODE1 register (mode configuration). */
+  k_pca9685_mode2_cmd              = 0x01, /**< MODE2 register (output configuration). */
+  k_pca9685_prescale_cmd           = 0xFE, /**< Prescaler for setting the PWM frequency. */
+  k_pca9685_channel0_on_l_cmd      = 0x06, /**< Channel 0 output on time (low byte). */
+  k_pca9685_channel0_on_h_cmd      = 0x07, /**< Channel 0 output on time (high byte). */
+  k_pca9685_channel0_off_l_cmd     = 0x08, /**< Channel 0 output off time (low byte). */
+  k_pca9685_channel0_off_h_cmd     = 0x09, /**< Channel 0 output off time (high byte). */
+  k_pca9685_auto_increment_cmd     = 0x20, /**< Auto-increment for MODE1 register. */
+  k_pca9685_restart_cmd            = 0x80, /**< Restart command to enable PWM after frequency changes. */
+  k_pca9685_sleep_cmd              = 0x10, /**< Sleep command to put the PCA9685 into low-power mode. */
+  k_pca9685_allcall_cmd            = 0x01, /**< ALLCALL command to address all PCA9685 devices. */
+  k_pca9685_output_change_ack_cmd  = 0x01, /**< Change output on ACK bit in MODE2 register. */
+  k_pca9685_output_change_stop_cmd = 0x00, /**< Change output on STOP condition in MODE2 register. */
+  k_pca9685_output_logic_mode      = 0x04, /**< OUTDRV bit in MODE2 register to set output driver mode. */
 } pca9685_commands_t;
 
 /* Structs ********************************************************************/
 
 /**
- * @struct pca9685_board_t
- * @brief Structure representing each PCA9685 board in the system.
+ * @brief Represents a PCA9685 board in the system.
  *
- * This structure holds information about each PCA9685 board, including the
- * I2C bus number, current state, the board ID, and the number of boards. I
- * also contains a pointer to the next board in a singly linked list.
+ * Contains information about a single PCA9685 board, including its I2C address,
+ * communication bus, operational state, unique ID, and motors it controls.
+ * It also supports a singly linked list structure for managing multiple boards.
  */
 typedef struct pca9685_board_t {
-  uint8_t                 i2c_address;    /**< Base I2C address */
-  uint8_t                 i2c_bus;        /**< I2C bus number used for communication */
-  uint8_t                 state;          /**< Current state of the PCA9685, using the pca9685_states_t enum */
-  uint8_t                 board_id;       /**< The board's ID; used to distinguish boards in multi-board setups */
-  uint8_t                 num_boards;     /**< Number of initialized PCA9685 boards */
-  motor_t                 motors[16];     /**< Each motor on the board */
-  struct pca9685_board_t *next;           /**< Pointer to the next board in the PCA9685 singly linked list */
+  uint8_t                 i2c_address; /**< Base I2C address of the PCA9685 board. */
+  uint8_t                 i2c_bus;     /**< I2C bus number used for communication. */
+  uint8_t                 state;       /**< Current state of the PCA9685 (see pca9685_states_t). */
+  uint8_t                 board_id;    /**< Unique ID for this board in multi-board setups. */
+  uint8_t                 num_boards;  /**< Total number of PCA9685 boards in the system. */
+  motor_t                 motors[16];  /**< Array representing the 16 motors controlled by this board. */
+  struct pca9685_board_t *next;        /**< Pointer to the next board in the singly linked list. */
 } pca9685_board_t;
 
 /* Public Functions ***********************************************************/
@@ -99,33 +97,50 @@ typedef struct pca9685_board_t {
 /**
  * @brief Initializes the PCA9685 PWM driver over I2C for multiple boards.
  *
- * This function initializes the I2C driver for the specified number of PCA9685
- * boards and sets up the PWM frequency for controlling servos or other PWM-controlled devices.
- * It ensures that each board is initialized only once.
+ * Configures and initializes the PCA9685 PWM driver for the specified number of boards.
+ * Sets the PWM frequency for controlling servos or other PWM-controlled devices.
+ * Logs errors and returns a failure code if any board initialization fails.
  *
- * @param[in,out] controller_data Pointer to the head of the linked list containing PCA9685 boards.
- * @param[in] num_boards Number of boards to initialize.
+ * @param[in,out] controller_data Pointer to the head of the linked list of PCA9685 boards.
+ * @param[in] num_boards          Number of PCA9685 boards to initialize.
  *
- * @return ESP_OK on success, or an error code on failure.
+ * @return 
+ * - `ESP_OK`              if all boards are successfully initialized.
+ * - `ESP_ERR_INVALID_ARG` if `controller_data` is NULL or `num_boards` is zero.
+ * - Other `esp_err_t` codes on initialization failure.
+ *
+ * @note 
+ * - Default PWM frequency is set to 50 Hz, suitable for servos.
  */
 esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards);
 
 /**
- * @brief Sets the angle for one or more servo motors on a specific board.
+ * @brief Sets the angle for one or more servo motors on a specific PCA9685 board.
  *
- * This function takes a motor mask, an angle, and a board ID to set the position of one
- * or more servo motors on a specific PCA9685 board. The function ensures the board is initialized
- * and ready before attempting to set the angle.
+ * Updates servo positions using a motor bitmask and desired angle. Converts the angle 
+ * (in degrees) to the corresponding PWM pulse width and applies it to the selected motors.
  *
  * @param[in] controller_data Pointer to the linked list of PCA9685 boards.
- * @param[in] motor_mask Mask indicating which motors to control (bitmask).
- * @param[in] board_id The ID of the board to control.
- * @param[in] angle The desired servo angle (0-180 degrees).
+ * @param[in] motor_mask      Bitmask indicating motors to control (e.g., 0x01 for channel 0).
+ * @param[in] board_id        ID of the PCA9685 board to control.
+ * @param[in] angle           Servo angle in degrees (0-180).
  *
- * @return ESP_OK on success, or an error code on failure.
+ * @return 
+ * - `ESP_OK`              if angles are successfully applied.
+ * - `ESP_ERR_INVALID_ARG` if parameters are invalid (e.g., NULL `controller_data`, 
+ *                         out-of-range angle, or invalid motor mask).
+ * - `ESP_FAIL`            if the board ID is not found or not initialized.
+ *
+ * @note 
+ * - Ensure PCA9685 boards are initialized with `pca9685_init` before using this function.
+ * - The function assumes linear mapping of servo angles to PWM pulse widths.
  */
 esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mask,
                             uint8_t board_id, float angle);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TOPOROBO_PCA9685_HAL_H */
 
