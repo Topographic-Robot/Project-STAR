@@ -15,8 +15,8 @@
  * two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
+#define WIFI_CONNECTED_BIT (BIT0)
+#define WIFI_FAIL_BIT      (BIT1)
 
 extern const char    *wifi_tag;                /**< Tag for logging */
 extern const uint8_t  wifi_max_retry;          /**< The max number of times to try and connect to the station */

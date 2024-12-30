@@ -5,6 +5,8 @@
 
 #include "esp_err.h"
 
+/* Public Functions ***********************************************************/
+
 /**
  * @brief Sends a JSON string to the web server.
  *

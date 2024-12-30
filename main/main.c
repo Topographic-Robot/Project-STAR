@@ -35,5 +35,6 @@ void app_main(void)
   ESP_LOGI(system_tag, "Topographic Robot system initialized and running.");
 
   /* TODO: TEST SD CARDs */
+  sd_card_init();
 }
 

@@ -1,53 +1,5 @@
 /* components/sensors/bh1750_hal/include/bh1750_hal.h */
 
-/* BH1750 HAL (Hardware Abstraction Layer) Header File
- * This file provides the interface for interacting with the BH1750 ambient light sensor.
- * The BH1750 is a digital 16-bit serial output type ambient light sensor IC, which communicates
- * over I2C with the ESP32. This header file defines the functions, constants, structures, and
- * enumerations required to control and read data from the BH1750 sensor.
- *
- *******************************************************************************
- *
- *    +-----------------------+
- *    |        BH1750         |
- *    |-----------------------|
- *    | VCC  | 2.4V to 3.6V   |----------> VCC
- *    | GND  | Ground         |----------> GND
- *    | SCL  | Serial Clock   |----------> GPIO_NUM_22 (100,000Hz)
- *    | SDA  | Serial Data    |----------> GPIO_NUM_21 (100,000Hz)
- *    | ADDR | I2C Address    |----------> GND
- *    +-----------------------+
- *
- *    Block Diagram for wiring
- *
- *    +----------------------------------------------------+
- *    |                    BH1750                          |
- *    |                                                    |
- *    |   +------------+     +-------------------+         |
- *    |   | Photodiode |---->| Transimpedance    |         |
- *    |   | (Sensor)   |     | Amplifier (TIA)   |         |
- *    |   +------------+     +-------------------+         |
- *    |                                                    |
- *    |   +------------------+      +----------------+     |
- *    |   | Analog-to-Digital|----->| Control Logic  |     |
- *    |   | Converter (ADC)  |      |                |     |
- *    |   +------------------+      +----------------+     |
- *    |                                                    |
- *    |   +---------------------+                          |
- *    |   | Serial Interface    |<-------------------------|
- *    |   | (I2C)               |                          |
- *    |   +---------------------+                          |
- *    |                                                    |
- *    |   +---------------------+                          |
- *    |   | Power Supply Unit   |                          |
- *    |   | (PSU)               |                          |
- *    |   +---------------------+                          |
- *    +----------------------------------------------------+
- *
- *    Internal Structure
- *
- *******************************************************************************/
-
 #ifndef TOPOROBO_BH1750_HAL_H
 #define TOPOROBO_BH1750_HAL_H
 
@@ -59,115 +11,21 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief The I2C address for the BH1750 sensor.
- *
- * This constant defines the fixed I2C address of the BH1750 sensor used
- * for communication. The default address is 0x23 when the ADDR pin is
- * connected to GND. This address must be used in all I2C communication
- * commands sent to the BH1750 sensor.
- */
-extern const uint8_t bh1750_i2c_address;
-
-/**
- * @brief The I2C bus number used by the ESP32 for communication with the BH1750 sensor.
- *
- * This constant defines the I2C bus that the ESP32 will use to interface
- * with the BH1750 sensor. It should be set to the appropriate I2C bus number
- * (e.g., I2C_NUM_0 or I2C_NUM_1) as configured in the ESP-IDF. This allows
- * for flexibility if multiple I2C buses are available or different devices
- * are attached to separate buses.
- */
-extern const i2c_port_t bh1750_i2c_bus;
-
-/**
- * @brief Tag for logging messages related to the BH1750 sensor.
- *
- * This constant defines a tag used for ESP_LOG messages, allowing for easy
- * identification of log output related to the BH1750 sensor in the ESP32's
- * logging system. It is particularly useful for debugging, as it categorizes
- * log entries associated with this sensor, simplifying the log review process.
- */
-extern const char *bh1750_tag;
-
-/**
- * @brief GPIO pin used for the I2C Serial Clock Line (SCL).
- *
- * This constant specifies the GPIO pin number connected to the SCL line
- * of the I2C bus, used by the ESP32 for clock signals to communicate with
- * the BH1750 sensor. The pin must be correctly set based on the wiring
- * configuration of the ESP32 and the sensor.
- */
-extern const uint8_t bh1750_scl_io;
-
-/**
- * @brief GPIO pin used for the I2C Serial Data Line (SDA).
- *
- * This constant specifies the GPIO pin number connected to the SDA line
- * of the I2C bus, used by the ESP32 to send and receive data from the
- * BH1750 sensor. Like `bh1750_scl_io`, this should be set based on the
- * physical connections between the ESP32 and the sensor.
- */
-extern const uint8_t bh1750_sda_io;
-
-/**
- * @brief I2C bus frequency in Hertz for communication with the BH1750 sensor.
- *
- * This constant defines the frequency of the I2C bus for communication
- * with the BH1750 sensor. A standard frequency of 100,000 Hz (100 kHz) is
- * recommended to ensure reliable data transfer without timing issues.
- * Higher frequencies might not be supported, depending on the wiring and
- * sensor quality.
- */
-extern const uint32_t bh1750_i2c_freq_hz;
-
-/**
- * @brief Polling rate for the BH1750 sensor in ticks.
- *
- * This constant sets the interval at which the ESP32 reads data from
- * the BH1750 sensor in the `bh1750_tasks` function. It is defined in
- * system ticks to facilitate timing within the FreeRTOS environment,
- * ensuring consistent and efficient data collection at the desired intervals.
- */
-extern const uint32_t bh1750_polling_rate_ticks;
-
-/**
- * @brief Maximum number of retry attempts for sensor reinitialization.
- *
- * This constant sets the maximum number of consecutive retry attempts that
- * the system will make to reinitialize the BH1750 sensor in case of an error.
- * After reaching this limit, the retry interval is doubled as part of
- * the exponential backoff strategy. This allows the system to gracefully
- * handle intermittent sensor failures without continuously retrying.
- */
-extern const uint8_t bh1750_max_retries;
-
-/**
- * @brief Initial interval between retry attempts in seconds, converted to ticks.
- *
- * This constant defines the initial interval between retry attempts when the
- * BH1750 sensor encounters an error. The interval is used in the exponential
- * backoff strategy, doubling after each set of `bh1750_max_retries` attempts, up to
- * a maximum defined by `bh1750_max_backoff_interval`. This strategy prevents
- * excessive retries in quick succession, providing the sensor time to recover.
- */
-extern const uint32_t bh1750_initial_retry_interval;
-
-/**
- * @brief Maximum interval for exponential backoff between retries in seconds, converted to ticks.
- *
- * This constant defines the upper limit for the retry interval in the
- * exponential backoff mechanism. Once this maximum is reached, the interval
- * will no longer double, ensuring that retry attempts are eventually spaced
- * far enough apart to prevent frequent reinitialization. This helps to avoid
- * unnecessary load on the system while ensuring the sensor can recover when possible.
- */
-extern const uint32_t bh1750_max_backoff_interval;
+extern const uint8_t    bh1750_i2c_address;            /**< I2C address of the BH1750 sensor (default 0x23 when ADDR pin is GND). */
+extern const i2c_port_t bh1750_i2c_bus;                /**< I2C bus number used by the ESP32 to communicate with the BH1750 sensor. */
+extern const char      *bh1750_tag;                    /**< Tag for ESP_LOG messages related to the BH1750 sensor. */
+extern const uint8_t    bh1750_scl_io;                 /**< GPIO pin for the I2C Serial Clock Line (SCL). */
+extern const uint8_t    bh1750_sda_io;                 /**< GPIO pin for the I2C Serial Data Line (SDA). */
+extern const uint32_t   bh1750_i2c_freq_hz;            /**< I2C bus frequency in Hz for BH1750 communication (default 100 kHz). */
+extern const uint32_t   bh1750_polling_rate_ticks;     /**< Polling rate for the BH1750 sensor in system ticks. */
+extern const uint8_t    bh1750_max_retries;            /**< Maximum retry attempts for BH1750 sensor reinitialization. */
+extern const uint32_t   bh1750_initial_retry_interval; /**< Initial retry interval in ticks for BH1750 reinitialization. */
+extern const uint32_t   bh1750_max_backoff_interval;   /**< Maximum backoff interval in ticks for BH1750 reinitialization retries. */
 
 /* Enums **********************************************************************/
 
 /**
- * @enum bh1750_commands_
+ * @enum bh1750_commands_t
  * @brief Enum to represent the I2C commands for the BH1750 sensor.
  *
  * This enum defines the possible I2C commands for the BH1750 sensor. Each command
@@ -199,7 +57,7 @@ typedef enum : uint8_t {
 } bh1750_commands_t;
 
 /**
- * @enum bh1750_states_
+ * @enum bh1750_states_t
  * @brief Enum to represent the state of the BH1750 sensor.
  *
  * This enum defines the various states that the BH1750 sensor can be in during
@@ -228,7 +86,7 @@ typedef enum : uint8_t {
 /* Structs ********************************************************************/
 
 /**
- * @struct bh1750_data_
+ * @struct bh1750_data_t
  * @brief Structure to store BH1750 sensor data and status information.
  *
  * The `bh1750_data_t` structure holds essential data for interfacing with

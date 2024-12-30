@@ -1,71 +1,5 @@
 /* components/sensors/mpu6050_hal/include/mpu6050_hal.h */
 
-/* MPU6050 HAL (Hardware Abstraction Layer) Header File
- * This file provides the interface for interacting with the MPU6050 6-axis accelerometer
- * and gyroscope. The MPU6050 sensor outputs acceleration and gyroscope data through
- * an I2C interface and integrates an internal Digital Motion Processor (DMP) to
- * handle complex motion data fusion.
- *
- * This header file defines the functions, constants, structures, and enumerations
- * required to initialize, configure, read data from, and handle errors in the MPU6050
- * sensor.
- *
- *******************************************************************************
- *
- * Note: The MPU6050's INT pin is an **aggregate interrupt output**. This means
- * that it asserts (typically goes low) when any of the enabled interrupt sources
- * are active. The microcontroller must read the `INT_STATUS` register to determine
- * which interrupt(s) have occurred.
- *
- *******************************************************************************
- *
- *     +-----------------------+
- *     |       MPU6050         |
- *     |-----------------------|
- *     | VCC  | 3.3V or 5V     |----------> VCC
- *     | GND  | Ground         |----------> GND
- *     | SDA  | I2C Data       |----------> GPIO_NUM_21 (100,000Hz)
- *     | SCL  | I2C Clock      |----------> GPIO_NUM_22 (100,000Hz)
- *     | XDA  | Aux I2C Data   |----------> Floating (leave unconnected if unused)
- *     | XCL  | Aux I2C Clock  |----------> Floating (leave unconnected if unused)
- *     | ADD  | I2C Address Pin|----------> GND (or VCC for 0x69 address)
- *     | INT  | Interrupt Pin  |----------> GPIO_NUM_26 (D26)
- *     +-----------------------+
- *
- *     Block Diagram for Wiring
- *
- *     +----------------------------------------------------+
- *     |                    MPU6050                         |
- *     |                                                    |
- *     |   +---------------+    +-------------------+       |
- *     |   | Accelerometer |--->| Signal Processing |       |
- *     |   | Sensor        |    | Unit              |       |
- *     |   +---------------+    +-------------------+       |
- *     |                                                    |
- *     |   +------------+     +-------------------+         |
- *     |   | Gyroscope  |---->| Signal Processing |         |
- *     |   | Sensor     |     | Unit              |         |
- *     |   +------------+     +-------------------+         |
- *     |                                                    |
- *     |   +------------------+                             |
- *     |   | I2C Interface    |<----------------------------|
- *     |   | (SDA, SCL)       |                             |
- *     |   +------------------+                             |
- *     |                                                    |
- *     |   +------------------+                             |
- *     |   | INT Pin          |<----------------------------|
- *     |   +------------------+                             |
- *     |                                                    |
- *     |   +------------------+                             |
- *     |   | Power Supply Unit|                             |
- *     |   | (PSU)            |                             |
- *     |   +------------------+                             |
- *     +----------------------------------------------------+
- *
- *     Internal Structure
- *
- *******************************************************************************/
-
 #ifndef TOPOROBO_MPU6050_HAL_H
 #define TOPOROBO_MPU6050_HAL_H
 
@@ -76,105 +10,16 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief The I2C address for the MPU6050 sensor.
- *
- * This constant defines the fixed I2C address of the MPU6050 sensor used
- * for communication. By default, the address is 0x68 when the ADD pin is connected
- * to GND. Connecting the ADD pin to VCC changes the address to 0x69, allowing
- * flexibility if multiple sensors are needed on the same I2C bus.
- */
-extern const uint8_t mpu6050_i2c_address;
-
-/**
- * @brief The I2C bus number used by the ESP32 for communication with the MPU6050 sensor.
- *
- * Defines the I2C bus that the ESP32 uses to interface with the MPU6050 sensor.
- * This allows for flexibility when multiple I2C buses are available on the ESP32.
- */
-extern const i2c_port_t mpu6050_i2c_bus;
-
-/**
- * @brief Tag for logging messages related to the MPU6050 sensor.
- *
- * Used as a tag in ESP_LOG messages, allowing easy identification of MPU6050-related log entries,
- * which is useful for debugging and monitoring sensor operations.
- */
-extern const char *mpu6050_tag;
-
-/**
- * @brief GPIO pin used for the I2C Serial Clock Line (SCL).
- *
- * Specifies the GPIO pin number connected to the I2C SCL line. Must be set based on wiring
- * configurations between the ESP32 and MPU6050.
- */
-extern const uint8_t mpu6050_scl_io;
-
-/**
- * @brief GPIO pin used for the I2C Serial Data Line (SDA).
- *
- * Specifies the GPIO pin number connected to the I2C SDA line. Must be set based on wiring
- * configurations between the ESP32 and MPU6050.
- */
-extern const uint8_t mpu6050_sda_io;
-
-/**
- * @brief I2C bus frequency in Hertz for communication with the MPU6050 sensor.
- *
- * Defines the frequency of the I2C bus used for communication. The standard
- * frequency of 100,000 Hz (100 kHz) ensures reliable data transfer. Higher
- * frequencies might be achievable depending on wiring and sensor quality.
- */
-extern const uint32_t mpu6050_i2c_freq_hz;
-
-/**
- * @brief Polling rate for the MPU6050 sensor in system ticks.
- *
- * Specifies the interval for reading data from the MPU6050 sensor in the
- * `mpu6050_tasks` function, allowing for consistent and efficient data collection.
- */
-extern const uint32_t mpu6050_polling_rate_ticks;
-
-/**
- * @brief Configures the sample rate divider for the MPU6050 sensor.
- *
- * Adjusting the sample rate divider can reduce processing load, save power, and
- * align with application requirements. By setting the divider to 9, the sensor
- * samples data at 100 Hz (with the default 1 kHz internal rate).
- *
- * Benefits:
- * - Reduces load on the CPU by adjusting data rates to match application needs.
- * - Saves power, particularly for battery-powered applications.
- *
- * Calculation:
- * - Sample Rate = Gyro Output Rate / (1 + SMPLRT_DIV).
- */
-extern const uint8_t mpu6050_sample_rate_div;
-
-/**
- * @brief Configures the Digital Low Pass Filter (DLPF) setting for the MPU6050 sensor.
- *
- * Sets the DLPF to filter out high-frequency noise, making data cleaner and more
- * stable for motion-sensitive applications.
- *
- * Benefits:
- * - Noise reduction: filters out high-frequency noise.
- * - Improved stability: better for low-speed movement detection.
- * - Reduced latency: provides faster response times.
- *
- * Example DLPF Settings:
- * - 260 Hz: minimal filtering, fastest response.
- * - 44 Hz: balanced filtering, suitable for general applications.
- */
-extern const uint8_t mpu6050_config_dlpf;
-
-/**
- * @brief GPIO pin used for the MPU6050 interrupt (INT pin).
- *
- * Specifies the GPIO pin number connected to the MPU6050 INT pin. This pin is used to receive
- * interrupt signals from the MPU6050 sensor, indicating events like new data availability.
- */
-extern const uint8_t mpu6050_int_io;  /**< GPIO pin used for the MPU6050 interrupt */
+extern const uint8_t    mpu6050_i2c_address;        /**< I2C address for the MPU6050 sensor (default 0x68, configurable to 0x69). */
+extern const i2c_port_t mpu6050_i2c_bus;            /**< I2C bus number used by the ESP32 for MPU6050 communication. */
+extern const char      *mpu6050_tag;                /**< Tag for ESP_LOG messages related to the MPU6050 sensor. */
+extern const uint8_t    mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line (SCL) for MPU6050. */
+extern const uint8_t    mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line (SDA) for MPU6050. */
+extern const uint32_t   mpu6050_i2c_freq_hz;        /**< I2C bus frequency for MPU6050 communication (default 100 kHz). */
+extern const uint32_t   mpu6050_polling_rate_ticks; /**< Polling interval for MPU6050 sensor reads in system ticks. */
+extern const uint8_t    mpu6050_sample_rate_div;    /**< Sample rate divider for MPU6050 (default divides gyro rate). */
+extern const uint8_t    mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
+extern const uint8_t    mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
 
 /* Enums **********************************************************************/
 

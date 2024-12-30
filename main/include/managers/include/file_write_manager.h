@@ -7,41 +7,13 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief Logging tag for the file write manager.
- *
- * This tag is used in ESP_LOG messages to categorize log output
- * related to the file write manager. It simplifies debugging and
- * log filtering.
- */
-extern const char *file_manager_tag;
-
-/**
- * @brief Maximum number of queued file write requests.
- *
- * Defines the maximum number of pending write operations that
- * can be enqueued. Requests beyond this limit will be rejected
- * to prevent queue overflow.
- */
-extern const uint32_t max_pending_writes;
+extern const char    *file_manager_tag;   /**< Logging tag for ESP_LOG messages related to the file write manager. */
+extern const uint32_t max_pending_writes; /**< Maximum number of queued file write requests to prevent overflow. */
 
 /* Macros *********************************************************************/
 
-/**
- * @brief Maximum file path length.
- *
- * Defines the maximum number of characters (including the null terminator)
- * that can be used for a file path in the file write manager.
- */
-#define max_file_path_length (64)
-
-/**
- * @brief Maximum data length per write request.
- *
- * Specifies the maximum number of characters (including the null terminator)
- * that can be included in the data for a single write request.
- */
-#define max_data_length (256)
+#define max_file_path_length (64)  /**< Maximum file path length, including the null terminator. */
+#define max_data_length      (256) /**< Maximum data length per write request, including the null terminator. */
 
 /* Structs ********************************************************************/
 

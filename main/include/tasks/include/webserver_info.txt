@@ -5,6 +5,7 @@
 #ifndef TOPOROBO_PRIV_WEBSERVER_INFO_H
 #define TOPOROBO_PRIV_WEBSERVER_INFO_H
 
-#define webserver_url ("")
+#define webserver_url ("") /**< URL of the web server used for communication. */
 
 #endif /* TOPOROBO_PRIV_WEBSERVER_INFO_H */
+

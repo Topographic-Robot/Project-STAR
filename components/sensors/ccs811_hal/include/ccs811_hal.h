@@ -1,59 +1,5 @@
 /* components/sensors/ccs811_hal/include/ccs811_hal.h */
 
-/* CCS811 HAL (Hardware Abstraction Layer) Header File
- *
- * This file provides the interface for interacting with the CCS811 digital gas
- * sensor for air quality monitoring. The CCS811 is capable of measuring
- * Equivalent Carbon Dioxide (eCO2) levels and Total Volatile Organic Compounds
- * (TVOC) concentrations, which are key indicators of indoor air quality.
- *
- * The sensor communicates over the I2C protocol and requires proper
- * initialization to start measuring air quality. This header file defines the
- * functions, constants, structures, and enumerations required to control and
- * read data from the CCS811 sensor.
- *
- *******************************************************************************
- *
- *    +-----------------------+
- *    |        CCS811         |
- *    |-----------------------|
- *    | VCC  | 1.8V to 3.6V   |----------> VCC
- *    | GND  | Ground         |----------> GND
- *    | SCL  | Serial Clock   |----------> GPIO_NUM_22 (100,000Hz)
- *    | SDA  | Serial Data    |----------> GPIO_NUM_21 (100,000Hz)
- *    | WAKE | Wake-up Pin    |----------> GPIO_NUM_33
- *    | RST  | Reset Pin      |----------> GPIO_NUM_32
- *    | INT  | Interrupt Pin  |----------> GPIO_NUM_25 (optional)
- *    +-----------------------+
- *
- *    Block Diagram for Wiring
- *
- *    +----------------------------------------------------+
- *    |                     CCS811                         |
- *    |                                                    |
- *    |   +--------------------+                           |
- *    |   | Gas Sensor Array   |                           |
- *    |   | (eCO2, TVOC)       |                           |
- *    |   +--------------------+                           |
- *    |                                                    |
- *    |   +-------------------+       +----------------+   |
- *    |   | Signal Processing |------>| Digital Output |   |
- *    |   | Unit              |       | (eCO2, TVOC)   |   |
- *    |   +-------------------+       +----------------+   |
- *    |                                                    |
- *    |   +---------------------+                          |
- *    |   | I2C Interface        |<----------------------- |
- *    |   | (SDA, SCL)           |                         |
- *    |   +---------------------+                          |
- *    |                                                    |
- *    |   +---------------------+                          |
- *    |   | Power Supply Unit   |                          |
- *    |   | (PSU)               |                          |
- *    |   +---------------------+                          |
- *    +----------------------------------------------------+
- *
- ******************************************************************************/
-
 #ifndef TOPOROBO_CCS811_HAL_H
 #define TOPOROBO_CCS811_HAL_H
 
@@ -65,72 +11,19 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief Default I2C address for the CCS811 sensor.
- *
- * The I2C address can be set to 0x5A (default) or 0x5B, depending on the wiring
- * of the ADDR pin. This implementation assumes the default address (0x5A).
- */
-extern const uint8_t ccs811_i2c_address;
-
-/**
- * @brief I2C bus number used for communication.
- *
- * Set this to the appropriate I2C bus number (`I2C_NUM_0` or `I2C_NUM_1`)
- * configured in your ESP32 project.
- */
-extern const i2c_port_t ccs811_i2c_bus;
-
-/**
- * @brief Tag used for logging messages related to the CCS811 sensor.
- *
- * This string is used with ESP_LOG macros to identify log entries for the
- * CCS811 sensor.
- */
-extern const char *ccs811_tag;
-
-/**
- * @brief GPIO pins used for I2C communication and sensor control.
- *
- * These constants define the GPIO pins used to connect the CCS811 sensor to
- * the ESP32. Modify these values to match your wiring configuration.
- */
-extern const uint8_t ccs811_scl_io;  /**< I2C clock line (SCL) */
-extern const uint8_t ccs811_sda_io;  /**< I2C data line (SDA) */
-extern const uint8_t ccs811_wake_io; /**< Wake-up pin */
-extern const uint8_t ccs811_rst_io;  /**< Reset pin */
-extern const uint8_t ccs811_int_io;  /**< Interrupt pin (optional) */
-
-/**
- * @brief I2C communication frequency in Hertz.
- *
- * The CCS811 supports standard-mode I2C communication at 100 kHz. Ensure this
- * value is compatible with your hardware configuration.
- */
-extern const uint32_t ccs811_i2c_freq_hz;
-
-/**
- * @brief Polling rate for reading data from the sensor.
- *
- * This constant defines the interval at which the ESP32 polls the CCS811 sensor
- * for new data, in FreeRTOS ticks.
- */
-extern const uint32_t ccs811_polling_rate_ticks;
-
-/**
- * @brief Parameters for error handling and retries.
- *
- * These constants define the behavior of the exponential backoff mechanism
- * used to handle sensor initialization failures.
- */
-extern const uint8_t  ccs811_max_retries;            /**< Maximum number of retries */
-extern const uint32_t ccs811_initial_retry_interval; /**< Initial retry interval (ticks) */
-extern const uint32_t ccs811_max_backoff_interval;   /**< Maximum backoff interval (ticks) */
+extern const uint8_t    ccs811_i2c_address; /**< Default I2C address for the CCS811 sensor (default 0x5A). */
+extern const i2c_port_t ccs811_i2c_bus;     /**< I2C bus number used for communication. */
+extern const char      *ccs811_tag;         /**< Tag used for logging messages related to the CCS811 sensor. */
+extern const uint8_t    ccs811_scl_io;      /**< GPIO pin for I2C clock line (SCL). */
+extern const uint8_t    ccs811_sda_io;      /**< GPIO pin for I2C data line (SDA). */
+extern const uint8_t    ccs811_wake_io;     /**< GPIO pin for the sensor's wake-up function. */
+extern const uint8_t    ccs811_rst_io;      /**< GPIO pin for the sensor's reset function. */
+extern const uint8_t    ccs811_int_io;      /**< GPIO pin for the sensor's interrupt function (optional). */
 
 /* Enums **********************************************************************/
 
 /**
- * @enum ccs811_states_
+ * @enum ccs811_states_t
  * @brief Enumeration of CCS811 sensor states.
  *
  * This enum defines the possible states of the CCS811 sensor, including ready,
@@ -150,7 +43,7 @@ typedef enum : uint8_t {
 /* Structs ********************************************************************/
 
 /**
- * @struct ccs811_data_
+ * @struct ccs811_data_t
  * @brief Structure for storing CCS811 sensor data and status.
  *
  * This structure encapsulates all relevant data and state information for the
@@ -214,7 +107,7 @@ void ccs811_reset_on_error(ccs811_data_t *sensor_data);
 /**
  * @brief Execute periodic tasks for the CCS811 sensor.
  *
- * This function reads data from the sensor at regular intervals and sends i
+ * This function reads data from the sensor at regular intervals and sends it
  * to a web server. It also handles error recovery.
  *
  * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure.

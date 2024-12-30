@@ -7,35 +7,16 @@
 
 /* Constants ******************************************************************/
 
-/** 
- * @brief Minimum and maximum angle from 90degs for the hip joint in degrees. 
- */
-extern const float hip_angle_from_90_min; /**< Minimum allowable angle from 90degs for the hip joint in degrees. */
-extern const float hip_angle_from_90_max; /**< Maximum allowable angle from 90degs for the hip joint in degrees. */
-
-/** 
- * @brief Minimum and maximum angle from 90degs for the knee joint in degrees. 
- */
-extern const float knee_angle_from_90_min; /**< Minimum allowable angle from 90degs for the knee joint in degrees. */
-extern const float knee_angle_from_90_max; /**< Maximum allowable angle from 90degs for the knee joint in degrees. */
-
-/** 
- * @brief Minimum and maximum angle from 90degs for the tibia joint in degrees. 
- */
-extern const float tibia_angle_from_90_min; /**< Minimum allowable angle from 90degs for the tibia joint in degrees. */
-extern const float tibia_angle_from_90_max; /**< Maximum allowable angle from 90degs for the tibia joint in degrees. */
-
-/** 
- * @brief Lengths of the leg segments in centimeters. 
- */
-extern const float hip_length_cm;   /**< Length of the hip segment in centimeters (from the base to the femur). */
-extern const float femur_length_cm; /**< Length of the femur segment in centimeters (from the femur to the tibia). */
-extern const float tibia_length_cm; /**< Length of the tibia segment in centimeters (from the tibia to the ground). */
-
-/** 
- * @brief Maximum number of servos that can be active at the same time. 
- */
-extern const uint8_t max_active_servos; /**< Limit on simultaneously active servos to manage power draw. */
+extern const float   hip_angle_from_90_min;   /**< Minimum allowable angle from 90degs for the hip joint in degrees. */
+extern const float   hip_angle_from_90_max;   /**< Maximum allowable angle from 90degs for the hip joint in degrees. */
+extern const float   knee_angle_from_90_min;  /**< Minimum allowable angle from 90degs for the knee joint in degrees. */
+extern const float   knee_angle_from_90_max;  /**< Maximum allowable angle from 90degs for the knee joint in degrees. */
+extern const float   tibia_angle_from_90_min; /**< Minimum allowable angle from 90degs for the tibia joint in degrees. */
+extern const float   tibia_angle_from_90_max; /**< Maximum allowable angle from 90degs for the tibia joint in degrees. */
+extern const float   hip_length_cm;           /**< Length of the hip segment in centimeters (from the base to the femur). */
+extern const float   femur_length_cm;         /**< Length of the femur segment in centimeters (from the femur to the tibia). */
+extern const float   tibia_length_cm;         /**< Length of the tibia segment in centimeters (from the tibia to the ground). */
+extern const uint8_t max_active_servos;       /**< Limit on simultaneously active servos to manage power draw. */
 
 /* Enums **********************************************************************/
 

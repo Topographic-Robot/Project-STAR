@@ -1,47 +1,5 @@
 /* components/sensors/qmc5883l_hal/include/qmc5883l_hal.h */
 
-/* QMC5883L HAL (Hardware Abstraction Layer) Header File
- * This file provides the interface for interacting with the QMC5883L 3-axis magnetometer sensor.
- * The QMC5883L is a digital magnetometer that provides data over I2C, suitable for applications
- * requiring magnetic field detection and orientation sensing.
- *
- *******************************************************************************
- *
- *    +-----------------------+
- *    |       QMC5883L        |
- *    |-----------------------|
- *    | VCC  | 3.3V or 5V     |----------> VCC
- *    | GND  | Ground         |----------> GND
- *    | SCL  | I2C Clock      |----------> GPIO_NUM_22 (100,000Hz)
- *    | SDA  | I2C Data       |----------> GPIO_NUM_21 (100,000Hz)
- *    | DRDY | Data Ready Pin |----------> Floating (optional)
- *    +-----------------------+
- *
- *    Block Diagram for Wiring
- *
- *    +----------------------------------------------------+
- *    |                    QMC5883L                        |
- *    |                                                    |
- *    |   +----------------+    +-------------------+      |
- *    |   | Magnetometer   |--->| Signal Processing |      |
- *    |   | Sensor         |    | Unit              |      |
- *    |   +----------------+    +-------------------+      |
- *    |                                                    |
- *    |   +------------------+                             |
- *    |   | I2C Interface    |<----------------------------|
- *    |   | (SDA, SCL)       |                             |
- *    |   +------------------+                             |
- *    |                                                    |
- *    |   +------------------+                             |
- *    |   | Power Supply Unit|                             |
- *    |   | (PSU)            |                             |
- *    |   +------------------+                             |
- *    +----------------------------------------------------+
- *
- *    Internal Structure
- *
- ******************************************************************************/
-
 #ifndef TOPOROBO_QMC5883L_HAL_H
 #define TOPOROBO_QMC5883L_HAL_H
 
@@ -53,92 +11,17 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief The I2C address for the QMC5883L sensor.
- *
- * This constant defines the fixed I2C address of the QMC5883L sensor used
- * for communication. This address must be used in all I2C communication
- * commands sent to the QMC5883L sensor.
- */
-extern const uint8_t qmc5883l_i2c_address;
-
-/**
- * @brief The I2C bus number used by the ESP32 for communication with the QMC5883L sensor.
- *
- * This constant defines the I2C bus that the ESP32 will use to interface
- * with the QMC5883L sensor. It should be set to the appropriate I2C bus number.
- */
-extern const i2c_port_t qmc5883l_i2c_bus;
-
-/**
- * @brief Tag for logging messages related to the QMC5883L sensor.
- *
- * This constant defines a tag used for ESP_LOG messages, categorizing log output
- * related to the QMC5883L sensor, which simplifies log review.
- */
-extern const char *qmc5883l_tag;
-
-/**
- * @brief GPIO pin used for the I2C Serial Clock Line (SCL).
- *
- * Specifies the GPIO pin number connected to the SCL line
- * of the I2C bus.
- */
-extern const uint8_t qmc5883l_scl_io;
-
-/**
- * @brief GPIO pin used for the I2C Serial Data Line (SDA).
- *
- * Specifies the GPIO pin number connected to the SDA line
- * of the I2C bus.
- */
-extern const uint8_t qmc5883l_sda_io;
-
-/**
- * @brief I2C bus frequency in Hertz for communication with the QMC5883L sensor.
- *
- * This constant defines the frequency of the I2C bus for communication
- * with the QMC5883L sensor.
- */
-extern const uint32_t qmc5883l_i2c_freq_hz;
-
-/**
- * @brief Polling rate for the QMC5883L sensor in ticks.
- *
- * Defines the interval at which the ESP32 reads data from
- * the QMC5883L sensor in the `qmc5883l_tasks` function.
- */
-extern const uint32_t qmc5883l_polling_rate_ticks;
-
-/**
- * @brief Output Data Rate (ODR) setting for the QMC5883L sensor.
- *
- * This constant specifies the data rate for magnetometer measurements.
- */
-extern const uint8_t qmc5883l_odr_setting;
-
-/**
- * @brief Maximum number of retry attempts for sensor reinitialization.
- *
- * Defines the maximum number of consecutive retry attempts for reinitialization
- * in case of error, after which the retry interval doubles.
- */
-extern const uint8_t qmc5883l_max_retries;
-
-/**
- * @brief Initial interval between retry attempts in ticks.
- *
- * Defines the initial interval between retry attempts for reinitialization,
- * used in exponential backoff strategy.
- */
-extern const uint32_t qmc5883l_initial_retry_interval;
-
-/**
- * @brief Maximum interval for exponential backoff between retries in ticks.
- *
- * Sets the upper limit for the retry interval in exponential backoff.
- */
-extern const uint32_t qmc5883l_max_backoff_interval;
+extern const uint8_t    qmc5883l_i2c_address;            /**< I2C address for the QMC5883L sensor. */
+extern const i2c_port_t qmc5883l_i2c_bus;                /**< I2C bus number used by the ESP32 for QMC5883L communication. */
+extern const char      *qmc5883l_tag;                    /**< Tag for ESP_LOG messages related to the QMC5883L sensor. */
+extern const uint8_t    qmc5883l_scl_io;                 /**< GPIO pin for I2C Serial Clock Line (SCL) for QMC5883L. */
+extern const uint8_t    qmc5883l_sda_io;                 /**< GPIO pin for I2C Serial Data Line (SDA) for QMC5883L. */
+extern const uint32_t   qmc5883l_i2c_freq_hz;            /**< I2C bus frequency for QMC5883L communication in Hz. */
+extern const uint32_t   qmc5883l_polling_rate_ticks;     /**< Polling rate for QMC5883L sensor reads in system ticks. */
+extern const uint8_t    qmc5883l_odr_setting;            /**< Output Data Rate (ODR) setting for the QMC5883L sensor. */
+extern const uint8_t    qmc5883l_max_retries;            /**< Maximum retry attempts for QMC5883L reinitialization. */
+extern const uint32_t   qmc5883l_initial_retry_interval; /**< Initial retry interval for QMC5883L reinitialization in ticks. */
+extern const uint32_t   qmc5883l_max_backoff_interval;   /**< Maximum backoff interval for QMC5883L retries in ticks. */
 
 /* Enums **********************************************************************/
 

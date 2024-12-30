@@ -1,52 +1,5 @@
 /* components/sensors/mq135_hal/include/mq135_hal.h */
 
-/* MQ135 HAL (Hardware Abstraction Layer) Header File
- *
- * This file provides the interface for interacting with the MQ135 gas sensor.
- * The MQ135 is an air quality sensor capable of detecting a variety of gases,
- * including CO2, NH3, NOx, alcohol, benzene, and smoke. It outputs an analog
- * signal proportional to the gas concentration, which is read by the ESP32's
- * ADC (Analog-to-Digital Converter).
- *
- * The sensor requires a warm-up period for its heating element to stabilize.
- * Accurate measurements depend on proper calibration for the target application
- * and environmental conditions.
- *
- *******************************************************************************
- *
- *    +-----------------------+
- *    |        MQ135          |
- *    |-----------------------|
- *    | VCC  | 5V             |----------> VCC
- *    | GND  | Ground         |----------> GND
- *    | AOUT | Analog Output  |----------> GPIO_NUM_34 (ADC Input)
- *    | DOUT | Digital Output |----------> Optional GPIO
- *    +-----------------------+
- *
- *    Block Diagram for Wiring
- *
- *    +----------------------------------------------------+
- *    |                       MQ135                        |
- *    |                                                    |
- *    |   +-------------------+                            |
- *    |   | Gas Sensor        |                            |
- *    |   | (Heater and       |                            |
- *    |   | Sensing Element)  |                            |
- *    |   +-------------------+                            |
- *    |                                                    |
- *    |   +-------------------+     +------------------+   |
- *    |   | Signal Conditioning |-->| Analog Output    |   |
- *    |   | Circuit             |    |                 |   |
- *    |   +---------------------+    +-----------------+   |
- *    |                                                    |
- *    |   +---------------------+                          |
- *    |   | Power Supply Unit   |                          |
- *    |   | (PSU)               |                          |
- *    |   +---------------------+                          |
- *    +----------------------------------------------------+
- *
- *******************************************************************************/
-
 #ifndef TOPOROBO_MQ135_HAL_H
 #define TOPOROBO_MQ135_HAL_H
 
@@ -57,67 +10,13 @@
 
 /* Constants ******************************************************************/
 
-/**
- * @brief GPIO pin for the analog output (AOUT) of the MQ135 sensor.
- *
- * This pin connects to the ADC (Analog-to-Digital Converter) of the ESP32,
- * which reads the analog voltage output by the sensor. The voltage represents
- * the gas concentration.
- */
-extern const uint8_t mq135_aout_pin;
-
-/**
- * @brief GPIO pin for the digital output (DOUT) of the MQ135 sensor.
- *
- * The digital output is a binary signal that can be used to trigger alerts
- * when the gas concentration exceeds a predefined threshold. This pin is
- * optional and can be ignored if only the analog output is used.
- */
-extern const uint8_t mq135_dout_pin;
-
-/**
- * @brief Polling rate for reading data from the MQ135 sensor.
- *
- * This constant defines the interval at which the ESP32 polls the MQ135 sensor
- * for new data, in FreeRTOS ticks. The polling rate should allow sufficient
- * time for the sensor to stabilize between readings.
- */
-extern const uint32_t mq135_polling_rate_ticks;
-
-/**
- * @brief Warm-up time in milliseconds for the MQ135 sensor.
- *
- * The MQ135 requires a stabilization period after power-up for its heating
- * element to reach the optimal operating temperature. Accurate measurements
- * cannot be taken during this warm-up period.
- */
-extern const uint32_t mq135_warmup_time_ms;
-
-/**
- * @brief Maximum number of retry attempts for error recovery.
- *
- * This constant defines the maximum number of retries the system will perform
- * to recover from sensor read or initialization errors before increasing the
- * retry interval using exponential backoff.
- */
-extern const uint8_t mq135_max_retries;
-
-/**
- * @brief Initial interval between retries in milliseconds, converted to ticks.
- *
- * This constant defines the initial retry interval for error recovery. The
- * interval doubles after each set of retries until it reaches the maximum
- * backoff interval.
- */
-extern const uint32_t mq135_initial_retry_interval;
-
-/**
- * @brief Maximum interval for exponential backoff between retries in ticks.
- *
- * This constant sets the upper limit for the retry interval during exponential
- * backoff. Once this limit is reached, the interval will no longer increase.
- */
-extern const uint32_t mq135_max_backoff_interval;
+extern const uint8_t  mq135_aout_pin;               /**< GPIO pin for analog output (AOUT) of the MQ135 sensor. */
+extern const uint8_t  mq135_dout_pin;               /**< GPIO pin for digital output (DOUT) of the MQ135 sensor. */
+extern const uint32_t mq135_polling_rate_ticks;     /**< Polling rate for MQ135 sensor reads in system ticks. */
+extern const uint32_t mq135_warmup_time_ms;         /**< Warm-up time for MQ135 sensor in milliseconds. */
+extern const uint8_t  mq135_max_retries;            /**< Maximum retry attempts for MQ135 error recovery. */
+extern const uint32_t mq135_initial_retry_interval; /**< Initial retry interval for MQ135 error recovery in ticks. */
+extern const uint32_t mq135_max_backoff_interval;   /**< Maximum backoff interval for MQ135 retries in ticks. */
 
 /* Enums **********************************************************************/
 
