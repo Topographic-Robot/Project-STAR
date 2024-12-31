@@ -87,13 +87,13 @@ esp_err_t ccs811_init(void *sensor_data)
 
   /* Reset the sensor */
   gpio_set_level(ccs811_rst_io, 0); /* TODO: move 0 and 1 for these states to an enum */
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
   gpio_set_level(ccs811_rst_io, 1); /* TODO: move 0 and 1 for these states to an enum */
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Wake up the sensor */
   gpio_set_level(ccs811_wake_io, 0); /* TODO: move 0 for the state to an enum */
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Application start */
   uint8_t app_start_cmd = 0xF4; /* TODO: Move this to an enum */

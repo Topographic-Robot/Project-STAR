@@ -1,4 +1,4 @@
-/* main/include/tasks/include/webserver_info.h */
+/* main/include/webserver_info.h */
 
 /* NOTE: This file will not be pushed to git, but a templated .txt version will */
 

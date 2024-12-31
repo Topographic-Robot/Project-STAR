@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "sd_card_hal.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -14,7 +15,7 @@
 /* Globals (Constants) ********************************************************/
 
 const char    *file_manager_tag   = "FILE_MANAGER";
-const uint32_t max_pending_writes = 10; /* Maximum queued write operations */
+const uint32_t max_pending_writes = 10; /**< Maximum queued write operations */
 
 /* Globals (Static) ***********************************************************/
 
@@ -85,10 +86,21 @@ esp_err_t file_write_manager_init(void)
   if (s_file_write_queue == NULL) {
     ESP_LOGE(file_manager_tag, "Failed to create file write queue");
     return ESP_FAIL;
+  } else {
+    ESP_LOGI(file_manager_tag, "Created file write queue");
   }
 
-  xTaskCreate(priv_file_write_task, "priv_file_write_task", 4096, NULL, 5, NULL);
+  /* TODO: Handle error for this xTaskCreate */
+  xTaskCreate(priv_file_write_task, "priv_file_write_task", 4096, NULL, 3, NULL); 
   ESP_LOGI(file_manager_tag, "File write manager initialized");
+
+  if (sd_card_init() != ESP_OK) {
+    ESP_LOGE(file_manager_tag, "Failed to initialize sd card");
+    return ESP_FAIL;
+  } else {
+    ESP_LOGI(file_manager_tag, "Initialized sd card");
+  }
+
   return ESP_OK;
 }
 
@@ -99,11 +111,16 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
     return ESP_ERR_INVALID_ARG;
   }
 
+  if (s_file_write_queue == NULL) {
+    ESP_LOGE(file_manager_tag, "File write queue is not initialized");
+    return ESP_FAIL;
+  }
+
   file_write_request_t request;
 
-  char timestamp[32];
+  char timestamp[32] = { '\0' };
   priv_get_timestamp(timestamp, sizeof(timestamp));
-  snprintf(request.file_path, max_file_path_length, "%s", file_path);
+  snprintf(request.file_path, max_file_path_length, "%s/%s", sd_card_mount_path, file_path);
   snprintf(request.data, max_data_length, "%s %s\n", timestamp, data);
 
   if (xQueueSend(s_file_write_queue, &request, 0) != pdTRUE) {

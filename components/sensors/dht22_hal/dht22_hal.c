@@ -3,6 +3,7 @@
 #include "dht22_hal.h"
 #include <stdio.h>
 #include <string.h>
+#include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
 #include "esp_log.h"
@@ -23,6 +24,7 @@ const uint32_t dht22_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
 const uint32_t dht22_start_delay_ms         = 20;
 const uint32_t dht22_response_timeout_us    = 80;
 const uint32_t dht22_bit_threshold_us       = 40;
+const uint8_t  dht22_allowed_fail_attempts  = 3;
 
 /* Static (Private) Functions **************************************************/
 
@@ -256,6 +258,12 @@ char *dht22_data_to_json(const dht22_data_t *data)
     return NULL;
   }
 
+  if (!cJSON_AddNumberToObject(json, "temperature_f", data->temperature_f)) {
+    ESP_LOGE(dht22_tag, "Failed to add temperature_f  to JSON.");
+    cJSON_Delete(json);
+    return NULL;
+  }
+
   if (!cJSON_AddNumberToObject(json, "humidity", data->humidity)) {
     ESP_LOGE(dht22_tag, "Failed to add humidity to JSON.");
     cJSON_Delete(json);
@@ -285,6 +293,7 @@ esp_err_t dht22_init(void *sensor_data)
   dht22_data->retry_count        = 0;
   dht22_data->retry_interval     = dht22_initial_retry_interval;
   dht22_data->last_attempt_ticks = 0;
+  dht22_data->fail_count         = 0;
 
   esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
@@ -314,6 +323,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
 
   ret = priv_dht22_wait_for_response();
   if (ret != ESP_OK) {
+    sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Failed to receive response from DHT22");
     return ESP_FAIL;
@@ -322,6 +332,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   /* Read data bits */
   ret = priv_dht22_read_data_bits(data_buffer);
   if (ret != ESP_OK) {
+    sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Failed to read data bits from DHT22");
     return ESP_FAIL;
@@ -330,10 +341,13 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   /* Verify checksum */
   ret = priv_dht22_verify_checksum(data_buffer);
   if (ret != ESP_OK) {
+    sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Checksum verification failed");
     return ESP_FAIL;
   }
+
+  sensor_data->fail_count = 0; /* Reset count on successful read */
 
   /* Convert raw data to meaningful values */
   sensor_data->humidity      = ((data_buffer[0] << 8) + data_buffer[1]) * 0.1f;
@@ -358,7 +372,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
 
 void dht22_reset_on_error(dht22_data_t *sensor_data)
 {
-  if (sensor_data->state & k_dht22_error) {
+  if (sensor_data->fail_count >= dht22_allowed_fail_attempts) {
     TickType_t current_ticks = xTaskGetTickCount();
 
     if ((current_ticks - sensor_data->last_attempt_ticks) > sensor_data->retry_interval) {
@@ -369,6 +383,7 @@ void dht22_reset_on_error(dht22_data_t *sensor_data)
         sensor_data->state          = k_dht22_ready;
         sensor_data->retry_count    = 0;
         sensor_data->retry_interval = dht22_initial_retry_interval;
+        sensor_data->fail_count     = 0;
         ESP_LOGI(dht22_tag, "DHT22 sensor reset successfully.");
       } else {
         sensor_data->retry_count++;
@@ -392,6 +407,7 @@ void dht22_tasks(void *sensor_data)
     if (dht22_read(dht22_data) == ESP_OK) {
       char *json = dht22_data_to_json(dht22_data);
       send_sensor_data_to_webserver(json);
+      file_write_enqueue("dht22.txt", json);
       free(json);
     } else {
       dht22_reset_on_error(dht22_data);

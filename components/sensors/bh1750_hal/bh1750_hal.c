@@ -81,7 +81,7 @@ esp_err_t bh1750_init(void *sensor_data)
     ESP_LOGE(bh1750_tag, "BH1750 Power On failed: %s", esp_err_to_name(ret));
     return ret;
   }
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Reset the sensor */
   ret = priv_i2c_write_byte(k_bh1750_reset_cmd, bh1750_i2c_bus,
@@ -91,7 +91,7 @@ esp_err_t bh1750_init(void *sensor_data)
     ESP_LOGE(bh1750_tag, "BH1750 Reset failed: %s", esp_err_to_name(ret));
     return ret;
   }
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
     /* Set continuous measurement mode (low res) */
     ret = priv_i2c_write_byte(k_bh1750_cont_low_res_mode_cmd, bh1750_i2c_bus,
@@ -102,7 +102,7 @@ esp_err_t bh1750_init(void *sensor_data)
       ESP_LOGE(bh1750_tag, "BH1750 Set Mode failed: %s", esp_err_to_name(ret));
       return ret;
     }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(10));
 
 
   bh1750_data->state = k_bh1750_ready;

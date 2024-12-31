@@ -24,6 +24,7 @@ extern const uint32_t dht22_max_backoff_interval;   /**< Maximum backoff interva
 extern const uint32_t dht22_start_delay_ms;         /**< Start signal delay for DHT22 in milliseconds. */
 extern const uint32_t dht22_response_timeout_us;    /**< Timeout for DHT22 sensor response in microseconds. */
 extern const uint32_t dht22_bit_threshold_us;       /**< Timing threshold for distinguishing bits in DHT22 signal. */
+extern const uint8_t  dht22_allowed_fail_attempts;  /**< Number of allowed consecutive failures */
 
 /* Enums **********************************************************************/
 
@@ -56,6 +57,7 @@ typedef struct {
   uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
   uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
   TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  uint8_t    fail_count;         /**< Number of current amount of fail reads */
 } dht22_data_t;
 
 /* Public Functions ***********************************************************/

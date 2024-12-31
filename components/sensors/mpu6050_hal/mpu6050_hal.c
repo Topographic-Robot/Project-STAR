@@ -197,7 +197,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   }
 
   /* Delay to allow the sensor to power on */
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Reset the MPU6050 sensor */
   ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_reset_cmd,
@@ -209,7 +209,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   }
 
   /* Delay to allow the reset to take effect */
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Wake up the sensor again after reset */
   ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_power_on_cmd,
@@ -221,7 +221,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   }
 
   /* Delay to allow the sensor to wake up */
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+  vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Configure the sample rate divider */
   ret = priv_i2c_write_reg_byte(k_mpu6050_smplrt_div_cmd, mpu6050_sample_rate_div,

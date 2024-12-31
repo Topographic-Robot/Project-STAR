@@ -95,7 +95,7 @@ esp_err_t time_manager_init(void)
 
   while (timeinfo.tm_year < (2023 - 1900) && ++retry < max_retries) {
     ESP_LOGI(time_manager_tag, "Waiting for system time to be set... (%d/%d)", retry, max_retries);
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(2000));
     time(&now);
     localtime_r(&now, &timeinfo);
   }
