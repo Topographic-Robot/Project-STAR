@@ -21,7 +21,7 @@ extern const uint32_t i2c_timeout_ticks; /**< Timeout for I2C commands in ticks 
  * @brief Initializes the I2C interface with specified parameters.
  *
  * Configures the I2C interface with given SCL and SDA pins, frequency, and bus number.
- * Initializes the driver in master mode without allocating buffers.
+ * Initializes the driver in controller mode without allocating buffers.
  *
  * @param[in] scl_io  I2C clock line (SCL) pin number.
  * @param[in] sda_io  I2C data line (SDA) pin number.
@@ -62,7 +62,7 @@ esp_err_t priv_i2c_write_byte(uint8_t data, i2c_port_t i2c_bus,
 /**
  * @brief Reads multiple bytes from a specific I2C device.
  *
- * Reads data from a device using the specified bus and address.
+ * Reads data from a target device using the specified bus and address.
  *
  * @param[out] data       Buffer to store the read data.
  * @param[in] len         Number of bytes to read.
@@ -105,7 +105,7 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t reg_addr, uint8_t data,
 /**
  * @brief Reads multiple bytes starting from a specific register on an I2C device.
  *
- * Reads data from consecutive registers of a device.
+ * Reads data from consecutive registers of a target device.
  *
  * @param[in] reg_addr    Starting register address to read from.
  * @param[out] data       Buffer to store the read data.

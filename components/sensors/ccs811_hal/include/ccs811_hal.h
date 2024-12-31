@@ -65,53 +65,67 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Convert CCS811 sensor data to a JSON string.
+ * @brief Converts CCS811 sensor data to a JSON string.
  *
- * @param[in] data Pointer to the `ccs811_data_t` structure containing the
- *                 latest sensor readings.
- * @return A dynamically allocated JSON string representing the sensor data.
- *         The caller must free the memory using `free()`.
+ * Converts the air quality data in a `ccs811_data_t` structure to a 
+ * dynamically allocated JSON-formatted string. The caller must free the memory.
+ *
+ * @param[in] data Pointer to the `ccs811_data_t` structure containing sensor 
+ *                 readings.
+ * 
+ * @return 
+ * - Pointer to the JSON-formatted string on success.
+ * - `NULL` if memory allocation fails.
  */
 char *ccs811_data_to_json(const ccs811_data_t *data);
 
 /**
- * @brief Initialize the CCS811 sensor.
+ * @brief Initializes the CCS811 sensor.
  *
- * This function configures the I2C interface and initializes the CCS811
- * sensor for continuous air quality monitoring.
+ * Configures the I2C interface and prepares the CCS811 sensor for continuous 
+ * air quality monitoring.
  *
- * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure where
- *                            sensor-specific data and state will be stored.
- * @return ESP_OK on success, or an error code on failure.
+ * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure for storing
+ *                            sensor-specific data and state.
+ * 
+ * @return 
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` codes on failure.
  */
 esp_err_t ccs811_init(void *sensor_data);
 
 /**
- * @brief Read eCO2 and TVOC data from the CCS811 sensor.
+ * @brief Reads eCO2 and TVOC data from the CCS811 sensor.
  *
- * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure where
- *                            the latest sensor data will be stored.
- * @return ESP_OK on success, or ESP_FAIL on failure.
+ * Updates the `ccs811_data_t` structure with the latest air quality data from the sensor.
+ *
+ * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure for storing 
+ *                            sensor readings.
+ * 
+ * @return 
+ * - `ESP_OK`   on success.
+ * - `ESP_FAIL` on failure.
  */
 esp_err_t ccs811_read(ccs811_data_t *sensor_data);
 
 /**
- * @brief Handle reinitialization and error recovery for the CCS811 sensor.
+ * @brief Handles reinitialization and error recovery for the CCS811 sensor.
  *
- * This function implements exponential backoff for retries when the sensor
- * encounters an error.
+ * Implements exponential backoff and retries when the sensor encounters errors.
  *
- * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure.
+ * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure managing 
+ *                            the sensor state and retry logic.
  */
 void ccs811_reset_on_error(ccs811_data_t *sensor_data);
 
 /**
- * @brief Execute periodic tasks for the CCS811 sensor.
+ * @brief Executes periodic tasks for the CCS811 sensor.
  *
- * This function reads data from the sensor at regular intervals and sends it
- * to a web server. It also handles error recovery.
+ * Periodically reads air quality data from the sensor, handles error recovery, 
+ * and transmits data to a web server.
  *
- * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure.
+ * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure managing 
+ *                            sensor data and state.
  */
 void ccs811_tasks(void *sensor_data);
 

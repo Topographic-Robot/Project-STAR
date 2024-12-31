@@ -21,9 +21,9 @@ extern const uint32_t uart_timeout_ticks; /**< Timeout for UART commands in tick
  * @brief Initializes the UART interface with specified parameters.
  *
  * Configures the UART interface with the specified TX and RX pins, baud rate,
- * and UART port number. Sets the UART mode to master, initializes the driver,
- * and configures communication parameters such as baud rate, data bits, parity,
- * and stop bits. The UART driver is set up with no buffer allocation (TX and RX buffers set to 0).
+ * and UART port number. Sets the UART communication parameters such as baud rate,
+ * data bits, parity, and stop bits. The UART driver is initialized with no buffer
+ * allocation (TX and RX buffers set to 0).
  *
  * @param[in] tx_io        Pin number for the TX (transmit) line.
  * @param[in] rx_io        Pin number for the RX (receive) line.

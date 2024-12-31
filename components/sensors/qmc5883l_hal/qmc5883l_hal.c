@@ -21,12 +21,14 @@ const uint8_t    qmc5883l_max_retries            = 4;
 const uint32_t   qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
 const uint32_t   qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 
+/* Globals (Static) ***********************************************************/
+
 static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
   {k_qmc5883l_range_2g, 200.0 / 32768.0 }, /**< ±2 Gauss range, scaling factor */
   {k_qmc5883l_range_8g, 800.0 / 32768.0 }, /**< ±8 Gauss range, scaling factor */
 };
 
-static const uint8_t qmc5883l_scale_config_idx = 0; /* Index of chosen values (0 for ±2G, 1 for ±8G) */
+static const uint8_t qmc5883l_scale_config_idx = 0; /**< Index of chosen values (0 for ±2G, 1 for ±8G) */
 
 /* Public Functions ***********************************************************/
 
@@ -127,8 +129,8 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
     return ESP_FAIL;
   }
 
-  uint8_t   mag_data[6];
-  esp_err_t ret = priv_i2c_read_reg_bytes(0x00, mag_data, 6,
+  uint8_t   mag_data[6]; /* TODO: Move 6 to an enum or something */
+  esp_err_t ret = priv_i2c_read_reg_bytes(0x00, mag_data, 6, /* Move 0x00 and 6 to enums or something */
                                           sensor_data->i2c_bus,
                                           sensor_data->i2c_address,
                                           qmc5883l_tag);
@@ -140,9 +142,9 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
 
   sensor_data->state = k_qmc5883l_data_updated;
 
-  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]);
-  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]);
-  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]);
+  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]); /* TODO: Add a comment to explain the index values and 8 */
+  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]); /* TODO: Add a comment to explain the index values and 8 */
+  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]); /* TODO: Add a comment to explain the index values and 8 */
 
   float scale_factor = qmc5883l_scale_configs[qmc5883l_scale_config_idx].scale;
   sensor_data->mag_x = mag_x_raw * scale_factor;

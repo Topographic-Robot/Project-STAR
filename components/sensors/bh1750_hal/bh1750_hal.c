@@ -112,8 +112,8 @@ esp_err_t bh1750_init(void *sensor_data)
 
 esp_err_t bh1750_read(bh1750_data_t *sensor_data)
 {
-  uint8_t   data[2];
-  esp_err_t ret = priv_i2c_read_bytes(data, 2, bh1750_i2c_bus,
+  uint8_t   data[2]; /* TODO: Move 2 to an enum or explain via a comment */
+  esp_err_t ret = priv_i2c_read_bytes(data, 2, bh1750_i2c_bus, /* TODO: Move 2 to an enum or explain via a comment */
                                       bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     sensor_data->lux   = -1.0;
@@ -122,8 +122,8 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data)
     return ESP_FAIL;
   }
 
-  uint16_t raw_light_intensity = (data[0] << 8) | data[1];
-  sensor_data->lux             = raw_light_intensity / 1.2;
+  uint16_t raw_light_intensity = (data[0] << 8) | data[1]; /* TODO: Move 8 and 1 to either an enum or add better comment to explain */
+  sensor_data->lux             = raw_light_intensity / 1.2; /* TODO: MOve 1.2 to a const or an enum */
   ESP_LOGI(bh1750_tag, "Measured light intensity: %f lux", sensor_data->lux);
 
   sensor_data->state = k_bh1750_data_updated;

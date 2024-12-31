@@ -37,7 +37,7 @@ esp_err_t sd_card_init(void)
     .sclk_io_num     = sd_card_clk,
     .quadwp_io_num   = -1,
     .quadhd_io_num   = -1,
-    .max_transfer_sz = 4092, /* Default max transfer size */
+    .max_transfer_sz = sd_card_max_transfer_sz,
   };
 
   ret = spi_bus_initialize(sd_card_spi_host, &bus_cfg, SPI_DMA_CH_AUTO);
@@ -48,18 +48,18 @@ esp_err_t sd_card_init(void)
 
   /* Configure the SD card slot */
   sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-  host.slot = sd_card_spi_host;
+  host.slot         = sd_card_spi_host;
   host.max_freq_khz = sd_card_spi_freq_hz / 1000;
 
   sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-  slot_config.gpio_cs = sd_card_cs;
-  slot_config.host_id = sd_card_spi_host;
+  slot_config.gpio_cs               = sd_card_cs;
+  slot_config.host_id               = sd_card_spi_host;
 
   /* Mount the filesystem */
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
     .format_if_mount_failed = false,
-    .max_files = sd_card_max_files,
-    .allocation_unit_size = sd_card_allocation_unit_size,
+    .max_files              = sd_card_max_files,
+    .allocation_unit_size   = sd_card_allocation_unit_size,
   };
 
   sdmmc_card_t *card;

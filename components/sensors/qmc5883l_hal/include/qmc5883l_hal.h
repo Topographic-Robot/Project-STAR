@@ -130,95 +130,83 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Convert QMC5883L data to JSON.
+ * @brief Converts QMC5883L sensor data to a JSON string.
  *
- * @param[in] sensor_data Pointer to `qmc5883l_data_t` structure
+ * Converts the magnetometer data in a `qmc5883l_data_t` structure to a 
+ * dynamically allocated JSON string. The caller must free the memory.
+ *
+ * @param[in] data Pointer to the `qmc5883l_data_t` structure with valid sensor data.
+ *
+ * @return 
+ * - Pointer to the JSON-formatted string on success.
+ * - `NULL` if memory allocation fails.
  */
 char *qmc5883l_data_to_json(const qmc5883l_data_t *data);
 
 /**
- * @brief Initializes the QMC5883L sensor for continuous measurement mode.
+ * @brief Initializes the QMC5883L sensor in continuous measurement mode.
  *
- * This function initializes the I2C driver for the QMC5883L sensor, powering on the device,
- * resetting it, and configuring it to start taking measurements. The sensor configuration
- * settings include the operating mode, output data rate, and range.
+ * Configures the QMC5883L sensor for magnetometer data collection. Sets up I2C,
+ * applies default settings, and initializes the sensor for continuous
+ * measurement mode.
  *
- * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure containing:
- *                            - `i2c_address`: Address for I2C communication (input).
- *                            - `i2c_bus`: Bus number for I2C communication (input).
- *                            - `state`: Updated to indicate initialization status (output).
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure holding
+ *                            initialization parameters and state.
  *
- * @return
- * - `ESP_OK` on successful initialization.
- * - An error code from `esp_err_t` if initialization fails.
+ * @return 
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` codes on failure.
  *
- * @note Call this function once during setup to handle initial sensor configuration.
+ * @note 
+ * - Call this function during system initialization.
  */
 esp_err_t qmc5883l_init(void *sensor_data);
 
 /**
- * @brief Reads magnetic field data from the QMC5883L sensor.
+ * @brief Reads magnetometer data from the QMC5883L sensor.
  *
- * This function retrieves magnetic field data from the QMC5883L sensor, converting
- * the raw output values from the sensor's X, Y, and Z registers into microtesla units.
- * Additionally, it calculates the heading (yaw) based on the X and Y components.
+ * Retrieves the latest measurements from the QMC5883L sensor and updates the
+ * `qmc5883l_data_t` structure.
  *
- * @param[in,out] sensor_data Pointer to `qmc5883l_data_t` structure that contains:
- *                            - `mag_x`, `mag_y`, `mag_z`: Updated with the magnetic field data in µT (output).
- *                            - `heading`: Updated with the calculated heading in degrees (output).
- *                            - `state`: Updated to indicate data retrieval status (output).
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure to store
+ *                            the sensor data and read status.
  *
- * @return
- * - `ESP_OK` on successful read.
- * - `ESP_FAIL` on unsuccessful read.
+ * @return 
+ * - `ESP_OK`   on successful read.
+ * - `ESP_FAIL` on failure.
  *
- * @note Ensure the QMC5883L sensor is initialized with `qmc5883l_init` before calling this function.
+ * @note 
+ * - Ensure the sensor is initialized with `qmc5883l_init` before calling.
  */
 esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data);
 
 /**
- * @brief Manages exponential backoff and retries for QMC5883L sensor reinitialization on error.
+ * @brief Handles reinitialization and recovery for the QMC5883L sensor.
  *
- * This function checks the sensor's state for errors. If an error is present, it initiates
- * a reinitialization attempt, applying an exponential backoff mechanism that increases the
- * retry interval after each failure up to a maximum interval. On successful reinitialization,
- * it resets the retry counter and interval.
+ * Implements exponential backoff for reinitialization attempts when errors are
+ * detected. Resets retry counters on successful recovery.
  *
- * **Logic and Flow:**
- * - On error (`state` set to non-zero), the function checks the time since the
- *   last reinitialization attempt.
- * - If the retry interval has elapsed, a reinitialization attempt is made.
- *   - On success, `state` is set to `k_qmc5883l_ready`, and the retry counter and
- *     interval are reset.
- *   - On failure, `retry_count` is incremented.
- * - When the max retries (`qmc5883l_max_retries`) are reached, `retry_count` resets,
- *   and the interval doubles up to a limit (`qmc5883l_max_backoff_interval`).
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure managing
+ *                            the sensor state and retry information.
  *
- * @param[in,out] sensor_data Pointer to `qmc5883l_data_t` structure containing:
- *                            - `state`: Sensor state (input/output), where a non-zero
- *                              value indicates an error.
- *                            - `retry_count`: Retry attempt counter (input/output).
- *                            - `retry_interval`: Retry interval in ticks (input/output).
- *                            - `last_attempt_ticks`: Time of last reinitialization attempt (input/output).
- *
- * @note This function should be called within `qmc5883l_tasks` to ensure regular
- *       error monitoring and recovery attempts with exponential backoff.
+ * @note 
+ * - Call this function periodically within `qmc5883l_tasks`.
+ * - Limits retries based on `qmc5883l_max_backoff_interval`.
  */
 void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data);
 
 /**
- * @brief Executes periodic tasks for the QMC5883L sensor, including data reading and error handling.
+ * @brief Executes periodic tasks for the QMC5883L sensor.
  *
- * The `qmc5883l_tasks` function is intended to run continuously in a loop. It periodically
- * reads data from the QMC5883L sensor at intervals defined by `qmc5883l_polling_rate_ticks`,
- * checking for errors and using `qmc5883l_reset_on_error` to manage retries with backoff.
+ * Periodically reads data and handles errors for the QMC5883L sensor. Uses
+ * `qmc5883l_reset_on_error` for recovery. Intended to run in a FreeRTOS task.
  *
- * @param[in,out] sensor_data Pointer to `qmc5883l_data_t` structure containing:
- *                            - `mag_x`, `mag_y`, `mag_z`, `heading`: Holds the latest sensor data (output).
- *                            - `state`, `retry_count`, `retry_interval`: Managed for error recovery (input/output).
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure for managing
+ *                            sensor data and error recovery.
  *
- * @note Execute this function as part of a FreeRTOS task to maintain continuous
- *       data acquisition and error management for the QMC5883L sensor.
+ * @note 
+ * - Should run at intervals defined by `qmc5883l_polling_rate_ticks`.
+ * - Handles error recovery internally to maintain stable operation.
  */
 void qmc5883l_tasks(void *sensor_data);
 

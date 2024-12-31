@@ -86,18 +86,19 @@ esp_err_t ccs811_init(void *sensor_data)
   }
 
   /* Reset the sensor */
-  gpio_set_level(ccs811_rst_io, 0);
+  gpio_set_level(ccs811_rst_io, 0); /* TODO: move 0 and 1 for these states to an enum */
   vTaskDelay(10 / portTICK_PERIOD_MS);
-  gpio_set_level(ccs811_rst_io, 1);
+  gpio_set_level(ccs811_rst_io, 1); /* TODO: move 0 and 1 for these states to an enum */
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
   /* Wake up the sensor */
-  gpio_set_level(ccs811_wake_io, 0);
+  gpio_set_level(ccs811_wake_io, 0); /* TODO: move 0 for the state to an enum */
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
   /* Application start */
-  uint8_t app_start_cmd = 0xF4;
-  ret = priv_i2c_write_byte(app_start_cmd, ccs811_i2c_bus, ccs811_i2c_address, ccs811_tag);
+  uint8_t app_start_cmd = 0xF4; /* TODO: Move this to an enum */
+  ret = priv_i2c_write_byte(app_start_cmd, ccs811_i2c_bus, ccs811_i2c_address, 
+                            ccs811_tag);
   if (ret != ESP_OK) {
     ccs811_data->state = k_ccs811_app_start_error;
     ESP_LOGE(ccs811_tag, "CCS811 App Start failed: %s", esp_err_to_name(ret));
@@ -111,8 +112,9 @@ esp_err_t ccs811_init(void *sensor_data)
 
 esp_err_t ccs811_read(ccs811_data_t *sensor_data)
 {
-  uint8_t   data[4];
-  esp_err_t ret = priv_i2c_read_bytes(data, 4, ccs811_i2c_bus, ccs811_i2c_address, ccs811_tag);
+  uint8_t   data[4]; /* TODO: Move 4 to an enum */
+  esp_err_t ret = priv_i2c_read_bytes(data, 4, ccs811_i2c_bus, ccs811_i2c_address, /* TODO: Move 4 to an enum */
+                                      ccs811_tag);
   if (ret != ESP_OK) {
     sensor_data->eco2  = 0;
     sensor_data->tvoc  = 0;

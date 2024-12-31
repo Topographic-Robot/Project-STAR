@@ -27,22 +27,19 @@ const uint32_t dht22_bit_threshold_us       = 40;
 /* Static (Private) Functions **************************************************/
 
 /**
- * @brief Initializes the GPIO pin connected to the DHT22 data line.
+ * @brief Initializes the GPIO pin connected to the DHT22 sensor.
  *
- * This function configures the GPIO pin connected to the DHT22 sensor as an output with the necessary pull-up resistor enabled.
- * It sets the pin to an initial high state to ensure the sensor is ready for communication.
- * The GPIO configuration includes setting the mode to output, enabling pull-up, and disabling pull-down and interrupts.
- *
- * **Logic and Flow:**
- * - Set the GPIO pin as output with pull-up enabled.
- * - The pull-up ensures that the pin is kept high when not actively pulled low by the sensor or microcontroller.
- * - This function is intended to be called during sensor initialization.
+ * Configures the specified GPIO pin as an output with a pull-up resistor enabled
+ * and sets the pin to an initial high state for communication readiness.
  *
  * @param[in] data_io GPIO pin number connected to the DHT22 data line.
  *
- * @return
- * - `ESP_OK` if the GPIO was configured successfully.
- * - An `esp_err_t` code if an error occurred during configuration.
+ * @return 
+ * - `ESP_OK` on successful configuration.
+ * - Relevant `esp_err_t` code on failure.
+ *
+ * @note 
+ * - This function should be called during sensor initialization.
  */
 static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
 {
@@ -57,26 +54,21 @@ static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
 }
 
 /**
- * @brief Wait for a specific GPIO level within the given timeout and measure the duration.
+ * @brief Waits for a specific GPIO level and measures the duration.
  *
- * This function monitors the GPIO line connected to the DHT22 sensor to determine when it reaches
- * the desired level (`0` or `1`). The function measures the time taken to reach this level and
- * stores the duration in the provided variable `duration_us`. If the desired level is not reached
- * within the specified `timeout_us`, the function returns false, indicating a timeout.
+ * Monitors a GPIO pin connected to the DHT22 sensor, waiting for it to reach 
+ * the specified level (`0` or `1`). Measures the time taken to reach this level 
+ * and stores the duration. Returns `false` if the level is not reached within 
+ * the given timeout.
  *
- * **Logic and Flow:**
- * - Start by recording the current time using `esp_timer_get_time()`.
- * - Continuously check the level of the specified GPIO pin until it matches the desired level.
- * - If the GPIO level is not reached within the given `timeout_us`, return `false`.
- * - Otherwise, store the duration taken to reach the level in `duration_us` and return `true`.
+ * @param[in]  level       Desired GPIO level (0 or 1).
+ * @param[in]  timeout_us  Maximum time to wait for the level, in microseconds.
+ * @param[out] duration_us Pointer to store the time taken to reach the level, 
+ *                         in microseconds.
  *
- * @param[in] level Desired GPIO level (0 or 1).
- * @param[in] timeout_us Maximum time to wait for the level, in microseconds.
- * @param[out] duration_us Pointer to store the time taken to reach the level, in microseconds.
- *
- * @return
- * - `true` if the desired level was reached successfully within the given timeout.
- * - `false` if the timeout occurred without reaching the desired level.
+ * @return 
+ * - `true`  if the level was reached within the timeout.
+ * - `false` if the timeout occurred.
  */
 static bool priv_dht22_wait_for_level_with_duration(int8_t level, uint32_t timeout_us,
                                                     uint32_t *duration_us)
@@ -94,18 +86,14 @@ static bool priv_dht22_wait_for_level_with_duration(int8_t level, uint32_t timeo
 /**
  * @brief Sends the start signal to the DHT22 sensor.
  *
- * The start signal is sent by pulling the data line low for a specified duration (`dht22_start_delay_ms`),
- * indicating to the DHT22 that the ESP32 is ready to communicate. After holding the line low, the GPIO line
- * is released by setting it high, and a short delay is added before switching the GPIO mode back to input.
- * This transition from low to high initiates the communication between the ESP32 and the sensor.
+ * Pulls the data line low for a specified duration (`dht22_start_delay_ms`) 
+ * to signal readiness for communication. After the delay, the line is released 
+ * by setting it high, followed by a short delay before switching the GPIO mode 
+ * back to input. This initiates communication with the DHT22 sensor.
  *
- * **Logic and Flow:**
- * - Set the GPIO direction to output.
- * - Pull the data line low for the start signal duration.
- * - Set the data line high and add a short delay.
- * - The sensor will then start sending a response indicating it is ready for data transmission.
- *
- * @note The GPIO pin must be configured properly before calling this function.
+ * @note 
+ * - Ensure the GPIO pin is properly configured before calling this function.
+ * - The `dht22_start_delay_ms` constant must be defined.
  */
 static void priv_dht22_send_start_signal(void)
 {
@@ -118,21 +106,18 @@ static void priv_dht22_send_start_signal(void)
 }
 
 /**
- * @brief Waits for the DHT22 to respond after sending the start signal.
+ * @brief Waits for the DHT22 sensor to respond after the start signal.
  *
- * After the start signal is sent, the DHT22 sensor responds with a specific sequence of GPIO transitions:
- * it pulls the line low for approximately 80 microseconds, then high for another 80 microseconds, and finally
- * pulls it low again. This function waits for these transitions to occur within the specified time limit.
+ * Monitors the GPIO line for the DHT22 response sequence: 
+ * - Line goes low (~80 µs) indicating the start of the response.
+ * - Line goes high (~80 µs) indicating continuation.
+ * - Line goes low again, signaling readiness to transmit data.
  *
- * **Logic and Flow:**
- * - Wait for the line to go low (indicating the start of the sensor response).
- * - Wait for the line to go high (indicating the continuation of the response).
- * - Wait for the line to go low again, signaling readiness to transmit data.
- * - If the expected transitions do not occur within the allotted time, return `ESP_FAIL`.
+ * If the expected transitions do not occur within the timeout, the function returns `ESP_FAIL`.
  *
- * @return
- * - `ESP_OK` if the sensor responds correctly.
- * - `ESP_FAIL` if the sensor fails to respond within the specified timeout.
+ * @return 
+ * - `ESP_OK`   if the sensor responds with the expected sequence.
+ * - `ESP_FAIL` if the sensor fails to respond within the timeout.
  */
 static esp_err_t priv_dht22_wait_for_response(void)
 {
@@ -149,22 +134,16 @@ static esp_err_t priv_dht22_wait_for_response(void)
 }
 
 /**
- * @brief Reads one bit of data from the DHT22 sensor.
+ * @brief Reads a single bit of data from the DHT22 sensor.
  *
- * This function reads a single bit from the DHT22 sensor by measuring the duration of a high-level pulse.
- * The DHT22 represents a `0` bit with a short pulse, and a `1` bit with a longer pulse. The function waits
- * for the bit transmission to start, measures the duration of the high-level signal, and determines whether
- * it represents a `0` or `1` based on a predefined threshold.
+ * Measures the duration of a high-level pulse from the DHT22 to determine 
+ * if the bit is `0` or `1`. A short pulse represents `0`, while a longer pulse 
+ * represents `1`.
  *
- * **Logic and Flow:**
- * - Wait for the line to go high, signaling the start of a bit transmission.
- * - Measure the time taken for the line to go low, indicating the end of the bit.
- * - If the duration exceeds the threshold (`dht22_bit_threshold_us`), the bit is interpreted as `1`, otherwise as `0`.
- *
- * @return
- * - `0` for a `0` bit.
- * - `1` for a `1` bit.
- * - `ESP_FAIL` if the bit could not be read within the expected timing constraints.
+ * @return 
+ * - `0`        if the bit is `0`.
+ * - `1`        if the bit is `1`.
+ * - `ESP_FAIL` if the bit cannot be read within the expected timing constraints.
  */
 static int8_t priv_dht22_read_bit(void)
 {
@@ -193,20 +172,15 @@ static int8_t priv_dht22_read_bit(void)
 /**
  * @brief Reads the full 40 bits (5 bytes) of data from the sensor.
  *
- * The DHT22 sensor transmits 40 bits of data, which include humidity, temperature, and a checksum.
- * This function reads each bit from the sensor and assembles them into 5 bytes stored in the provided
- * data buffer. If any bit cannot be read within the expected timing constraints, the function will
- * return an error.
- *
- * **Logic and Flow:**
- * - Initialize the data buffer to zero.
- * - Read 40 bits from the sensor, assembling each bit into the appropriate byte.
- * - Set the corresponding bit in the data buffer if the bit value is `1`.
+ * The DHT22 sensor transmits 40 bits of data, which include humidity, temperature, 
+ * and a checksum. This function reads each bit from the sensor and assembles them 
+ * into 5 bytes stored in the provided data buffer. If any bit cannot be read 
+ * within the expected timing constraints, the function will return an error.
  *
  * @param[out] data_buffer Array to store the 40 bits (5 bytes) of data.
  *
  * @return
- * - `ESP_OK` on successful data read.
+ * - `ESP_OK`   on successful data read.
  * - `ESP_FAIL` on timeout or other errors while reading bits.
  */
 static esp_err_t priv_dht22_read_data_bits(uint8_t *data_buffer)
@@ -237,19 +211,17 @@ static esp_err_t priv_dht22_read_data_bits(uint8_t *data_buffer)
 /**
  * @brief Verifies the checksum of the data received from the DHT22.
  *
- * The DHT22 sensor sends 5 bytes of data, with the first four bytes representing humidity and temperature,
- * and the fifth byte being a checksum. This function calculates the checksum from the first four bytes
- * and compares it to the received checksum byte to ensure data integrity. If the checksum matches, the
- * function returns `ESP_OK`; otherwise, it returns an error.
+ * The DHT22 sensor sends 5 bytes of data, with the first four bytes representing 
+ * humidity and temperature, and the fifth byte being a checksum. This function 
+ * calculates the checksum from the first four bytes and compares it to the received 
+ * checksum byte to ensure data integrity. If the checksum matches, the function 
+ * returns `ESP_OK`; otherwise, it returns an error.
  *
- * **Logic and Flow:**
- * - Calculate the checksum by adding the first four bytes of data.
- * - Compare the calculated checksum with the fifth byte in the data buffer.
- *
- * @param[in] data_buffer Buffer containing the 40 bits (5 bytes) of data received from the sensor.
+ * @param[in] data_buffer Buffer containing the 40 bits (5 bytes) of data received 
+ *                        from the sensor.
  *
  * @return
- * - `ESP_OK` if the calculated checksum matches the received checksum.
+ * - `ESP_OK`   if the calculated checksum matches the received checksum.
  * - `ESP_FAIL` if the checksum verification fails.
  */
 static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)

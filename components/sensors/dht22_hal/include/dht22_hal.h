@@ -61,96 +61,88 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Convert DHT22 data to JSON.
+ * @brief Converts DHT22 sensor data to a JSON string.
  *
- * @param[in] sensor_data Pointer to `dht22_data_t` structure
+ * Converts the temperature and humidity data from a `dht22_data_t` structure 
+ * into a dynamically allocated JSON-formatted string. The caller is responsible 
+ * for freeing the memory.
+ *
+ * @param[in] sensor_data Pointer to the `dht22_data_t` structure containing 
+ *                        sensor data.
+ *
+ * @return 
+ * - Pointer to the JSON-formatted string on success.
+ * - `NULL` if memory allocation fails.
  */
 char *dht22_data_to_json(const dht22_data_t *data);
 
 /**
- * @brief Initializes the DHT22 sensor for temperature and humidity measurement.
+ * @brief Initializes the DHT22 sensor for temperature and humidity measurements.
  *
- * The `dht22_init` function sets up the GPIO pin connected to the data line
- * of the DHT22 sensor and initializes the provided `dht22_data_t` structure to
- * store sensor readings. During this process, the sensor's state is updated
+ * Configures the GPIO pin connected to the DHT22 data line and prepares the 
+ * `dht22_data_t` structure to store sensor readings. Updates the sensor state 
  * to indicate readiness for data acquisition.
  *
- * @param[in,out] sensor_data Pointer to `dht22_data_t` structure to be initialized.
- *                            - `temperature_f`: Placeholder for temperature in Fahrenheit (output).
- *                            - `temperature_c`: Placeholder for temperature in Celsius (output).
- *                            - `humidity`: Placeholder for humidity in percentage (output).
- *                            - `state`: Set to `k_dht22_ready` upon successful initialization.
+ * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure for storing
+ *                            temperature, humidity, and state information.
  *
- * @return
+ * @return 
  * - `ESP_OK` on successful initialization.
- * - An `esp_err_t` error code if initialization fails.
+ * - Relevant `esp_err_t` code on failure.
  *
- * @note This function must be called before attempting to read data from the sensor.
+ * @note 
+ * - Call this function before reading data from the sensor.
+ * - Ensures the sensor is in a ready state (`k_dht22_ready`) upon success.
  */
 esp_err_t dht22_init(void *sensor_data);
 
 /**
  * @brief Reads temperature and humidity data from the DHT22 sensor.
  *
- * This function retrieves temperature and humidity readings from the DHT22 sensor.
- * If the read operation succeeds, the provided `dht22_data_t` structure is updated
- * with the new data. If it fails, the `state` is updated to indicate an error.
+ * Retrieves temperature and humidity readings from the DHT22 sensor. Updates 
+ * the `dht22_data_t` structure with the new data or sets the state to indicate 
+ * an error if the read operation fails.
  *
- * @param[in,out] sensor_data Pointer to `dht22_data_t` structure where data is stored:
- *                            - `temperature_f`: Updated with temperature in Fahrenheit (output).
- *                            - `temperature_c`: Updated with temperature in Celsius (output).
- *                            - `humidity`: Updated with humidity percentage (output).
- *                            - `state`: Updated with the new sensor state (output).
+ * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure to store
+ *                            temperature, humidity, and state information.
  *
- * @return
- * - `ESP_OK` on successful read.
+ * @return 
+ * - `ESP_OK`   on successful read.
  * - `ESP_FAIL` on unsuccessful read.
  *
- * @note Ensure the sensor is initialized using `dht22_init` before calling this function.
+ * @note 
+ * - Call `dht22_init` before using this function.
  */
 esp_err_t dht22_read(dht22_data_t *sensor_data);
 
 /**
- * @brief Manages error detection and recovery for the DHT22 sensor using exponential backoff.
+ * @brief Handles error recovery for the DHT22 sensor using exponential backoff.
  *
- * The `dht22_reset_on_error` function attempts to reinitialize the DHT22 sensor
- * upon detecting an error in the sensor's state. The reinitialization process
- * uses an exponential backoff strategy to reduce retry frequency over time,
- * thus avoiding unnecessary load on the system. Upon successful reinitialization,
- * the retry count and interval are reset to their initial values.
+ * Attempts to reinitialize the DHT22 sensor when an error is detected. Uses an 
+ * exponential backoff strategy to manage retry intervals and reduce system load 
+ * during repeated failures. Resets retry logic on successful recovery.
  *
- * **Logic and Flow:**
- * - Checks if an error is detected (`state` contains `k_dht22_error`).
- * - Verifies if enough time has elapsed since the last reinitialization attempt.
- * - Attempts to reinitialize the sensor if the retry interval has elapsed.
- * - Resets the retry count and interval if reinitialization succeeds.
- * - Increments retry count and doubles the retry interval upon failure, up to
- *   a maximum defined by `dht22_max_backoff_interval`.
+ * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure managing 
+ *                            sensor state and retries.
  *
- * @param[in,out] sensor_data Pointer to `dht22_data_t` structure containing:
- *                            - `state`: Current sensor state (input/output).
- *                            - `retry_count`: Counter tracking retry attempts (input/output).
- *                            - `retry_interval`: Current interval for retries (input/output).
- *                            - `last_attempt_ticks`: Tick count of last reinitialization attempt (input/output).
- *
- * @note This function is intended to be periodically called within the sensor task to handle errors and manage retries.
+ * @note 
+ * - Call this function periodically within the sensor task to handle errors.
  */
 void dht22_reset_on_error(dht22_data_t *sensor_data);
 
 /**
- * @brief Periodically reads data from the DHT22 sensor and manages error handling.
+ * @brief Periodically reads data from the DHT22 sensor and manages errors.
  *
- * The `dht22_tasks` function is designed to be called in a loop within a FreeRTOS
- * task to continuously read data from the DHT22 sensor and handle any errors.
- * Between reads, it waits for the interval specified by `dht22_polling_rate_ticks`,
- * and it calls `dht22_reset_on_error` to manage errors using an exponential backoff strategy.
+ * Designed to run within a FreeRTOS task, this function continuously reads data 
+ * from the DHT22 sensor at intervals defined by `dht22_polling_rate_ticks`. It 
+ * handles errors by invoking `dht22_reset_on_error` with an exponential backoff strategy.
  *
- * @param[in,out] sensor_data Pointer to `dht22_data_t` structure for:
- *                            - `temperature_f`, `temperature_c`, `humidity`: Updated sensor data (output).
- *                            - `state`, `retry_count`, `retry_interval`: Managed sensor state and retry parameters (input/output).
+ * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure for managing 
+ *                            sensor data and state.
  *
- * @note This function should be executed as part of a FreeRTOS task to ensure continuous
- *       data acquisition and error management for the sensor.
+ * @note 
+ * - Execute this function as part of a FreeRTOS task for continuous operation.
+ * - Includes error handling to ensure reliable data acquisition.
  */
 void dht22_tasks(void *sensor_data);
 

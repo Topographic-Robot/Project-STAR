@@ -58,64 +58,81 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Convert MQ135 sensor data to a JSON string.
+ * @brief Converts MQ135 sensor data to a JSON string.
  *
- * This function generates a JSON representation of the MQ135 sensor's
- * current data, including the calculated gas concentration in ppm.
+ * Converts the gas concentration data in a `mq135_data_t` structure to a 
+ * dynamically allocated JSON string. The caller must free the memory.
  *
- * @param[in] data Pointer to the `mq135_data_t` structure containing the
- *                 latest sensor readings.
- * @return A dynamically allocated JSON string representing the sensor data.
- *         The caller must free the memory using `free()`.
+ * @param[in] data Pointer to the `mq135_data_t` structure with valid sensor data.
+ *
+ * @return 
+ * - Pointer to the JSON-formatted string on success.
+ * - `NULL` if memory allocation fails.
  */
 char *mq135_data_to_json(const mq135_data_t *data);
 
 /**
- * @brief Initialize the MQ135 sensor.
+ * @brief Initializes the MQ135 sensor.
  *
- * This function configures the GPIO and ADC settings for the MQ135 sensor and
- * starts the warm-up period. During the warm-up period, the sensor is not
- * considered ready for data collection.
+ * Configures the GPIO and ADC settings for the MQ135 sensor and starts the
+ * warm-up period.
  *
- * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure where
- *                            sensor-specific data and state will be stored.
- * @return ESP_OK on success, or an error code on failure.
+ * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure holding
+ *                            initialization parameters and state.
+ *
+ * @return 
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` codes on failure.
+ *
+ * @note 
+ * - Call this function during system initialization.
  */
 esp_err_t mq135_init(void *sensor_data);
 
 /**
- * @brief Read gas concentration data from the MQ135 sensor.
+ * @brief Reads gas concentration data from the MQ135 sensor.
  *
- * This function reads the raw analog value from the sensor's AOUT pin and
- * calculates the gas concentration in ppm. If the warm-up period has not
- * completed, the function returns an error.
+ * Reads the raw analog value from the sensor's AOUT pin, calculates the gas
+ * concentration in ppm, and updates the `mq135_data_t` structure.
  *
- * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure where
- *                            the latest sensor data will be stored.
- * @return ESP_OK on success, or ESP_FAIL if the sensor is still warming up
- *         or if an error occurs during data collection.
+ * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure to store
+ *                            the sensor data and read status.
+ *
+ * @return 
+ * - `ESP_OK`   on successful read.
+ * - `ESP_FAIL` on failure.
+ *
+ * @note
+ * - Ensure the sensor is initialized with `mq135_init` before calling.
  */
 esp_err_t mq135_read(mq135_data_t *sensor_data);
 
 /**
- * @brief Reset the MQ135 sensor on error.
+ * @brief Handles reinitialization and recovery for the MQ135 sensor.
  *
- * This function handles error recovery for the MQ135 sensor, including
- * reinitialization and retry attempts with exponential backoff. If the number
- * of retries exceeds the maximum allowed, the retry interval is increased.
+ * Implements exponential backoff for reinitialization attempts when errors are
+ * detected. Resets retry counters on successful recovery.
  *
- * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure.
+ * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure managing
+ *                            the sensor state and retry information.
+ *
+ * @note 
+ * - Call this function periodically within `mq135_tasks`.
  */
 void mq135_reset_on_error(mq135_data_t *sensor_data);
 
 /**
- * @brief Execute periodic tasks for the MQ135 sensor.
+ * @brief Executes periodic tasks for the MQ135 sensor.
  *
- * This function performs regular data collection from the MQ135 sensor,
- * including handling the warm-up period and sending the data to a web server
- * in JSON format. It also manages error recovery using `mq135_reset_on_error`.
+ * Periodically reads data and handles errors for the MQ135 sensor. Uses
+ * `mq135_reset_on_error` for recovery. Intended to run in a FreeRTOS task.
  *
- * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure.
+ * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure for managing
+ *                            sensor data and error recovery.
+ *
+ * @note 
+ * - Should run at intervals defined by `mq135_polling_rate_ticks`.
+ * - Handles error recovery internally to maintain stable operation.
  */
 void mq135_tasks(void *sensor_data);
 

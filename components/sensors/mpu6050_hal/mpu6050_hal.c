@@ -76,21 +76,8 @@ static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
   { k_mpu6050_gyro_fs_2000dps, 16.4  }, /**< Sensitivity: 16.4 LSB/°/s */
 };
 
-/**
- * @brief Index of chosen gyroscope configuration from mpu6050_gyro_configs array.
- *
- * This index selects the gyroscope full-scale range and sensitivity to be used.
- * For example, an index of 3 corresponds to ±2000°/s full-scale range.
- */
-static const uint8_t mpu6050_gyro_config_idx  = 3; /* Index of chosen values from above (0: ±250°/s, 1: ±500°/s, etc.) */
-
-/**
- * @brief Index of chosen accelerometer configuration from mpu6050_accel_configs array.
- *
- * This index selects the accelerometer full-scale range and sensitivity to be used.
- * For example, an index of 3 corresponds to ±16g full-scale range.
- */
-static const uint8_t mpu6050_accel_config_idx = 3; /* Index of chosen values from above (0: ±2g, 1: ±4g, etc.) */
+static const uint8_t mpu6050_gyro_config_idx  = 3; /**< Index of chosen values from above (0: ±250°/s, 1: ±500°/s, etc.) */
+static const uint8_t mpu6050_accel_config_idx = 3; /**< Index of chosen values from above (0: ±2g, 1: ±4g, etc.) */
 
 /* Static (Private) Functions **************************************************/
 
@@ -102,6 +89,9 @@ static const uint8_t mpu6050_accel_config_idx = 3; /* Index of chosen values fro
  * to read the data.
  *
  * @param[in] arg Pointer to the `mpu6050_data_t` structure.
+ *
+ * @note This ISR should be kept as short as possible to avoid blocking other interrupts. 
+ *       Ensure that the semaphore is properly initialized before enabling the interrupt.
  */
 static void IRAM_ATTR priv_mpu6050_interrupt_handler(void *arg)
 {
@@ -293,10 +283,9 @@ esp_err_t mpu6050_init(void *sensor_data)
     return ret;
   }
 
-  /* TODO: If this works, move this to common/gpio.h */
   /* Configure the INT (interrupt) pin on the ESP32 */
   gpio_config_t io_conf = {};
-  io_conf.intr_type     = GPIO_INTR_NEGEDGE;  /* MPU6050 INT pin is active low */
+  io_conf.intr_type     = GPIO_INTR_NEGEDGE; /* MPU6050 INT pin is active low */
   io_conf.pin_bit_mask  = (1ULL << mpu6050_int_io);
   io_conf.mode          = GPIO_MODE_INPUT;
   io_conf.pull_up_en    = GPIO_PULLUP_DISABLE;

@@ -17,39 +17,33 @@ const char    *mq135_tag                    = "MQ135";
 const uint8_t  mq135_aout_pin               = GPIO_NUM_34;
 const uint8_t  mq135_dout_pin               = GPIO_NUM_35;
 const uint32_t mq135_polling_rate_ticks     = pdMS_TO_TICKS(1000);
-const uint32_t mq135_warmup_time_ms         = 180000; /* 3-minute warm-up time */
+const uint32_t mq135_warmup_time_ms         = 180000; /**< 3-minute warm-up time */
 const uint8_t  mq135_max_retries            = 4;
 const uint32_t mq135_initial_retry_interval = pdMS_TO_TICKS(15000);
 const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
 
 /* Globals (Static) ***********************************************************/
 
-/**
- * @brief ADC handle for the MQ135 sensor.
- *
- * This static global variable is used to manage the ADC configuration and
- * operations for reading the analog output (AOUT) of the MQ135 sensor. The ADC
- * handle is initialized during the `mq135_init` function and used in subsequent
- * read operations.
- */
-static adc_oneshot_unit_handle_t s_adc1_handle;
+static adc_oneshot_unit_handle_t s_adc1_handle; /**< ADC handle for the MQ135 sensor. */
 
 /* Static (Private) Functions **************************************************/
 
 /**
  * @brief Calculates gas concentration in ppm from raw ADC value.
  *
- * This function uses a mathematical formula to calculate the gas concentration
- * in parts per million (ppm) based on the raw ADC reading. The formula is an
- * approximation and requires calibration for accurate measurements.
+ * Converts the raw ADC reading from the MQ135 sensor to gas concentration in
+ * parts per million (ppm) using an approximation formula.
  *
- * @param[in] raw_adc_value Raw ADC reading from the MQ135 sensor.
+ * @param[in] raw_adc_value Raw ADC reading from the sensor.
  *
  * @return Gas concentration in ppm.
+ *
+ * @note The formula used is an approximation and may require calibration for
+ *       accurate measurements.
  */
 static float priv_mq135_calculate_ppm(int raw_adc_value)
 {
-  float resistance = (4095.0 / raw_adc_value - 1.0) * 10.0; /* Assuming RL = 10k */
+  float resistance = (4095.0 / raw_adc_value - 1.0) * 10.0;              /* Assuming RL = 10k */
   float ppm        = 116.6020682 * pow(resistance / 10.0, -2.769034857); /* Example curve from datasheet */
   return ppm;
 }

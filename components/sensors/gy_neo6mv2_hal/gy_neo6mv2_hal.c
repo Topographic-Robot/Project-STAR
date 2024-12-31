@@ -26,51 +26,20 @@ const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
 
 /* Globals (Static) ***********************************************************/
 
-/**
- * @brief Buffer for assembling fragmented NMEA sentences.
- *
- * This static buffer stores parts of NMEA sentences received from the GPS module.
- * It accumulates characters until a complete sentence is formed, identified by a newline character.
- * The buffer helps handle cases where sentences are split across multiple UART reads.
- */
-static char s_gy_neo6mv2_sentence_buffer[gy_neo6mv2_sentence_buffer_size];
-
-/**
- * @brief Index to track the current position in the sentence buffer.
- *
- * This static variable keeps track of the current insertion point in the `s_gy_neo6mv2_sentence_buffer`.
- * It increments with each character read and resets when a complete sentence is processed.
- */
-static uint32_t s_gy_neo6mv2_sentence_index = 0;
-
-/**
- * @brief Buffer to store parsed satellite information.
- *
- * This buffer retains information about satellites parsed from GPGSV sentences,
- * including their PRN, elevation, azimuth, and SNR.
- */
-static satellite_t s_gy_neo6mv2_satellites[gy_neo6mv2_max_satellites];
-
-/**
- * @brief Counter for the number of satellites currently stored in the buffer.
- */
-static uint8_t s_gy_neo6mv2_satellite_count = 0;
+static char        s_gy_neo6mv2_sentence_buffer[gy_neo6mv2_sentence_buffer_size]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
+static uint32_t    s_gy_neo6mv2_sentence_index = 0;                               /**< Index tracking the current position in the sentence buffer. */
+static satellite_t s_gy_neo6mv2_satellites[gy_neo6mv2_max_satellites];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
+static uint8_t     s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
 
 /* Static (Private) Functions *************************************************/
 
 /**
- * @brief Parses a GPS coordinate from NMEA format to decimal degrees.
+ * @brief Converts a GPS coordinate from NMEA format to decimal degrees.
  *
- * This function converts a coordinate from the NMEA format used by the GY-NEO6MV2 GPS module into
- * decimal degrees. NMEA coordinates are in the format DDMM.MMMM, where DD is degrees and MM.MMMM is minutes.
- * The function also adjusts the coordinate based on the hemisphere.
+ * Parses a coordinate in the NMEA format (DDMM.MMMM) used by the GY-NEO6MV2 GPS module 
+ * and converts it to decimal degrees. Adjusts the result based on the specified hemisphere.
  *
- * **Logic and Flow:**
- * - Parses the coordinate string into degrees and minutes.
- * - Converts minutes into decimal degrees.
- * - Adjusts the sign based on the hemisphere.
- *
- * @param[in] coord_str Pointer to a string containing the coordinate in NMEA format.
+ * @param[in] coord_str  Pointer to a string containing the coordinate in NMEA format.
  * @param[in] hemisphere Pointer to a character indicating the hemisphere ('N', 'S', 'E', 'W').
  *
  * @return The coordinate in decimal degrees.
@@ -92,16 +61,14 @@ static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, const char 
 /**
  * @brief Validates the checksum of an NMEA sentence.
  *
- * This function computes the checksum for an NMEA sentence and compares it with the checksum
- * provided in the sentence to determine validity.
- *
- * **Logic and Flow:**
- * - The checksum is XORed for all characters between the `$` and `*`.
- * - Compares the computed checksum with the provided checksum in the sentence.
+ * Computes the checksum for an NMEA sentence and compares it with the checksum 
+ * provided in the sentence to verify its validity.
  *
  * @param[in] sentence Pointer to a null-terminated NMEA sentence string.
  *
- * @return `true` if the checksum matches, `false` otherwise.
+ * @return 
+ * - `true`  if the checksum is valid.
+ * - `false` otherwise.
  */
 static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
 {
@@ -124,14 +91,14 @@ static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
 }
 
 /**
- * @brief Splits an NMEA sentence into fields.
+ * @brief Splits an NMEA sentence into individual fields.
  *
- * This function tokenizes an NMEA sentence based on commas and stores the resulting
- * fields in the provided array. Fields that cannot be populated are set to `NULL`.
+ * Tokenizes an NMEA sentence using commas as delimiters and stores the extracted 
+ * fields in the provided array. Unused fields are set to `NULL`.
  *
- * @param[in,out] sentence Pointer to the NMEA sentence (modified in place).
- * @param[out] fields Array of pointers to store extracted fields.
- * @param[in] max_fields Maximum number of fields to extract.
+ * @param[in,out] sentence   Pointer to the NMEA sentence (modified in place).
+ * @param[out]    fields     Array of pointers to store the extracted fields.
+ * @param[in]     max_fields Maximum number of fields to extract.
  */
 static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, size_t max_fields)
 {
@@ -152,17 +119,18 @@ static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, s
 }
 
 /**
- * @brief Adds a satellite's data to the buffer.
+ * @brief Adds satellite data to the buffer.
  *
- * This function adds a satellite's information to the buffer if space is available.
- * If the buffer is full, the satellite's data is discarded, and a warning is logged.
+ * Stores a satellite's information in the buffer if space is available. Logs a 
+ * warning and discards the data if the buffer is full.
  *
- * @param[in] prn Satellite ID (PRN).
- * @param[in] elevation Satellite elevation in degrees above the horizon.
- * @param[in] azimuth Satellite azimuth in degrees from true north.
- * @param[in] snr Signal-to-Noise Ratio (SNR).
+ * @param[in] prn       Satellite ID (PRN).
+ * @param[in] elevation Satellite elevation in degrees.
+ * @param[in] azimuth   Satellite azimuth in degrees.
+ * @param[in] snr       Signal-to-Noise Ratio (SNR).
  */
-static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16_t azimuth, uint8_t snr)
+static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16_t azimuth, 
+                                          uint8_t snr)
 {
   if (s_gy_neo6mv2_satellite_count < gy_neo6mv2_max_satellites) {
     satellite_t *sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
@@ -180,10 +148,10 @@ static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16
 }
 
 /**
- * @brief Clears the satellite buffer.
+ * @brief Clears all data from the satellite buffer.
  *
- * This function resets the satellite buffer by clearing all stored satellite information
- * and resetting the satellite count to zero.
+ * Resets the satellite buffer by removing all stored data and setting the 
+ * satellite count to zero.
  */
 static void priv_gy_neo6mv2_clear_satellites(void)
 {
@@ -193,12 +161,13 @@ static void priv_gy_neo6mv2_clear_satellites(void)
 }
 
 /**
- * @brief Retrieves the satellite data buffer.
+ * @brief Retrieves satellite data from the buffer.
  *
- * This function provides access to the satellite buffer for external processing.
+ * Copies satellite data from the internal buffer into the provided output buffer 
+ * for external processing.
  *
- * @param[out] satellites Pointer to the buffer where satellite data will be copied.
- * @param[in] max_count Maximum number of satellites to retrieve.
+ * @param[out] satellites Pointer to the buffer where satellite data will be stored.
+ * @param[in]  max_count  Maximum number of satellites to copy.
  *
  * @return The number of satellites copied into the output buffer.
  */
@@ -310,17 +279,17 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
   /* Initialize GPS gy_neo6mv2_data fields */
   gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
-  gy_neo6mv2_data->latitude           = 0.0;                             /* Default latitude */
-  gy_neo6mv2_data->longitude          = 0.0;                             /* Default longitude */
-  gy_neo6mv2_data->speed              = 0.0;                             /* Default speed */
-  gy_neo6mv2_data->fix_status         = 0;                               /* No fix initially */
-  gy_neo6mv2_data->satellite_count    = 0;                               /* No satellites initially */
-  gy_neo6mv2_data->hdop               = 99.99;                           /* Default HDOP value */
-  gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;      /* Initial state */
-  gy_neo6mv2_data->retry_count        = 0;                               /* Reset retry count */
+  gy_neo6mv2_data->latitude           = 0.0;                               /* Default latitude */
+  gy_neo6mv2_data->longitude          = 0.0;                               /* Default longitude */
+  gy_neo6mv2_data->speed              = 0.0;                               /* Default speed */
+  gy_neo6mv2_data->fix_status         = 0;                                 /* No fix initially */
+  gy_neo6mv2_data->satellite_count    = 0;                                 /* No satellites initially */
+  gy_neo6mv2_data->hdop               = 99.99;                             /* Default HDOP value */
+  gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;        /* Initial state */
+  gy_neo6mv2_data->retry_count        = 0;                                 /* Reset retry count */
   gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval; /* Default retry interval */
-  gy_neo6mv2_data->last_attempt_ticks = 0;                              /* Reset last attempt ticks */
-  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));      /* Clear time field */
+  gy_neo6mv2_data->last_attempt_ticks = 0;                                 /* Reset last attempt ticks */
+  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));         /* Clear time field */
 
   ESP_LOGI(gy_neo6mv2_tag, "GPS module initialized successfully");
   return ESP_OK;
@@ -368,7 +337,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
         /* Parse specific sentences */
         if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPRMC") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPRMC sentence */
-          char *fields[12] = {0};
+          char *fields[12] = { 0 };
           priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 12);
 
           /* Extract and log status */
@@ -398,8 +367,8 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
         } else if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPGSV") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPGSV sentence for satellite information */
-          char *fields[20] = {0};
-          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 20);
+          char *fields[20] = { 0 }; /* TODO: Move 20 to an enum or const */
+          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 20); /* TODO: Move 20 to an enum or const */
 
           uint8_t total_sentences  = fields[1] ? (uint8_t)atoi(fields[1]) : 0;
           uint8_t sentence_number  = fields[2] ? (uint8_t)atoi(fields[2]) : 0;
@@ -414,7 +383,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
 
           /* Parse satellite details (up to 4 satellites per GPGSV sentence) */
-          for (uint8_t i = 4; i < 20; i += 4) {
+          for (uint8_t i = 4; i < 20; i += 4) { /* TODO: Move 4 and 20 either into enum / const / add a comment */
             if (fields[i] && fields[i + 1] && fields[i + 2] && fields[i + 3]) {
               uint8_t prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
               uint8_t elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */

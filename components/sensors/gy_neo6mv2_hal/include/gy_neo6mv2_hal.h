@@ -84,85 +84,77 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Convert GY-NEO6MV2 data to JSON.
+ * @brief Converts GY-NEO6MV2 GPS data to a JSON string.
  *
- * This function formats the GPS data stored in a `gy_neo6mv2_data_t` structure into a JSON string.
- * The JSON includes the sensor type, latitude, longitude, speed, and time.
+ * Formats the GPS data from a `gy_neo6mv2_data_t` structure into a JSON string, 
+ * including fields such as sensor type, latitude, longitude, speed, and time.
  *
- * @param[in] data Pointer to `gy_neo6mv2_data_t` structure containing GPS data.
+ * @param[in] data Pointer to the `gy_neo6mv2_data_t` structure containing GPS data.
  *
- * @return Pointer to a dynamically allocated JSON string. The caller is responsible for freeing the memory.
+ * @return Pointer to a dynamically allocated JSON string. 
+ *
+ * @note The caller is responsible for freeing the memory.
  */
 char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data);
 
 /**
  * @brief Initializes the GY-NEO6MV2 GPS module over UART.
  *
- * This function sets up the UART connection for communication with the GY-NEO6MV2 GPS module.
- * It configures the UART with the specified baud rate and establishes a connection between
- * the ESP32 and the GPS module. Upon successful initialization, the `gy_neo6mv2_data_t`
- * structure is prepared to receive GPS data.
+ * Sets up the UART connection for communication with the GY-NEO6MV2 GPS module and 
+ * prepares the `gy_neo6mv2_data_t` structure for receiving GPS data.
  *
- * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure to be initialized.
- *                            - Initializes GPS data fields and state.
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure to initialize.
  *
- * @return
- * - `ESP_OK` on successful initialization.
- * - An error code from the `esp_err_t` enumeration on failure.
+ * @return 
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` code on failure.
  *
- * @note Call this function once during setup to initialize the GPS module for data acquisition.
+ * @note Call during setup to prepare the GPS module for data acquisition.
  */
 esp_err_t gy_neo6mv2_init(void *sensor_data);
 
 /**
  * @brief Reads GPS data from the GY-NEO6MV2 GPS module.
  *
- * This function reads data from the GPS module over UART, processes NMEA sentences,
- * and updates the `gy_neo6mv2_data_t` structure with the latest GPS information.
+ * Processes NMEA sentences received over UART and updates the `gy_neo6mv2_data_t` 
+ * structure with the latest GPS information.
  *
- * @param[in,out] sensor_data Pointer to `gy_neo6mv2_data_t` structure:
- *                            - `latitude`, `longitude`, `speed`, `time`, and `fix_status` are
- *                              updated with the latest GPS data (output).
- *                            - `state` is set to indicate a successful read or error (output).
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure to 
+ *                            store the latest GPS data.
  *
- * @return
- * - `ESP_OK` on successful read.
+ * @return 
+ * - `ESP_OK`   on successful read.
  * - `ESP_FAIL` on unsuccessful read.
  *
- * @note Ensure the GPS module is initialized using `gy_neo6mv2_init` before calling this function.
+ * @note Ensure the GPS module is initialized with `gy_neo6mv2_init` before 
+ *       calling this function.
  */
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
 
 /**
- * @brief Manages error detection and recovery for the GY-NEO6MV2 GPS module using exponential backoff.
+ * @brief Manages error recovery for the GY-NEO6MV2 GPS module using exponential backoff.
  *
- * This function checks the operational state of the GPS module and attempts to reinitialize it
- * if an error is detected. It uses an exponential backoff strategy to manage the retry intervals,
- * preventing excessive retries and allowing the module time to recover.
+ * Attempts to reinitialize the GPS module when an error is detected. Uses an exponential 
+ * backoff strategy to manage retry intervals and prevent excessive retries.
  *
- * @param[in,out] sensor_data Pointer to `gy_neo6mv2_data_t` structure:
- *                            - `state`: Current operational state (input/output).
- *                            - `retry_count`: Counter tracking reinitialization attempts (input/output).
- *                            - `retry_interval`: Current retry interval in ticks (input/output).
- *                            - `last_attempt_ticks`: Time of the last reinitialization attempt (input/output).
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure managing 
+ *                            GPS state and retries.
  *
- * @note This function should be periodically called within `gy_neo6mv2_tasks` to handle GPS errors and manage retries.
+ * @note Call periodically within `gy_neo6mv2_tasks` for error handling.
  */
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data);
 
 /**
- * @brief Periodically reads data from the GY-NEO6MV2 GPS module and manages errors.
+ * @brief Periodically reads GPS data and manages errors for the GY-NEO6MV2 GPS module.
  *
- * This function runs in a loop, continuously reading GPS data at intervals defined by
- * `gy_neo6mv2_polling_rate_ticks`. It handles errors by calling `gy_neo6mv2_reset_on_error`
- * to manage retries with an exponential backoff strategy. The function is designed to run
- * as a FreeRTOS task.
+ * Continuously reads GPS data at intervals defined by `gy_neo6mv2_polling_rate_ticks`. 
+ * Handles errors using `gy_neo6mv2_reset_on_error` with exponential backoff. Designed 
+ * to run as part of a FreeRTOS task.
  *
- * @param[in,out] sensor_data Pointer to `gy_neo6mv2_data_t` structure for:
- *                            - GPS data fields (output).
- *                            - Retry-related fields for error handling (input/output).
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure for GPS 
+ *                            data and error management.
  *
- * @note Run this function as part of a FreeRTOS task to ensure continuous GPS data acquisition and error management.
+ * @note Run as part of a FreeRTOS task for continuous operation.
  */
 void gy_neo6mv2_tasks(void *sensor_data);
 

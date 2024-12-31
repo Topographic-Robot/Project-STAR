@@ -86,10 +86,10 @@ static esp_err_t priv_configure_xclk_on_gpio_27(uint32_t freq_hz)
 static esp_err_t priv_ov7670_apply_config(const ov7670_config_t *config)
 {
   /* Combine resolution and format into COM7 register. */
-  uint8_t com7_value = (uint8_t)(config->resolution | config->output_format);
-  esp_err_t ret = priv_i2c_write_reg_byte(k_ov7670_reg_com7, com7_value,
-                                          ov7670_i2c_bus, ov7670_i2c_address,
-                                          ov7670_tag);
+  uint8_t   com7_value = (uint8_t)(config->resolution | config->output_format);
+  esp_err_t ret        = priv_i2c_write_reg_byte(k_ov7670_reg_com7, com7_value,
+                                                 ov7670_i2c_bus, ov7670_i2c_address,
+                                                 ov7670_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(ov7670_tag, "Failed to set COM7 (resolution/format).");
     return ret;

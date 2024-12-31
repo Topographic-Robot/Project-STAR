@@ -224,81 +224,85 @@ typedef struct {
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Convert MPU6050 data to JSON.
+ * @brief Converts MPU6050 sensor data to a JSON string.
  *
- * @param[in] data Pointer to `mpu6050_data_t` structure containing sensor data.
- * @return A JSON-formatted string representing the sensor data.
+ * Converts the accelerometer and gyroscope data in a `mpu6050_data_t` 
+ * structure to a dynamically allocated JSON string. The caller must free the memory.
+ *
+ * @param[in] data Pointer to the `mpu6050_data_t` structure with valid sensor data.
+ *
+ * @return 
+ * - Pointer to the JSON-formatted string on success.
+ * - `NULL` if memory allocation fails.
+ * 
  * @note The returned string should be freed by the caller to prevent memory leaks.
  */
 char *mpu6050_data_to_json(const mpu6050_data_t *data);
 
 /**
- * @brief Initializes the MPU6050 sensor for accelerometer and gyroscope data collection.
+ * @brief Initializes the MPU6050 sensor in continuous measurement mode.
  *
- * The `mpu6050_init` function configures the I2C interface for communication with
- * the MPU6050 sensor, initializing the accelerometer and gyroscope in continuous
- * measurement mode. It also sets the desired sample rate, DLPF settings, and initial
- * state. If initialization fails, an error state is set in the `mpu6050_data_t` structure.
+ * Configures the MPU6050 sensor for accelerometer and gyroscope data collection.
+ * Sets up I2C, applies default settings, and initializes the sensor for continuous
+ * measurement mode.
  *
- * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure for initializing sensor data.
- *                            - `i2c_address`: I2C address for the MPU6050 (input).
- *                            - `state`: Updated to indicate initialization success or failure (output).
+ * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure holding
+ *                            initialization parameters and state.
  *
- * @return
- * - `ESP_OK` on successful initialization.
- * - An error code from `esp_err_t` if initialization fails.
+ * @return 
+ * - `ESP_OK` on success.
+ * - Relevant `esp_err_t` codes on failure.
  *
- * @note This function should be called once during setup to prepare the MPU6050
- * sensor for data acquisition.
+ * @note 
+ * - Call this function during system initialization.
  */
 esp_err_t mpu6050_init(void *sensor_data);
 
 /**
  * @brief Reads accelerometer and gyroscope data from the MPU6050 sensor.
  *
- * This function retrieves the latest data from the MPU6050 sensor, including acceleration
- * and angular velocity measurements. The data is converted and stored in the `mpu6050_data_t`
- * structure. If a read error occurs, the structure's fields are not updated.
+ * Retrieves the latest measurements from the MPU6050 sensor and updates the 
+ * `mpu6050_data_t` structure.
  *
- * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure:
- *                            - `accel_x`, `accel_y`, `accel_z`: Updated with acceleration data in g-force (output).
- *                            - `gyro_x`, `gyro_y`, `gyro_z`: Updated with angular velocity data in degrees/second (output).
- *                            - `state`: Set to indicate the read status (output).
+ * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure to store
+ *                            the sensor data and read status.
  *
- * @return
- * - `ESP_OK` on successful read.
- * - `ESP_FAIL` on unsuccessful read.
+ * @return 
+ * - `ESP_OK`   on successful read.
+ * - `ESP_FAIL` on failure.
  *
- * @note Ensure the MPU6050 sensor is initialized using `mpu6050_init` before calling this function.
+ * @note 
+ * - Ensure the sensor is initialized with `mpu6050_init` before calling.
  */
 esp_err_t mpu6050_read(mpu6050_data_t *sensor_data);
 
 /**
- * @brief Manages error detection and recovery for the MPU6050 sensor.
+ * @brief Handles reinitialization and recovery for the MPU6050 sensor.
  *
- * The `mpu6050_reset_on_error` function checks the sensor's state for errors and, if detected,
- * attempts to reinitialize the MPU6050. Successful reinitialization resets the state to `k_mpu6050_ready`.
- * If repeated attempts fail, the state is set to `k_mpu6050_reset_error`.
+ * Implements exponential backoff for reinitialization attempts when errors are
+ * detected. Resets retry counters on successful recovery.
  *
- * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure:
- *                            - `state`: Current operational state (input/output).
+ * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure managing
+ *                            the sensor state and retry information.
  *
- * @note This function should be periodically called within `mpu6050_tasks` to handle errors and manage retries.
+ * @note 
+ * - Call this function periodically within `mpu6050_tasks`.
+ * - Limits retries based on `mpu6050_max_backoff_interval`.
  */
 void mpu6050_reset_on_error(mpu6050_data_t *sensor_data);
 
 /**
- * @brief Periodically reads data from the MPU6050 sensor and manages errors.
+ * @brief Executes periodic tasks for the MPU6050 sensor.
  *
- * The `mpu6050_tasks` function runs continuously within a FreeRTOS task, reading data from the
- * MPU6050 sensor whenever the data ready interrupt occurs. If an error occurs,
- * it calls `mpu6050_reset_on_error` to handle retries.
+ * Periodically reads data and handles errors for the MPU6050 sensor. Uses
+ * `mpu6050_reset_on_error` for recovery. Intended to run in a FreeRTOS task.
  *
- * @param[in,out] sensor_data Pointer to `mpu6050_data_t` structure for:
- *                            - `accel_x`, `accel_y`, `accel_z`, `gyro_x`,
- *                            - `gyro_y`, `gyro_z`: Sensor data fields (output).
+ * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure for managing
+ *                            sensor data and error recovery.
  *
- * @note Execute this function as part of a FreeRTOS task to maintain continuous data acquisition and error management.
+ * @note 
+ * - Should run at intervals defined by `mpu6050_polling_rate_ticks`.
+ * - Handles error recovery internally to maintain stable operation.
  */
 void mpu6050_tasks(void *sensor_data);
 
