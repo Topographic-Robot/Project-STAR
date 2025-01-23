@@ -25,6 +25,9 @@ extern const uint32_t   bh1750_polling_rate_ticks;     /**< Polling rate for the
 extern const uint8_t    bh1750_max_retries;            /**< Maximum retry attempts for BH1750 sensor reinitialization. */
 extern const uint32_t   bh1750_initial_retry_interval; /**< Initial retry interval in ticks for BH1750 reinitialization. */
 extern const uint32_t   bh1750_max_backoff_interval;   /**< Maximum backoff interval in ticks for BH1750 reinitialization retries. */
+extern const uint8_t    bh1750_measurement_bytes;      /**< Number of bytes in BH1750 measurement (16-bit value = 2 bytes). */
+extern const float      bh1750_raw_to_lux_factor;      /**< Divisor to convert raw sensor value to actual lux (datasheet specified 1.2). */
+extern const uint8_t    bh1750_high_byte_shift;        /**< Number of bits to shift the high byte for 16-bit measurement (8 bits). */
 
 /* Enums **********************************************************************/
 

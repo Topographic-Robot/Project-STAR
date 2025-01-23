@@ -1,7 +1,5 @@
 /* components/sensors/ccs811_hal/ccs811_hal.c */
 
-/* TODO: Test this */
-
 #include "ccs811_hal.h"
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
@@ -87,18 +85,17 @@ esp_err_t ccs811_init(void *sensor_data)
   }
 
   /* Reset the sensor */
-  gpio_set_level(ccs811_rst_io, 0); /* TODO: move 0 and 1 for these states to an enum */
+  gpio_set_level(ccs811_rst_io, k_ccs811_gpio_low);
   vTaskDelay(pdMS_TO_TICKS(10));
-  gpio_set_level(ccs811_rst_io, 1); /* TODO: move 0 and 1 for these states to an enum */
+  gpio_set_level(ccs811_rst_io, k_ccs811_gpio_high);
   vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Wake up the sensor */
-  gpio_set_level(ccs811_wake_io, 0); /* TODO: move 0 for the state to an enum */
+  gpio_set_level(ccs811_wake_io, k_ccs811_gpio_low);
   vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Application start */
-  uint8_t app_start_cmd = 0xF4; /* TODO: Move this to an enum */
-  ret = priv_i2c_write_byte(app_start_cmd, ccs811_i2c_bus, ccs811_i2c_address, 
+  ret = priv_i2c_write_byte(k_ccs811_cmd_app_start, ccs811_i2c_bus, ccs811_i2c_address, 
                             ccs811_tag);
   if (ret != ESP_OK) {
     ccs811_data->state = k_ccs811_app_start_error;
@@ -113,8 +110,8 @@ esp_err_t ccs811_init(void *sensor_data)
 
 esp_err_t ccs811_read(ccs811_data_t *sensor_data)
 {
-  uint8_t   data[4]; /* TODO: Move 4 to an enum */
-  esp_err_t ret = priv_i2c_read_bytes(data, 4, ccs811_i2c_bus, ccs811_i2c_address, /* TODO: Move 4 to an enum */
+  uint8_t data[k_ccs811_alg_data_len];
+  esp_err_t ret = priv_i2c_read_bytes(data, k_ccs811_alg_data_len, ccs811_i2c_bus, ccs811_i2c_address,
                                       ccs811_tag);
   if (ret != ESP_OK) {
     sensor_data->eco2  = 0;

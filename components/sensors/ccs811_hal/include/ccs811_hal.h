@@ -27,6 +27,29 @@ extern const uint8_t    ccs811_int_io;      /**< GPIO pin for the sensor's inter
 /* Enums **********************************************************************/
 
 /**
+ * @brief GPIO pin states for CCS811 control signals
+ */
+typedef enum : uint8_t {
+  k_ccs811_gpio_low  = 0, /**< GPIO pin low state */
+  k_ccs811_gpio_high = 1  /**< GPIO pin high state */
+} ccs811_gpio_state_t;
+
+/**
+ * @brief CCS811 register addresses and commands
+ */
+typedef enum : uint8_t {
+  k_ccs811_cmd_app_start = 0xF4,      /**< Start application command */
+  k_ccs811_reg_alg_result_data = 0x02 /**< Algorithm result data register */
+} ccs811_registers_t;
+
+/**
+ * @brief CCS811 data buffer sizes
+ */
+typedef enum : uint8_t {
+  k_ccs811_alg_data_len = 4 /**< Length of algorithm result data */
+} ccs811_buffer_sizes_t;
+
+/**
  * @brief Enumeration of CCS811 sensor states.
  *
  * Defines the possible operational states of the CCS811 air quality sensor, 

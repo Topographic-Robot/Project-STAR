@@ -1,8 +1,10 @@
 /* components/sensors/mpu6050_hal/mpu6050_hal.c */
 
-/* TODO: The values retrieved from this sensor seems a bit sus, needs to be configurea a bit better */
+/* TODO: The values retrieved from this sensor seems a bit sus, needs to be configured a bit better */
+/* TODO: Implement the interrupt handler and use GPIO_NUM_26 */
 
 #include "mpu6050_hal.h"
+#include <math.h>
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
@@ -18,9 +20,9 @@ const char      *mpu6050_tag                = "MPU6050";
 const uint8_t    mpu6050_scl_io             = GPIO_NUM_22;
 const uint8_t    mpu6050_sda_io             = GPIO_NUM_21;
 const uint32_t   mpu6050_i2c_freq_hz        = 100000;
-const uint32_t   mpu6050_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
-const uint8_t    mpu6050_sample_rate_div    = 9;
-const uint8_t    mpu6050_config_dlpf        = k_mpu6050_config_dlpf_44hz;
+const uint32_t   mpu6050_polling_rate_ticks = pdMS_TO_TICKS(20);
+const uint8_t    mpu6050_sample_rate_div    = 4;
+const uint8_t    mpu6050_config_dlpf        = k_mpu6050_config_dlpf_94hz;
 const uint8_t    mpu6050_int_io             = GPIO_NUM_26;
 
 /**
@@ -77,8 +79,8 @@ static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
   { k_mpu6050_gyro_fs_2000dps, 16.4  }, /**< Sensitivity: 16.4 LSB/°/s */
 };
 
-static const uint8_t mpu6050_gyro_config_idx  = 3; /**< Index of chosen values from above (0: ±250°/s, 1: ±500°/s, etc.) */
-static const uint8_t mpu6050_accel_config_idx = 3; /**< Index of chosen values from above (0: ±2g, 1: ±4g, etc.) */
+static const uint8_t mpu6050_gyro_config_idx  = 1; /**< Using ±500°/s for better precision in normal use */
+static const uint8_t mpu6050_accel_config_idx = 1; /**< Using ±4g for better precision in normal use */
 
 /* Static (Private) Functions **************************************************/
 
@@ -360,13 +362,35 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   float accel_sensitivity = mpu6050_accel_configs[mpu6050_accel_config_idx].accel_scale;
   float gyro_sensitivity  = mpu6050_gyro_configs[mpu6050_gyro_config_idx].gyro_scale;
 
-  sensor_data->accel_x = accel_x_raw / accel_sensitivity;
-  sensor_data->accel_y = accel_y_raw / accel_sensitivity;
-  sensor_data->accel_z = accel_z_raw / accel_sensitivity;
+  /* Calculate new values */
+  float new_accel_x = accel_x_raw / accel_sensitivity;
+  float new_accel_y = accel_y_raw / accel_sensitivity;
+  float new_accel_z = accel_z_raw / accel_sensitivity;
+  float new_gyro_x = gyro_x_raw / gyro_sensitivity;
+  float new_gyro_y = gyro_y_raw / gyro_sensitivity;
+  float new_gyro_z = gyro_z_raw / gyro_sensitivity;
 
-  sensor_data->gyro_x = gyro_x_raw / gyro_sensitivity;
-  sensor_data->gyro_y = gyro_y_raw / gyro_sensitivity;
-  sensor_data->gyro_z = gyro_z_raw / gyro_sensitivity;
+  /* Validate accelerometer readings (should be within ±4g range) */
+  if (fabsf(new_accel_x) > 4.0f || fabsf(new_accel_y) > 4.0f || fabsf(new_accel_z) > 4.0f) {
+    ESP_LOGW(mpu6050_tag, "Accelerometer readings out of expected range");
+    sensor_data->state = k_mpu6050_error;
+    return ESP_FAIL;
+  }
+
+  /* Validate gyroscope readings (should be within ±500°/s range) */
+  if (fabsf(new_gyro_x) > 500.0f || fabsf(new_gyro_y) > 500.0f || fabsf(new_gyro_z) > 500.0f) {
+    ESP_LOGW(mpu6050_tag, "Gyroscope readings out of expected range");
+    sensor_data->state = k_mpu6050_error;
+    return ESP_FAIL;
+  }
+
+  /* Update sensor data with validated readings */
+  sensor_data->accel_x = new_accel_x;
+  sensor_data->accel_y = new_accel_y;
+  sensor_data->accel_z = new_accel_z;
+  sensor_data->gyro_x = new_gyro_x;
+  sensor_data->gyro_y = new_gyro_y;
+  sensor_data->gyro_z = new_gyro_z;
 
   ESP_LOGI(mpu6050_tag, "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] deg/s",
            sensor_data->accel_x, sensor_data->accel_y, sensor_data->accel_z,

@@ -1,7 +1,5 @@
 /* components/sensors/gy_neo6mv2_hal/gy_neo6mv2_hal.c */
 
-/* TODO: UBLOCK's app works, but this doesn't :( sorrow */
-
 #include "gy_neo6mv2_hal.h"
 #include <string.h>
 #include <stdlib.h>
@@ -15,6 +13,7 @@
 
 /* Constants *******************************************************************/
 
+/* Module constants */
 const char       *gy_neo6mv2_tag                    = "GY-NEO6MV2";
 const uint8_t     gy_neo6mv2_tx_io                  = GPIO_NUM_17;
 const uint8_t     gy_neo6mv2_rx_io                  = GPIO_NUM_16;
@@ -24,6 +23,11 @@ const uint32_t    gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 100);
 const uint8_t     gy_neo6mv2_max_retries            = 4;
 const uint32_t    gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
+
+/* GPGSV sentence parsing constants */
+const uint8_t gy_neo6mv2_gpgsv_sats_per_sentence = 4;  /**< Number of satellites per GPGSV sentence */
+const uint8_t gy_neo6mv2_gpgsv_field_start       = 4;  /**< Starting field index for satellite data */
+const uint8_t gy_neo6mv2_gpgsv_field_step        = 4;  /**< Number of fields per satellite */
 
 /* Globals (Static) ***********************************************************/
 
@@ -275,7 +279,24 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
     return ret;
   }
 
-  /* Allow time for the GPS module to warm up */
+  /* Configure GPS module with optimal settings */
+  const char *config_commands[] = {
+    "$PUBX,41,1,0007,0003,9600,0*10\r\n",     /* Set UART1 baud rate */
+    "$PUBX,40,GLL,0,0,0,0*5C\r\n",            /* Disable GLL messages */
+    "$PUBX,40,GSA,0,0,0,0*4E\r\n",            /* Disable GSA messages */
+    "$PUBX,40,GSV,0,0,0,0*59\r\n",            /* Disable GSV messages */
+    "$PUBX,40,VTG,0,0,0,0*5E\r\n",            /* Disable VTG messages */
+    "$PUBX,40,RMC,1,0,0,0*46\r\n",            /* Enable RMC messages */
+    "$PUBX,40,GGA,1,0,0,0*5B\r\n"             /* Enable GGA messages */
+  };
+
+  /* Send configuration commands */
+  for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
+    uart_write_bytes(gy_neo6mv2_uart_num, config_commands[i], strlen(config_commands[i]));
+    vTaskDelay(pdMS_TO_TICKS(100)); /* Wait for command processing */
+  }
+
+  /* Allow time for the GPS module to warm up and apply settings */
   vTaskDelay(pdMS_TO_TICKS(5000));
 
   /* Initialize GPS gy_neo6mv2_data fields */
@@ -368,8 +389,8 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
         } else if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPGSV") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPGSV sentence for satellite information */
-          char *fields[20] = { 0 }; /* TODO: Move 20 to an enum or const */
-          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 20); /* TODO: Move 20 to an enum or const */
+          char *fields[GY_NEO6MV2_GPGSV_MAX_FIELDS] = { '\0' };
+          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, GY_NEO6MV2_GPGSV_MAX_FIELDS);
 
           uint8_t total_sentences  = fields[1] ? (uint8_t)atoi(fields[1]) : 0;
           uint8_t sentence_number  = fields[2] ? (uint8_t)atoi(fields[2]) : 0;
@@ -384,7 +405,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
 
           /* Parse satellite details (up to 4 satellites per GPGSV sentence) */
-          for (uint8_t i = 4; i < 20; i += 4) { /* TODO: Move 4 and 20 either into enum / const / add a comment */
+          for (uint8_t i = gy_neo6mv2_gpgsv_field_start; i < GY_NEO6MV2_GPGSV_MAX_FIELDS; i += gy_neo6mv2_gpgsv_field_step) {
             if (fields[i] && fields[i + 1] && fields[i + 2] && fields[i + 3]) {
               uint8_t prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
               uint8_t elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */

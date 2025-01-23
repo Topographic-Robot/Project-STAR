@@ -20,6 +20,7 @@ extern const i2c_port_t qmc5883l_i2c_bus;                /**< I2C bus number use
 extern const char      *qmc5883l_tag;                    /**< Tag for ESP_LOG messages related to the QMC5883L sensor. */
 extern const uint8_t    qmc5883l_scl_io;                 /**< GPIO pin for I2C Serial Clock Line (SCL) for QMC5883L. */
 extern const uint8_t    qmc5883l_sda_io;                 /**< GPIO pin for I2C Serial Data Line (SDA) for QMC5883L. */
+extern const gpio_num_t qmc5883l_drdy_pin;               /**< GPIO pin for Data Ready (DRDY) signal from QMC5883L. */
 extern const uint32_t   qmc5883l_i2c_freq_hz;            /**< I2C bus frequency for QMC5883L communication in Hz. */
 extern const uint32_t   qmc5883l_polling_rate_ticks;     /**< Polling rate for QMC5883L sensor reads in system ticks. */
 extern const uint8_t    qmc5883l_odr_setting;            /**< Output Data Rate (ODR) setting for the QMC5883L sensor. */
