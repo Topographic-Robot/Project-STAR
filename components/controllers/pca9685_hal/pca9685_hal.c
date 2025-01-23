@@ -4,6 +4,7 @@
 #include "common/i2c.h"
 #include "esp_log.h"
 #include <stdlib.h>
+#include <string.h>
 
 /* Constants ******************************************************************/
 
@@ -109,6 +110,13 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
       return ESP_ERR_NO_MEM;
     }
 
+    /* Initialize the motors array */
+    memset(&new_board->motors, 0, sizeof(new_board->motors));
+    for (int j = 0; j < 16; j++) {
+      new_board->motors[j].pos_deg = 90.0f; /* Initialize position to 90 degrees */
+    }
+
+    /* Rest of your initialization code... */
     new_board->i2c_address = pca9685_i2c_address + i;
     new_board->i2c_bus     = pca9685_i2c_bus;
 
@@ -168,10 +176,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
     new_board->num_boards = num_boards;
     new_board->next       = *controller_data;
 
-    /* Initialize all motors to 90 degrees */
-    ret = pca9685_set_angle(new_board, 0xFFFF, i, 90.0f); /* 0xFFFF sets all motors */
+    /* Set all motors to 90 degrees physically */
+    ret = pca9685_set_angle(new_board, 0xFFFF, i, 90.0f);
     if (ret != ESP_OK) {
-      ESP_LOGE(pca9685_tag, "Failed to set all motors to 90 degrees on PCA9685 board %d", i);
+      ESP_LOGE(pca9685_tag, "Failed to set motors on board %d", i);
       free(new_board);
       return ret;
     }
