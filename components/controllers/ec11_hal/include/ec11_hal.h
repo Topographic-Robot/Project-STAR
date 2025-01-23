@@ -1,3 +1,5 @@
+/* components/controllers/ec11_hal/include/ec11_hal.h */
+
 #ifndef TOPOROBO_EC11_HAL_H
 #define TOPOROBO_EC11_HAL_H
 

@@ -1,3 +1,8 @@
+/* components/controllers/ec11_hal/ec11_hal.c */
+
+/* TODO: Integrate the MCP23018 */
+/* TODO: Make this use interrupts instead of polling */
+/* TODO: Test */
 
 #include "ec11_hal.h"
 #include "esp_log.h"
