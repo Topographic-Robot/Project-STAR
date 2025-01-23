@@ -10,6 +10,7 @@
 #include "common/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -31,10 +32,11 @@ const uint8_t gy_neo6mv2_gpgsv_field_step        = 4;  /**< Number of fields per
 
 /* Globals (Static) ***********************************************************/
 
-static char        s_gy_neo6mv2_sentence_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
-static satellite_t s_gy_neo6mv2_satellites[GY_NEO6MV2_MAX_SATELLITES];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
-static uint32_t    s_gy_neo6mv2_sentence_index  = 0;                              /**< Index tracking the current position in the sentence buffer. */
-static uint8_t     s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
+static char            s_gy_neo6mv2_sentence_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
+static satellite_t     s_gy_neo6mv2_satellites[GY_NEO6MV2_MAX_SATELLITES];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
+static uint32_t        s_gy_neo6mv2_sentence_index  = 0;                              /**< Index tracking the current position in the sentence buffer. */
+static uint8_t         s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
+static error_handler_t s_gy_neo6mv2_error_handler; 
 
 /* Static (Private) Functions *************************************************/
 
@@ -269,7 +271,10 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 
 esp_err_t gy_neo6mv2_init(void *sensor_data)
 {
-  ESP_LOGI(gy_neo6mv2_tag, "Initializing GPS module");
+  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  ESP_LOGI(gy_neo6mv2_tag, "Starting Configuration");
+
+  /* TODO: Initialize error handler */
 
   /* Initialize UART using the common UART function */
   esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io, gy_neo6mv2_uart_baudrate,
@@ -300,7 +305,6 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   vTaskDelay(pdMS_TO_TICKS(5000));
 
   /* Initialize GPS gy_neo6mv2_data fields */
-  gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
   gy_neo6mv2_data->latitude           = 0.0;                               /* Default latitude */
   gy_neo6mv2_data->longitude          = 0.0;                               /* Default longitude */
   gy_neo6mv2_data->speed              = 0.0;                               /* Default speed */
@@ -449,28 +453,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 {
   if (sensor_data->state == k_gy_neo6mv2_error) {
-    TickType_t current_ticks = xTaskGetTickCount();
-
-    if ((current_ticks - sensor_data->last_attempt_ticks) > sensor_data->retry_interval) {
-      ESP_LOGI(gy_neo6mv2_tag, "Attempting to reset GY-NEO6MV2 GPS module");
-
-      esp_err_t ret = gy_neo6mv2_init(sensor_data);
-      if (ret == ESP_OK) {
-        sensor_data->state          = k_gy_neo6mv2_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = gy_neo6mv2_initial_retry_interval;
-        ESP_LOGI(gy_neo6mv2_tag, "GY-NEO6MV2 GPS module reset successfully.");
-      } else {
-        sensor_data->retry_count++;
-        if (sensor_data->retry_count >= gy_neo6mv2_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > gy_neo6mv2_max_backoff_interval) ?
-                                         gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
-        }
-      }
-
-      sensor_data->last_attempt_ticks = current_ticks;
-    }
+    /* TODO: Reset error handler */
   }
 }
 
@@ -484,7 +467,6 @@ void gy_neo6mv2_tasks(void *sensor_data)
       file_write_enqueue("gy_neo6mv2.txt", json);
       free(json);
     } else {
-      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS data, resetting...");
       gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);

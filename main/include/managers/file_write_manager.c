@@ -12,14 +12,14 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 
-/* Globals (Constants) ********************************************************/
+/* Constants ******************************************************************/
 
 const char    *file_manager_tag   = "FILE_MANAGER";
 const uint32_t max_pending_writes = 10; /**< Maximum queued write operations */
 
 /* Globals (Static) ***********************************************************/
 
-static QueueHandle_t s_file_write_queue;
+static QueueHandle_t s_file_write_queue = NULL; /**< Queue for handling file write requests */
 
 /* Private Functions **********************************************************/
 
@@ -49,10 +49,11 @@ static void priv_get_timestamp(char *buffer, size_t buffer_len)
  * Processes file write requests from a queue and writes data to the specified 
  * files. The task runs continuously, handling requests asynchronously.
  *
- * @param[in] param Pointer to task-specific parameters (e.g., queue handle).
+ * @param[in] param Pointer to task-specific parameters (unused)
  *
  * @note 
  * - This function is intended to run as a FreeRTOS task.
+ * - Each write request includes a timestamp and data to be written.
  */
 static void priv_file_write_task(void *param)
 {
@@ -86,29 +87,25 @@ esp_err_t file_write_manager_init(void)
   if (s_file_write_queue == NULL) {
     ESP_LOGE(file_manager_tag, "Failed to create file write queue");
     return ESP_FAIL;
-  } else {
-    ESP_LOGI(file_manager_tag, "Created file write queue");
   }
+  ESP_LOGI(file_manager_tag, "Created file write queue");
 
-  BaseType_t task_created = xTaskCreate(priv_file_write_task, 
-                                        "priv_file_write_task", 
-                                        4096, 
-                                        NULL, 
-                                        3, 
+  BaseType_t task_created = xTaskCreate(priv_file_write_task,
+                                        "priv_file_write_task",
+                                        4096,
+                                        NULL,
+                                        3,
                                         NULL);
   if (task_created != pdPASS) {
     ESP_LOGE(file_manager_tag, "Failed to create file write task");
     return ESP_FAIL;
   }
 
-  ESP_LOGI(file_manager_tag, "File write manager initialized");
-
   if (sd_card_init() != ESP_OK) {
     ESP_LOGE(file_manager_tag, "Failed to initialize sd card");
     return ESP_FAIL;
-  } else {
-    ESP_LOGI(file_manager_tag, "Initialized sd card");
   }
+  ESP_LOGI(file_manager_tag, "File write manager initialized successfully");
 
   return ESP_OK;
 }
@@ -126,8 +123,8 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   }
 
   file_write_request_t request;
-
   char timestamp[32] = { '\0' };
+  
   priv_get_timestamp(timestamp, sizeof(timestamp));
   snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s", sd_card_mount_path, file_path);
   snprintf(request.data, MAX_DATA_LENGTH, "%s %s\n", timestamp, data);

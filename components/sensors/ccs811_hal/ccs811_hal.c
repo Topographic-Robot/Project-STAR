@@ -6,6 +6,7 @@
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -22,6 +23,10 @@ const uint32_t   ccs811_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
 const uint8_t    ccs811_max_retries            = 4;
 const uint32_t   ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t   ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
+
+/* Static (Private) Variables **************************************************/
+
+static error_handler_t s_ccs811_error_handler;
 
 /* Public Functions ***********************************************************/
 
@@ -65,7 +70,9 @@ char *ccs811_data_to_json(const ccs811_data_t *data)
 esp_err_t ccs811_init(void *sensor_data)
 {
   ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
-  ESP_LOGI(ccs811_tag, "Starting CCS811 Configuration");
+  ESP_LOGI(ccs811_tag, "Starting Configuration");
+
+  /* TODO: Initialize error handler */
 
   ccs811_data->i2c_address        = ccs811_i2c_address;
   ccs811_data->i2c_bus            = ccs811_i2c_bus;
@@ -132,25 +139,7 @@ esp_err_t ccs811_read(ccs811_data_t *sensor_data)
 void ccs811_reset_on_error(ccs811_data_t *sensor_data)
 {
   if (sensor_data->state & k_ccs811_error) {
-    TickType_t now_ticks = xTaskGetTickCount();
-    if (now_ticks - sensor_data->last_attempt_ticks >= sensor_data->retry_interval) {
-      sensor_data->last_attempt_ticks = now_ticks;
-
-      if (ccs811_init(sensor_data) == ESP_OK) {
-        sensor_data->state          = k_ccs811_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = ccs811_initial_retry_interval;
-      } else {
-        sensor_data->retry_count += 1;
-
-        if (sensor_data->retry_count >= ccs811_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 <= ccs811_max_backoff_interval) ?
-                                        sensor_data->retry_interval * 2 :
-                                        ccs811_max_backoff_interval;
-        }
-      }
-    }
+    /* TODO: Reset error handler */
   }
 }
 

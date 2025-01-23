@@ -6,6 +6,7 @@
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -22,6 +23,10 @@ const uint32_t   bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
 const uint8_t    bh1750_measurement_bytes      = 2;
 const float      bh1750_raw_to_lux_factor      = 1.2f;
 const uint8_t    bh1750_high_byte_shift        = 8;
+
+/* Static (Private) Variables **************************************************/
+
+static error_handler_t s_bh1750_error_handler;
 
 /* Public Functions ***********************************************************/
 
@@ -59,11 +64,13 @@ char *bh1750_data_to_json(const bh1750_data_t *data)
 esp_err_t bh1750_init(void *sensor_data)
 {
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
-  ESP_LOGI(bh1750_tag, "Starting BH1750 Configuration");
+  ESP_LOGI(bh1750_tag, "Starting Configuration");
+
+  /* TODO: Initialize error handler */
 
   bh1750_data->i2c_address        = bh1750_i2c_address;
   bh1750_data->i2c_bus            = bh1750_i2c_bus;
-  bh1750_data->lux                = -1.0;
+  bh1750_data->lux                = -1.0f;
   bh1750_data->state              = k_bh1750_uninitialized;
   bh1750_data->retry_count        = 0;
   bh1750_data->retry_interval     = bh1750_initial_retry_interval;
@@ -139,25 +146,7 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data)
 void bh1750_reset_on_error(bh1750_data_t *sensor_data)
 {
   if (sensor_data->state & k_bh1750_error) {
-    TickType_t now_ticks = xTaskGetTickCount();
-    if (now_ticks - sensor_data->last_attempt_ticks >= sensor_data->retry_interval) {
-      sensor_data->last_attempt_ticks = now_ticks;
-
-      if (bh1750_init(sensor_data) == ESP_OK) {
-        sensor_data->state          = k_bh1750_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = bh1750_initial_retry_interval;
-      } else {
-        sensor_data->retry_count += 1;
-
-        if (sensor_data->retry_count >= bh1750_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 <= bh1750_max_backoff_interval) ?
-                                        sensor_data->retry_interval * 2 :
-                                        bh1750_max_backoff_interval;
-        }
-      }
-    }
+    /* TODO: Reset error handler */
   }
 }
 

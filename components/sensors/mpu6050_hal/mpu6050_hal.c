@@ -11,6 +11,7 @@
 #include "common/i2c.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -81,6 +82,10 @@ static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
 
 static const uint8_t mpu6050_gyro_config_idx  = 1; /**< Using ±500°/s for better precision in normal use */
 static const uint8_t mpu6050_accel_config_idx = 1; /**< Using ±4g for better precision in normal use */
+
+/* Static (Private) Variables **************************************************/
+
+static error_handler_t s_mpu6050_error_handler;
 
 /* Static (Private) Functions **************************************************/
 
@@ -176,6 +181,8 @@ esp_err_t mpu6050_init(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   ESP_LOGI(mpu6050_tag, "Starting Configuration");
+
+  /* TODO: Initialize error handler */
 
   mpu6050_data->i2c_address = mpu6050_i2c_address;
   mpu6050_data->i2c_bus     = mpu6050_i2c_bus;
@@ -404,18 +411,7 @@ void mpu6050_reset_on_error(mpu6050_data_t *sensor_data)
 {
   /* Check if the state indicates any error */
   if (sensor_data->state & k_mpu6050_error) {
-    ESP_LOGI(mpu6050_tag, "Error detected. Attempting to reset the MPU6050 sensor.");
-
-    /* Attempt to initialize/reset the sensor */
-    if (mpu6050_init(sensor_data) == ESP_OK) {
-      /* If successful, set the state to ready */
-      sensor_data->state = k_mpu6050_ready;
-      ESP_LOGI(mpu6050_tag, "MPU6050 sensor reset successfully. State is now ready.");
-    } else {
-      /* If reset fails, set the state to reset error */
-      sensor_data->state = k_mpu6050_reset_error;
-      ESP_LOGE(mpu6050_tag, "Failed to reset the MPU6050 sensor. State set to reset error.");
-    }
+    /* TODO: Reset error handler */
   }
 }
 
@@ -423,17 +419,14 @@ void mpu6050_tasks(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   while (1) {
-    /* Wait indefinitely for the data_ready_sem semaphore */
-    if (xSemaphoreTake(mpu6050_data->data_ready_sem, portMAX_DELAY) == pdTRUE) {
-      if (mpu6050_read(mpu6050_data) == ESP_OK) {
-        char *json = mpu6050_data_to_json(mpu6050_data);
-        send_sensor_data_to_webserver(json);
-        file_write_enqueue("mpu6050.txt", json);
-        free(json);
-      } else {
-        mpu6050_reset_on_error(mpu6050_data);
-      }
-      vTaskDelay(mpu6050_polling_rate_ticks);
+    if (mpu6050_read(mpu6050_data) == ESP_OK) {
+      char *json = mpu6050_data_to_json(mpu6050_data);
+      send_sensor_data_to_webserver(json);
+      file_write_enqueue("mpu6050.txt", json);
+      free(json);
+    } else {
+      mpu6050_reset_on_error(mpu6050_data);
     }
+    vTaskDelay(mpu6050_polling_rate_ticks);
   }
 }
