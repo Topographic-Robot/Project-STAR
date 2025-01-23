@@ -27,9 +27,9 @@ const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
 
 /* Globals (Static) ***********************************************************/
 
-static char        s_gy_neo6mv2_sentence_buffer[gy_neo6mv2_sentence_buffer_size]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
-static uint32_t    s_gy_neo6mv2_sentence_index = 0;                               /**< Index tracking the current position in the sentence buffer. */
-static satellite_t s_gy_neo6mv2_satellites[gy_neo6mv2_max_satellites];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
+static char        s_gy_neo6mv2_sentence_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
+static satellite_t s_gy_neo6mv2_satellites[GY_NEO6MV2_MAX_SATELLITES];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
+static uint32_t    s_gy_neo6mv2_sentence_index  = 0;                              /**< Index tracking the current position in the sentence buffer. */
 static uint8_t     s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
 
 /* Static (Private) Functions *************************************************/
@@ -133,7 +133,7 @@ static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, s
 static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16_t azimuth, 
                                           uint8_t snr)
 {
-  if (s_gy_neo6mv2_satellite_count < gy_neo6mv2_max_satellites) {
+  if (s_gy_neo6mv2_satellite_count < GY_NEO6MV2_MAX_SATELLITES) {
     satellite_t *sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
     sat->prn         = prn;
     sat->elevation   = elevation;
@@ -298,7 +298,7 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
-  uint8_t uart_rx_buffer[gy_neo6mv2_sentence_buffer_size];
+  uint8_t uart_rx_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE];
   int32_t length = 0;
 
   /* Read from UART */
@@ -403,9 +403,9 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
     }
 
     /* After processing sentences, retrieve satellite data */
-    satellite_t local_satellites[gy_neo6mv2_max_satellites];
+    satellite_t local_satellites[GY_NEO6MV2_MAX_SATELLITES];
     uint8_t     satellite_count = priv_gy_neo6mv2_get_satellites(local_satellites, 
-                                                                 gy_neo6mv2_max_satellites);
+                                                                 GY_NEO6MV2_MAX_SATELLITES);
 
     /* Update sensor_data with satellite count */
     sensor_data->satellite_count = satellite_count;

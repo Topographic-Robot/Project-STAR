@@ -31,6 +31,28 @@ typedef enum : uint8_t {
 } ec11_states_t;
 
 /**
+ * @brief Enumeration of EC11 encoder events.
+ *
+ * Defines the possible events that can be triggered by the encoder,
+ * including rotation direction and button press/release.
+ */
+typedef enum : uint8_t {
+  k_ec11_cw,         /**< Clockwise rotation detected */
+  k_ec11_ccw,        /**< Counter-clockwise rotation detected */
+  k_ec11_btn_press,  /**< Button press detected */
+  k_ec11_btn_release /**< Button release detected */
+} ec11_event_t;
+
+/**
+ * @brief Function pointer type for EC11 event callbacks.
+ *
+ * @param[in] event      The type of event that occurred
+ * @param[in] board      Pointer to the PCA9685 board
+ * @param[in] motor_mask Bitmask indicating which motor to control
+ */
+typedef void (*ec11_callback_t)(ec11_event_t event, void *board, uint16_t motor_mask);
+
+/**
  * @brief Enumeration of EC11 encoder operational states.
  *
  * Defines the possible operational states of the EC11 encoder,
@@ -51,13 +73,16 @@ typedef enum : uint8_t {
  * and button state for a single EC11 encoder instance.
  */
 typedef struct {
-  uint8_t  pin_a;           /**< GPIO pin for encoder output A */
-  uint8_t  pin_b;           /**< GPIO pin for encoder output B */
-  uint8_t  pin_btn;         /**< GPIO pin for encoder push button */
-  int32_t  position;        /**< Current encoder position (increments/decrements) */
-  uint8_t  state;           /**< Current operational state (see ec11_op_states_t) */
-  bool     button_pressed;  /**< Current state of the push button */
-  uint8_t  prev_state;      /**< Previous encoder state for rotation detection */
+  gpio_num_t      pin_a;          /**< GPIO pin for encoder output A */
+  gpio_num_t      pin_b;          /**< GPIO pin for encoder output B */
+  gpio_num_t      pin_btn;        /**< GPIO pin for encoder push button */
+  int32_t         position;       /**< Current encoder position (increments/decrements) */
+  uint8_t         state;          /**< Current operational state (see ec11_op_states_t) */
+  bool            button_pressed; /**< Current state of the push button */
+  uint8_t         prev_state;     /**< Previous encoder state for rotation detection */
+  ec11_callback_t callback;       /**< Event callback function */
+  void           *board_ptr;      /**< Pointer to the PCA9685 board */
+  uint16_t        motor_mask;     /**< Bitmask indicating which motor to control */
 } ec11_data_t;
 
 /* Public Functions ***********************************************************/
@@ -84,6 +109,19 @@ esp_err_t ec11_init(ec11_data_t *encoder);
  * @param[in] arg Pointer to the encoder data structure
  */
 void ec11_task(void *arg);
+
+/**
+ * @brief Registers a callback function for encoder events.
+ *
+ * @param[in] encoder  Pointer to the encoder data structure
+ * @param[in] callback The callback function to register
+ * @param[in] board_ptr Pointer to the PCA9685 board
+ * @param[in] motor_mask Bitmask indicating which motor to control
+ */
+void ec11_register_callback(ec11_data_t *encoder, 
+                            ec11_callback_t callback, 
+                            void *board_ptr, 
+                            uint16_t motor_mask);
 
 #ifdef __cplusplus
 }

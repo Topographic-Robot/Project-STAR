@@ -90,8 +90,17 @@ esp_err_t file_write_manager_init(void)
     ESP_LOGI(file_manager_tag, "Created file write queue");
   }
 
-  /* TODO: Handle error for this xTaskCreate */
-  xTaskCreate(priv_file_write_task, "priv_file_write_task", 4096, NULL, 3, NULL); 
+  BaseType_t task_created = xTaskCreate(priv_file_write_task, 
+                                        "priv_file_write_task", 
+                                        4096, 
+                                        NULL, 
+                                        3, 
+                                        NULL);
+  if (task_created != pdPASS) {
+    ESP_LOGE(file_manager_tag, "Failed to create file write task");
+    return ESP_FAIL;
+  }
+
   ESP_LOGI(file_manager_tag, "File write manager initialized");
 
   if (sd_card_init() != ESP_OK) {
@@ -120,8 +129,8 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
 
   char timestamp[32] = { '\0' };
   priv_get_timestamp(timestamp, sizeof(timestamp));
-  snprintf(request.file_path, max_file_path_length, "%s/%s", sd_card_mount_path, file_path);
-  snprintf(request.data, max_data_length, "%s %s\n", timestamp, data);
+  snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s", sd_card_mount_path, file_path);
+  snprintf(request.data, MAX_DATA_LENGTH, "%s %s\n", timestamp, data);
 
   if (xQueueSend(s_file_write_queue, &request, 0) != pdTRUE) {
     ESP_LOGE(file_manager_tag, "File write queue is full");

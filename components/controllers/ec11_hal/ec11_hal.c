@@ -1,4 +1,3 @@
-/* components/controllers/ec11_hal/ec11_hal.c */
 
 #include "ec11_hal.h"
 #include "esp_log.h"
@@ -50,6 +49,21 @@ esp_err_t ec11_init(ec11_data_t *encoder)
   return ESP_OK;
 }
 
+void ec11_register_callback(ec11_data_t *encoder, 
+                            ec11_callback_t callback, 
+                            void *board_ptr, 
+                            uint16_t motor_mask)
+{
+  if (encoder == NULL || callback == NULL || board_ptr == NULL) {
+    ESP_LOGE(ec11_tag, "Invalid encoder or callback pointer");
+    return;
+  }
+
+  encoder->callback   = callback;
+  encoder->board_ptr  = board_ptr;
+  encoder->motor_mask = motor_mask;
+}
+
 void ec11_task(void *arg)
 {
   ec11_data_t *encoder = (ec11_data_t *)arg;
@@ -73,12 +87,18 @@ void ec11_task(void *arg)
           (encoder->prev_state == k_ec11_state_10 && current_state == k_ec11_state_00)) {
         encoder->position++;
         ESP_LOGI(ec11_tag, "Clockwise (pos: %ld)", encoder->position);
+        if (encoder->callback) {
+          encoder->callback(k_ec11_cw, encoder->board_ptr, encoder->motor_mask);
+        }
       } else if ((encoder->prev_state == k_ec11_state_00 && current_state == k_ec11_state_10) ||
                  (encoder->prev_state == k_ec11_state_10 && current_state == k_ec11_state_11) ||
                  (encoder->prev_state == k_ec11_state_11 && current_state == k_ec11_state_01) ||
                  (encoder->prev_state == k_ec11_state_01 && current_state == k_ec11_state_00)) {
         encoder->position--;
         ESP_LOGI(ec11_tag, "Counterclockwise (pos: %ld)", encoder->position);
+        if (encoder->callback) {
+          encoder->callback(k_ec11_ccw, encoder->board_ptr, encoder->motor_mask);
+        }
       }
       /* Update the previous state */
       encoder->prev_state = current_state;
@@ -89,6 +109,11 @@ void ec11_task(void *arg)
     if (current_button != encoder->button_pressed) {
       encoder->button_pressed = current_button;
       ESP_LOGI(ec11_tag, "Button %s", current_button ? "pressed" : "released");
+      if (encoder->callback) {
+        encoder->callback(current_button ? k_ec11_btn_press : k_ec11_btn_release, 
+                          encoder->board_ptr, 
+                          encoder->motor_mask);
+      }
     }
 
     /* Delay to avoid busy-waiting */

@@ -27,8 +27,8 @@ extern const uint32_t    gy_neo6mv2_max_backoff_interval;   /**< Maximum backoff
 
 /* Macros *********************************************************************/
 
-#define gy_neo6mv2_sentence_buffer_size (128) /**< Maximum buffer size for NMEA sentences from the GY-NEO6MV2 module. */
-#define gy_neo6mv2_max_satellites       (32)  /**< Maximum number of satellites' data to store in the buffer. */
+#define GY_NEO6MV2_SENTENCE_BUFFER_SIZE (128) /**< Maximum buffer size for NMEA sentences from the GY-NEO6MV2 module. */
+#define GY_NEO6MV2_MAX_SATELLITES       (32)  /**< Maximum number of satellites' data to store in the buffer. */
 
 /* Enums **********************************************************************/
 

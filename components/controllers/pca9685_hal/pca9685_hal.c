@@ -21,6 +21,7 @@ const uint16_t   pca9685_pwm_period_us    = 20000;    /**< 50Hz = 20ms */
 const char      *pca9685_tag              = "PCA9685";
 const uint8_t    pca9685_step_size_deg    = 5;
 const uint32_t   pca9685_step_delay_ms    = 20;
+const float      pca9685_default_angle    = 90.0f;
 
 /* Constants (Static) **********************************************************/
 
@@ -112,8 +113,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
 
     /* Initialize the motors array */
     memset(&new_board->motors, 0, sizeof(new_board->motors));
-    for (int j = 0; j < 16; j++) {
-      new_board->motors[j].pos_deg = 90.0f; /* Initialize position to 90 degrees */
+    for (int j = 0; j < PCA9685_MOTORS_PER_BOARD; j++) {
+      new_board->motors[j].pos_deg  = pca9685_default_angle; /* Initialize position to default angle */
+      new_board->motors[j].board_id = i;
+      new_board->motors[j].motor_id = j;
     }
 
     /* Rest of your initialization code... */
@@ -213,7 +216,7 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
         return ESP_FAIL;
       }
 
-      for (uint8_t channel = 0; channel < 16; ++channel) {
+      for (uint8_t channel = 0; channel < PCA9685_MOTORS_PER_BOARD; ++channel) {
         if (motor_mask & (1 << channel)) {
           float current_angle = current_board->motors[channel].pos_deg;
           float angle_step    = (target_angle > current_angle) ? 

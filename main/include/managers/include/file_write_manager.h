@@ -16,8 +16,8 @@ extern const uint32_t max_pending_writes; /**< Maximum number of queued file wri
 
 /* Macros *********************************************************************/
 
-#define max_file_path_length (64)  /**< Maximum file path length, including the null terminator. */
-#define max_data_length      (256) /**< Maximum data length per write request, including the null terminator. */
+#define MAX_FILE_PATH_LENGTH (64)  /**< Maximum file path length, including the null terminator. */
+#define MAX_DATA_LENGTH      (256) /**< Maximum data length per write request, including the null terminator. */
 
 /* Structs ********************************************************************/
 
@@ -33,8 +33,8 @@ extern const uint32_t max_pending_writes; /**< Maximum number of queued file wri
  *   has a length defined by the `max_data_length` macro.
  */
 typedef struct {
-  char file_path[max_file_path_length]; /**< Path to the target file. Must be null-terminated and within the length limit. */
-  char data[max_data_length];           /**< Data to write to the file. Must be null-terminated if it is a string. */
+  char file_path[MAX_FILE_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
+  char data[MAX_DATA_LENGTH];           /**< Data to write to the file. Must be null-terminated if it is a string. */
 } file_write_request_t;
 
 /* Public Functions ***********************************************************/

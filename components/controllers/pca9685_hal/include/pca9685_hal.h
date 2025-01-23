@@ -8,9 +8,13 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "hexapod_geometry.h"
 #include "esp_err.h"
 #include "driver/i2c.h"
+#include "hexapod_geometry.h"
+
+/* Macros *********************************************************************/
+
+#define PCA9685_MOTORS_PER_BOARD (16) /**< Number of motors per PCA9685 board */
 
 /* Constants ******************************************************************/
 
@@ -27,6 +31,7 @@ extern const uint16_t   pca9685_pwm_period_us;    /**< Total PWM period for 50Hz
 extern const char      *pca9685_tag;              /**< Tag for logs */
 extern const uint8_t    pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
 extern const uint32_t   pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
+extern const float      pca9685_default_angle;    /**< Default angle for motors */
 
 /* Enums **********************************************************************/
 
@@ -88,7 +93,7 @@ typedef struct pca9685_board_t {
   uint8_t                 state;       /**< Current state of the PCA9685 (see pca9685_states_t). */
   uint8_t                 board_id;    /**< Unique ID for this board in multi-board setups. */
   uint8_t                 num_boards;  /**< Total number of PCA9685 boards in the system. */
-  motor_t                 motors[16];  /**< Array representing the 16 motors controlled by this board. */
+  motor_t                 motors[PCA9685_MOTORS_PER_BOARD];  /**< Array representing the motors controlled by this board. */
   struct pca9685_board_t *next;        /**< Pointer to the next board in the singly linked list. */
 } pca9685_board_t;
 

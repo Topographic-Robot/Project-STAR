@@ -2,14 +2,61 @@
 
 #include "motor_tasks.h"
 #include "pca9685_hal.h"
+#include "ec11_hal.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 /* Constants ******************************************************************/
 
-const uint8_t num_pca9685_boards = 1;
+const uint8_t num_pca9685_boards = 2;
 const char   *motor_tag          = "Motor Tasks";
+
+/* Private Functions (Static) *************************************************/
+
+/**
+ * @brief Callback function for EC11 encoder events.
+ *
+ * Handles encoder rotation and button events for manual motor control.
+ * Clockwise rotation increases angle, counterclockwise decreases angle,
+ * and button press resets motor to default position.
+ *
+ * @param[in] event      The encoder event (CW, CCW, or button press)
+ * @param[in] arg      Pointer to the PCA9685 board
+ * @param[in] motor_mask Bitmask indicating which motor to control
+ */ 
+static void priv_motor_control_callback(ec11_event_t event, 
+                                        void *arg, 
+                                        uint16_t motor_mask)
+{
+  static const float angle_step = 5.0f; /* 5 degrees per detent */
+  pca9685_board_t *board = (pca9685_board_t *)arg;
+
+  switch (event) {
+  case k_ec11_cw:
+    /* Increment selected motor's angle */
+    if (board->motors[motor_mask].pos_deg + angle_step <= 180.0f) {
+      pca9685_set_angle(board, motor_mask, board->board_id, angle_step);
+      board->motors[motor_mask].pos_deg += angle_step;
+    }
+    break;
+
+  case k_ec11_ccw:
+    /* Decrement selected motor's angle */
+    if (board->motors[motor_mask].pos_deg - angle_step >= 0.0f) {
+      pca9685_set_angle(board, motor_mask, board->board_id, -angle_step);
+      board->motors[motor_mask].pos_deg -= angle_step;
+    }
+    break;
+
+  case k_ec11_btn_press:
+    /* reset motor to default position */
+    pca9685_set_angle(board, motor_mask, board->board_id, pca9685_default_angle);
+    break;
+  case k_ec11_btn_release: /* do nothing (fall through to default) */
+  default:                 /* do nothing */
+  }
+}
 
 /* Public Functions ***********************************************************/
 
@@ -23,6 +70,23 @@ esp_err_t motors_init(pca9685_board_t **pwm_controller)
   ESP_LOGI(motor_tag, "Initialized all PWM boards with default values.");
 
   /* TODO: Map the motors with their identifications e.g hip/femur/tibia */
+
+  /* TODO: Initialize the EC11 encoders -- In the future mcp23018 will be used */
+  /* NOTE: For now this is hardcoded to the first 3 motors of one leg. 
+   *       These are the hip, femur, and tibia which are the first 3 motors on 
+   *       the first PCA9685 board.
+   */
+
+  /* Register the motor control callback for each motor */
+  for (int i = 0; i < num_pca9685_boards; i++) {
+    for (int j = 0; j < PCA9685_MOTORS_PER_BOARD; j++) {
+      pca9685_board_t *board = &(*pwm_controller)[i];
+      ec11_register_callback(&board->motors[j].ec11_data, 
+                             priv_motor_control_callback, 
+                             board, 
+                             j);
+    }
+  }
 
   return ESP_OK;
 }
