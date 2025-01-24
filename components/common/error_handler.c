@@ -1,3 +1,5 @@
+/* components/common/error_handler.c */
+
 #include "error_handler.h"
 
 /* Public Functions ***********************************************************/

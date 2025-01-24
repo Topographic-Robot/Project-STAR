@@ -36,7 +36,7 @@ static char            s_gy_neo6mv2_sentence_buffer[GY_NEO6MV2_SENTENCE_BUFFER_S
 static satellite_t     s_gy_neo6mv2_satellites[GY_NEO6MV2_MAX_SATELLITES];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
 static uint32_t        s_gy_neo6mv2_sentence_index  = 0;                              /**< Index tracking the current position in the sentence buffer. */
 static uint8_t         s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
-static error_handler_t s_gy_neo6mv2_error_handler; 
+static error_handler_t s_gy_neo6mv2_error_handler   = { 0 };
 
 /* Static (Private) Functions *************************************************/
 

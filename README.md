@@ -13,6 +13,7 @@
   - [Software](#software)
   - [Installation](#installation)
   - [Wiring](#wiring)
+  - [EC11](#ec11)
   - [JTAG Debugging](#jtag-debugging)
   - [Documentation](#documentation)
   - [Contributing](#contributing)
@@ -150,6 +151,18 @@ The `Wiring.txt` file in the repository provides detailed pin connections betwee
 | PCA9685         | SDA           | GPIO_NUM_21 (D21) | PWM driver (for motor control). Uses I2C.                                                              |
 |                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
 |                 | OE            | GPIO_NUM_15 (D15) | Output Enable.                                                                                         |
+
+## EC11
+
+| Component    | Component Pin | ESP32 Pin         | Notes                                                              |
+| ------------ | ------------- | ----------------- | ------------------------------------------------------------------ |
+| EC11 Encoder | OutA (CLK)    | GPIO_NUM_27 (D27) | Rotary encoder for motor control. Each encoder controls one motor. |
+|              | OutB (DT)     | GPIO_NUM_13 (D13) |                                                                    |
+|              | OutC (GND)    | GND               |                                                                    |
+|              | ButtonA       | GPIO_NUM_14 (D14) | Button signal for resetting motor position.                        |
+|              | ButtonB       | 3V3               | Connect to 3.3V power.                                             |
+
+- Enable EC11 in `CMakeLists.txt` by adding `add_compile_definitions(EC11_USE_INTERRUPTS=1)`
 
 ## JTAG Debugging
 

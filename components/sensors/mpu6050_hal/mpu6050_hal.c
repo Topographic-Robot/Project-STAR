@@ -80,12 +80,9 @@ static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
   { k_mpu6050_gyro_fs_2000dps, 16.4  }, /**< Sensitivity: 16.4 LSB/°/s */
 };
 
-static const uint8_t mpu6050_gyro_config_idx  = 1; /**< Using ±500°/s for better precision in normal use */
-static const uint8_t mpu6050_accel_config_idx = 1; /**< Using ±4g for better precision in normal use */
-
-/* Static (Private) Variables **************************************************/
-
-static error_handler_t s_mpu6050_error_handler;
+static const uint8_t   mpu6050_gyro_config_idx  = 1; /**< Using ±500°/s for better precision in normal use */
+static const uint8_t   mpu6050_accel_config_idx = 1; /**< Using ±4g for better precision in normal use */
+static error_handler_t s_mpu6050_error_handler  = { 0 };
 
 /* Static (Private) Functions **************************************************/
 

@@ -24,9 +24,9 @@ const uint8_t    bh1750_measurement_bytes      = 2;
 const float      bh1750_raw_to_lux_factor      = 1.2f;
 const uint8_t    bh1750_high_byte_shift        = 8;
 
-/* Static (Private) Variables **************************************************/
+/* Globals (Static) ***********************************************************/
 
-static error_handler_t s_bh1750_error_handler;
+static error_handler_t s_bh1750_error_handler = { 0 };
 
 /* Public Functions ***********************************************************/
 

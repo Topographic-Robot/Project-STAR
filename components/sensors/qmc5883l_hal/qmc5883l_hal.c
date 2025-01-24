@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -31,7 +32,8 @@ static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
   {k_qmc5883l_range_8g, 800.0 / 32768.0 }, /**< ±8 Gauss range, scaling factor */
 };
 
-static const uint8_t qmc5883l_scale_config_idx = 0; /**< Index of chosen values (0 for ±2G, 1 for ±8G) */
+static const uint8_t   qmc5883l_scale_config_idx = 0; /**< Index of chosen values (0 for ±2G, 1 for ±8G) */
+static error_handler_t s_qmc5883l_error_handler  = { 0 };
 
 /* Private Functions **********************************************************/
 

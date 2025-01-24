@@ -27,9 +27,9 @@ const uint32_t dht22_response_timeout_us    = 80;
 const uint32_t dht22_bit_threshold_us       = 40;
 const uint8_t  dht22_allowed_fail_attempts  = 3;
 
-/* Static (Private) Variables **************************************************/
+/* Globals (Static) ***********************************************************/
 
-static error_handler_t s_dht22_error_handler;
+static error_handler_t s_dht22_error_handler = { 0 };
 
 /* Static (Private) Functions **************************************************/
 

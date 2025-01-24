@@ -12,17 +12,29 @@ extern "C" {
 #include "freertos/task.h"
 #include "esp_log.h"
 
-/* Common error handling structure */
+/**
+ * @brief Error handler structure
+ *
+ * @param retry_count            Number of consecutive reinitialization attempts
+ * @param retry_interval         Current interval between reinitialization attempts, in ticks
+ * @param last_attempt_ticks     Tick count of the last reinitialization attempt
+ * @param fail_count             Number of consecutive failures before triggering reset
+ * @param allowed_fail_attempts  Maximum number of failures allowed before reset
+ * @param max_retries            Maximum number of reset retries before increasing interval
+ * @param initial_retry_interval Initial retry interval in ticks
+ * @param max_backoff_interval   Maximum backoff interval in ticks
+ * @param tag                    Logging tag for the component
+ */
 typedef struct {
-  uint8_t    retry_count;            /**< Number of consecutive reinitialization attempts */
-  uint32_t   retry_interval;         /**< Current interval between reinitialization attempts, in ticks */
-  TickType_t last_attempt_ticks;     /**< Tick count of the last reinitialization attempt */
-  uint8_t    fail_count;             /**< Number of consecutive failures before triggering reset */
-  uint8_t    allowed_fail_attempts;  /**< Maximum number of failures allowed before reset */
-  uint8_t    max_retries;            /**< Maximum number of reset retries before increasing interval */
-  uint32_t   initial_retry_interval; /**< Initial retry interval in ticks */
-  uint32_t   max_backoff_interval;   /**< Maximum backoff interval in ticks */
-  const char *tag;                   /**< Logging tag for the component */
+  uint8_t     retry_count;            /**< Number of consecutive reinitialization attempts */
+  uint32_t    retry_interval;         /**< Current interval between reinitialization attempts, in ticks */
+  TickType_t  last_attempt_ticks;     /**< Tick count of the last reinitialization attempt */
+  uint8_t     fail_count;             /**< Number of consecutive failures before triggering reset */
+  uint8_t     allowed_fail_attempts;  /**< Maximum number of failures allowed before reset */
+  uint8_t     max_retries;            /**< Maximum number of reset retries before increasing interval */
+  uint32_t    initial_retry_interval; /**< Initial retry interval in ticks */
+  uint32_t    max_backoff_interval;   /**< Maximum backoff interval in ticks */
+  const char *tag;                    /**< Logging tag for the component */
 } error_handler_t;
 
 /**

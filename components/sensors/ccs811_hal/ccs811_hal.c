@@ -24,9 +24,9 @@ const uint8_t    ccs811_max_retries            = 4;
 const uint32_t   ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t   ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
 
-/* Static (Private) Variables **************************************************/
+/* Globals (Static) ***********************************************************/
 
-static error_handler_t s_ccs811_error_handler;
+static error_handler_t s_ccs811_error_handler = { 0 };
 
 /* Public Functions ***********************************************************/
 

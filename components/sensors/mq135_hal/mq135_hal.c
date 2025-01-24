@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "esp_adc/adc_oneshot.h"
 #include "driver/gpio.h"
+#include "error_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -22,7 +23,8 @@ const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
 
 /* Globals (Static) ***********************************************************/
 
-static adc_oneshot_unit_handle_t s_adc1_handle; /**< ADC handle for the MQ135 sensor. */
+static adc_oneshot_unit_handle_t s_adc1_handle         = { 0 }; /**< ADC handle for the MQ135 sensor. */
+static error_handler_t           s_mq135_error_handler = { 0 };
 
 /* Static (Private) Functions **************************************************/
 
