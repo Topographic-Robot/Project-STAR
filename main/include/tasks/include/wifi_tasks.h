@@ -82,6 +82,20 @@ esp_err_t wifi_check_connection(void);
  */
 esp_err_t wifi_init_sta(void);
 
+/**
+ * @brief Starts the WiFi task that handles connection and monitoring.
+ *
+ * Creates and starts a FreeRTOS task that manages WiFi connection, including:
+ * - Initial connection attempt
+ * - Time synchronization after connection
+ * - Connection monitoring and automatic reconnection
+ *
+ * @return
+ * - ESP_OK if the task was created successfully
+ * - ESP_FAIL if task creation failed
+ */
+esp_err_t wifi_task_start(void);
+
 #ifdef __cplusplus
 }
 #endif

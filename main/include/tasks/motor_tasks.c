@@ -26,8 +26,8 @@ const char   *motor_tag          = "Motor Tasks";
  * @param[in] motor_mask Bitmask indicating which motor to control
  */ 
 static void priv_motor_control_callback(ec11_event_t event, 
-                                      void *arg, 
-                                      uint16_t motor_mask)
+                                        void *arg, 
+                                        uint16_t motor_mask)
 {
   static const float angle_step = 5.0f; /* 5 degrees per detent */
   pca9685_board_t   *board      = (pca9685_board_t *)arg;

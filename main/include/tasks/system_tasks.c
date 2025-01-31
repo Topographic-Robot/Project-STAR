@@ -79,18 +79,6 @@ esp_err_t system_tasks_init(void)
     ESP_LOGE(system_tag, "Gait static array initialization failed.");
     ret = ESP_FAIL;
   }
-
-  /* Initialize WiFi */
-  if (wifi_init_sta() != ESP_OK) {
-    ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
-    ret = ESP_FAIL;
-  }
-  
-  /* Initialize time (SNTP) */
-  if (time_manager_init() != ESP_OK) {
-		ESP_LOGE(system_tag ,"Time initialization failed.");
-    ret = ESP_FAIL;
-  }
   
   /* Initialize storage (e.g., SD card or SPIFFS) */
   if (file_write_manager_init() != ESP_OK) {
@@ -107,6 +95,13 @@ esp_err_t system_tasks_init(void)
 esp_err_t system_tasks_start(void)
 {
   esp_err_t ret = ESP_OK;
+
+  /* Start WiFi task (which will also handle time sync) */
+  if (wifi_task_start() != ESP_OK) {
+    ESP_LOGE(system_tag, "WiFi task start failed.");
+    ret = ESP_FAIL;
+  }
+
   /* Start sensor tasks */
   if (sensor_tasks(&g_sensor_data) != ESP_OK) {
     ESP_LOGE(system_tag, "Sensor tasks start failed.");

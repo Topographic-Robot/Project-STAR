@@ -61,6 +61,7 @@ static inline uint8_t priv_calculate_prescaler(uint16_t pwm_freq)
  */
 static inline uint16_t priv_angle_to_pulse_length(float angle)
 {
+  /* Clamp the angle to the valid range */
   if (angle < 0.0f) {
     angle = 0.0f;
   } else if (angle > 180.0f) {
