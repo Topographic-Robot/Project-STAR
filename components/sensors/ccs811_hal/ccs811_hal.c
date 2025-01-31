@@ -24,9 +24,44 @@ const uint8_t    ccs811_max_retries            = 4;
 const uint32_t   ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t   ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
 
-/* Globals (Static) ***********************************************************/
+/* Static Functions **********************************************************/
 
-static error_handler_t s_ccs811_error_handler = { 0 };
+/**
+ * @brief Reset function for the CCS811 sensor
+ * 
+ * This function is called by the error handler when a reset is needed.
+ * It performs a full reinitialization of the sensor.
+ * 
+ * @param context Pointer to the ccs811_data_t structure
+ * @return ESP_OK on success, error code otherwise
+ */
+static esp_err_t priv_ccs811_reset(void *context)
+{
+  ccs811_data_t *ccs811_data = (ccs811_data_t *)context;
+  esp_err_t      ret;
+
+  /* Reset the sensor */
+  gpio_set_level(ccs811_rst_io, k_ccs811_gpio_low);
+  vTaskDelay(pdMS_TO_TICKS(10));
+  gpio_set_level(ccs811_rst_io, k_ccs811_gpio_high);
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  /* Wake up the sensor */
+  gpio_set_level(ccs811_wake_io, k_ccs811_gpio_low);
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  /* Application start */
+  ret = priv_i2c_write_byte(k_ccs811_cmd_app_start, ccs811_i2c_bus, ccs811_i2c_address, 
+                            ccs811_tag);
+  if (ret != ESP_OK) {
+    ccs811_data->state = k_ccs811_app_start_error;
+    ESP_LOGE(ccs811_tag, "CCS811 App Start failed: %s", esp_err_to_name(ret));
+    return ret;
+  }
+
+  ccs811_data->state = k_ccs811_ready;
+  return ESP_OK;
+}
 
 /* Public Functions ***********************************************************/
 
@@ -72,16 +107,18 @@ esp_err_t ccs811_init(void *sensor_data)
   ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
   ESP_LOGI(ccs811_tag, "Starting Configuration");
 
-  /* TODO: Initialize error handler */
+  /* Initialize error handler */
+  error_handler_init(&(ccs811_data->error_handler), ccs811_tag,
+                     ccs811_max_retries, ccs811_initial_retry_interval,
+                     ccs811_max_backoff_interval, priv_ccs811_reset,
+                     ccs811_data, ccs811_initial_retry_interval,
+                     ccs811_max_backoff_interval);
 
-  ccs811_data->i2c_address        = ccs811_i2c_address;
-  ccs811_data->i2c_bus            = ccs811_i2c_bus;
-  ccs811_data->eco2               = 0;
-  ccs811_data->tvoc               = 0;
-  ccs811_data->state              = k_ccs811_uninitialized;
-  ccs811_data->retry_count        = 0;
-  ccs811_data->retry_interval     = ccs811_initial_retry_interval;
-  ccs811_data->last_attempt_ticks = 0;
+  ccs811_data->i2c_address = ccs811_i2c_address;
+  ccs811_data->i2c_bus     = ccs811_i2c_bus;
+  ccs811_data->eco2        = 0;
+  ccs811_data->tvoc        = 0;
+  ccs811_data->state       = k_ccs811_uninitialized;
 
   /* Initialize the I2C bus */
   esp_err_t ret = priv_i2c_init(ccs811_scl_io, ccs811_sda_io, ccs811_i2c_freq_hz,
@@ -91,26 +128,12 @@ esp_err_t ccs811_init(void *sensor_data)
     return ret;
   }
 
-  /* Reset the sensor */
-  gpio_set_level(ccs811_rst_io, k_ccs811_gpio_low);
-  vTaskDelay(pdMS_TO_TICKS(10));
-  gpio_set_level(ccs811_rst_io, k_ccs811_gpio_high);
-  vTaskDelay(pdMS_TO_TICKS(10));
-
-  /* Wake up the sensor */
-  gpio_set_level(ccs811_wake_io, k_ccs811_gpio_low);
-  vTaskDelay(pdMS_TO_TICKS(10));
-
-  /* Application start */
-  ret = priv_i2c_write_byte(k_ccs811_cmd_app_start, ccs811_i2c_bus, ccs811_i2c_address, 
-                            ccs811_tag);
+  /* Perform initial sensor setup */
+  ret = priv_ccs811_reset(ccs811_data);
   if (ret != ESP_OK) {
-    ccs811_data->state = k_ccs811_app_start_error;
-    ESP_LOGE(ccs811_tag, "CCS811 App Start failed: %s", esp_err_to_name(ret));
     return ret;
   }
 
-  ccs811_data->state = k_ccs811_ready;
   ESP_LOGI(ccs811_tag, "CCS811 Configuration Complete");
   return ESP_OK;
 }
@@ -136,24 +159,28 @@ esp_err_t ccs811_read(ccs811_data_t *sensor_data)
   return ESP_OK;
 }
 
-void ccs811_reset_on_error(ccs811_data_t *sensor_data)
-{
-  if (sensor_data->state & k_ccs811_error) {
-    /* TODO: Reset error handler */
-  }
-}
-
 void ccs811_tasks(void *sensor_data)
 {
   ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
+  if (!ccs811_data) {
+    ESP_LOGE(ccs811_tag, "Invalid sensor data pointer");
+    vTaskDelete(NULL);
+    return;
+  }
+
   while (1) {
-    if (ccs811_read(ccs811_data) == ESP_OK) {
+    esp_err_t ret = ccs811_read(ccs811_data);
+    if (ret == ESP_OK) {
       char *json = ccs811_data_to_json(ccs811_data);
-      send_sensor_data_to_webserver(json);
-      file_write_enqueue("ccs811.txt", json);
-      free(json);
-    } else {
-      ccs811_reset_on_error(ccs811_data);
+      if (json) {
+        send_sensor_data_to_webserver(json);
+        file_write_enqueue("ccs811.txt", json);
+        free(json);
+      } else {
+        ESP_LOGE(ccs811_tag, "Failed to convert data to JSON");
+      }
+    } else if (ccs811_data->state & k_ccs811_error) {
+      error_handler_record_error(&(ccs811_data->error_handler), ESP_FAIL);
     }
     vTaskDelay(ccs811_polling_rate_ticks);
   }

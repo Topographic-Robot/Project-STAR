@@ -27,6 +27,7 @@ extern const uint8_t    qmc5883l_odr_setting;            /**< Output Data Rate (
 extern const uint8_t    qmc5883l_max_retries;            /**< Maximum retry attempts for QMC5883L reinitialization. */
 extern const uint32_t   qmc5883l_initial_retry_interval; /**< Initial retry interval for QMC5883L reinitialization in ticks. */
 extern const uint32_t   qmc5883l_max_backoff_interval;   /**< Maximum backoff interval for QMC5883L retries in ticks. */
+extern const uint8_t    qmc5883l_mag_data_size;          /**< Size of magnetometer data in bytes (2 bytes x 3 axes). */
 
 /* Enums **********************************************************************/
 

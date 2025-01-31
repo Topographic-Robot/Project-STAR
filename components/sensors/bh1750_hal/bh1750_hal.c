@@ -24,9 +24,55 @@ const uint8_t    bh1750_measurement_bytes      = 2;
 const float      bh1750_raw_to_lux_factor      = 1.2f;
 const uint8_t    bh1750_high_byte_shift        = 8;
 
-/* Globals (Static) ***********************************************************/
+/* Static Functions **********************************************************/
 
-static error_handler_t s_bh1750_error_handler = { 0 };
+/**
+ * @brief Reset function for the BH1750 sensor
+ * 
+ * This function is called by the error handler when a reset is needed.
+ * It performs a full reinitialization of the sensor.
+ * 
+ * @param context Pointer to the bh1750_data_t structure
+ * @return ESP_OK on success, error code otherwise
+ */
+static esp_err_t priv_bh1750_reset(void *context)
+{
+  bh1750_data_t *bh1750_data = (bh1750_data_t *)context;
+  esp_err_t      ret;
+
+  /* Power on the sensor */
+  ret = priv_i2c_write_byte(k_bh1750_power_on_cmd, bh1750_i2c_bus,
+                            bh1750_i2c_address, bh1750_tag);
+  if (ret != ESP_OK) {
+    bh1750_data->state = k_bh1750_power_on_error;
+    ESP_LOGE(bh1750_tag, "BH1750 Power On failed: %s", esp_err_to_name(ret));
+    return ret;
+  }
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  /* Reset the sensor */
+  ret = priv_i2c_write_byte(k_bh1750_reset_cmd, bh1750_i2c_bus,
+                            bh1750_i2c_address, bh1750_tag);
+  if (ret != ESP_OK) {
+    bh1750_data->state = k_bh1750_reset_error;
+    ESP_LOGE(bh1750_tag, "BH1750 Reset failed: %s", esp_err_to_name(ret));
+    return ret;
+  }
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  /* Set continuous measurement mode (low res) */
+  ret = priv_i2c_write_byte(k_bh1750_cont_low_res_mode_cmd, bh1750_i2c_bus,
+                            bh1750_i2c_address, bh1750_tag);
+  if (ret != ESP_OK) {
+    bh1750_data->state = k_bh1750_cont_low_res_error;
+    ESP_LOGE(bh1750_tag, "BH1750 Set Mode failed: %s", esp_err_to_name(ret));
+    return ret;
+  }
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  bh1750_data->state = k_bh1750_ready;
+  return ESP_OK;
+}
 
 /* Public Functions ***********************************************************/
 
@@ -66,15 +112,17 @@ esp_err_t bh1750_init(void *sensor_data)
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
   ESP_LOGI(bh1750_tag, "Starting Configuration");
 
-  /* TODO: Initialize error handler */
+  /* Initialize error handler */
+  error_handler_init(&(bh1750_data->error_handler), bh1750_tag,
+                     bh1750_max_retries, bh1750_initial_retry_interval,
+                     bh1750_max_backoff_interval, priv_bh1750_reset,
+                     bh1750_data, bh1750_initial_retry_interval,
+                     bh1750_max_backoff_interval);
 
-  bh1750_data->i2c_address        = bh1750_i2c_address;
-  bh1750_data->i2c_bus            = bh1750_i2c_bus;
-  bh1750_data->lux                = -1.0f;
-  bh1750_data->state              = k_bh1750_uninitialized;
-  bh1750_data->retry_count        = 0;
-  bh1750_data->retry_interval     = bh1750_initial_retry_interval;
-  bh1750_data->last_attempt_ticks = 0;
+  bh1750_data->i2c_address = bh1750_i2c_address;
+  bh1750_data->i2c_bus     = bh1750_i2c_bus;
+  bh1750_data->lux         = -1.0f;
+  bh1750_data->state       = k_bh1750_uninitialized;
 
   /* Initialize the I2C bus */
   esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_i2c_freq_hz,
@@ -84,39 +132,12 @@ esp_err_t bh1750_init(void *sensor_data)
     return ret;
   }
 
-  /* Power on the sensor */
-  ret = priv_i2c_write_byte(k_bh1750_power_on_cmd, bh1750_i2c_bus,
-                            bh1750_i2c_address, bh1750_tag);
+  /* Perform initial sensor setup */
+  ret = priv_bh1750_reset(bh1750_data);
   if (ret != ESP_OK) {
-    bh1750_data->state = k_bh1750_power_on_error;
-    ESP_LOGE(bh1750_tag, "BH1750 Power On failed: %s", esp_err_to_name(ret));
     return ret;
   }
-  vTaskDelay(pdMS_TO_TICKS(10));
 
-  /* Reset the sensor */
-  ret = priv_i2c_write_byte(k_bh1750_reset_cmd, bh1750_i2c_bus,
-                            bh1750_i2c_address, bh1750_tag);
-  if (ret != ESP_OK) {
-    bh1750_data->state = k_bh1750_reset_error;
-    ESP_LOGE(bh1750_tag, "BH1750 Reset failed: %s", esp_err_to_name(ret));
-    return ret;
-  }
-  vTaskDelay(pdMS_TO_TICKS(10));
-
-    /* Set continuous measurement mode (low res) */
-    ret = priv_i2c_write_byte(k_bh1750_cont_low_res_mode_cmd, bh1750_i2c_bus,
-                              bh1750_i2c_address, bh1750_tag);
-
-    if (ret != ESP_OK) {
-      bh1750_data->state = k_bh1750_cont_low_res_error;
-      ESP_LOGE(bh1750_tag, "BH1750 Set Mode failed: %s", esp_err_to_name(ret));
-      return ret;
-    }
-    vTaskDelay(pdMS_TO_TICKS(10));
-
-
-  bh1750_data->state = k_bh1750_ready;
   ESP_LOGI(bh1750_tag, "BH1750 Configuration Complete");
   return ESP_OK;
 }
@@ -143,24 +164,28 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data)
   return ESP_OK;
 }
 
-void bh1750_reset_on_error(bh1750_data_t *sensor_data)
-{
-  if (sensor_data->state & k_bh1750_error) {
-    /* TODO: Reset error handler */
-  }
-}
-
 void bh1750_tasks(void *sensor_data)
 {
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  if (!bh1750_data) {
+    ESP_LOGE(bh1750_tag, "Invalid sensor data pointer");
+    vTaskDelete(NULL);
+    return;
+  }
+
   while (1) {
-    if (bh1750_read(bh1750_data) == ESP_OK) {
+    esp_err_t ret = bh1750_read(bh1750_data);
+    if (ret == ESP_OK) {
       char *json = bh1750_data_to_json(bh1750_data);
-      send_sensor_data_to_webserver(json);
-      file_write_enqueue("bh1750.txt", json);
-      free(json);
-    } else {
-      bh1750_reset_on_error(bh1750_data);
+      if (json) {
+        send_sensor_data_to_webserver(json);
+        file_write_enqueue("bh1750.txt", json);
+        free(json);
+      } else {
+        ESP_LOGE(bh1750_tag, "Failed to convert data to JSON");
+      }
+    } else if (bh1750_data->state & k_bh1750_error) {
+      error_handler_record_error(&(bh1750_data->error_handler), ESP_FAIL);
     }
     vTaskDelay(bh1750_polling_rate_ticks);
   }
