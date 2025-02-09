@@ -10,6 +10,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/timers.h"
 #include "error_handler.h"
+#include "time_manager.h"
 
 /* Constants ******************************************************************/
 
@@ -65,44 +66,51 @@ static void priv_wifi_connect_timeout_cb(TimerHandle_t xTimer)
  * - Intended for internal use as part of the ESP-IDF event handling system.
  * - Registered as an event handler during Wi-Fi initialization.
  */
-static void priv_event_handler(void *arg, esp_event_base_t event_base,
-                               int32_t event_id, void *event_data)
+static void priv_event_handler(void            *arg, 
+                               esp_event_base_t event_base,
+                               int32_t          event_id, 
+                               void            *event_data)
 {
+  static bool connecting = false;
+
   if (event_base == WIFI_EVENT) {
     if (event_id == WIFI_EVENT_STA_START) {
-      esp_wifi_connect();
-      ESP_LOGI(wifi_tag, "Trying to connect to the AP");
-    } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
-      wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-      
-      /* Record the error and attempt recovery */
-      esp_err_t error = error_handler_record_error(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_CONNECT);
-      if (error == ESP_OK) {
-        /* Error handler says we can retry */
+      wifi_mode_t mode;
+      if (!connecting && esp_wifi_get_mode(&mode) == ESP_OK && mode == WIFI_MODE_STA) {
+        connecting = true;
         esp_wifi_connect();
-        ESP_LOGI(wifi_tag, "Retry to connect to the AP");
-      } else {
-        ESP_LOGI(wifi_tag, "Maximum retries reached or in backoff period");
-        xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+        ESP_LOGI(wifi_tag, "Trying to connect to the AP");
+      }
+    } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+      if (connecting) {
+        connecting = false;
+        /* Record the error and let error handler manage reconnection timing */
+        error_handler_record_status(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_CONNECT);
       }
     }
   }
 
   if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    connecting               = false;
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI(wifi_tag, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
     
-    /* Reset error handler state on successful connection */
-    error_handler_reset(&s_wifi_error_handler);
-    
     xTimerStop(s_wifi_connect_timer, 0);
+    error_handler_record_status(&s_wifi_error_handler, ESP_OK);  /* Record successful connection */
     xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
   }
 }
 
 static esp_err_t priv_wifi_reset(void *context) 
 {
-  ESP_LOGI(wifi_tag, "Attempting WiFi reset");
+  static bool reset_in_progress = false;
+  
+  if (reset_in_progress) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  
+  reset_in_progress = true;
+  ESP_LOGD(wifi_tag, "Attempting WiFi reset");
   
   /* Stop WiFi */
   esp_wifi_stop();
@@ -118,9 +126,31 @@ static esp_err_t priv_wifi_reset(void *context)
   esp_err_t ret = esp_wifi_start();
   if (ret != ESP_OK) {
     ESP_LOGE(wifi_tag, "Failed to restart WiFi: %s", esp_err_to_name(ret));
+    reset_in_progress = false;
     return ret;
   }
+
+  /* Explicitly initiate connection after reset */
+  ret = esp_wifi_connect();
+  if (ret != ESP_OK) {
+    ESP_LOGE(wifi_tag, "Failed to initiate connection after reset: %s", esp_err_to_name(ret));
+  }
   
+  reset_in_progress = false;
+  return ESP_OK;
+}
+
+static esp_err_t priv_wifi_initialize_netif(void)
+{
+  static bool netif_initialized = false;
+
+  if (!netif_initialized) {
+    ESP_LOGI(wifi_tag, "Initializing network interface");
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
+    netif_initialized = true;
+  }
   return ESP_OK;
 }
 
@@ -128,26 +158,28 @@ static esp_err_t priv_wifi_reset(void *context)
 
 esp_err_t wifi_check_connection(void)
 {
-  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-  if (netif == NULL) {
-    ESP_LOGE(wifi_tag, "Network interface not found.");
-    error_handler_record_error(&s_wifi_error_handler, ESP_ERR_INVALID_STATE);
+  if (s_wifi_event_group == NULL) {
+    ESP_LOGE(wifi_tag, "WiFi not initialized yet");
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  wifi_mode_t mode;
+  if (esp_wifi_get_mode(&mode) != ESP_OK) {
+    ESP_LOGE(wifi_tag, "Failed to get WiFi mode");
     return ESP_FAIL;
   }
 
-  esp_netif_ip_info_t ip_info;
-  if (esp_netif_get_ip_info(netif, &ip_info) != ESP_OK || ip_info.ip.addr == 0) {
-    ESP_LOGW(wifi_tag, "No IP address. Wi-Fi might be disconnected.");
-    esp_err_t error = error_handler_record_error(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_CONNECT);
-    if (error == ESP_OK) {
-      /* Attempt to reconnect */
-      esp_wifi_connect();
-    }
+  if (mode != WIFI_MODE_STA) {
+    ESP_LOGE(wifi_tag, "WiFi not in station mode");
     return ESP_FAIL;
   }
 
-  /* Connection is good, reset error state */
-  error_handler_reset(&s_wifi_error_handler);
+  wifi_ap_record_t ap_info;
+  if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
+    ESP_LOGW(wifi_tag, "Not connected to an AP");
+    return ESP_FAIL;
+  }
+
   return ESP_OK;
 }
 
@@ -173,18 +205,20 @@ esp_err_t wifi_init_sta(void)
     return ESP_ERR_NO_MEM;
   }
 
-  esp_netif_init();
-  esp_event_loop_create_default();
-  esp_netif_create_default_wifi_sta();
+  /* Initialize network interface if not already done */
+  if (priv_wifi_initialize_netif() != ESP_OK) {
+    ESP_LOGE(wifi_tag, "Failed to initialize network interface");
+    return ESP_FAIL;
+  }
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
 
-  esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &priv_event_handler, NULL, NULL);
-  esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &priv_event_handler, NULL, NULL);
+  esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,    &priv_event_handler, NULL, NULL);
+  esp_event_handler_instance_register(IP_EVENT,   IP_EVENT_STA_GOT_IP, &priv_event_handler, NULL, NULL);
 
   wifi_config_t wifi_config = {};
-  strncpy((char *)wifi_config.sta.ssid, wifi_ssid, wifi_ssid_max_len - 1);
+  strncpy((char *)wifi_config.sta.ssid,     wifi_ssid, wifi_ssid_max_len - 1);
   strncpy((char *)wifi_config.sta.password, wifi_pass, wifi_pass_max_len - 1);
   if (esp_wifi_set_mode(WIFI_MODE_STA) != ESP_OK || 
       esp_wifi_set_config(WIFI_IF_STA, &wifi_config) != ESP_OK) {
@@ -228,8 +262,12 @@ esp_err_t wifi_init_sta(void)
 
 static void wifi_task(void *pvParameters) 
 {
-  /* Initialize time with default values first */
-  time_manager_init(); /* This will set default time if WiFi is not available */
+  /* Initialize network interface first */
+  if (priv_wifi_initialize_netif() != ESP_OK) {
+    ESP_LOGE(wifi_tag, "Failed to initialize network interface");
+    vTaskDelete(NULL);
+    return;
+  }
     
   while (1) {
     if (wifi_init_sta() == ESP_OK) {
@@ -237,7 +275,7 @@ static void wifi_task(void *pvParameters)
             
       /* Now that WiFi is connected, re-initialize time to get actual time from NTP */
       if (time_manager_init() != ESP_OK) {
-        ESP_LOGE(wifi_tag, "Time synchronization failed, will retry after WiFi reconnection");
+        ESP_LOGW(wifi_tag, "Time synchronization failed, will retry after WiFi reconnection");
       } else {
         ESP_LOGI(wifi_tag, "Time synchronized successfully");
       }
@@ -246,22 +284,51 @@ static void wifi_task(void *pvParameters)
       while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000)); /* Check every 10 seconds */
         if (wifi_check_connection() != ESP_OK) {
-          ESP_LOGW(wifi_tag, "WiFi connection lost, will attempt reconnection");
-          break;
+          esp_err_t error = error_handler_record_status(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_CONNECT);
+          if (error == ESP_OK) {
+            ESP_LOGD(wifi_tag, "WiFi connection lost, attempting reconnection");
+            /* Try to reconnect directly first */
+            esp_err_t connect_err = esp_wifi_connect();
+            if (connect_err != ESP_OK) {
+              ESP_LOGW(wifi_tag, "Direct reconnection failed, will try reset: %s", esp_err_to_name(connect_err));
+            }
+            break;
+          }
+          vTaskDelay(pdMS_TO_TICKS(5000));
         }
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(5000)); /* Wait before retry */
+    
+    /* Wait before retry based on error handler backoff */
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    esp_err_t error;
+    do {
+      error = error_handler_record_status(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_CONNECT);
+      if (error != ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(5000)); /* Increased delay between retries */
+      } else {
+        /* Try to reconnect when error handler allows */
+        esp_err_t connect_err = esp_wifi_connect();
+        if (connect_err != ESP_OK) {
+          ESP_LOGW(wifi_tag, "Reconnection attempt failed: %s", esp_err_to_name(connect_err));
+        }
+      }
+    } while (error != ESP_OK);
   }
 }
 
 esp_err_t wifi_task_start(void) 
 {
+  /* Initialize time with default values first */
+  if (time_manager_init() != ESP_OK) {
+    ESP_LOGE(wifi_tag, "Time synchronization failed, will retry after WiFi reconnection");
+  }
+
   BaseType_t ret = xTaskCreate(wifi_task,
                                "wifi_task",
                                4096,
                                NULL,
-                               5, /* Priority */ /* TODO: Verify priority */
+                               5,
                                &s_wifi_task_handle);
     
   if (ret != pdPASS) {

@@ -136,10 +136,10 @@ void ec11_task(void *arg);
  * @param[in] board_ptr Pointer to the PCA9685 board
  * @param[in] motor_mask Bitmask indicating which motor to control
  */
-void ec11_register_callback(ec11_data_t *encoder, 
+void ec11_register_callback(ec11_data_t    *encoder, 
                             ec11_callback_t callback, 
-                            void *board_ptr, 
-                            uint16_t motor_mask);
+                            void           *board_ptr, 
+                            uint16_t        motor_mask);
 
 #ifdef __cplusplus
 }

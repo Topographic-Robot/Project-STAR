@@ -370,9 +370,9 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   float new_accel_x = accel_x_raw / accel_sensitivity;
   float new_accel_y = accel_y_raw / accel_sensitivity;
   float new_accel_z = accel_z_raw / accel_sensitivity;
-  float new_gyro_x = gyro_x_raw / gyro_sensitivity;
-  float new_gyro_y = gyro_y_raw / gyro_sensitivity;
-  float new_gyro_z = gyro_z_raw / gyro_sensitivity;
+  float new_gyro_x  = gyro_x_raw / gyro_sensitivity;
+  float new_gyro_y  = gyro_y_raw / gyro_sensitivity;
+  float new_gyro_z  = gyro_z_raw / gyro_sensitivity;
 
   /* Validate accelerometer readings (should be within ±4g range) */
   if (fabsf(new_accel_x) > 4.0f || fabsf(new_accel_y) > 4.0f || fabsf(new_accel_z) > 4.0f) {
@@ -392,9 +392,9 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   sensor_data->accel_x = new_accel_x;
   sensor_data->accel_y = new_accel_y;
   sensor_data->accel_z = new_accel_z;
-  sensor_data->gyro_x = new_gyro_x;
-  sensor_data->gyro_y = new_gyro_y;
-  sensor_data->gyro_z = new_gyro_z;
+  sensor_data->gyro_x  = new_gyro_x;
+  sensor_data->gyro_y  = new_gyro_y;
+  sensor_data->gyro_z  = new_gyro_z;
 
   ESP_LOGI(mpu6050_tag, "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] deg/s",
            sensor_data->accel_x, sensor_data->accel_y, sensor_data->accel_z,

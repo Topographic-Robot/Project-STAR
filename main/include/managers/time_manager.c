@@ -75,14 +75,15 @@ static void priv_set_default_time(void)
 
 /* Public Functions ***********************************************************/
 
+/* TODO: Make this non-blocking */
 esp_err_t time_manager_init(void)
 {
-  /* First, check the Wi-Fi connection. If it's unavailable, fallback to default time. */
-  if (wifi_check_connection() != ESP_OK) {
-    ESP_LOGE(time_manager_tag, "Network not available. Using default time.");
-    priv_set_default_time();
-    return ESP_FAIL; 
-  }
+ /* First, check the Wi-Fi connection. If it's unavailable, fallback to default time. */
+ if (wifi_check_connection() != ESP_OK) {
+   ESP_LOGE(time_manager_tag, "Network not available. Using default time.");
+   priv_set_default_time();
+   return ESP_FAIL; 
+ }
 
   /* If we have Wi-Fi, proceed with SNTP initialization. */
   priv_initialize_sntp();

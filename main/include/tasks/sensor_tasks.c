@@ -54,8 +54,8 @@ esp_err_t sensor_tasks(sensor_data_t *sensor_data)
     if (s_sensors[i].enabled) {
       ESP_LOGI(system_tag, "Creating task for sensor: %s", s_sensors[i].sensor_name);
       BaseType_t ret = xTaskCreate(s_sensors[i].task_function, s_sensors[i].sensor_name,
-                                   s_sensors[i].stack_depth, s_sensors[i].data_ptr, 
-                                   s_sensors[i].priority, NULL);
+                                   s_sensors[i].stack_depth,   s_sensors[i].data_ptr, 
+                                   s_sensors[i].priority,      NULL);
       if (ret != pdPASS) {
         ESP_LOGE(system_tag, "Task creation failed for sensor: %s",
                  s_sensors[i].sensor_name);

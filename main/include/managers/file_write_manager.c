@@ -126,8 +126,8 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   char timestamp[32] = { '\0' };
   
   priv_get_timestamp(timestamp, sizeof(timestamp));
-  snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s", sd_card_mount_path, file_path);
-  snprintf(request.data, MAX_DATA_LENGTH, "%s %s\n", timestamp, data);
+  snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s",   sd_card_mount_path, file_path);
+  snprintf(request.data,      MAX_DATA_LENGTH,      "%s %s\n", timestamp,          data);
 
   if (xQueueSend(s_file_write_queue, &request, 0) != pdTRUE) {
     ESP_LOGE(file_manager_tag, "File write queue is full");

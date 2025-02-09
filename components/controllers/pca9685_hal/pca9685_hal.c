@@ -194,8 +194,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
   return ESP_OK;
 }
 
-esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mask,
-                            uint8_t board_id, float target_angle)
+esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, 
+                            uint16_t         motor_mask,
+                            uint8_t          board_id, 
+                            float            target_angle)
 {
   if (controller_data == NULL) {
     ESP_LOGE(pca9685_tag, "Controller data is NULL");

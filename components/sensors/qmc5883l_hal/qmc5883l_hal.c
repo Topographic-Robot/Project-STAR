@@ -41,10 +41,10 @@ static esp_err_t priv_qmc5883l_configure_drdy_pin(void)
 {
   gpio_config_t io_conf = {
     .pin_bit_mask = (1ULL << qmc5883l_drdy_pin),
-    .mode = GPIO_MODE_INPUT,
-    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
     .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_DISABLE
+    .intr_type    = GPIO_INTR_DISABLE
   };
   return gpio_config(&io_conf);
 }
@@ -166,11 +166,12 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
   }
 
   uint8_t mag_data[qmc5883l_mag_data_size];
-  esp_err_t ret = priv_i2c_read_reg_bytes(k_qmc5883l_data_xout_l_cmd, mag_data,
-                                         qmc5883l_mag_data_size,
-                                         sensor_data->i2c_bus,
-                                         sensor_data->i2c_address,
-                                         qmc5883l_tag);
+  esp_err_t ret = priv_i2c_read_reg_bytes(k_qmc5883l_data_xout_l_cmd, 
+                                          mag_data,
+                                          qmc5883l_mag_data_size,
+                                          sensor_data->i2c_bus,
+                                          sensor_data->i2c_address,
+                                          qmc5883l_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(qmc5883l_tag, "Failed to read magnetometer data from QMC5883L");
     sensor_data->state = k_qmc5883l_error;

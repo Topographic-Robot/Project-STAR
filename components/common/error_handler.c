@@ -5,11 +5,15 @@
 
 /* Public Functions ***********************************************************/
 
-void error_handler_init(error_handler_t *handler, const char *tag,
-                       uint8_t max_retries, uint32_t initial_interval,
-                       uint32_t max_interval, esp_err_t (*reset_func)(void *context),
-                       void *context, uint32_t initial_backoff_interval,
-                       uint32_t max_backoff_interval)
+void error_handler_init(error_handler_t *handler, 
+                        const char *tag,
+                        uint8_t     max_retries, 
+                        uint32_t    initial_interval,
+                        uint32_t    max_interval, 
+                        esp_err_t (*reset_func)(void *context),
+                        void       *context, 
+                        uint32_t    initial_backoff_interval,
+                        uint32_t    max_backoff_interval)
 {
   if (!handler) {
     ESP_LOGE(tag, "Invalid handler pointer");
@@ -26,7 +30,7 @@ void error_handler_init(error_handler_t *handler, const char *tag,
   handler->max_interval             = max_interval;
   handler->max_backoff_interval     = max_backoff_interval;
   handler->last_attempt_ticks       = 0;
-  handler->last_error               = ESP_OK;
+  handler->last_status              = ESP_OK;
   handler->in_error_state           = false;
   handler->tag                      = tag;
   handler->reset_func               = reset_func;
@@ -35,13 +39,26 @@ void error_handler_init(error_handler_t *handler, const char *tag,
   ESP_LOGI(tag, "Error handler initialization complete");
 }
 
-esp_err_t error_handler_record_error(error_handler_t *handler, esp_err_t error)
+esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status)
 {
   if (!handler) {
     return ESP_ERR_INVALID_ARG;
   }
 
-  handler->last_error     = error;
+  handler->last_status = status;
+
+  /* If this is a success status, reset error state */
+  if (status == ESP_OK) {
+    if (handler->in_error_state) {
+      ESP_LOGI(handler->tag, "Component recovered from error state");
+    }
+    handler->in_error_state = false;
+    handler->retry_count = 0;
+    handler->retry_interval = handler->initial_interval;
+    return ESP_OK;
+  }
+
+  /* Handle error status */
   handler->in_error_state = true;
 
   TickType_t now_ticks = xTaskGetTickCount();
@@ -69,9 +86,9 @@ esp_err_t error_handler_record_error(error_handler_t *handler, esp_err_t error)
       if (ret == ESP_OK) {
         /* If reset was successful, restore initial state */
         handler->retry_interval = handler->initial_interval;
-        handler->last_error     = ESP_OK;
+        handler->last_status = ESP_OK;
         handler->in_error_state = false;
-        handler->retry_count    = 0;
+        handler->retry_count = 0;
         ESP_LOGI(handler->tag, "Reset successful");
       } else {
         ESP_LOGE(handler->tag, "Reset failed: %s", esp_err_to_name(ret));
@@ -99,9 +116,9 @@ esp_err_t error_handler_reset(error_handler_t *handler)
 
   if (ret == ESP_OK) {
     handler->retry_interval = handler->initial_interval;
-    handler->last_error     = ESP_OK;
+    handler->last_status = ESP_OK;
     handler->in_error_state = false;
-    handler->retry_count    = 0;
+    handler->retry_count = 0;
     ESP_LOGI(handler->tag, "Error handler reset complete");
   }
 

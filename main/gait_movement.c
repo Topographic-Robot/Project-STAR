@@ -34,9 +34,11 @@ const char *gait_tag = "Gait Movement";
  * - `ESP_OK` on success.
  * - Relevant `esp_err_t` codes on failure.
  */
-esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller, uint16_t motor_mask, 
-                                  uint8_t board_id, joint_type_t joint_type, 
-                                  float relative_angle) 
+esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller, 
+                                  uint16_t         motor_mask, 
+                                  uint8_t          board_id, 
+                                  joint_type_t     joint_type, 
+                                  float            relative_angle) 
 {
   float absolute_angle = 90.0f; /* Default neutral position */
   float angle_min      = 0.0f, angle_max = 180.0f;
@@ -97,9 +99,11 @@ esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller, uint16_t moto
  * - `ESP_OK`   on success.
  * - `ESP_FAIL` if a new board is required but unavailable.
  */
-static esp_err_t priv_assign_motor(motor_t *motor, joint_type_t joint_type, 
-                                   pca9685_board_t **board, uint8_t *motor_index, 
-                                   uint8_t *board_id)
+static esp_err_t priv_assign_motor(motor_t          *motor, 
+                                   joint_type_t      joint_type, 
+                                   pca9685_board_t **board, 
+                                   uint8_t          *motor_index, 
+                                   uint8_t          *board_id)
 {
   if (*motor_index >= 16) {
     if ((*board)->next == NULL) {
@@ -139,7 +143,8 @@ static esp_err_t priv_assign_motor(motor_t *motor, joint_type_t joint_type,
  * - Requires `femur_length_cm` and `tibia_length_cm` to be defined globally.
  * - Uses `gait_tag` for logging errors and diagnostics.
  */
-float priv_calculate_step_distance(float hip_angle_deg, float knee_angle_deg, 
+float priv_calculate_step_distance(float hip_angle_deg, 
+                                   float knee_angle_deg, 
                                    float tibia_angle_deg)
 {
   /* TODO: Verify this for accuracy */
@@ -194,7 +199,8 @@ float priv_calculate_step_distance(float hip_angle_deg, float knee_angle_deg,
  *
  * @return Updated mask with the processed chunk removed.
  */
-static uint16_t priv_extract_chunk(uint16_t mask, uint8_t max_active_servos, 
+static uint16_t priv_extract_chunk(uint16_t  mask, 
+                                   uint8_t   max_active_servos, 
                                    uint16_t *chunk) 
 {
   uint8_t active_count = 0;
@@ -233,8 +239,9 @@ static uint16_t priv_extract_chunk(uint16_t mask, uint8_t max_active_servos,
  * - The `joint_type` parameter must be a valid value from `joint_type_t`.
  * - Includes delays (`vTaskDelay`) between chunk processing to minimize current draw.
  */
-esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller, uint16_t mask,
-                                      float relative_angle)
+esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller, 
+                                      uint16_t         mask,
+                                      float            relative_angle)
 {
   if (pwm_controller == NULL) {
     ESP_LOGE(gait_tag, "PCA9685 controller pointer is NULL.");
@@ -305,8 +312,9 @@ esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller, uint16_t 
 
 /* Public Functions ***********************************************************/
 
-esp_err_t tripod_gait(pca9685_board_t *pwm_controller, float heading, 
-    uint16_t distance)
+esp_err_t tripod_gait(pca9685_board_t *pwm_controller, 
+                      float            heading, 
+                      uint16_t         distance)
 {
   ESP_LOGI(gait_tag, "Starting tripod gait: heading=%.2f, distance=%ucm", 
            heading, distance);
@@ -315,8 +323,9 @@ esp_err_t tripod_gait(pca9685_board_t *pwm_controller, float heading,
   return ESP_OK;
 }
 
-esp_err_t wave_gait(pca9685_board_t *pwm_controller, float heading, 
-    uint16_t distance)
+esp_err_t wave_gait(pca9685_board_t *pwm_controller, 
+                    float            heading, 
+                    uint16_t         distance)
 {
   ESP_LOGI(gait_tag, "Starting wave gait: heading=%.2f, distance=%ucm", 
            heading, distance);
@@ -325,8 +334,9 @@ esp_err_t wave_gait(pca9685_board_t *pwm_controller, float heading,
   return ESP_OK;
 }
 
-esp_err_t ripple_gait(pca9685_board_t *pwm_controller, float heading, 
-    uint16_t distance)
+esp_err_t ripple_gait(pca9685_board_t *pwm_controller, 
+                      float            heading, 
+                      uint16_t         distance)
 {
   ESP_LOGI(gait_tag, "Starting ripple gait: heading=%.2f, distance=%ucm", 
            heading, distance);
@@ -335,8 +345,9 @@ esp_err_t ripple_gait(pca9685_board_t *pwm_controller, float heading,
   return ESP_OK;
 }
 
-esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, float heading, 
-    uint16_t distance)
+esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, 
+                         float            heading, 
+                         uint16_t         distance)
 {
   ESP_LOGI(gait_tag, "Starting quadruped gait: heading=%.2f, distance=%ucm", 
            heading, distance);
@@ -367,12 +378,9 @@ esp_err_t gait_init(pca9685_board_t *pwm_controller)
     s_legs[leg_id].knee_motor  = &(board->motors[motor_index]);
     s_legs[leg_id].tibia_motor = &(board->motors[motor_index]);
 
-    ret1 = priv_assign_motor(s_legs[leg_id].hip_motor, k_hip, &board, &motor_index,
-                             &board_id);
-    ret2 = priv_assign_motor(s_legs[leg_id].knee_motor, k_knee, &board, &motor_index,
-                             &board_id);
-    ret3 = priv_assign_motor(s_legs[leg_id].tibia_motor, k_tibia, &board, &motor_index,
-                             &board_id);
+    ret1 = priv_assign_motor(s_legs[leg_id].hip_motor,   k_hip,   &board, &motor_index, &board_id);
+    ret2 = priv_assign_motor(s_legs[leg_id].knee_motor,  k_knee,  &board, &motor_index, &board_id);
+    ret3 = priv_assign_motor(s_legs[leg_id].tibia_motor, k_tibia, &board, &motor_index, &board_id);
 
     if (ret1 != ESP_OK || ret2 != ESP_OK || ret3 != ESP_OK) {
       ESP_LOGE(gait_tag, "Failed to initialize motors for leg %u.", leg_id);

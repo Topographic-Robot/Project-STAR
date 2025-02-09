@@ -51,7 +51,8 @@ static error_handler_t s_gy_neo6mv2_error_handler   = { 0 };
  *
  * @return The coordinate in decimal degrees.
  */
-static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, const char *hemisphere)
+static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, 
+                                              const char *hemisphere)
 {
   float    coord           = atof(coord_str);
   uint32_t degrees         = (uint32_t)(coord / 100);
@@ -107,7 +108,9 @@ static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
  * @param[out]    fields     Array of pointers to store the extracted fields.
  * @param[in]     max_fields Maximum number of fields to extract.
  */
-static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, size_t max_fields)
+static void priv_gy_neo6mv2_split_nmea_sentence(char  *sentence, 
+                                                char **fields, 
+                                                size_t max_fields)
 {
   if (!sentence || !fields) {
     return;
@@ -136,8 +139,10 @@ static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, s
  * @param[in] azimuth   Satellite azimuth in degrees.
  * @param[in] snr       Signal-to-Noise Ratio (SNR).
  */
-static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16_t azimuth, 
-                                          uint8_t snr)
+static void priv_gy_neo6mv2_add_satellite(uint8_t  prn, 
+                                          uint8_t  elevation, 
+                                          uint16_t azimuth, 
+                                          uint8_t  snr)
 {
   if (s_gy_neo6mv2_satellite_count < GY_NEO6MV2_MAX_SATELLITES) {
     satellite_t *sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
@@ -286,13 +291,13 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
   /* Configure GPS module with optimal settings */
   const char *config_commands[] = {
-    "$PUBX,41,1,0007,0003,9600,0*10\r\n",     /* Set UART1 baud rate */
-    "$PUBX,40,GLL,0,0,0,0*5C\r\n",            /* Disable GLL messages */
-    "$PUBX,40,GSA,0,0,0,0*4E\r\n",            /* Disable GSA messages */
-    "$PUBX,40,GSV,0,0,0,0*59\r\n",            /* Disable GSV messages */
-    "$PUBX,40,VTG,0,0,0,0*5E\r\n",            /* Disable VTG messages */
-    "$PUBX,40,RMC,1,0,0,0*46\r\n",            /* Enable RMC messages */
-    "$PUBX,40,GGA,1,0,0,0*5B\r\n"             /* Enable GGA messages */
+    "$PUBX,41,1,0007,0003,9600,0*10\r\n", /* Set UART1 baud rate */
+    "$PUBX,40,GLL,0,0,0,0*5C\r\n",        /* Disable GLL messages */
+    "$PUBX,40,GSA,0,0,0,0*4E\r\n",        /* Disable GSA messages */
+    "$PUBX,40,GSV,0,0,0,0*59\r\n",        /* Disable GSV messages */
+    "$PUBX,40,VTG,0,0,0,0*5E\r\n",        /* Disable VTG messages */
+    "$PUBX,40,RMC,1,0,0,0*46\r\n",        /* Enable RMC messages */
+    "$PUBX,40,GGA,1,0,0,0*5B\r\n"         /* Enable GGA messages */
   };
 
   /* Send configuration commands */
@@ -411,10 +416,10 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           /* Parse satellite details (up to 4 satellites per GPGSV sentence) */
           for (uint8_t i = gy_neo6mv2_gpgsv_field_start; i < GY_NEO6MV2_GPGSV_MAX_FIELDS; i += gy_neo6mv2_gpgsv_field_step) {
             if (fields[i] && fields[i + 1] && fields[i + 2] && fields[i + 3]) {
-              uint8_t prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
-              uint8_t elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */
-              uint16_t azimuth  = (uint16_t)atoi(fields[i + 2]); /* Azimuth in degrees */
-              uint8_t snr       = (uint8_t)atoi(fields[i + 3]);  /* SNR (Signal-to-Noise Ratio) */
+              uint8_t  prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
+              uint8_t  elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */
+              uint16_t azimuth   = (uint16_t)atoi(fields[i + 2]); /* Azimuth in degrees */
+              uint8_t  snr       = (uint8_t)atoi(fields[i + 3]);  /* SNR (Signal-to-Noise Ratio) */
 
               /* Store satellite data */
               priv_gy_neo6mv2_add_satellite(prn, elevation, azimuth, snr);

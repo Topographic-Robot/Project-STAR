@@ -77,7 +77,8 @@ static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
  * - `true`  if the level was reached within the timeout.
  * - `false` if the timeout occurred.
  */
-static bool priv_dht22_wait_for_level_with_duration(int8_t level, uint32_t timeout_us,
+static bool priv_dht22_wait_for_level_with_duration(int8_t    level, 
+                                                    uint32_t  timeout_us,
                                                     uint32_t *duration_us)
 {
   uint64_t start_time = esp_timer_get_time();

@@ -136,10 +136,10 @@ esp_err_t ec11_init(ec11_data_t *encoder)
   return ESP_OK;
 }
 
-void ec11_register_callback(ec11_data_t *encoder,
+void ec11_register_callback(ec11_data_t    *encoder,
                             ec11_callback_t callback,
-                            void *board_ptr,
-                            uint16_t motor_mask)
+                            void           *board_ptr,
+                            uint16_t        motor_mask)
 {
   if (encoder == NULL || callback == NULL || board_ptr == NULL) {
     ESP_LOGE(ec11_tag, "Invalid encoder or callback pointer");

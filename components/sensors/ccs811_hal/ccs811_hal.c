@@ -141,7 +141,10 @@ esp_err_t ccs811_init(void *sensor_data)
 esp_err_t ccs811_read(ccs811_data_t *sensor_data)
 {
   uint8_t data[k_ccs811_alg_data_len];
-  esp_err_t ret = priv_i2c_read_bytes(data, k_ccs811_alg_data_len, ccs811_i2c_bus, ccs811_i2c_address,
+  esp_err_t ret = priv_i2c_read_bytes(data, 
+                                      k_ccs811_alg_data_len, 
+                                      ccs811_i2c_bus, 
+                                      ccs811_i2c_address,
                                       ccs811_tag);
   if (ret != ESP_OK) {
     sensor_data->eco2  = 0;

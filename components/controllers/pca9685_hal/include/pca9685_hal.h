@@ -140,8 +140,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards);
  * - Ensure PCA9685 boards are initialized with `pca9685_init` before using this function.
  * - The function assumes linear mapping of servo angles to PWM pulse widths.
  */
-esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mask,
-                            uint8_t board_id, float angle);
+esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, 
+                            uint16_t         motor_mask,
+                            uint8_t          board_id, 
+                            float            target_angle);
 
 #ifdef __cplusplus
 }

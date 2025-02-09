@@ -97,10 +97,10 @@ esp_err_t system_tasks_start(void)
   esp_err_t ret = ESP_OK;
 
   /* Start WiFi task (which will also handle time sync) */
-  if (wifi_task_start() != ESP_OK) {
-    ESP_LOGE(system_tag, "WiFi task start failed.");
-    ret = ESP_FAIL;
-  }
+  //if (wifi_task_start() != ESP_OK) {
+  //  ESP_LOGE(system_tag, "WiFi task start failed.");
+  //  ret = ESP_FAIL;
+  //} // commented out for now - need to do more testing
 
   /* Start sensor tasks */
   if (sensor_tasks(&g_sensor_data) != ESP_OK) {
