@@ -12,6 +12,7 @@ extern "C" {
 #include <stdbool.h>
 #include "wifi_credentials.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 
 /* Constants ******************************************************************/
 
@@ -27,6 +28,20 @@ extern const uint8_t  wifi_max_retry;          /**< The max number of times to t
 extern const uint8_t  wifi_ssid_max_len;       /**< The max length for wifi's SSID defined by esp */
 extern const uint8_t  wifi_pass_max_len;       /**< The max length for wifi's password defined by esp */
 extern const uint32_t wifi_connect_timeout_ms; /**< Timeout for WiFi connection in milliseconds */
+
+/* Structs ********************************************************************/
+
+/**
+ * @brief Structure to hold configuration for WiFi task.
+ *
+ * Represents the WiFi task's configuration, including its priority,
+ * stack size, and enablement flag.
+ */
+typedef struct {
+  UBaseType_t priority;    /**< Priority of the WiFi task for scheduling purposes. */
+  uint32_t    stack_depth; /**< Stack depth allocated for the WiFi task, in words. */
+  bool        enabled;     /**< Flag indicating if the WiFi task is enabled (true) or disabled (false). */
+} wifi_task_config_t;
 
 /* Public Functions ***********************************************************/
 
@@ -57,19 +72,6 @@ esp_err_t wifi_check_connection(void);
  * includes setting up the required event handlers, configuring the network
  * interface, and managing the connection lifecycle. Upon successful connection,
  * the system acquires an IP address for further network operations.
- *
- * Steps performed:
- *   1. Creates an event group to manage WiFi events.
- *   2. Initializes the underlying TCP/IP stack.
- *   3. Creates the default event loop required for handling WiFi and IP events.
- *   4. Sets up the default WiFi station (STA) network interface.
- *   5. Initializes the WiFi driver with default configuration settings.
- *   6. Registers event handlers for WiFi and IP events.
- *   7. Configures the WiFi settings with the specified SSID, password, 
- *      authentication mode, and SAE settings if applicable.
- *   8. Sets the WiFi mode to station (STA) mode.
- *   9. Starts the WiFi driver.
- *   10. Waits for the WiFi connection to be established or logs an error on failure.
  *
  * @return 
  * - ESP_OK   if the WiFi is initialized and connected successfully.

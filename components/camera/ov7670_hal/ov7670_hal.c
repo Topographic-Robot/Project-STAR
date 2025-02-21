@@ -167,7 +167,7 @@ esp_err_t ov7670_init(ov7670_data_t *camera_data)
   }
 
   camera_data->state = k_ov7670_ready;
-  ESP_LOGI(ov7670_tag, "OV7670 initialization complete (state=%d)", camera_data->state);
+  ESP_LOGI(ov7670_tag, "OV7670 initialization complete (state=%u)", camera_data->state);
   return ESP_OK;
 }
 
@@ -186,7 +186,7 @@ esp_err_t ov7670_configure(ov7670_data_t *camera_data)
     return ret;
   }
 
-  ESP_LOGI(ov7670_tag, "Configuration successfully applied (state=%d)",
+  ESP_LOGI(ov7670_tag, "Configuration successfully applied (state=%u)",
            camera_data->state);
   return ESP_OK;
 }
@@ -203,7 +203,7 @@ void ov7670_reset_on_error(ov7670_data_t *camera_data)
 
     /* Check if enough time has elapsed since last attempt */
     if ((current_ticks - camera_data->last_attempt_ticks) >= camera_data->retry_interval) {
-      ESP_LOGW(ov7670_tag, "Attempting to reset OV7670 (retries=%d)", camera_data->retries);
+      ESP_LOGW(ov7670_tag, "Attempting to reset OV7670 (retries=%u)", camera_data->retries);
 
       /* Attempt re-initialization */
       if (ov7670_init(camera_data) == ESP_OK) {

@@ -156,7 +156,7 @@ esp_err_t ccs811_read(ccs811_data_t *sensor_data)
 
   sensor_data->eco2 = (data[0] << 8) | data[1];
   sensor_data->tvoc = (data[2] << 8) | data[3];
-  ESP_LOGI(ccs811_tag, "eCO2: %d ppm, TVOC: %d ppb", sensor_data->eco2, sensor_data->tvoc);
+  ESP_LOGI(ccs811_tag, "eCO2: %u ppm, TVOC: %u ppb", sensor_data->eco2, sensor_data->tvoc);
 
   sensor_data->state = k_ccs811_data_updated;
   return ESP_OK;

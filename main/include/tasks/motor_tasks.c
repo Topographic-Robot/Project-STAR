@@ -9,7 +9,7 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t num_pca9685_boards = 2;
+const uint8_t num_pca9685_boards = 1;
 const char   *motor_tag          = "Motor Tasks";
 
 /* Private Functions (Static) *************************************************/

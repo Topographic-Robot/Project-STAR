@@ -134,7 +134,7 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   mq135_data->raw_adc_value     = raw_adc;
   mq135_data->gas_concentration = priv_mq135_calculate_ppm(raw_adc);
 
-  ESP_LOGI(mq135_tag, "Raw ADC Value: %d, Gas Concentration: %.2f ppm", raw_adc, mq135_data->gas_concentration);
+  ESP_LOGI(mq135_tag, "Raw ADC Value: %u, Gas Concentration: %.2f ppm", raw_adc, mq135_data->gas_concentration);
 
   mq135_data->state = k_mq135_ready;
   return ESP_OK;

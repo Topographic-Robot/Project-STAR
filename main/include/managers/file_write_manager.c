@@ -19,7 +19,9 @@ const uint32_t max_pending_writes = 10; /**< Maximum queued write operations */
 
 /* Globals (Static) ***********************************************************/
 
-static QueueHandle_t s_file_write_queue = NULL; /**< Queue for handling file write requests */
+static QueueHandle_t        s_file_write_queue       = NULL; /**< Queue for handling file write requests */
+static TaskHandle_t         s_file_write_task_handle = NULL;
+static file_writer_config_t s_file_writer_config     = { 3, 4096, false };
 
 /* Private Functions **********************************************************/
 
@@ -57,13 +59,16 @@ static void priv_get_timestamp(char *buffer, size_t buffer_len)
  */
 static void priv_file_write_task(void *param)
 {
+  ESP_LOGI(file_manager_tag, "- File writer task started - processing queue");
   file_write_request_t request;
 
   while (1) {
     if (xQueueReceive(s_file_write_queue, &request, portMAX_DELAY) == pdTRUE) {
+      ESP_LOGI(file_manager_tag, "- Processing write request - target: %s", request.file_path);
+      
       FILE *file = fopen(request.file_path, "a");
       if (file == NULL) {
-        ESP_LOGE(file_manager_tag, "Failed to open file: %s", request.file_path);
+        ESP_LOGE(file_manager_tag, "- Write operation failed - could not open file: %s", request.file_path);
         continue;
       }
 
@@ -71,9 +76,11 @@ static void priv_file_write_task(void *param)
       fclose(file);
 
       if (bytes_written != strlen(request.data)) {
-        ESP_LOGE(file_manager_tag, "Failed to write all data to file: %s", request.file_path);
+        ESP_LOGE(file_manager_tag, "- Write operation incomplete - wrote %zu/%zu bytes to %s", 
+                 bytes_written, strlen(request.data), request.file_path);
       } else {
-        ESP_LOGI(file_manager_tag, "Data written to file: %s", request.file_path);
+        ESP_LOGI(file_manager_tag, "- Write operation successful - %zu bytes written to %s", 
+                 bytes_written, request.file_path);
       }
     }
   }
@@ -83,42 +90,56 @@ static void priv_file_write_task(void *param)
 
 esp_err_t file_write_manager_init(void)
 {
+  if (!s_file_writer_config.enabled) {
+    ESP_LOGI(file_manager_tag, "- File writer disabled - skipping initialization");
+    return ESP_OK;
+  }
+
+  ESP_LOGI(file_manager_tag, "- Starting file writer initialization");
+
   s_file_write_queue = xQueueCreate(max_pending_writes, sizeof(file_write_request_t));
   if (s_file_write_queue == NULL) {
-    ESP_LOGE(file_manager_tag, "Failed to create file write queue");
+    ESP_LOGE(file_manager_tag, "- Queue creation failed - insufficient memory");
     return ESP_FAIL;
   }
-  ESP_LOGI(file_manager_tag, "Created file write queue");
+  ESP_LOGI(file_manager_tag, "- Write queue created - capacity: %lu requests", max_pending_writes);
 
   BaseType_t task_created = xTaskCreate(priv_file_write_task,
-                                        "priv_file_write_task",
-                                        4096,
+                                        file_manager_tag,
+                                        s_file_writer_config.stack_depth,
                                         NULL,
-                                        3,
-                                        NULL);
+                                        s_file_writer_config.priority,
+                                        &s_file_write_task_handle);
   if (task_created != pdPASS) {
-    ESP_LOGE(file_manager_tag, "Failed to create file write task");
+    ESP_LOGE(file_manager_tag, "- Task creation failed - insufficient resources");
     return ESP_FAIL;
   }
+  ESP_LOGI(file_manager_tag, "- Write task created - priority: %u", s_file_writer_config.priority);
 
   if (sd_card_init() != ESP_OK) {
-    ESP_LOGE(file_manager_tag, "Failed to initialize sd card");
+    ESP_LOGE(file_manager_tag, "- SD card initialization failed - storage unavailable");
     return ESP_FAIL;
   }
-  ESP_LOGI(file_manager_tag, "File write manager initialized successfully");
+  ESP_LOGI(file_manager_tag, "- SD card initialized - storage system ready");
 
+  ESP_LOGI(file_manager_tag, "- File writer initialization complete - system operational");
   return ESP_OK;
 }
 
 esp_err_t file_write_enqueue(const char *file_path, const char *data)
 {
+  if (!s_file_writer_config.enabled) {
+    ESP_LOGW(file_manager_tag, "- Write request rejected - file writer is disabled");
+    return ESP_FAIL;
+  }
+
   if (file_path == NULL || data == NULL) {
-    ESP_LOGE(file_manager_tag, "Invalid file path or data");
+    ESP_LOGE(file_manager_tag, "- Write request rejected - invalid parameters");
     return ESP_ERR_INVALID_ARG;
   }
 
   if (s_file_write_queue == NULL) {
-    ESP_LOGE(file_manager_tag, "File write queue is not initialized");
+    ESP_LOGE(file_manager_tag, "- Write request rejected - queue not initialized");
     return ESP_FAIL;
   }
 
@@ -129,12 +150,13 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s",   sd_card_mount_path, file_path);
   snprintf(request.data,      MAX_DATA_LENGTH,      "%s %s\n", timestamp,          data);
 
+  ESP_LOGI(file_manager_tag, "- Enqueueing write request - target: %s", file_path);
   if (xQueueSend(s_file_write_queue, &request, 0) != pdTRUE) {
-    ESP_LOGE(file_manager_tag, "File write queue is full");
+    ESP_LOGE(file_manager_tag, "- Write request rejected - queue full");
     return ESP_FAIL;
   }
 
-  ESP_LOGI(file_manager_tag, "Write request queued for file: %s", file_path);
+  ESP_LOGI(file_manager_tag, "- Write request accepted - queued for processing");
   return ESP_OK;
 }
 

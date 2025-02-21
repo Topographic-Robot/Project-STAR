@@ -110,7 +110,7 @@ esp_err_t sd_card_init(void)
     }
   }
 
-  ESP_LOGE(sd_card_tag, "SD card initialization failed after %d retries.", sd_card_max_retries);
+  ESP_LOGE(sd_card_tag, "SD card initialization failed after %u retries.", sd_card_max_retries);
   return ESP_FAIL;
 }
 

@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 
 /* Constants ******************************************************************/
 
@@ -20,6 +21,18 @@ extern const uint32_t max_pending_writes; /**< Maximum number of queued file wri
 #define MAX_DATA_LENGTH      (256) /**< Maximum data length per write request, including the null terminator. */
 
 /* Structs ********************************************************************/
+
+/**
+ * @brief Configuration structure for the file write manager task.
+ *
+ * Contains settings for the file write manager task including its name,
+ * priority, stack size, and enablement flag.
+ */
+typedef struct {
+  UBaseType_t priority;    /**< Priority of the file writer task for scheduling purposes. */
+  uint32_t    stack_depth; /**< Stack depth allocated for the file writer task, in words. */
+  bool        enabled;     /**< Flag indicating if the file writer is enabled (true) or disabled (false). */
+} file_writer_config_t;
 
 /**
  * @brief Represents a request to write data to a file.

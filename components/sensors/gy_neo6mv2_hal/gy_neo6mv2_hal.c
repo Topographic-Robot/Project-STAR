@@ -152,10 +152,10 @@ static void priv_gy_neo6mv2_add_satellite(uint8_t  prn,
     sat->snr         = snr;
     s_gy_neo6mv2_satellite_count++;
 
-    ESP_LOGI(gy_neo6mv2_tag, "Satellite added: PRN=%d, Elevation=%d, Azimuth=%d, SNR=%d",
+    ESP_LOGI(gy_neo6mv2_tag, "Satellite added: PRN=%u, Elevation=%u, Azimuth=%u, SNR=%u",
              prn, elevation, azimuth, snr);
   } else {
-    ESP_LOGW(gy_neo6mv2_tag, "Satellite buffer full, cannot add PRN=%d", prn);
+    ESP_LOGW(gy_neo6mv2_tag, "Satellite buffer full, cannot add PRN=%u", prn);
   }
 }
 
@@ -189,7 +189,7 @@ static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, uint8_t m
                    s_gy_neo6mv2_satellite_count : max_count;
 
   memcpy(satellites, s_gy_neo6mv2_satellites, count * sizeof(satellite_t));
-  ESP_LOGI(gy_neo6mv2_tag, "Retrieved %d satellites from the buffer.", count);
+  ESP_LOGI(gy_neo6mv2_tag, "Retrieved %u satellites from the buffer.", count);
   return count;
 }
 
@@ -442,7 +442,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 
     /* Process satellite data as needed */
     for (uint8_t i = 0; i < satellite_count; i++) {
-      ESP_LOGI(gy_neo6mv2_tag, "Retrieved Satellite PRN=%d, Elevation=%d, Azimuth=%d, SNR=%d",
+      ESP_LOGI(gy_neo6mv2_tag, "Retrieved Satellite PRN=%u, Elevation=%u, Azimuth=%u, SNR=%u",
                local_satellites[i].prn, local_satellites[i].elevation,
                local_satellites[i].azimuth, local_satellites[i].snr);
     }

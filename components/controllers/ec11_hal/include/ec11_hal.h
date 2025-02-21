@@ -13,16 +13,11 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-/* Configuration Options ****************************************************/
-
-#ifndef EC11_USE_INTERRUPTS
-#define EC11_USE_INTERRUPTS 0 /**< Set to 1 to use interrupts, 0 for polling */
-#endif
-
 /* Constants ******************************************************************/
 
-extern const char    *ec11_tag;      /**< Tag for logging messages related to the EC11 encoder. */
-extern const uint32_t poll_delay_ms; /**< Delay between encoder state polls in milliseconds. */
+extern const char    *ec11_tag;                  /**< Tag for logging messages related to the EC11 encoder. */
+extern const uint32_t ec11_button_debounce_ms;   /**< Button debounce time in milliseconds */
+extern const uint32_t ec11_rotation_debounce_ms; /**< Rotation debounce time in milliseconds */
 
 /* Enums **********************************************************************/
 
@@ -81,19 +76,19 @@ typedef enum : uint8_t {
  * and button state for a single EC11 encoder instance.
  */
 typedef struct {
-  gpio_num_t        pin_a;          /**< GPIO pin for encoder output A */
-  gpio_num_t        pin_b;          /**< GPIO pin for encoder output B */
-  gpio_num_t        pin_btn;        /**< GPIO pin for encoder push button */
-  int32_t           position;       /**< Current encoder position (increments/decrements) */
-  uint8_t           state;          /**< Current operational state (see ec11_op_states_t) */
-  bool              button_pressed; /**< Current state of the push button */
-  uint8_t           prev_state;     /**< Previous encoder state for rotation detection */
-  ec11_callback_t   callback;       /**< Event callback function */
-  void             *board_ptr;      /**< Pointer to the PCA9685 board */
-  uint16_t          motor_mask;     /**< Bitmask indicating which motor to control */
-#if EC11_USE_INTERRUPTS
-  SemaphoreHandle_t mutex;          /**< Mutex for thread-safe access in ISR */
-#endif
+  gpio_num_t        pin_a;              /**< GPIO pin for encoder output A */
+  gpio_num_t        pin_b;              /**< GPIO pin for encoder output B */
+  gpio_num_t        pin_btn;            /**< GPIO pin for encoder push button */
+  int32_t           position;           /**< Current encoder position (increments/decrements) */
+  uint8_t           state;              /**< Current operational state (see ec11_op_states_t) */
+  bool              button_pressed;     /**< Current state of the push button */
+  uint8_t           prev_state;         /**< Previous encoder state for rotation detection */
+  ec11_callback_t   callback;           /**< Event callback function */
+  void             *board_ptr;          /**< Pointer to the PCA9685 board */
+  uint16_t          motor_mask;         /**< Bitmask indicating which motor to control */
+  SemaphoreHandle_t mutex;              /**< Mutex for thread-safe access in ISR */
+  int64_t           last_button_time;   /**< Last time the button state changed (ms) */
+  int64_t           last_rotation_time; /**< Last time rotation was detected (ms) */
 } ec11_data_t;
 
 /* Public Functions ***********************************************************/
@@ -101,9 +96,7 @@ typedef struct {
 /**
  * @brief Initializes an EC11 rotary encoder instance.
  *
- * Configures the GPIO pins for the encoder's outputs and button.
- * When using interrupts (EC11_USE_INTERRUPTS=1), it sets up GPIO interrupts.
- * When using polling (EC11_USE_INTERRUPTS=0), it configures for polling mode.
+ * Configures the GPIO pins for the encoder's outputs and button with interrupts.
  *
  * @param[in] encoder Pointer to the encoder data structure
  * @return
@@ -112,21 +105,12 @@ typedef struct {
  */
 esp_err_t ec11_init(ec11_data_t *encoder);
 
-#if EC11_USE_INTERRUPTS
 /**
  * @brief ISR handler for EC11 encoder interrupts.
- * This function is automatically registered when using interrupt mode.
+ * This function is automatically registered during initialization.
  * @param[in] arg Pointer to the encoder data structure
  */
 void IRAM_ATTR ec11_isr_handler(void* arg);
-#else
-/**
- * @brief Task function for polling the EC11 encoder state.
- * Only available in polling mode (EC11_USE_INTERRUPTS=0).
- * @param[in] arg Pointer to the encoder data structure
- */
-void ec11_task(void *arg);
-#endif
 
 /**
  * @brief Registers a callback function for encoder events.
@@ -136,10 +120,10 @@ void ec11_task(void *arg);
  * @param[in] board_ptr Pointer to the PCA9685 board
  * @param[in] motor_mask Bitmask indicating which motor to control
  */
-void ec11_register_callback(ec11_data_t    *encoder, 
-                            ec11_callback_t callback, 
-                            void           *board_ptr, 
-                            uint16_t        motor_mask);
+void ec11_register_callback(ec11_data_t  *encoder, 
+                          ec11_callback_t callback, 
+                          void           *board_ptr, 
+                          uint16_t        motor_mask);
 
 #ifdef __cplusplus
 }

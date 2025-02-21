@@ -34,12 +34,19 @@ ov7670_data_t    g_camera_data    = {}; /* TODO: Make this support all 6 cameras
  */
 static esp_err_t priv_clear_nvs_flash(void)
 {
+  ESP_LOGI(system_tag, "- NVS initialization - checking flash memory state");
   esp_err_t ret = nvs_flash_init();
 
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    ESP_LOGW(system_tag, "Erasing NVS flash due to error: %s", esp_err_to_name(ret));
+    ESP_LOGW(system_tag, "- NVS flash requires erase - performing cleanup");
     ESP_ERROR_CHECK(nvs_flash_erase());
     ret = nvs_flash_init();
+  }
+
+  if (ret != ESP_OK) {
+    ESP_LOGE(system_tag, "- NVS initialization failed - flash memory error: %s", esp_err_to_name(ret));
+  } else {
+    ESP_LOGI(system_tag, "- NVS initialization complete - flash memory ready");
   }
 
   return ret;
@@ -50,44 +57,52 @@ static esp_err_t priv_clear_nvs_flash(void)
 esp_err_t system_tasks_init(void)
 {
   esp_err_t ret = ESP_OK;
+
   /* Initialize NVS storage */
   if (priv_clear_nvs_flash() != ESP_OK) {
-    ESP_LOGE(system_tag, "Failed to initialize NVS: %s", esp_err_to_name(ret));
+    ESP_LOGE(system_tag, "- NVS initialization failed - storage system unavailable");
     ret = ESP_FAIL;
   }
 
   /* Initialize sensor communication */
+  ESP_LOGI(system_tag, "- Starting sensor subsystem initialization");
   if (sensors_init(&g_sensor_data) != ESP_OK) {
-    ESP_LOGE(system_tag, "Sensor communication initialization failed.");
+    ESP_LOGE(system_tag, "- Sensor initialization failed - communication errors detected");
     ret = ESP_FAIL;
   }
 
   /* Initialize cameras */
+  ESP_LOGI(system_tag, "- Starting camera subsystem initialization");
   if (ov7670_init(&g_camera_data) != ESP_OK) {
-    ESP_LOGE(system_tag, "Camera communication initialization failed.");
+    ESP_LOGE(system_tag, "- Camera initialization failed - hardware communication error");
     ret = ESP_FAIL;
   }
   
   /* Initialize motor controllers */
+  ESP_LOGI(system_tag, "- Starting motor controller initialization");
   if (motors_init(&g_pwm_controller) != ESP_OK) {
-    ESP_LOGE(system_tag, "Motor controller initialization failed.");
+    ESP_LOGE(system_tag, "- Motor controller initialization failed - PWM system error");
     ret = ESP_FAIL;
   }
 
-  /* Initialize gait array (Must be done after initalizing motor controllers */
+  /* Initialize gait array (Must be done after initializing motor controllers */
+  ESP_LOGI(system_tag, "- Starting gait system initialization");
   if (gait_init(g_pwm_controller) != ESP_OK) {
-    ESP_LOGE(system_tag, "Gait static array initialization failed.");
+    ESP_LOGE(system_tag, "- Gait initialization failed - motor mapping error");
     ret = ESP_FAIL;
   }
   
   /* Initialize storage (e.g., SD card or SPIFFS) */
+  ESP_LOGI(system_tag, "- Starting storage system initialization");
   if (file_write_manager_init() != ESP_OK) {
-    ESP_LOGE(system_tag, "Storage initialization failed.");
+    ESP_LOGE(system_tag, "- Storage initialization failed - file system error");
     ret = ESP_FAIL;
   }
 
   if (ret == ESP_OK) {
-    ESP_LOGI(system_tag, "All system components initialized successfully.");
+    ESP_LOGI(system_tag, "- System initialization complete - all components ready");
+  } else {
+    ESP_LOGW(system_tag, "- System initialization incomplete - some components failed");
   }
   return ret;
 }
@@ -96,26 +111,38 @@ esp_err_t system_tasks_start(void)
 {
   esp_err_t ret = ESP_OK;
 
-  /* Start WiFi task (which will also handle time sync) */
-  //if (wifi_task_start() != ESP_OK) {
-  //  ESP_LOGE(system_tag, "WiFi task start failed.");
+  /* Start WiFi task */
+  ESP_LOGI(system_tag, "- Starting WiFi subsystem");
+  if (wifi_task_start() != ESP_OK) {
+    ESP_LOGE(system_tag, "- WiFi task failed to start - network functionality limited");
+    ret = ESP_FAIL;
+  }
+
+  ///* Start camera monitoring task */
+  //ESP_LOGI(system_tag, "- Starting camera monitoring system");
+  //if (ov7670_task_start(&g_camera_data) != ESP_OK) {
+  //  ESP_LOGE(system_tag, "- Camera monitoring failed to start - vision system offline");
   //  ret = ESP_FAIL;
-  //} // commented out for now - need to do more testing
+  //} /* TODO: Add this back in/make this work */
 
   /* Start sensor tasks */
+  ESP_LOGI(system_tag, "- Starting sensor monitoring system");
   if (sensor_tasks(&g_sensor_data) != ESP_OK) {
-    ESP_LOGE(system_tag, "Sensor tasks start failed.");
+    ESP_LOGE(system_tag, "- Sensor tasks failed to start - environmental monitoring limited");
     ret = ESP_FAIL;
   }
 
   /* Start motor control tasks */
+  ESP_LOGI(system_tag, "- Starting motor control system");
   if (motor_tasks_start(g_pwm_controller) != ESP_OK) {
-    ESP_LOGE(system_tag, "Motor tasks start failed.");
+    ESP_LOGE(system_tag, "- Motor tasks failed to start - movement system offline");
     ret = ESP_FAIL;
   }
 
   if (ret == ESP_OK) {
-    ESP_LOGI(system_tag, "System tasks started successfully.");
+    ESP_LOGI(system_tag, "- All system tasks started successfully - robot fully operational");
+  } else {
+    ESP_LOGW(system_tag, "- System tasks partially started - some functionality limited");
   }
   return ret;
 }
