@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "pca9685_hal.h"
+#include "ec11_hal.h"
 
 #ifdef __cplusplus
 }

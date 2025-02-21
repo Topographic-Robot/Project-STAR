@@ -22,7 +22,6 @@ extern const uint8_t           sd_card_cs;                   /**< GPIO pin for S
 extern const uint8_t           sd_card_data_to_card;         /**< GPIO pin for SPI communication into the SD card (DI) */
 extern const uint8_t           sd_card_data_from_card;       /**< GPIO pin for SPI communication out of the SD card (DO) */
 extern const uint8_t           sd_card_clk;                  /**< GPIO pin for SPI clock (SCLK / CLK) */
-extern const uint8_t           sd_card_clk;                  /**< GPIO pin for SPI clock (SCLK / CLK) */
 extern const uint32_t          sd_card_spi_freq_hz;          /**< SPI bus frequency in Hz for SD card */
 extern const spi_host_device_t sd_card_spi_host;             /**< Default SPI host for SD card interface */
 extern const uint8_t           sd_card_max_files;            /**< Maximum number of files that can be opened simultaneously */

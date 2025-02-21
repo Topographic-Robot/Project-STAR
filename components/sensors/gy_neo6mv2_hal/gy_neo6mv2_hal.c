@@ -1,7 +1,5 @@
 /* components/sensors/gy_neo6mv2_hal/gy_neo6mv2_hal.c */
 
-/* TODO: UBLOCK's app works, but this doesn't :( sorrow */
-
 #include "gy_neo6mv2_hal.h"
 #include <string.h>
 #include <stdlib.h>
@@ -12,9 +10,11 @@
 #include "common/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants *******************************************************************/
 
+/* Module constants */
 const char       *gy_neo6mv2_tag                    = "GY-NEO6MV2";
 const uint8_t     gy_neo6mv2_tx_io                  = GPIO_NUM_17;
 const uint8_t     gy_neo6mv2_rx_io                  = GPIO_NUM_16;
@@ -25,12 +25,18 @@ const uint8_t     gy_neo6mv2_max_retries            = 4;
 const uint32_t    gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
 
+/* GPGSV sentence parsing constants */
+const uint8_t gy_neo6mv2_gpgsv_sats_per_sentence = 4;  /**< Number of satellites per GPGSV sentence */
+const uint8_t gy_neo6mv2_gpgsv_field_start       = 4;  /**< Starting field index for satellite data */
+const uint8_t gy_neo6mv2_gpgsv_field_step        = 4;  /**< Number of fields per satellite */
+
 /* Globals (Static) ***********************************************************/
 
-static char        s_gy_neo6mv2_sentence_buffer[gy_neo6mv2_sentence_buffer_size]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
-static uint32_t    s_gy_neo6mv2_sentence_index = 0;                               /**< Index tracking the current position in the sentence buffer. */
-static satellite_t s_gy_neo6mv2_satellites[gy_neo6mv2_max_satellites];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
-static uint8_t     s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
+static char            s_gy_neo6mv2_sentence_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE]; /**< Buffer for assembling fragmented NMEA sentences received from the GPS module. */
+static satellite_t     s_gy_neo6mv2_satellites[GY_NEO6MV2_MAX_SATELLITES];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
+static uint32_t        s_gy_neo6mv2_sentence_index  = 0;                              /**< Index tracking the current position in the sentence buffer. */
+static uint8_t         s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
+static error_handler_t s_gy_neo6mv2_error_handler   = { 0 };
 
 /* Static (Private) Functions *************************************************/
 
@@ -45,7 +51,8 @@ static uint8_t     s_gy_neo6mv2_satellite_count = 0;                            
  *
  * @return The coordinate in decimal degrees.
  */
-static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, const char *hemisphere)
+static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, 
+                                              const char *hemisphere)
 {
   float    coord           = atof(coord_str);
   uint32_t degrees         = (uint32_t)(coord / 100);
@@ -101,7 +108,9 @@ static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
  * @param[out]    fields     Array of pointers to store the extracted fields.
  * @param[in]     max_fields Maximum number of fields to extract.
  */
-static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, size_t max_fields)
+static void priv_gy_neo6mv2_split_nmea_sentence(char  *sentence, 
+                                                char **fields, 
+                                                size_t max_fields)
 {
   if (!sentence || !fields) {
     return;
@@ -130,10 +139,12 @@ static void priv_gy_neo6mv2_split_nmea_sentence(char *sentence, char **fields, s
  * @param[in] azimuth   Satellite azimuth in degrees.
  * @param[in] snr       Signal-to-Noise Ratio (SNR).
  */
-static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16_t azimuth, 
-                                          uint8_t snr)
+static void priv_gy_neo6mv2_add_satellite(uint8_t  prn, 
+                                          uint8_t  elevation, 
+                                          uint16_t azimuth, 
+                                          uint8_t  snr)
 {
-  if (s_gy_neo6mv2_satellite_count < gy_neo6mv2_max_satellites) {
+  if (s_gy_neo6mv2_satellite_count < GY_NEO6MV2_MAX_SATELLITES) {
     satellite_t *sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
     sat->prn         = prn;
     sat->elevation   = elevation;
@@ -141,10 +152,10 @@ static void priv_gy_neo6mv2_add_satellite(uint8_t prn, uint8_t elevation, uint16
     sat->snr         = snr;
     s_gy_neo6mv2_satellite_count++;
 
-    ESP_LOGI(gy_neo6mv2_tag, "Satellite added: PRN=%d, Elevation=%d, Azimuth=%d, SNR=%d",
+    ESP_LOGI(gy_neo6mv2_tag, "Satellite added: PRN=%u, Elevation=%u, Azimuth=%u, SNR=%u",
              prn, elevation, azimuth, snr);
   } else {
-    ESP_LOGW(gy_neo6mv2_tag, "Satellite buffer full, cannot add PRN=%d", prn);
+    ESP_LOGW(gy_neo6mv2_tag, "Satellite buffer full, cannot add PRN=%u", prn);
   }
 }
 
@@ -178,7 +189,7 @@ static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, uint8_t m
                    s_gy_neo6mv2_satellite_count : max_count;
 
   memcpy(satellites, s_gy_neo6mv2_satellites, count * sizeof(satellite_t));
-  ESP_LOGI(gy_neo6mv2_tag, "Retrieved %d satellites from the buffer.", count);
+  ESP_LOGI(gy_neo6mv2_tag, "Retrieved %u satellites from the buffer.", count);
   return count;
 }
 
@@ -265,7 +276,10 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 
 esp_err_t gy_neo6mv2_init(void *sensor_data)
 {
-  ESP_LOGI(gy_neo6mv2_tag, "Initializing GPS module");
+  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  ESP_LOGI(gy_neo6mv2_tag, "Starting Configuration");
+
+  /* TODO: Initialize error handler */
 
   /* Initialize UART using the common UART function */
   esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io, gy_neo6mv2_uart_baudrate,
@@ -275,11 +289,27 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
     return ret;
   }
 
-  /* Allow time for the GPS module to warm up */
+  /* Configure GPS module with optimal settings */
+  const char *config_commands[] = {
+    "$PUBX,41,1,0007,0003,9600,0*10\r\n", /* Set UART1 baud rate */
+    "$PUBX,40,GLL,0,0,0,0*5C\r\n",        /* Disable GLL messages */
+    "$PUBX,40,GSA,0,0,0,0*4E\r\n",        /* Disable GSA messages */
+    "$PUBX,40,GSV,0,0,0,0*59\r\n",        /* Disable GSV messages */
+    "$PUBX,40,VTG,0,0,0,0*5E\r\n",        /* Disable VTG messages */
+    "$PUBX,40,RMC,1,0,0,0*46\r\n",        /* Enable RMC messages */
+    "$PUBX,40,GGA,1,0,0,0*5B\r\n"         /* Enable GGA messages */
+  };
+
+  /* Send configuration commands */
+  for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
+    uart_write_bytes(gy_neo6mv2_uart_num, config_commands[i], strlen(config_commands[i]));
+    vTaskDelay(pdMS_TO_TICKS(100)); /* Wait for command processing */
+  }
+
+  /* Allow time for the GPS module to warm up and apply settings */
   vTaskDelay(pdMS_TO_TICKS(5000));
 
   /* Initialize GPS gy_neo6mv2_data fields */
-  gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
   gy_neo6mv2_data->latitude           = 0.0;                               /* Default latitude */
   gy_neo6mv2_data->longitude          = 0.0;                               /* Default longitude */
   gy_neo6mv2_data->speed              = 0.0;                               /* Default speed */
@@ -298,7 +328,7 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 {
-  uint8_t uart_rx_buffer[gy_neo6mv2_sentence_buffer_size];
+  uint8_t uart_rx_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE];
   int32_t length = 0;
 
   /* Read from UART */
@@ -368,8 +398,8 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
         } else if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPGSV") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPGSV sentence for satellite information */
-          char *fields[20] = { 0 }; /* TODO: Move 20 to an enum or const */
-          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 20); /* TODO: Move 20 to an enum or const */
+          char *fields[GY_NEO6MV2_GPGSV_MAX_FIELDS] = { '\0' };
+          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, GY_NEO6MV2_GPGSV_MAX_FIELDS);
 
           uint8_t total_sentences  = fields[1] ? (uint8_t)atoi(fields[1]) : 0;
           uint8_t sentence_number  = fields[2] ? (uint8_t)atoi(fields[2]) : 0;
@@ -384,12 +414,12 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
 
           /* Parse satellite details (up to 4 satellites per GPGSV sentence) */
-          for (uint8_t i = 4; i < 20; i += 4) { /* TODO: Move 4 and 20 either into enum / const / add a comment */
+          for (uint8_t i = gy_neo6mv2_gpgsv_field_start; i < GY_NEO6MV2_GPGSV_MAX_FIELDS; i += gy_neo6mv2_gpgsv_field_step) {
             if (fields[i] && fields[i + 1] && fields[i + 2] && fields[i + 3]) {
-              uint8_t prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
-              uint8_t elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */
-              uint16_t azimuth  = (uint16_t)atoi(fields[i + 2]); /* Azimuth in degrees */
-              uint8_t snr       = (uint8_t)atoi(fields[i + 3]);  /* SNR (Signal-to-Noise Ratio) */
+              uint8_t  prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
+              uint8_t  elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */
+              uint16_t azimuth   = (uint16_t)atoi(fields[i + 2]); /* Azimuth in degrees */
+              uint8_t  snr       = (uint8_t)atoi(fields[i + 3]);  /* SNR (Signal-to-Noise Ratio) */
 
               /* Store satellite data */
               priv_gy_neo6mv2_add_satellite(prn, elevation, azimuth, snr);
@@ -403,16 +433,16 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
     }
 
     /* After processing sentences, retrieve satellite data */
-    satellite_t local_satellites[gy_neo6mv2_max_satellites];
+    satellite_t local_satellites[GY_NEO6MV2_MAX_SATELLITES];
     uint8_t     satellite_count = priv_gy_neo6mv2_get_satellites(local_satellites, 
-                                                                 gy_neo6mv2_max_satellites);
+                                                                 GY_NEO6MV2_MAX_SATELLITES);
 
     /* Update sensor_data with satellite count */
     sensor_data->satellite_count = satellite_count;
 
     /* Process satellite data as needed */
     for (uint8_t i = 0; i < satellite_count; i++) {
-      ESP_LOGI(gy_neo6mv2_tag, "Retrieved Satellite PRN=%d, Elevation=%d, Azimuth=%d, SNR=%d",
+      ESP_LOGI(gy_neo6mv2_tag, "Retrieved Satellite PRN=%u, Elevation=%u, Azimuth=%u, SNR=%u",
                local_satellites[i].prn, local_satellites[i].elevation,
                local_satellites[i].azimuth, local_satellites[i].snr);
     }
@@ -428,28 +458,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
 {
   if (sensor_data->state == k_gy_neo6mv2_error) {
-    TickType_t current_ticks = xTaskGetTickCount();
-
-    if ((current_ticks - sensor_data->last_attempt_ticks) > sensor_data->retry_interval) {
-      ESP_LOGI(gy_neo6mv2_tag, "Attempting to reset GY-NEO6MV2 GPS module");
-
-      esp_err_t ret = gy_neo6mv2_init(sensor_data);
-      if (ret == ESP_OK) {
-        sensor_data->state          = k_gy_neo6mv2_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = gy_neo6mv2_initial_retry_interval;
-        ESP_LOGI(gy_neo6mv2_tag, "GY-NEO6MV2 GPS module reset successfully.");
-      } else {
-        sensor_data->retry_count++;
-        if (sensor_data->retry_count >= gy_neo6mv2_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > gy_neo6mv2_max_backoff_interval) ?
-                                         gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
-        }
-      }
-
-      sensor_data->last_attempt_ticks = current_ticks;
-    }
+    /* TODO: Reset error handler */
   }
 }
 
@@ -463,7 +472,6 @@ void gy_neo6mv2_tasks(void *sensor_data)
       file_write_enqueue("gy_neo6mv2.txt", json);
       free(json);
     } else {
-      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS data, resetting...");
       gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);

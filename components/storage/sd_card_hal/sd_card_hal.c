@@ -1,6 +1,7 @@
 /* components/storage/sd_card_hal/sd_card_hal.c */
 
 /* TODO: CD & SDIO */
+/* TODO: Error handler */
 
 #include "sd_card_hal.h"
 #include "freertos/FreeRTOS.h"
@@ -11,6 +12,7 @@
 #include "driver/sdspi_host.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -30,7 +32,8 @@ const uint32_t          sd_card_retry_delay_ms       = 500;         /* 500ms del
 
 /* Private Variables **********************************************************/
 
-static sdmmc_card_t *s_card = NULL; /**< Pointer to hold SD card descriptor */
+static sdmmc_card_t   *s_card                  = NULL; /**< Pointer to hold SD card descriptor */
+static error_handler_t s_sd_card_error_handler = { 0 };
 
 /* Private (Static) Functions *************************************************/
 
@@ -107,7 +110,7 @@ esp_err_t sd_card_init(void)
     }
   }
 
-  ESP_LOGE(sd_card_tag, "SD card initialization failed after %d retries.", sd_card_max_retries);
+  ESP_LOGE(sd_card_tag, "SD card initialization failed after %u retries.", sd_card_max_retries);
   return ESP_FAIL;
 }
 

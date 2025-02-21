@@ -25,47 +25,67 @@ esp_err_t sensors_init(sensor_data_t *sensor_data)
   esp_err_t status         = ESP_OK;
   esp_err_t overall_status = ESP_OK;
 
-  for (int i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
+  ESP_LOGI(system_tag, "- Starting sensor initialization - configuring all enabled sensors");
+
+  for (uint8_t i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
     if (s_sensors[i].enabled) {
-      ESP_LOGI(system_tag, "Initializing sensor: %s", s_sensors[i].sensor_name);
+      ESP_LOGI(system_tag, "- Initializing %s sensor", s_sensors[i].sensor_name);
       status = s_sensors[i].init_function(s_sensors[i].data_ptr);
 
       if (status == ESP_OK) {
-        ESP_LOGI(system_tag, "Sensor %s initialized successfully",
-            s_sensors[i].sensor_name);
+        ESP_LOGI(system_tag, "- %s: Initialization successful", s_sensors[i].sensor_name);
       } else {
-        ESP_LOGE(system_tag, "Sensor %s initialization failed with error: %d",
-                 s_sensors[i].sensor_name, status);
+        ESP_LOGE(system_tag, "- %s: Initialization failed - hardware error or communication issue", 
+                 s_sensors[i].sensor_name);
         overall_status = ESP_FAIL;
       }
     } else {
-      ESP_LOGI(system_tag, "Sensor %s is disabled", s_sensors[i].sensor_name);
+      ESP_LOGI(system_tag, "- %s: Initialization skipped - sensor disabled in configuration", 
+               s_sensors[i].sensor_name);
     }
   }
 
-  return overall_status; /* Return ESP_OK only if all s_sensors initialized successfully */
+  if (overall_status == ESP_OK) {
+    ESP_LOGI(system_tag, "- Sensor initialization complete - all enabled sensors ready");
+  } else {
+    ESP_LOGW(system_tag, "- Sensor initialization partially complete - some sensors failed");
+  }
+
+  return overall_status;
 }
 
 esp_err_t sensor_tasks(sensor_data_t *sensor_data)
 {
   esp_err_t overall_status = ESP_OK;
 
-  for (int i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
+  ESP_LOGI(system_tag, "- Starting sensor tasks - creating monitoring threads");
+
+  for (uint8_t i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
     if (s_sensors[i].enabled) {
-      ESP_LOGI(system_tag, "Creating task for sensor: %s", s_sensors[i].sensor_name);
+      ESP_LOGI(system_tag, "- Creating task for %s sensor", s_sensors[i].sensor_name);
       BaseType_t ret = xTaskCreate(s_sensors[i].task_function, s_sensors[i].sensor_name,
-                                   s_sensors[i].stack_depth, s_sensors[i].data_ptr, 
-                                   s_sensors[i].priority, NULL);
+                                   s_sensors[i].stack_depth,   s_sensors[i].data_ptr, 
+                                   s_sensors[i].priority,      NULL);
       if (ret != pdPASS) {
-        ESP_LOGE(system_tag, "Task creation failed for sensor: %s",
+        ESP_LOGE(system_tag, "- %s: Task creation failed - insufficient memory or resources",
                  s_sensors[i].sensor_name);
         overall_status = ESP_FAIL;
+      } else {
+        ESP_LOGI(system_tag, "- %s: Task created successfully with priority %u",
+                 s_sensors[i].sensor_name, s_sensors[i].priority);
       }
     } else {
-      ESP_LOGI(system_tag, "Task for sensor %s is disabled", s_sensors[i].sensor_name);
+      ESP_LOGI(system_tag, "- %s: Task creation skipped - sensor disabled in configuration",
+               s_sensors[i].sensor_name);
     }
   }
 
-  return overall_status; /* Return ESP_OK only if all tasks start successfully */
+  if (overall_status == ESP_OK) {
+    ESP_LOGI(system_tag, "- Sensor tasks started - all monitoring threads active");
+  } else {
+    ESP_LOGW(system_tag, "- Sensor tasks partially started - some threads failed to start");
+  }
+
+  return overall_status;
 }
 

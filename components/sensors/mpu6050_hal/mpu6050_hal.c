@@ -1,14 +1,17 @@
 /* components/sensors/mpu6050_hal/mpu6050_hal.c */
 
-/* TODO: The values retrieved from this sensor seems a bit sus, needs to be configurea a bit better */
+/* TODO: The values retrieved from this sensor seems a bit sus, needs to be configured a bit better */
+/* TODO: Implement the interrupt handler and use GPIO_NUM_26 */
 
 #include "mpu6050_hal.h"
+#include <math.h>
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -18,9 +21,9 @@ const char      *mpu6050_tag                = "MPU6050";
 const uint8_t    mpu6050_scl_io             = GPIO_NUM_22;
 const uint8_t    mpu6050_sda_io             = GPIO_NUM_21;
 const uint32_t   mpu6050_i2c_freq_hz        = 100000;
-const uint32_t   mpu6050_polling_rate_ticks = pdMS_TO_TICKS(5 * 1000);
-const uint8_t    mpu6050_sample_rate_div    = 9;
-const uint8_t    mpu6050_config_dlpf        = k_mpu6050_config_dlpf_44hz;
+const uint32_t   mpu6050_polling_rate_ticks = pdMS_TO_TICKS(20);
+const uint8_t    mpu6050_sample_rate_div    = 4;
+const uint8_t    mpu6050_config_dlpf        = k_mpu6050_config_dlpf_94hz;
 const uint8_t    mpu6050_int_io             = GPIO_NUM_26;
 
 /**
@@ -77,8 +80,9 @@ static const mpu6050_gyro_config_t mpu6050_gyro_configs[] = {
   { k_mpu6050_gyro_fs_2000dps, 16.4  }, /**< Sensitivity: 16.4 LSB/°/s */
 };
 
-static const uint8_t mpu6050_gyro_config_idx  = 3; /**< Index of chosen values from above (0: ±250°/s, 1: ±500°/s, etc.) */
-static const uint8_t mpu6050_accel_config_idx = 3; /**< Index of chosen values from above (0: ±2g, 1: ±4g, etc.) */
+static const uint8_t   mpu6050_gyro_config_idx  = 1; /**< Using ±500°/s for better precision in normal use */
+static const uint8_t   mpu6050_accel_config_idx = 1; /**< Using ±4g for better precision in normal use */
+static error_handler_t s_mpu6050_error_handler  = { 0 };
 
 /* Static (Private) Functions **************************************************/
 
@@ -174,6 +178,8 @@ esp_err_t mpu6050_init(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   ESP_LOGI(mpu6050_tag, "Starting Configuration");
+
+  /* TODO: Initialize error handler */
 
   mpu6050_data->i2c_address = mpu6050_i2c_address;
   mpu6050_data->i2c_bus     = mpu6050_i2c_bus;
@@ -360,13 +366,35 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   float accel_sensitivity = mpu6050_accel_configs[mpu6050_accel_config_idx].accel_scale;
   float gyro_sensitivity  = mpu6050_gyro_configs[mpu6050_gyro_config_idx].gyro_scale;
 
-  sensor_data->accel_x = accel_x_raw / accel_sensitivity;
-  sensor_data->accel_y = accel_y_raw / accel_sensitivity;
-  sensor_data->accel_z = accel_z_raw / accel_sensitivity;
+  /* Calculate new values */
+  float new_accel_x = accel_x_raw / accel_sensitivity;
+  float new_accel_y = accel_y_raw / accel_sensitivity;
+  float new_accel_z = accel_z_raw / accel_sensitivity;
+  float new_gyro_x  = gyro_x_raw / gyro_sensitivity;
+  float new_gyro_y  = gyro_y_raw / gyro_sensitivity;
+  float new_gyro_z  = gyro_z_raw / gyro_sensitivity;
 
-  sensor_data->gyro_x = gyro_x_raw / gyro_sensitivity;
-  sensor_data->gyro_y = gyro_y_raw / gyro_sensitivity;
-  sensor_data->gyro_z = gyro_z_raw / gyro_sensitivity;
+  /* Validate accelerometer readings (should be within ±4g range) */
+  if (fabsf(new_accel_x) > 4.0f || fabsf(new_accel_y) > 4.0f || fabsf(new_accel_z) > 4.0f) {
+    ESP_LOGW(mpu6050_tag, "Accelerometer readings out of expected range");
+    sensor_data->state = k_mpu6050_error;
+    return ESP_FAIL;
+  }
+
+  /* Validate gyroscope readings (should be within ±500°/s range) */
+  if (fabsf(new_gyro_x) > 500.0f || fabsf(new_gyro_y) > 500.0f || fabsf(new_gyro_z) > 500.0f) {
+    ESP_LOGW(mpu6050_tag, "Gyroscope readings out of expected range");
+    sensor_data->state = k_mpu6050_error;
+    return ESP_FAIL;
+  }
+
+  /* Update sensor data with validated readings */
+  sensor_data->accel_x = new_accel_x;
+  sensor_data->accel_y = new_accel_y;
+  sensor_data->accel_z = new_accel_z;
+  sensor_data->gyro_x  = new_gyro_x;
+  sensor_data->gyro_y  = new_gyro_y;
+  sensor_data->gyro_z  = new_gyro_z;
 
   ESP_LOGI(mpu6050_tag, "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] deg/s",
            sensor_data->accel_x, sensor_data->accel_y, sensor_data->accel_z,
@@ -380,18 +408,7 @@ void mpu6050_reset_on_error(mpu6050_data_t *sensor_data)
 {
   /* Check if the state indicates any error */
   if (sensor_data->state & k_mpu6050_error) {
-    ESP_LOGI(mpu6050_tag, "Error detected. Attempting to reset the MPU6050 sensor.");
-
-    /* Attempt to initialize/reset the sensor */
-    if (mpu6050_init(sensor_data) == ESP_OK) {
-      /* If successful, set the state to ready */
-      sensor_data->state = k_mpu6050_ready;
-      ESP_LOGI(mpu6050_tag, "MPU6050 sensor reset successfully. State is now ready.");
-    } else {
-      /* If reset fails, set the state to reset error */
-      sensor_data->state = k_mpu6050_reset_error;
-      ESP_LOGE(mpu6050_tag, "Failed to reset the MPU6050 sensor. State set to reset error.");
-    }
+    /* TODO: Reset error handler */
   }
 }
 
@@ -399,17 +416,14 @@ void mpu6050_tasks(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
   while (1) {
-    /* Wait indefinitely for the data_ready_sem semaphore */
-    if (xSemaphoreTake(mpu6050_data->data_ready_sem, portMAX_DELAY) == pdTRUE) {
-      if (mpu6050_read(mpu6050_data) == ESP_OK) {
-        char *json = mpu6050_data_to_json(mpu6050_data);
-        send_sensor_data_to_webserver(json);
-        file_write_enqueue("mpu6050.txt", json);
-        free(json);
-      } else {
-        mpu6050_reset_on_error(mpu6050_data);
-      }
-      vTaskDelay(mpu6050_polling_rate_ticks);
+    if (mpu6050_read(mpu6050_data) == ESP_OK) {
+      char *json = mpu6050_data_to_json(mpu6050_data);
+      send_sensor_data_to_webserver(json);
+      file_write_enqueue("mpu6050.txt", json);
+      free(json);
+    } else {
+      mpu6050_reset_on_error(mpu6050_data);
     }
+    vTaskDelay(mpu6050_polling_rate_ticks);
   }
 }

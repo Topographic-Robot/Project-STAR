@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "esp_adc/adc_oneshot.h"
 #include "driver/gpio.h"
+#include "error_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -22,7 +23,8 @@ const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
 
 /* Globals (Static) ***********************************************************/
 
-static adc_oneshot_unit_handle_t s_adc1_handle; /**< ADC handle for the MQ135 sensor. */
+static adc_oneshot_unit_handle_t s_adc1_handle         = { 0 }; /**< ADC handle for the MQ135 sensor. */
+static error_handler_t           s_mq135_error_handler = { 0 };
 
 /* Static (Private) Functions **************************************************/
 
@@ -132,7 +134,7 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   mq135_data->raw_adc_value     = raw_adc;
   mq135_data->gas_concentration = priv_mq135_calculate_ppm(raw_adc);
 
-  ESP_LOGI(mq135_tag, "Raw ADC Value: %d, Gas Concentration: %.2f ppm", raw_adc, mq135_data->gas_concentration);
+  ESP_LOGI(mq135_tag, "Raw ADC Value: %u, Gas Concentration: %.2f ppm", raw_adc, mq135_data->gas_concentration);
 
   mq135_data->state = k_mq135_ready;
   return ESP_OK;

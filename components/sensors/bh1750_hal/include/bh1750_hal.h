@@ -12,6 +12,7 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -25,6 +26,9 @@ extern const uint32_t   bh1750_polling_rate_ticks;     /**< Polling rate for the
 extern const uint8_t    bh1750_max_retries;            /**< Maximum retry attempts for BH1750 sensor reinitialization. */
 extern const uint32_t   bh1750_initial_retry_interval; /**< Initial retry interval in ticks for BH1750 reinitialization. */
 extern const uint32_t   bh1750_max_backoff_interval;   /**< Maximum backoff interval in ticks for BH1750 reinitialization retries. */
+extern const uint8_t    bh1750_measurement_bytes;      /**< Number of bytes in BH1750 measurement (16-bit value = 2 bytes). */
+extern const float      bh1750_raw_to_lux_factor;      /**< Divisor to convert raw sensor value to actual lux (datasheet specified 1.2). */
+extern const uint8_t    bh1750_high_byte_shift;        /**< Number of bits to shift the high byte for 16-bit measurement (8 bits). */
 
 /* Enums **********************************************************************/
 
@@ -76,13 +80,11 @@ typedef enum : uint8_t {
  * error handling and reinitialization.
  */
 typedef struct {
-  uint8_t    i2c_address;        /**< I2C address for communication with the sensor. */
-  uint8_t    i2c_bus;            /**< I2C bus number the sensor is connected to. */
-  float      lux;                /**< Latest light intensity reading from the sensor, in lux. */
-  uint8_t    state;              /**< Current state of the sensor (see bh1750_states_t). */
-  uint8_t    retry_count;        /**< Counter for consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between retry attempts, increases exponentially. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  uint8_t         i2c_address;   /**< I2C address for communication with the sensor. */
+  i2c_port_t      i2c_bus;       /**< I2C bus number the sensor is connected to. */
+  float           lux;           /**< Latest light intensity reading from the sensor, in lux. */
+  bh1750_states_t state;         /**< Current state of the sensor (see bh1750_states_t). */
+  error_handler_t error_handler; /**< Error handler for the sensor. */
 } bh1750_data_t;
 
 /* Public Functions ***********************************************************/
@@ -136,21 +138,6 @@ esp_err_t bh1750_init(void *sensor_data);
  * - Ensure the sensor is initialized with `bh1750_init` before calling.
  */
 esp_err_t bh1750_read(bh1750_data_t *sensor_data);
-
-/**
- * @brief Handles reinitialization and recovery for the BH1750 sensor.
- *
- * Implements exponential backoff for reinitialization attempts when errors are
- * detected. Resets retry counters on successful recovery.
- *
- * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure managing
- *                            the sensor state and retry information.
- *
- * @note 
- * - Call this function periodically within `bh1750_tasks`.
- * - Limits retries based on `bh1750_max_backoff_interval`.
- */
-void bh1750_reset_on_error(bh1750_data_t *sensor_data);
 
 /**
  * @brief Executes periodic tasks for the BH1750 sensor.

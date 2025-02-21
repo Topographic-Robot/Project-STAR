@@ -1,7 +1,5 @@
 /* components/sensors/qmc5883l_hal/qmc5883l_hal.c */
 
-/* TODO: DRDY */
-
 #include "qmc5883l_hal.h"
 #include <math.h>
 #include "file_write_manager.h"
@@ -9,6 +7,7 @@
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -17,12 +16,14 @@ const i2c_port_t qmc5883l_i2c_bus                = I2C_NUM_0;
 const char      *qmc5883l_tag                    = "QMC5883L";
 const uint8_t    qmc5883l_scl_io                 = GPIO_NUM_22;
 const uint8_t    qmc5883l_sda_io                 = GPIO_NUM_21;
+const gpio_num_t qmc5883l_drdy_pin               = GPIO_NUM_18;
 const uint32_t   qmc5883l_i2c_freq_hz            = 100000;
 const uint32_t   qmc5883l_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
 const uint8_t    qmc5883l_odr_setting            = k_qmc5883l_odr_100hz;
 const uint8_t    qmc5883l_max_retries            = 4;
 const uint32_t   qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
 const uint32_t   qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
+const uint8_t    qmc5883l_mag_data_size          = 6;  /* Size of magnetometer data in bytes (2 bytes x 3 axes) */
 
 /* Globals (Static) ***********************************************************/
 
@@ -31,7 +32,27 @@ static const qmc5883l_scale_t qmc5883l_scale_configs[] = {
   {k_qmc5883l_range_8g, 800.0 / 32768.0 }, /**< ±8 Gauss range, scaling factor */
 };
 
-static const uint8_t qmc5883l_scale_config_idx = 0; /**< Index of chosen values (0 for ±2G, 1 for ±8G) */
+static const uint8_t   qmc5883l_scale_config_idx = 0; /**< Index of chosen values (0 for ±2G, 1 for ±8G) */
+static error_handler_t s_qmc5883l_error_handler  = { 0 };
+
+/* Private Functions **********************************************************/
+
+static esp_err_t priv_qmc5883l_configure_drdy_pin(void)
+{
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << qmc5883l_drdy_pin),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+  return gpio_config(&io_conf);
+}
+
+static bool priv_qmc5883l_is_data_ready(void)
+{
+  return gpio_get_level(qmc5883l_drdy_pin) == 1;
+}
 
 /* Public Functions ***********************************************************/
 
@@ -107,6 +128,13 @@ esp_err_t qmc5883l_init(void *sensor_data)
     return ret;
   }
 
+  ret = priv_qmc5883l_configure_drdy_pin();
+  if (ret != ESP_OK) {
+    ESP_LOGE(qmc5883l_tag, "DRDY pin configuration failed: %s", esp_err_to_name(ret));
+    qmc5883l_data->state = k_qmc5883l_power_on_error;
+    return ret;
+  }
+
   uint8_t ctrl1 = k_qmc5883l_mode_continuous | qmc5883l_odr_setting |
                   qmc5883l_scale_configs[qmc5883l_scale_config_idx].range |
                   k_qmc5883l_osr_512;
@@ -132,8 +160,15 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
     return ESP_FAIL;
   }
 
-  uint8_t   mag_data[6]; /* TODO: Move 6 to an enum or something */
-  esp_err_t ret = priv_i2c_read_reg_bytes(0x00, mag_data, 6, /* Move 0x00 and 6 to enums or something */
+  if (!priv_qmc5883l_is_data_ready()) {
+    ESP_LOGW(qmc5883l_tag, "Data not ready, DRDY pin is low");
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  uint8_t mag_data[qmc5883l_mag_data_size];
+  esp_err_t ret = priv_i2c_read_reg_bytes(k_qmc5883l_data_xout_l_cmd, 
+                                          mag_data,
+                                          qmc5883l_mag_data_size,
                                           sensor_data->i2c_bus,
                                           sensor_data->i2c_address,
                                           qmc5883l_tag);
@@ -145,9 +180,16 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
 
   sensor_data->state = k_qmc5883l_data_updated;
 
-  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]); /* TODO: Add a comment to explain the index values and 8 */
-  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]); /* TODO: Add a comment to explain the index values and 8 */
-  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]); /* TODO: Add a comment to explain the index values and 8 */
+  /* Convert raw magnetometer data to 16-bit signed integers
+   * Data format: Each axis uses 2 bytes in little-endian format
+   * mag_data[1:0] = X-axis (high byte : low byte)
+   * mag_data[3:2] = Y-axis (high byte : low byte)
+   * mag_data[5:4] = Z-axis (high byte : low byte)
+   * Left shift high byte by 8 bits and combine with low byte using OR
+   */
+  int16_t mag_x_raw = (int16_t)((mag_data[1] << 8) | mag_data[0]);
+  int16_t mag_y_raw = (int16_t)((mag_data[3] << 8) | mag_data[2]);
+  int16_t mag_z_raw = (int16_t)((mag_data[5] << 8) | mag_data[4]);
 
   float scale_factor = qmc5883l_scale_configs[qmc5883l_scale_config_idx].scale;
   sensor_data->mag_x = mag_x_raw * scale_factor;

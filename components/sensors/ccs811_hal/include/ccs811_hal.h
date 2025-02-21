@@ -12,19 +12,48 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
-extern const uint8_t    ccs811_i2c_address; /**< Default I2C address for the CCS811 sensor (default 0x5A). */
-extern const i2c_port_t ccs811_i2c_bus;     /**< I2C bus number used for communication. */
-extern const char      *ccs811_tag;         /**< Tag used for logging messages related to the CCS811 sensor. */
-extern const uint8_t    ccs811_scl_io;      /**< GPIO pin for I2C clock line (SCL). */
-extern const uint8_t    ccs811_sda_io;      /**< GPIO pin for I2C data line (SDA). */
-extern const uint8_t    ccs811_wake_io;     /**< GPIO pin for the sensor's wake-up function. */
-extern const uint8_t    ccs811_rst_io;      /**< GPIO pin for the sensor's reset function. */
-extern const uint8_t    ccs811_int_io;      /**< GPIO pin for the sensor's interrupt function (optional). */
+extern const uint8_t    ccs811_i2c_address;            /**< Default I2C address for the CCS811 sensor (default 0x5A). */
+extern const i2c_port_t ccs811_i2c_bus;                /**< I2C bus number used for communication. */
+extern const char      *ccs811_tag;                    /**< Tag used for logging messages related to the CCS811 sensor. */
+extern const uint8_t    ccs811_scl_io;                 /**< GPIO pin for I2C clock line (SCL). */
+extern const uint8_t    ccs811_sda_io;                 /**< GPIO pin for I2C data line (SDA). */
+extern const uint8_t    ccs811_wake_io;                /**< GPIO pin for the sensor's wake-up function. */
+extern const uint8_t    ccs811_rst_io;                 /**< GPIO pin for the sensor's reset function. */
+extern const uint8_t    ccs811_int_io;                 /**< GPIO pin for the sensor's interrupt function (optional). */
+extern const uint32_t   ccs811_i2c_freq_hz;            /**< I2C bus frequency in Hz. */
+extern const uint32_t   ccs811_polling_rate_ticks;     /**< Polling rate for sensor readings in system ticks. */
+extern const uint8_t    ccs811_max_retries;            /**< Maximum number of retry attempts for sensor operations. */
+extern const uint32_t   ccs811_initial_retry_interval; /**< Initial retry interval in system ticks. */
+extern const uint32_t   ccs811_max_backoff_interval;   /**< Maximum backoff interval in system ticks. */
 
 /* Enums **********************************************************************/
+
+/**
+ * @brief GPIO pin states for CCS811 control signals
+ */
+typedef enum : uint8_t {
+  k_ccs811_gpio_low  = 0, /**< GPIO pin low state */
+  k_ccs811_gpio_high = 1, /**< GPIO pin high state */
+} ccs811_gpio_state_t;
+
+/**
+ * @brief CCS811 register addresses and commands
+ */
+typedef enum : uint8_t {
+  k_ccs811_cmd_app_start       = 0xF4, /**< Start application command */
+  k_ccs811_reg_alg_result_data = 0x02, /**< Algorithm result data register */
+} ccs811_registers_t;
+
+/**
+ * @brief CCS811 data buffer sizes
+ */
+typedef enum : uint8_t {
+  k_ccs811_alg_data_len = 4, /**< Length of algorithm result data */
+} ccs811_buffer_sizes_t;
 
 /**
  * @brief Enumeration of CCS811 sensor states.
@@ -52,14 +81,12 @@ typedef enum : uint8_t {
  * for handling error recovery and reinitialization.
  */
 typedef struct {
-  uint8_t    i2c_address;        /**< I2C address used for communication with the sensor. */
-  uint8_t    i2c_bus;            /**< I2C bus number the sensor is connected to. */
-  uint16_t   eco2;               /**< Latest equivalent CO2 (eCO2) reading in parts per million (ppm). */
-  uint16_t   tvoc;               /**< Latest Total Volatile Organic Compounds (TVOC) reading in parts per billion (ppb). */
-  uint8_t    state;              /**< Current operational state of the sensor (see ccs811_states_t). */
-  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, increasing with retries. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  uint8_t         i2c_address;   /**< I2C address used for communication with the sensor. */
+  i2c_port_t      i2c_bus;       /**< I2C bus number the sensor is connected to. */
+  uint16_t        eco2;          /**< Latest equivalent CO2 (eCO2) reading in parts per million (ppm). */
+  uint16_t        tvoc;          /**< Latest Total Volatile Organic Compounds (TVOC) reading in parts per billion (ppb). */
+  ccs811_states_t state;         /**< Current operational state of the sensor (see ccs811_states_t). */
+  error_handler_t error_handler; /**< Error handler for the sensor. */
 } ccs811_data_t;
 
 /* Public Functions ***********************************************************/
@@ -107,16 +134,6 @@ esp_err_t ccs811_init(void *sensor_data);
  * - `ESP_FAIL` on failure.
  */
 esp_err_t ccs811_read(ccs811_data_t *sensor_data);
-
-/**
- * @brief Handles reinitialization and error recovery for the CCS811 sensor.
- *
- * Implements exponential backoff and retries when the sensor encounters errors.
- *
- * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure managing 
- *                            the sensor state and retry logic.
- */
-void ccs811_reset_on_error(ccs811_data_t *sensor_data);
 
 /**
  * @brief Executes periodic tasks for the CCS811 sensor.

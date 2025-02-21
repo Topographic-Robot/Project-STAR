@@ -10,8 +10,11 @@ const uint32_t uart_timeout_ticks = pdMS_TO_TICKS(1000); /* Timeout for UART ope
 
 /* Private Functions **********************************************************/
 
-esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate,
-                         uart_port_t uart_num, const char *tag)
+esp_err_t priv_uart_init(uint8_t     tx_io, 
+                         uint8_t     rx_io, 
+                         uint32_t    baud_rate,
+                         uart_port_t uart_num, 
+                         const char *tag)
 {
   uart_config_t uart_config = {
     .baud_rate = baud_rate,                /* Set the baud rate (communication speed) */
@@ -44,8 +47,11 @@ esp_err_t priv_uart_init(uint8_t tx_io, uint8_t rx_io, uint32_t baud_rate,
   return ret; /* Return the error status or ESP_OK */
 }
 
-esp_err_t priv_uart_read(uint8_t *data, size_t len, int32_t *out_length,
-                         uart_port_t uart_num, const char *tag)
+esp_err_t priv_uart_read(uint8_t    *data, 
+                         size_t      len, 
+                         int32_t    *out_length,
+                         uart_port_t uart_num, 
+                         const char *tag)
 {
   /* Read UART data from the specified UART port */
   int32_t length = uart_read_bytes(uart_num, data, len, uart_timeout_ticks);

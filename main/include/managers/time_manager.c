@@ -1,13 +1,14 @@
 /* main/include/managers/time_manager.c */
 
 #include "time_manager.h"
+#include "esp_log.h"
+#include "esp_sntp.h"
+#include "esp_netif.h"
 #include <time.h>
 #include <sys/time.h>
 #include "wifi_tasks.h"
-#include "esp_sntp.h"
-#include "esp_log.h"
 
-/* Globals (Constants) ********************************************************/
+/* Constants ******************************************************************/
 
 const char *time_manager_tag = "TIME_MANAGER";
 
@@ -25,7 +26,7 @@ const char *time_manager_tag = "TIME_MANAGER";
  */
 static void priv_initialize_sntp(void)
 {
-  ESP_LOGI(time_manager_tag, "Initializing SNTP");
+  ESP_LOGI(time_manager_tag, "- Starting SNTP initialization - configuring time sync");
 
   /* Set SNTP operating mode (polling mode) */
   esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
@@ -36,7 +37,7 @@ static void priv_initialize_sntp(void)
   /* Initialize SNTP */
   esp_sntp_init();
 
-  ESP_LOGI(time_manager_tag, "SNTP initialization complete");
+  ESP_LOGI(time_manager_tag, "- SNTP initialization complete - awaiting time sync");
 }
 
 /**
@@ -50,7 +51,7 @@ static void priv_initialize_sntp(void)
  */
 static void priv_set_default_time(void)
 {
-  ESP_LOGW(time_manager_tag, "Setting time to default values.");
+  ESP_LOGW(time_manager_tag, "- Using default time - network sync unavailable");
 
   struct timeval tv;
   struct tm      tm;
@@ -69,22 +70,25 @@ static void priv_set_default_time(void)
   settimeofday(&tv, NULL);
   char *time_str = asctime(&tm);
   /* Remove the trailing newline added by asctime */
-  time_str[strcspn(time_str, "\n")] = '\0';
-  ESP_LOGI(time_manager_tag, "Time set to default: %s", time_str);
+  time_str[strcspn(time_str, "\n")] = '\0'; 
+  
+  ESP_LOGI(time_manager_tag, "- Default time set - system date: 2024-01-01 00:00:00");
 }
 
 /* Public Functions ***********************************************************/
 
+/* TODO: Make this non-blocking */
 esp_err_t time_manager_init(void)
 {
-  /* First, check the Wi-Fi connection. If it's unavailable, fallback to default time. */
-  if (wifi_check_connection() != ESP_OK) {
-    ESP_LOGE(time_manager_tag, "Network not available. Using default time.");
+  ESP_LOGI(time_manager_tag, "- Starting time manager initialization");
+  
+  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (netif == NULL || !esp_netif_is_netif_up(netif)) {
+    ESP_LOGW(time_manager_tag, "- Network unavailable - falling back to default time");
     priv_set_default_time();
-    return ESP_FAIL; 
+    return ESP_OK;
   }
-
-  /* If we have Wi-Fi, proceed with SNTP initialization. */
+  
   priv_initialize_sntp();
 
   /* Wait for NTP synchronization */
@@ -92,22 +96,26 @@ esp_err_t time_manager_init(void)
   struct tm timeinfo    = { 0 };
   int       retry       = 0;
   const int max_retries = 10;
-
-  while (timeinfo.tm_year < (2023 - 1900) && ++retry < max_retries) {
-    ESP_LOGI(time_manager_tag, "Waiting for system time to be set... (%d/%d)", retry, max_retries);
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    time(&now);
-    localtime_r(&now, &timeinfo);
+  while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < max_retries) {
+    ESP_LOGI(time_manager_tag, "- Waiting for time sync - attempt %u/%u", retry, max_retries);
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
-
-  /* If time is still not set after retries, fallback to default. */
-  if (timeinfo.tm_year < (2023 - 1900)) {
-    ESP_LOGW(time_manager_tag, "NTP sync failed after multiple attempts. Setting default time.");
+  
+  if (retry == max_retries) {
+    ESP_LOGW(time_manager_tag, "- Time sync failed - maximum retries reached");
     priv_set_default_time();
-    return ESP_FAIL;
+    return ESP_OK;
   }
-
-  ESP_LOGI(time_manager_tag, "Time synchronized: %s", asctime(&timeinfo));
+  
+  char strftime_buf[64];
+  
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+  
+  ESP_LOGI(time_manager_tag, "- Time sync successful - current time: %s", strftime_buf);
+  ESP_LOGI(time_manager_tag, "- Time manager initialization complete - system clock ready");
+  
   return ESP_OK;
 }
 

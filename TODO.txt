@@ -1,0 +1,179 @@
+# Project Star TODO List
+
+## Changelog
+
+### 2024-03-XX
+- Initial TODO list creation
+- Organized tasks by priority and component
+- Added system-wide tasks for stability and testing
+
+## Tasks
+
+### Critical Tasks
+
+#### Log Handler Implementation
+- [ ] Create Unified Log Handler
+  - [ ] Implement consistent log format across all components
+  - [ ] Add timestamp to all log messages
+  - [ ] Add component identification
+  - [ ] Add log level indicators
+  - [ ] Add sequence numbers for message ordering
+  - [ ] Add thread/task ID for multi-threaded debugging
+- [ ] Log Storage and Management
+  - [ ] Implement log rotation
+  - [ ] Add log compression for storage efficiency
+  - [ ] Add log filtering capabilities
+  - [ ] Implement log persistence across reboots
+  - [ ] Add log retrieval interface
+- [ ] Log Analysis Tools
+  - [ ] Add log parsing utilities
+  - [ ] Implement log level filtering
+  - [ ] Add search functionality
+  - [ ] Create log visualization tools
+  - [ ] Add statistical analysis features
+- [ ] Integration with Existing Components
+  - [ ] Update error handler to use new log format
+  - [ ] Update sensor HALs to use new log format
+  - [ ] Update controller HALs to use new log format
+  - [ ] Update system tasks to use new log format
+  - [ ] Update file write manager to use new log format
+
+#### Error Handling
+- [ ] Core Components Error Handler Integration
+  - [ ] DHT22 sensor
+  - [ ] GY-NEO6MV2 GPS module
+  - [ ] MPU6050 motion sensor
+  - [ ] QMC5883L compass
+  - [ ] SD Card module
+- [ ] Error Handler Implementation
+  - [ ] Initialize error handlers in sensor initialization functions
+  - [ ] Implement reset error handler functionality
+  - [ ] Add exponential backoff for all components
+- [ ] System-wide Error Management
+  - [ ] Implement consistent error handling across components
+  - [ ] Add comprehensive system diagnostics
+  - [ ] Create standardized logging function:
+    - [ ] Format: log(tag, level, action, status, [details])
+    - [ ] Example: log(system_tag, ESP_LOGI, "Starting sensor initialization", "In Progress", "Configuring I2C")
+    - [ ] Auto-formats as: "- Starting sensor initialization - In Progress - Configuring I2C"
+    - [ ] Support variable arguments for dynamic content
+    - [ ] Maintain ESP-IDF log levels (ESP_LOGE, ESP_LOGW, ESP_LOGI, etc.)
+  - [ ] Enhance error reporting and logging
+
+#### System Stability
+- [ ] Memory Management
+  - [ ] Add memory usage monitoring
+  - [ ] Implement memory leak detection
+  - [ ] Add heap fragmentation monitoring
+- [ ] Task Management
+  - [ ] Implement task watchdog
+  - [ ] Add task stack monitoring
+  - [ ] Optimize task priorities and scheduling
+
+### High Priority Tasks
+
+#### Sensors
+- [ ] MPU6050 Configuration and Integration
+  - [ ] Configure sensor values for accuracy
+  - [ ] Implement interrupt handler using GPIO_NUM_26
+  - [ ] Add proper integration with the system
+  - [ ] Implement motion detection alerts
+
+- [ ] OV7670 Camera
+  - [ ] Complete camera configurations
+  - [ ] Add support for all 6 cameras
+  - [ ] Re-enable camera monitoring task
+  - [ ] Implement frame buffering system
+  - [ ] Add camera synchronization mechanism
+
+- [ ] GPS (GY-NEO6MV2)
+  - [ ] Complete GPS integration
+  - [ ] Fix current non-working state
+  - [ ] Add position accuracy validation
+  - [ ] Implement geofencing capabilities
+
+#### Storage
+- [ ] SD Card Improvements
+  - [ ] Implement CD (Card Detect) functionality
+  - [ ] Add SDIO support
+  - [ ] Test and verify SD card operations
+  - [ ] Add filesystem integrity checks
+  - [ ] Implement data backup mechanism
+
+### Medium Priority Tasks
+
+#### Motor Control
+- [ ] Gait Implementation
+  - [ ] Implement tripod_gait() function
+  - [ ] Implement wave_gait() function
+  - [ ] Implement ripple_gait() function
+  - [ ] Implement quadruped_gait() function
+  - [ ] Verify accuracy of motor movement calculations
+  - [ ] Add smooth transition between gaits
+
+- [ ] Motor Mapping
+  - [ ] Map motors with their identifications (hip/femur/tibia)
+  - [ ] Determine custom values for each motor's max/min angles
+  - [ ] Add motor calibration routine
+  - [ ] Implement motor position feedback
+
+#### Controllers
+- [ ] EC11 Encoder
+  - [ ] Integrate the MCP23018
+  - [ ] Initialize EC11 encoders properly
+  - [ ] Test functionality
+  - [ ] Replace hardcoded implementation for first 3 motors
+  - [ ] Add position persistence
+  - [ ] Implement emergency stop functionality
+
+#### Measurements
+- [ ] Physical Measurements
+  - [ ] Replace placeholder values with actual measurements:
+    - [ ] hip_length_cm (currently 5.0f)
+    - [ ] femur_length_cm (currently 10.0f)
+    - [ ] tibia_length_cm (currently 12.0f)
+  - [ ] Add calibration procedure
+  - [ ] Document measurement process
+
+### Low Priority Tasks
+
+#### Sensors
+- [ ] CCS811 Air Quality Sensor
+  - [ ] Fix non-working state
+  - [ ] Complete integration
+  - [ ] Add air quality alerts
+  - [ ] Implement sensor warmup handling
+
+#### System Management
+- [ ] File Management
+  - [ ] Test file_write_manager functionality
+  - [ ] Implement consistent logging across files
+  - [ ] Add log rotation
+  - [ ] Implement data compression
+
+- [ ] Time Management
+  - [ ] Make time synchronization non-blocking
+  - [ ] Add NTP fallback mechanisms
+  - [ ] Implement timezone handling
+
+#### Documentation
+- [ ] Code Documentation
+  - [ ] Add inline documentation for all functions
+  - [ ] Create API documentation
+  - [ ] Add system architecture diagrams
+  - [ ] Document error codes and recovery procedures
+
+#### Testing
+- [ ] Test Infrastructure
+  - [ ] Create unit tests for each component
+  - [ ] Add integration tests
+  - [ ] Implement automated testing
+  - [ ] Add performance benchmarks
+
+## Notes
+- All tasks are extracted from codebase analysis
+- Priority is assigned based on dependencies and impact
+- Some tasks may have interdependencies
+- Tasks marked as "Critical" affect system stability
+- Use checkboxes to track progress: [x] for completed, [ ] for pending
+- Update changelog when making significant changes 

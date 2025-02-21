@@ -15,6 +15,7 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
+/* Module constants */
 extern const char       *gy_neo6mv2_tag;                    /**< Logging tag for ESP_LOG messages related to the GY-NEO6MV2 module. */
 extern const uint8_t     gy_neo6mv2_tx_io;                  /**< GPIO pin for UART TX line to the GY-NEO6MV2 module. */
 extern const uint8_t     gy_neo6mv2_rx_io;                  /**< GPIO pin for UART RX line from the GY-NEO6MV2 module. */
@@ -25,10 +26,16 @@ extern const uint8_t     gy_neo6mv2_max_retries;            /**< Maximum retry a
 extern const uint32_t    gy_neo6mv2_initial_retry_interval; /**< Initial retry interval for GY-NEO6MV2 in system ticks. */
 extern const uint32_t    gy_neo6mv2_max_backoff_interval;   /**< Maximum backoff interval for GY-NEO6MV2 retries in ticks. */
 
+/* GPGSV sentence parsing constants */
+extern const uint8_t gy_neo6mv2_gpgsv_sats_per_sentence; /**< Number of satellites per GPGSV sentence */
+extern const uint8_t gy_neo6mv2_gpgsv_field_start;       /**< Starting field index for satellite data */
+extern const uint8_t gy_neo6mv2_gpgsv_field_step;        /**< Number of fields per satellite */
+
 /* Macros *********************************************************************/
 
-#define gy_neo6mv2_sentence_buffer_size (128) /**< Maximum buffer size for NMEA sentences from the GY-NEO6MV2 module. */
-#define gy_neo6mv2_max_satellites       (32)  /**< Maximum number of satellites' data to store in the buffer. */
+#define GY_NEO6MV2_SENTENCE_BUFFER_SIZE (128) /**< Maximum buffer size for NMEA sentences from the GY-NEO6MV2 module. */
+#define GY_NEO6MV2_MAX_SATELLITES       (32)  /**< Maximum number of satellites' data to store in the buffer. */
+#define GY_NEO6MV2_GPGSV_MAX_FIELDS     (20)  /**< Maximum number of fields in a GPGSV sentence */
 
 /* Enums **********************************************************************/
 

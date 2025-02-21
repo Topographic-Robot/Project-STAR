@@ -14,7 +14,7 @@
 |                 | XDA           | Floating                                                      |
 |                 | XCL           | Floating                                                      |
 |                 | ADD           | GND                                                           |
-|                 | INT           | GPIO_NUM_26 (D26)                                             | ** TODO: Use this pin
+|                 | INT           | GPIO_NUM_26 (D26)                                             |
 | BH1750          |               |                                                               |
 |                 | ADDR          | GND                                                           |
 |                 | SDA           | GPIO_NUM_21 (D21)                                             |
@@ -22,7 +22,7 @@
 |                 | GND           | GND                                                           |
 |                 | VCC           | 3.3V                                                          |
 | QMC5883L        |               |                                                               |
-|                 | DRDY          | GPIO_NUM_18 (D18)                                             | ** TODO: Use this pin
+|                 | DRDY          | GPIO_NUM_18 (D18)                                             |
 |                 | SDA           | GPIO_NUM_21 (D21)                                             |
 |                 | SCL           | GPIO_NUM_22 (D22)                                             |
 |                 | GND           | GND                                                           |

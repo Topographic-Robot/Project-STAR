@@ -4,6 +4,7 @@
 
 /* Constants ******************************************************************/
 
+/* TODO: This might also need to have custom values for each motor's max and min angles (found via trial and error w/ec11) */
 const float hip_angle_from_90_min   = 0.0f;   /**< This means the min is 90deg */
 const float hip_angle_from_90_max   = 60.0f;  /**< This means the max is 90+60=150deg */
 const float knee_angle_from_90_min  = 0.0f;   /**< This means the min is 90deg */
