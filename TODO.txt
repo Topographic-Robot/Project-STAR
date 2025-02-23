@@ -2,6 +2,26 @@
 
 ## Changelog
 
+### 2025-02-24
+- Updated sensor HALs to use new logging format:
+  - Converted BH1750 sensor HAL from ESP_LOG* to log_*
+  - Converted MQ135 sensor HAL from ESP_LOG* to log_*
+  - MQ135 has better error handling and logging
+- Updated controller HALs to use new logging format:
+  - Converted PCA9685 motor controller HAL from ESP_LOG* to log_*
+  - Converted EC11 encoder HAL from ESP_LOG* to log_*
+
+### 2025-02-23 
+- Updated sensor HALs to use new logging format:
+  - Converted DHT22 sensor HAL from ESP_LOG* to log_*
+  - Converted GY-NEO6MV2 GPS HAL from ESP_LOG* to log_*
+  - Converted MPU6050 motion sensor HAL from ESP_LOG* to log_*
+  - Converted QMC5883L compass HAL from ESP_LOG* to log_*
+  - Converted OV7670 camera HAL from ESP_LOG* to log_*
+  - Converted CCS811 air quality sensor HAL from ESP_LOG* to log_*
+- Added descriptive action and status messages to all log calls
+- Maintained existing functionality while updating log format
+
 ### 2025-02-22
 - Initial TODO list creation
 - Organized tasks by priority and component
@@ -34,23 +54,56 @@
   - [ ] Add statistical analysis features
 - [ ] Integration with Existing Components
   - [x] Update error handler to use new log format
-  - [ ] Update sensor HALs to use new log format:
-    - [ ] DHT22 sensor HAL
-    - [ ] GY-NEO6MV2 GPS HAL
-    - [ ] MPU6050 motion sensor HAL
-    - [ ] QMC5883L compass HAL
-    - [ ] OV7670 camera HAL
-    - [ ] CCS811 air quality sensor HAL
-  - [ ] Update controller HALs to use new log format:
-    - [ ] PCA9685 motor controller HAL
-    - [ ] EC11 encoder HAL
+  - [x] Update sensor HALs to use new log format:
+    - [x] DHT22 sensor HAL
+    - [x] GY-NEO6MV2 GPS HAL
+    - [x] MPU6050 motion sensor HAL
+    - [x] QMC5883L compass HAL
+    - [x] OV7670 camera HAL
+    - [x] CCS811 air quality sensor HAL
+    - [x] BH1750 sensor HAL
+    - [x] MQ135 sensor HAL
+  - [x] Update controller HALs to use new log format:
+    - [x] PCA9685 motor controller HAL
+    - [x] EC11 encoder HAL
   - [ ] Update system tasks to use new log format:
-    - [ ] Motor tasks
-    - [ ] Sensor tasks
+    - [ ] Motor tasks (motor_tasks.c)
+    - [ ] Sensor tasks (sensor_tasks.c)
     - [ ] Camera tasks
     - [ ] GPS tasks
-  - [ ] Update file write manager to use new log format
-  - [ ] Update gait movement module to use new log format
+    - [ ] Wifi tasks (wifi_tasks.c)
+    - [ ] System tasks (system_tasks.c)
+    - [ ] Webserver tasks (webserver_tasks.c)
+  - [ ] Update managers to use new log format:
+    - [ ] File write manager (file_write_manager.c)
+    - [ ] Time manager (time_manager.c)
+  - [ ] Update common components to use new log format:
+    - [ ] Log handler (log_handler.c)
+    - [ ] Error handler (error_handler.c)
+    - [ ] I2C (i2c.c)
+    - [ ] UART (uart.c)
+  - [ ] Update HALs to use new log format:
+    - [ ] SD Card HAL (sd_card_hal.c)
+  - [ ] Update main and modules to use new log format:
+    - [ ] main.c
+    - [ ] gait_movement.c
+    - [ ] hexapod_geometry.c
+  - [ ] Update remaining ESP_LOGx instances:
+    - [ ] error_handler.c
+    - [ ] i2c.c
+    - [ ] uart.c
+    - [ ] ccs811_hal.c
+    - [ ] dht22_hal.c
+    - [ ] gy_neo6mv2_hal.c
+    - [ ] mpu6050_hal.c
+    - [ ] qmc5883l_hal.c
+    - [ ] sd_card_hal.c
+    - [ ] motor_tasks.c
+    - [ ] sensor_tasks.c
+    - [ ] system_tasks.c
+    - [ ] webserver_tasks.c
+    - [ ] wifi_tasks.c
+- [ ] Ensure all log messages that include unsigned integers use `%u` instead of `%d` for proper formatting.
 
 #### Code Cleanup and Standardization
 - [ ] Review and standardize inline function usage:

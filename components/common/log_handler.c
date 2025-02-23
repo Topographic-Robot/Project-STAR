@@ -9,16 +9,17 @@
 
 /* Constants ******************************************************************/
 
-static const char* LOG_TAG = "LOG_HANDLER";
+const char *log_tag = "LOG_HANDLER";
 
 /* Public Functions ********************************************************/
 
-esp_err_t log_write_va(esp_log_level_t level, const char* tag,
-                       const char* short_msg, const char* detailed_msg,
-                       va_list args) 
+void log_write_va(esp_log_level_t level, const char *tag,
+                  const char *short_msg, const char *detailed_msg,
+                  va_list args) 
 {
   if (!tag || !short_msg || !detailed_msg) {
-    return ESP_ERR_INVALID_ARG;
+    ESP_LOGE(tag, "Invalid arguments: tag, short_msg, or detailed_msg is NULL");
+    return;
   }
 
   /* Format the detailed message with provided va_list */
@@ -55,16 +56,13 @@ esp_err_t log_write_va(esp_log_level_t level, const char* tag,
       ESP_LOGI(tag, "%s", complete_msg);
       break;
   }
-
-  return ESP_OK;
 }
 
-esp_err_t log_write(esp_log_level_t level, const char* tag,
-                    const char* short_msg, const char* detailed_msg, ...)
+void log_write(esp_log_level_t level, const char *tag,
+               const char *short_msg, const char *detailed_msg, ...)
 {
   va_list args;
   va_start(args, detailed_msg);
-  esp_err_t ret = log_write_va(level, tag, short_msg, detailed_msg, args);
+  log_write_va(level, tag, short_msg, detailed_msg, args);
   va_end(args);
-  return ret;
 }

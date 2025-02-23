@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -73,12 +74,12 @@ static void process_button_state(ec11_data_t *encoder, bool current_button)
 
 esp_err_t ec11_init(ec11_data_t *encoder)
 {
-  if (encoder == NULL) {
-    ESP_LOGE(ec11_tag, "Invalid encoder pointer");
+  if (!encoder) {
+    log_error(ec11_tag, "Init Error", "Encoder pointer is NULL");
     return ESP_ERR_INVALID_ARG;
   }
 
-  ESP_LOGI(ec11_tag, "Initializing EC11 encoder");
+  log_info(ec11_tag, "Init Start", "Beginning EC11 rotary encoder initialization");
 
   /* Configure GPIO pins */
   gpio_config_t io_conf = {
@@ -93,7 +94,8 @@ esp_err_t ec11_init(ec11_data_t *encoder)
 
   esp_err_t ret = gpio_config(&io_conf);
   if (ret != ESP_OK) {
-    ESP_LOGE(ec11_tag, "Failed to configure GPIO pins (err=0x%x)", ret);
+    log_error(ec11_tag, "GPIO Error", "Failed to configure pins A:%d, B:%d, BTN:%d", 
+              encoder->pin_a, encoder->pin_b, encoder->pin_btn);
     encoder->state = k_ec11_error;
     return ret;
   }
@@ -109,43 +111,47 @@ esp_err_t ec11_init(ec11_data_t *encoder)
 
   /* Create mutex for thread-safe access in ISR */
   encoder->mutex = xSemaphoreCreateMutex();
-  if (encoder->mutex == NULL) {
-    ESP_LOGE(ec11_tag, "Failed to create mutex");
+  if (!encoder->mutex) {
+    log_error(ec11_tag, "Mutex Error", "Failed to create mutex for encoder");
     encoder->state = k_ec11_error;
     return ESP_ERR_NO_MEM;
   }
 
   /* Install GPIO ISR service and handler */
   ret = gpio_install_isr_service(0);
-  if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) { /* Skip if already installed */
-    ESP_LOGE(ec11_tag, "Failed to install ISR service (err=0x%x)", ret);
+  if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+    log_error(ec11_tag, "ISR Error", "Failed to install GPIO ISR service");
     encoder->state = k_ec11_error;
     return ret;
   }
 
-  /* Add ISR handlers for each pin */
-  ret = gpio_isr_handler_add(encoder->pin_a, ec11_isr_handler, encoder);
+  /* Add ISR handler for pin A */
+  ret = gpio_isr_handler_add(encoder->pin_a, ec11_isr_handler, (void *)encoder);
   if (ret != ESP_OK) {
-    ESP_LOGE(ec11_tag, "Failed to add ISR handler for pin A (err=0x%x)", ret);
+    log_error(ec11_tag, "ISR Error", "Failed to add ISR handler for pin A");
     encoder->state = k_ec11_error;
     return ret;
   }
 
-  ret = gpio_isr_handler_add(encoder->pin_b, ec11_isr_handler, encoder);
+  /* Add ISR handler for pin B */
+  ret = gpio_isr_handler_add(encoder->pin_b, ec11_isr_handler, (void *)encoder);
   if (ret != ESP_OK) {
-    ESP_LOGE(ec11_tag, "Failed to add ISR handler for pin B (err=0x%x)", ret);
+    log_error(ec11_tag, "ISR Error", "Failed to add ISR handler for pin B");
     encoder->state = k_ec11_error;
     return ret;
   }
 
-  ret = gpio_isr_handler_add(encoder->pin_btn, ec11_isr_handler, encoder);
+  /* Add ISR handler for button pin */
+  ret = gpio_isr_handler_add(encoder->pin_btn, ec11_isr_handler, (void *)encoder);
   if (ret != ESP_OK) {
-    ESP_LOGE(ec11_tag, "Failed to add ISR handler for button pin (err=0x%x)", ret);
+    log_error(ec11_tag, "ISR Error", "Failed to add ISR handler for button pin");
     encoder->state = k_ec11_error;
     return ret;
   }
 
-  ESP_LOGI(ec11_tag, "EC11 encoder initialized successfully");
+  encoder->position       = 0;
+  encoder->button_pressed = false;
+  log_info(ec11_tag, "Init Complete", "EC11 encoder initialized successfully");
   return ESP_OK;
 }
 
@@ -155,7 +161,8 @@ void ec11_register_callback(ec11_data_t  *encoder,
                           uint16_t        motor_mask)
 {
   if (encoder == NULL || callback == NULL || board_ptr == NULL) {
-    ESP_LOGE(ec11_tag, "Invalid encoder or callback pointer");
+    log_error(ec11_tag, "Callback Error", "Invalid parameters: encoder=%p, callback=%p, board=%p",
+              (void*)encoder, (void*)callback, board_ptr);
     return;
   }
 
@@ -163,7 +170,10 @@ void ec11_register_callback(ec11_data_t  *encoder,
     encoder->callback   = callback;
     encoder->board_ptr  = board_ptr;
     encoder->motor_mask = motor_mask;
+    log_info(ec11_tag, "Callback Set", "Registered callback for encoder with motor mask 0x%04X", motor_mask);
     xSemaphoreGive(encoder->mutex);
+  } else {
+    log_error(ec11_tag, "Mutex Error", "Failed to acquire mutex for callback registration");
   }
 }
 

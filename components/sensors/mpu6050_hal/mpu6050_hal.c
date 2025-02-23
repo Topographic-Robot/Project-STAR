@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "error_handler.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -117,55 +118,55 @@ char *mpu6050_data_to_json(const mpu6050_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    ESP_LOGE(mpu6050_tag, "Failed to create JSON object.");
+    log_error(mpu6050_tag, "JSON Creation Failed", "Memory allocation failed while creating JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "accelerometer_gyroscope")) {
-    ESP_LOGE(mpu6050_tag, "Failed to add sensor_type to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "accel_x", data->accel_x)) {
-    ESP_LOGE(mpu6050_tag, "Failed to add accel_x to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add accel_x field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "accel_y", data->accel_y)) {
-    ESP_LOGE(mpu6050_tag, "Failed to add accel_y to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add accel_y field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "accel_z", data->accel_z)) {
-    ESP_LOGE(mpu6050_tag, "Failed to add accel_z to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add accel_z field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "gyro_x", data->gyro_x)) {
-    ESP_LOGE(mpu6050_tag, "Failed to add gyro_x to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add gyro_x field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "gyro_y", data->gyro_y)) {
-    ESP_LOGE(mpu6050_tag, "Failed to add gyro_y to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add gyro_y field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "gyro_z", data->gyro_z)) {
-    ESP_LOGE(mpu6050_tag, "Failed to add gyro_z to JSON.");
+    log_error(mpu6050_tag, "JSON Field Error", "Failed to add gyro_z field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    ESP_LOGE(mpu6050_tag, "Failed to serialize JSON object.");
+    log_error(mpu6050_tag, "JSON Serialization Failed", "Unable to convert JSON object to string format");
     cJSON_Delete(json);
     return NULL;
   }
@@ -177,7 +178,7 @@ char *mpu6050_data_to_json(const mpu6050_data_t *data)
 esp_err_t mpu6050_init(void *sensor_data)
 {
   mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
-  ESP_LOGI(mpu6050_tag, "Starting Configuration");
+  log_info(mpu6050_tag, "Init Started", "Beginning MPU6050 sensor initialization");
 
   /* TODO: Initialize error handler */
 
@@ -190,7 +191,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   esp_err_t ret = priv_i2c_init(mpu6050_scl_io, mpu6050_sda_io,
                                 mpu6050_i2c_freq_hz, mpu6050_i2c_bus, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
+    log_error(mpu6050_tag, "I2C Error", "Failed to install I2C driver: %s", esp_err_to_name(ret));
     return ret;
   }
 
@@ -198,7 +199,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_power_on_cmd,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 power on failed");
+    log_error(mpu6050_tag, "Power On Failed", "Unable to wake up MPU6050 sensor from sleep mode");
     mpu6050_data->state = k_mpu6050_power_on_error;
     return ret;
   }
@@ -210,7 +211,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_reset_cmd,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 reset failed");
+    log_error(mpu6050_tag, "Reset Failed", "Unable to reset MPU6050 sensor to default state");
     mpu6050_data->state = k_mpu6050_reset_error;
     return ret;
   }
@@ -222,7 +223,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, k_mpu6050_power_on_cmd,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 power on after reset failed");
+    log_error(mpu6050_tag, "Power On Failed", "Unable to wake up MPU6050 sensor after reset");
     mpu6050_data->state = k_mpu6050_power_on_error;
     return ret;
   }
@@ -234,7 +235,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   ret = priv_i2c_write_reg_byte(k_mpu6050_smplrt_div_cmd, mpu6050_sample_rate_div,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 sample rate configuration failed");
+    log_error(mpu6050_tag, "Config Error", "Failed to set sample rate divider for MPU6050");
     return ret;
   }
 
@@ -242,7 +243,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   ret = priv_i2c_write_reg_byte(k_mpu6050_config_cmd, mpu6050_config_dlpf,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 DLPF configuration failed");
+    log_error(mpu6050_tag, "Config Error", "Failed to configure digital low pass filter settings");
     return ret;
   }
 
@@ -251,7 +252,7 @@ esp_err_t mpu6050_init(void *sensor_data)
                                 mpu6050_gyro_configs[mpu6050_gyro_config_idx].gyro_config,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 gyroscope configuration failed");
+    log_error(mpu6050_tag, "Config Error", "Failed to set gyroscope full-scale range");
     return ret;
   }
 
@@ -260,7 +261,7 @@ esp_err_t mpu6050_init(void *sensor_data)
                                 mpu6050_accel_configs[mpu6050_accel_config_idx].accel_config,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 accelerometer configuration failed");
+    log_error(mpu6050_tag, "Config Error", "Failed to set accelerometer full-scale range");
     return ret;
   }
 
@@ -270,15 +271,14 @@ esp_err_t mpu6050_init(void *sensor_data)
                                              1, mpu6050_i2c_bus, mpu6050_i2c_address, 
                                              mpu6050_tag);
   if (ret != ESP_OK || who_am_i != k_mpu6050_who_am_i_response) {
-    ESP_LOGE(mpu6050_tag, "MPU6050 WHO_AM_I verification failed (read: 0x%02X)",
-             who_am_i);
+    log_error(mpu6050_tag, "Verification Failed", "Invalid WHO_AM_I register response from MPU6050: 0x%02X", who_am_i);
     return ret;
   }
 
   /* Create a binary semaphore for data readiness */
   mpu6050_data->data_ready_sem = xSemaphoreCreateBinary();
   if (mpu6050_data->data_ready_sem == NULL) {
-    ESP_LOGE(mpu6050_tag, "Failed to create semaphore");
+    log_error(mpu6050_tag, "Memory Error", "Failed to allocate memory for data ready semaphore");
     return ESP_FAIL;
   }
 
@@ -286,7 +286,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   ret = priv_i2c_write_reg_byte(k_mpu6050_int_enable_cmd, k_mpu6050_int_enable_data_rdy,
                                 mpu6050_i2c_bus, mpu6050_i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "Failed to enable interrupts on MPU6050");
+    log_error(mpu6050_tag, "Interrupt Error", "Failed to enable data ready interrupt on MPU6050");
     return ret;
   }
 
@@ -299,33 +299,33 @@ esp_err_t mpu6050_init(void *sensor_data)
   io_conf.pull_down_en  = GPIO_PULLDOWN_ENABLE;
   ret                   = gpio_config(&io_conf);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "GPIO configuration failed for INT pin");
+    log_error(mpu6050_tag, "GPIO Error", "Failed to configure interrupt pin for MPU6050");
     return ret;
   }
 
   /* Install GPIO ISR service */
   ret = gpio_install_isr_service(0);
   if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-    ESP_LOGE(mpu6050_tag, "GPIO ISR service install failed");
+    log_error(mpu6050_tag, "ISR Error", "Failed to install GPIO interrupt service routine");
     return ret;
   }
 
   /* Add ISR handler */
   ret = gpio_isr_handler_add(mpu6050_int_io, priv_mpu6050_interrupt_handler, (void*) mpu6050_data);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "Failed to add ISR handler for INT pin");
+    log_error(mpu6050_tag, "ISR Error", "Failed to register interrupt handler for MPU6050");
     return ret;
   }
 
   mpu6050_data->state = k_mpu6050_ready; /* Sensor is initialized */
-  ESP_LOGI(mpu6050_tag, "Sensor Configuration Complete");
+  log_info(mpu6050_tag, "Init Complete", "MPU6050 sensor initialization completed successfully");
   return ESP_OK;
 }
 
 esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
-    ESP_LOGE(mpu6050_tag, "Sensor data pointer is NULL");
+    log_error(mpu6050_tag, "Invalid Parameter", "Sensor data pointer is NULL, cannot proceed with read operation");
     return ESP_FAIL;
   }
 
@@ -337,7 +337,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
                                           sensor_data->i2c_bus, sensor_data->i2c_address,
                                           mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "Failed to read accelerometer data from MPU6050");
+    log_error(mpu6050_tag, "Read Error", "Failed to read accelerometer data from MPU6050");
     sensor_data->state = k_mpu6050_error;
     return ESP_FAIL;
   }
@@ -347,7 +347,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
                                 sensor_data->i2c_bus, 
                                 sensor_data->i2c_address, mpu6050_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(mpu6050_tag, "Failed to read gyroscope data from MPU6050");
+    log_error(mpu6050_tag, "Read Error", "Failed to read gyroscope data from MPU6050");
     sensor_data->state = k_mpu6050_error;
     return ESP_FAIL;
   }
@@ -376,14 +376,14 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
 
   /* Validate accelerometer readings (should be within ±4g range) */
   if (fabsf(new_accel_x) > 4.0f || fabsf(new_accel_y) > 4.0f || fabsf(new_accel_z) > 4.0f) {
-    ESP_LOGW(mpu6050_tag, "Accelerometer readings out of expected range");
+    log_warn(mpu6050_tag, "Range Error", "Accelerometer readings exceed ±4g measurement range");
     sensor_data->state = k_mpu6050_error;
     return ESP_FAIL;
   }
 
   /* Validate gyroscope readings (should be within ±500°/s range) */
   if (fabsf(new_gyro_x) > 500.0f || fabsf(new_gyro_y) > 500.0f || fabsf(new_gyro_z) > 500.0f) {
-    ESP_LOGW(mpu6050_tag, "Gyroscope readings out of expected range");
+    log_warn(mpu6050_tag, "Range Error", "Gyroscope readings exceed ±500°/s measurement range");
     sensor_data->state = k_mpu6050_error;
     return ESP_FAIL;
   }
@@ -396,7 +396,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   sensor_data->gyro_y  = new_gyro_y;
   sensor_data->gyro_z  = new_gyro_z;
 
-  ESP_LOGI(mpu6050_tag, "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] deg/s",
+  log_info(mpu6050_tag, "Data Updated", "Accel: [%f, %f, %f] g, Gyro: [%f, %f, %f] °/s",
            sensor_data->accel_x, sensor_data->accel_y, sensor_data->accel_z,
            sensor_data->gyro_x, sensor_data->gyro_y, sensor_data->gyro_z);
 

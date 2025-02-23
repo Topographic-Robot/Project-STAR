@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "error_handler.h"
+#include "log_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -135,7 +136,7 @@ static esp_err_t priv_dht22_wait_for_response(void)
   if (!priv_dht22_wait_for_level_with_duration(0, dht22_response_timeout_us, &duration) ||
       !priv_dht22_wait_for_level_with_duration(1, dht22_response_timeout_us, &duration) ||
       !priv_dht22_wait_for_level_with_duration(0, dht22_response_timeout_us, &duration)) {
-    ESP_LOGE(dht22_tag, "Sensor not responding");
+    log_error(dht22_tag, "Sensor Not Responding", "Communication failed during DHT22 response sequence");
     return ESP_FAIL;
   }
   return ESP_OK;
@@ -159,13 +160,13 @@ static int8_t priv_dht22_read_bit(void)
 
   /* Wait for the line to go high (start of bit transmission) */
   if (!priv_dht22_wait_for_level_with_duration(1, 50, &duration)) {
-    ESP_LOGE(dht22_tag, "Timeout waiting for bit start");
+    log_error(dht22_tag, "Bit Read Timeout", "Timeout occurred while waiting for bit start signal");
     return ESP_FAIL;
   }
 
   /* Wait for the line to go low again, measuring the duration of the high level */
   if (!priv_dht22_wait_for_level_with_duration(0, 70, &duration)) {
-    ESP_LOGE(dht22_tag, "Timeout waiting for bit end");
+    log_error(dht22_tag, "Bit Read Timeout", "Timeout occurred while waiting for bit end signal");
     return ESP_FAIL;
   }
 
@@ -236,7 +237,7 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
 {
   uint8_t checksum = data_buffer[0] + data_buffer[1] + data_buffer[2] + data_buffer[3];
   if ((checksum & 0xFF) != data_buffer[4]) {
-    ESP_LOGE(dht22_tag, "Checksum failed");
+    log_error(dht22_tag, "Checksum Error", "Data validation failed: calculated checksum does not match received checksum");
     return ESP_FAIL;
   }
   return ESP_OK;
@@ -248,37 +249,37 @@ char *dht22_data_to_json(const dht22_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    ESP_LOGE(dht22_tag, "Failed to create JSON object.");
+    log_error(dht22_tag, "JSON Creation Failed", "Unable to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "temperature_humidity")) {
-    ESP_LOGE(dht22_tag, "Failed to add sensor_type to JSON.");
+    log_error(dht22_tag, "JSON Field Error", "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c)) {
-    ESP_LOGE(dht22_tag, "Failed to add temperature_c to JSON.");
+    log_error(dht22_tag, "JSON Field Error", "Failed to add temperature_c field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "temperature_f", data->temperature_f)) {
-    ESP_LOGE(dht22_tag, "Failed to add temperature_f  to JSON.");
+    log_error(dht22_tag, "JSON Field Error", "Failed to add temperature_f field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "humidity", data->humidity)) {
-    ESP_LOGE(dht22_tag, "Failed to add humidity to JSON.");
+    log_error(dht22_tag, "JSON Field Error", "Failed to add humidity field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    ESP_LOGE(dht22_tag, "Failed to serialize JSON object.");
+    log_error(dht22_tag, "JSON Serialization Failed", "Unable to convert JSON object to string format");
     cJSON_Delete(json);
     return NULL;
   }
@@ -290,7 +291,7 @@ char *dht22_data_to_json(const dht22_data_t *data)
 esp_err_t dht22_init(void *sensor_data)
 {
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  ESP_LOGI(dht22_tag, "Starting Configuration");
+  log_info(dht22_tag, "Init Started", "Beginning DHT22 sensor initialization sequence");
 
   /* TODO: Initialize error handler */
 
@@ -305,20 +306,20 @@ esp_err_t dht22_init(void *sensor_data)
 
   esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
-    ESP_LOGE(dht22_tag, "Failed to configure GPIO: %s", esp_err_to_name(ret));
+    log_error(dht22_tag, "GPIO Config Failed", "Failed to configure GPIO pin with error: %s", esp_err_to_name(ret));
     return ret;
   }
 
   gpio_set_level(dht22_data_io, 1);
   dht22_data->state = k_dht22_ready;
-  ESP_LOGI(dht22_tag, "Sensor Configuration Complete");
+  log_info(dht22_tag, "Init Complete", "DHT22 sensor initialization completed successfully");
   return ESP_OK;
 }
 
 esp_err_t dht22_read(dht22_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
-    ESP_LOGE(dht22_tag, "Sensor data pointer is NULL");
+    log_error(dht22_tag, "Invalid Parameter", "Sensor data pointer is NULL, cannot proceed with read operation");
     return ESP_FAIL;
   }
 
@@ -333,7 +334,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
-    ESP_LOGE(dht22_tag, "Failed to receive response from DHT22");
+    log_error(dht22_tag, "No Response", "DHT22 sensor failed to respond to start signal");
     return ESP_FAIL;
   }
 
@@ -342,7 +343,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
-    ESP_LOGE(dht22_tag, "Failed to read data bits from DHT22");
+    log_error(dht22_tag, "Read Failed", "Unable to read complete data sequence from DHT22 sensor");
     return ESP_FAIL;
   }
 
@@ -351,7 +352,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
-    ESP_LOGE(dht22_tag, "Checksum verification failed");
+    log_error(dht22_tag, "Checksum Error", "Data validation failed: checksum verification error");
     return ESP_FAIL;
   }
 
@@ -370,11 +371,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
 
   sensor_data->state = k_dht22_data_updated;
 
-  ESP_LOGI(dht22_tag,
-           "Temperature: %.1f F (%.1f C), Humidity: %.1f %%",
-           sensor_data->temperature_f,
-           sensor_data->temperature_c,
-           sensor_data->humidity);
+  log_info(dht22_tag, "Read Success", "Temperature: %.1f°C, Humidity: %.1f%%", sensor_data->temperature_c, sensor_data->humidity);
   return ESP_OK;
 }
 

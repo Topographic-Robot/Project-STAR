@@ -7,6 +7,7 @@
 #include "common/i2c.h"
 #include "esp_log.h"
 #include "error_handler.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -45,7 +46,7 @@ static esp_err_t priv_bh1750_reset(void *context)
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_power_on_error;
-    ESP_LOGE(bh1750_tag, "BH1750 Power On failed: %s", esp_err_to_name(ret));
+    log_error(bh1750_tag, "Power Error", "Failed to power on BH1750 sensor");
     return ret;
   }
   vTaskDelay(pdMS_TO_TICKS(10));
@@ -55,7 +56,7 @@ static esp_err_t priv_bh1750_reset(void *context)
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_reset_error;
-    ESP_LOGE(bh1750_tag, "BH1750 Reset failed: %s", esp_err_to_name(ret));
+    log_error(bh1750_tag, "Reset Error", "Failed to reset BH1750 sensor");
     return ret;
   }
   vTaskDelay(pdMS_TO_TICKS(10));
@@ -65,7 +66,7 @@ static esp_err_t priv_bh1750_reset(void *context)
                             bh1750_i2c_address, bh1750_tag);
   if (ret != ESP_OK) {
     bh1750_data->state = k_bh1750_cont_low_res_error;
-    ESP_LOGE(bh1750_tag, "BH1750 Set Mode failed: %s", esp_err_to_name(ret));
+    log_error(bh1750_tag, "Mode Error", "Failed to set continuous low resolution mode");
     return ret;
   }
   vTaskDelay(pdMS_TO_TICKS(10));
@@ -80,25 +81,25 @@ char *bh1750_data_to_json(const bh1750_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    ESP_LOGE(bh1750_tag, "Failed to create JSON object.");
+    log_error(bh1750_tag, "JSON Error", "Failed to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "light")) {
-    ESP_LOGE(bh1750_tag, "Failed to add sensor_type to JSON.");
+    log_error(bh1750_tag, "JSON Error", "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "lux", data->lux)) {
-    ESP_LOGE(bh1750_tag, "Failed to add lux to JSON.");
+    log_error(bh1750_tag, "JSON Error", "Failed to add lux field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    ESP_LOGE(bh1750_tag, "Failed to serialize JSON object.");
+    log_error(bh1750_tag, "JSON Error", "Failed to serialize JSON object to string");
     cJSON_Delete(json);
     return NULL;
   }
@@ -110,7 +111,7 @@ char *bh1750_data_to_json(const bh1750_data_t *data)
 esp_err_t bh1750_init(void *sensor_data)
 {
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
-  ESP_LOGI(bh1750_tag, "Starting Configuration");
+  log_info(bh1750_tag, "Init Start", "Beginning BH1750 sensor initialization");
 
   /* Initialize error handler */
   error_handler_init(&(bh1750_data->error_handler), bh1750_tag,
@@ -128,7 +129,7 @@ esp_err_t bh1750_init(void *sensor_data)
   esp_err_t ret = priv_i2c_init(bh1750_scl_io, bh1750_sda_io, bh1750_i2c_freq_hz,
                                 bh1750_i2c_bus, bh1750_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(bh1750_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
+    log_error(bh1750_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;
   }
 
@@ -138,7 +139,7 @@ esp_err_t bh1750_init(void *sensor_data)
     return ret;
   }
 
-  ESP_LOGI(bh1750_tag, "BH1750 Configuration Complete");
+  log_info(bh1750_tag, "Init Complete", "BH1750 sensor initialized successfully");
   return ESP_OK;
 }
 
@@ -151,14 +152,14 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->lux   = -1.0;
     sensor_data->state = k_bh1750_error;
-    ESP_LOGE(bh1750_tag, "Failed to read data from BH1750");
+    log_error(bh1750_tag, "Read Error", "Failed to read light intensity data via I2C");
     return ESP_FAIL;
   }
 
   /* Combine high byte and low byte to form 16-bit measurement value */
   uint16_t raw_light_intensity = (data[0] << bh1750_high_byte_shift) | data[1];
   sensor_data->lux             = raw_light_intensity / bh1750_raw_to_lux_factor;
-  ESP_LOGI(bh1750_tag, "Measured light intensity: %f lux", sensor_data->lux);
+  log_info(bh1750_tag, "Data Update", "New reading - Light intensity: %.2f lux", sensor_data->lux);
 
   sensor_data->state = k_bh1750_data_updated;
   return ESP_OK;
@@ -168,7 +169,7 @@ void bh1750_tasks(void *sensor_data)
 {
   bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
   if (!bh1750_data) {
-    ESP_LOGE(bh1750_tag, "Invalid sensor data pointer");
+    log_error(bh1750_tag, "Task Error", "Invalid sensor data pointer provided");
     vTaskDelete(NULL);
     return;
   }
@@ -182,7 +183,7 @@ void bh1750_tasks(void *sensor_data)
         file_write_enqueue("bh1750.txt", json);
         free(json);
       } else {
-        ESP_LOGE(bh1750_tag, "Failed to convert data to JSON");
+        log_error(bh1750_tag, "JSON Error", "Failed to convert sensor data to JSON format");
       }
     } else if (bh1750_data->state & k_bh1750_error) {
       error_handler_record_error(&(bh1750_data->error_handler), ESP_FAIL);
