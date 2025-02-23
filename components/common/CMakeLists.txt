@@ -3,6 +3,7 @@ idf_component_register(
     "i2c.c"
     "uart.c"
     "error_handler.c"
+    "log_handler.c"
   INCLUDE_DIRS
     "include"
   PRIV_REQUIRES
