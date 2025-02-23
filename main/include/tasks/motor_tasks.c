@@ -3,9 +3,9 @@
 #include "motor_tasks.h"
 #include "pca9685_hal.h"
 #include "ec11_hal.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "log_handler.h"
 #include "log_handler.h"
 
 /* Constants ******************************************************************/

@@ -9,7 +9,6 @@
 #include "cJSON.h"
 #include "common/uart.h"
 #include "driver/gpio.h"
-#include "esp_log.h"
 #include "error_handler.h"
 #include "log_handler.h"
 

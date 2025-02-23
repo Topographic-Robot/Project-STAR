@@ -6,7 +6,6 @@
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
-#include "esp_log.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"

@@ -2,7 +2,6 @@
 
 #include "pca9685_hal.h"
 #include "common/i2c.h"
-#include "esp_log.h"
 #include <stdlib.h>
 #include <string.h>
 #include "log_handler.h"

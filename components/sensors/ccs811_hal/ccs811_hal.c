@@ -5,7 +5,6 @@
 #include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/i2c.h"
-#include "esp_log.h"
 #include "error_handler.h"
 #include "log_handler.h"
 

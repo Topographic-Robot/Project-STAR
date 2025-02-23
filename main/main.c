@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
 #include "pca9685_hal.h"
 #include "ec11_hal.h"
 #include "system_tasks.h"

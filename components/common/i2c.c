@@ -2,7 +2,7 @@
 
 #include "common/i2c.h"
 #include "driver/i2c.h"
-#include "esp_log.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -29,7 +29,7 @@ esp_err_t priv_i2c_init(uint8_t     scl_io,
   /* Configure the I2C bus with the settings specified in 'conf' */
   esp_err_t err = i2c_param_config(i2c_bus, &conf);
   if (err != ESP_OK) {
-    ESP_LOGE(tag, "I2C param config failed: %s", esp_err_to_name(err));
+    log_error(tag, "Config Error", "Failed to configure I2C parameters: %s", esp_err_to_name(err));
     return err;  /* Return the error code if configuration fails */
   }
 
@@ -65,7 +65,8 @@ esp_err_t priv_i2c_write_byte(uint8_t     data,
 
   /* Check for errors in the I2C command */
   if (ret != ESP_OK) {
-    ESP_LOGE(tag, "I2C write failed: %s", esp_err_to_name(ret));
+    log_error(tag, "Write Error", "Failed to write byte 0x%02X to address 0x%02X: %s", 
+              data, i2c_address, esp_err_to_name(ret));
   }
 
   return ret; /* Return the error status or ESP_OK */
@@ -106,7 +107,8 @@ esp_err_t priv_i2c_read_bytes(uint8_t    *data,
 
   /* Check for errors in the I2C command */
   if (ret != ESP_OK) {
-    ESP_LOGE(tag, "I2C read failed: %s", esp_err_to_name(ret));
+    log_error(tag, "Read Error", "Failed to read %u bytes from address 0x%02X: %s", 
+              len, i2c_address, esp_err_to_name(ret));
   }
 
   return ret; /* Return the error status or ESP_OK */
@@ -131,7 +133,8 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t     reg_addr,
   i2c_cmd_link_delete(cmd);
 
   if (ret != ESP_OK) {
-    ESP_LOGE(tag, "I2C write to register 0x%02X failed: %s", reg_addr, esp_err_to_name(ret));
+    log_error(tag, "Reg Write Error", "Failed to write 0x%02X to register 0x%02X at address 0x%02X: %s", 
+              data, reg_addr, i2c_address, esp_err_to_name(ret));
   }
 
   return ret;
@@ -181,7 +184,8 @@ esp_err_t priv_i2c_read_reg_bytes(uint8_t     reg_addr,
 
   /* Check for errors in the I2C command */
   if (ret != ESP_OK) {
-    ESP_LOGE(tag, "I2C read from register 0x%02X failed: %s", reg_addr, esp_err_to_name(ret));
+    log_error(tag, "Reg Read Error", "Failed to read %u bytes from register 0x%02X at address 0x%02X: %s", 
+              len, reg_addr, i2c_address, esp_err_to_name(ret));
   }
 
   return ret; /* Return the error status or ESP_OK */

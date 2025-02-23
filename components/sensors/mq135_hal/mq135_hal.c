@@ -5,7 +5,6 @@
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
-#include "esp_log.h"
 #include "esp_adc/adc_oneshot.h"
 #include "driver/gpio.h"
 #include "error_handler.h"

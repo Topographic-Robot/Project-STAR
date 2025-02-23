@@ -10,6 +10,27 @@
 - Updated controller HALs to use new logging format:
   - Converted PCA9685 motor controller HAL from ESP_LOG* to log_*
   - Converted EC11 encoder HAL from ESP_LOG* to log_*
+- Updated common components to use new logging format:
+  - Converted log_handler.c from ESP_LOG* to log_*
+  - Converted error_handler.c from ESP_LOG* to log_*
+  - Converted i2c.c from ESP_LOG* to log_*
+  - Converted uart.c from ESP_LOG* to log_*
+- Updated sd_card_hal.c to use new logging format:
+  - Converted sd_card_hal.c from ESP_LOG* to log_*
+- Updated time_manager.c to use new logging format:
+  - Converted time_manager.c from ESP_LOG* to log_*
+- Updated sensor_tasks.c to use new logging format:
+  - Converted sensor_tasks.c from ESP_LOG* to log_*
+- Updated webserver_tasks.c to use new logging format:
+  - Converted webserver_tasks.c from ESP_LOG* to log_*
+- Updated file_write_manager.c to use new logging format:
+  - Converted file_write_manager.c from ESP_LOG* to log_*
+- Updated main.c to use new logging format:
+  - Converted main.c from ESP_LOG* to log_*
+- Updated gait_movement.c to use new logging format:
+  - Converted gait_movement.c from ESP_LOG* to log_*
+- Updated hexapod_geometry.c to use new logging format:
+  - Converted hexapod_geometry.c from ESP_LOG* to log_*
 
 ### 2025-02-23 
 - Updated sensor HALs to use new logging format:
@@ -52,7 +73,7 @@
   - [ ] Add search functionality
   - [ ] Create log visualization tools
   - [ ] Add statistical analysis features
-- [ ] Integration with Existing Components
+- [x] Integration with Existing Components
   - [x] Update error handler to use new log format
   - [x] Update sensor HALs to use new log format:
     - [x] DHT22 sensor HAL
@@ -66,43 +87,43 @@
   - [x] Update controller HALs to use new log format:
     - [x] PCA9685 motor controller HAL
     - [x] EC11 encoder HAL
-  - [ ] Update system tasks to use new log format:
-    - [ ] Motor tasks (motor_tasks.c)
-    - [ ] Sensor tasks (sensor_tasks.c)
-    - [ ] Camera tasks
-    - [ ] GPS tasks
-    - [ ] Wifi tasks (wifi_tasks.c)
-    - [ ] System tasks (system_tasks.c)
-    - [ ] Webserver tasks (webserver_tasks.c)
-  - [ ] Update managers to use new log format:
-    - [ ] File write manager (file_write_manager.c)
-    - [ ] Time manager (time_manager.c)
-  - [ ] Update common components to use new log format:
-    - [ ] Log handler (log_handler.c)
-    - [ ] Error handler (error_handler.c)
-    - [ ] I2C (i2c.c)
-    - [ ] UART (uart.c)
-  - [ ] Update HALs to use new log format:
-    - [ ] SD Card HAL (sd_card_hal.c)
-  - [ ] Update main and modules to use new log format:
-    - [ ] main.c
-    - [ ] gait_movement.c
-    - [ ] hexapod_geometry.c
-  - [ ] Update remaining ESP_LOGx instances:
-    - [ ] error_handler.c
-    - [ ] i2c.c
-    - [ ] uart.c
-    - [ ] ccs811_hal.c
-    - [ ] dht22_hal.c
-    - [ ] gy_neo6mv2_hal.c
-    - [ ] mpu6050_hal.c
-    - [ ] qmc5883l_hal.c
-    - [ ] sd_card_hal.c
-    - [ ] motor_tasks.c
-    - [ ] sensor_tasks.c
-    - [ ] system_tasks.c
-    - [ ] webserver_tasks.c
-    - [ ] wifi_tasks.c
+  - [x] Update system tasks to use new log format:
+    - [x] Motor tasks (motor_tasks.c)
+    - [x] Sensor tasks (sensor_tasks.c)
+    - [x] Camera tasks
+    - [x] GPS tasks
+    - [x] Wifi tasks (wifi_tasks.c)
+    - [x] System tasks (system_tasks.c)
+    - [x] Webserver tasks (webserver_tasks.c)
+  - [x] Update managers to use new log format:
+    - [x] File write manager (file_write_manager.c)
+    - [x] Time manager (time_manager.c)
+  - [x] Update common components to use new log format:
+    - [x] Log handler (log_handler.c)
+    - [x] Error handler (error_handler.c)
+    - [x] I2C (i2c.c)
+    - [x] UART (uart.c)
+  - [x] Update HALs to use new log format:
+    - [x] SD Card HAL (sd_card_hal.c)
+  - [x] Update main and modules to use new log format:
+    - [x] main.c
+    - [x] gait_movement.c
+    - [x] hexapod_geometry.c
+  - [x] Update remaining ESP_LOGx instances:
+    - [x] error_handler.c
+    - [x] i2c.c
+    - [x] uart.c
+    - [x] ccs811_hal.c
+    - [x] dht22_hal.c
+    - [x] gy_neo6mv2_hal.c
+    - [x] mpu6050_hal.c
+    - [x] qmc5883l_hal.c
+    - [x] sd_card_hal.c
+    - [x] motor_tasks.c
+    - [x] sensor_tasks.c
+    - [x] system_tasks.c
+    - [x] webserver_tasks.c
+    - [x] wifi_tasks.c
 - [ ] Ensure all log messages that include unsigned integers use `%u` instead of `%d` for proper formatting.
 
 #### Code Cleanup and Standardization
