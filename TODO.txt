@@ -1,130 +1,20 @@
 # Project Star TODO List
 
-## Changelog
-
-### 2025-02-24
-- Updated sensor HALs to use new logging format:
-  - Converted BH1750 sensor HAL from ESP_LOG* to log_*
-  - Converted MQ135 sensor HAL from ESP_LOG* to log_*
-  - MQ135 has better error handling and logging
-- Updated controller HALs to use new logging format:
-  - Converted PCA9685 motor controller HAL from ESP_LOG* to log_*
-  - Converted EC11 encoder HAL from ESP_LOG* to log_*
-- Updated common components to use new logging format:
-  - Converted log_handler.c from ESP_LOG* to log_*
-  - Converted error_handler.c from ESP_LOG* to log_*
-  - Converted i2c.c from ESP_LOG* to log_*
-  - Converted uart.c from ESP_LOG* to log_*
-- Updated sd_card_hal.c to use new logging format:
-  - Converted sd_card_hal.c from ESP_LOG* to log_*
-- Updated time_manager.c to use new logging format:
-  - Converted time_manager.c from ESP_LOG* to log_*
-- Updated sensor_tasks.c to use new logging format:
-  - Converted sensor_tasks.c from ESP_LOG* to log_*
-- Updated webserver_tasks.c to use new logging format:
-  - Converted webserver_tasks.c from ESP_LOG* to log_*
-- Updated file_write_manager.c to use new logging format:
-  - Converted file_write_manager.c from ESP_LOG* to log_*
-- Updated main.c to use new logging format:
-  - Converted main.c from ESP_LOG* to log_*
-- Updated gait_movement.c to use new logging format:
-  - Converted gait_movement.c from ESP_LOG* to log_*
-- Updated hexapod_geometry.c to use new logging format:
-  - Converted hexapod_geometry.c from ESP_LOG* to log_*
-
-### 2025-02-23 
-- Updated sensor HALs to use new logging format:
-  - Converted DHT22 sensor HAL from ESP_LOG* to log_*
-  - Converted GY-NEO6MV2 GPS HAL from ESP_LOG* to log_*
-  - Converted MPU6050 motion sensor HAL from ESP_LOG* to log_*
-  - Converted QMC5883L compass HAL from ESP_LOG* to log_*
-  - Converted OV7670 camera HAL from ESP_LOG* to log_*
-  - Converted CCS811 air quality sensor HAL from ESP_LOG* to log_*
-- Added descriptive action and status messages to all log calls
-- Maintained existing functionality while updating log format
-
-### 2025-02-22
-- Initial TODO list creation
-- Organized tasks by priority and component
-- Added system-wide tasks for stability and testing
-- Implemented core logging system with inline functions and proper variadic argument handling
-
 ## Tasks
 
 ### Critical Tasks
 
 #### Log Handler Implementation
-- [x] Create Unified Log Handler
-  - [x] Implement consistent log format across all components
-  - [x] Add component identification
-  - [x] Add log level indicators
-  - [ ] Add timestamp to all log messages
-  - [ ] Add sequence numbers for message ordering
-  - [ ] Add thread/task ID for multi-threaded debugging
+- [ ] Add timestamp to all log messages
+- [ ] Add sequence numbers for message ordering
+- [ ] Add thread/task ID for multi-threaded debugging
 - [ ] Log Storage and Management
   - [ ] Implement log rotation
   - [ ] Add log compression for storage efficiency
   - [ ] Add log filtering capabilities
   - [ ] Implement log persistence across reboots
   - [ ] Add log retrieval interface
-- [ ] Log Analysis Tools
-  - [ ] Add log parsing utilities
-  - [ ] Implement log level filtering
-  - [ ] Add search functionality
-  - [ ] Create log visualization tools
-  - [ ] Add statistical analysis features
-- [x] Integration with Existing Components
-  - [x] Update error handler to use new log format
-  - [x] Update sensor HALs to use new log format:
-    - [x] DHT22 sensor HAL
-    - [x] GY-NEO6MV2 GPS HAL
-    - [x] MPU6050 motion sensor HAL
-    - [x] QMC5883L compass HAL
-    - [x] OV7670 camera HAL
-    - [x] CCS811 air quality sensor HAL
-    - [x] BH1750 sensor HAL
-    - [x] MQ135 sensor HAL
-  - [x] Update controller HALs to use new log format:
-    - [x] PCA9685 motor controller HAL
-    - [x] EC11 encoder HAL
-  - [x] Update system tasks to use new log format:
-    - [x] Motor tasks (motor_tasks.c)
-    - [x] Sensor tasks (sensor_tasks.c)
-    - [x] Camera tasks
-    - [x] GPS tasks
-    - [x] Wifi tasks (wifi_tasks.c)
-    - [x] System tasks (system_tasks.c)
-    - [x] Webserver tasks (webserver_tasks.c)
-  - [x] Update managers to use new log format:
-    - [x] File write manager (file_write_manager.c)
-    - [x] Time manager (time_manager.c)
-  - [x] Update common components to use new log format:
-    - [x] Log handler (log_handler.c)
-    - [x] Error handler (error_handler.c)
-    - [x] I2C (i2c.c)
-    - [x] UART (uart.c)
-  - [x] Update HALs to use new log format:
-    - [x] SD Card HAL (sd_card_hal.c)
-  - [x] Update main and modules to use new log format:
-    - [x] main.c
-    - [x] gait_movement.c
-    - [x] hexapod_geometry.c
-  - [x] Update remaining ESP_LOGx instances:
-    - [x] error_handler.c
-    - [x] i2c.c
-    - [x] uart.c
-    - [x] ccs811_hal.c
-    - [x] dht22_hal.c
-    - [x] gy_neo6mv2_hal.c
-    - [x] mpu6050_hal.c
-    - [x] qmc5883l_hal.c
-    - [x] sd_card_hal.c
-    - [x] motor_tasks.c
-    - [x] sensor_tasks.c
-    - [x] system_tasks.c
-    - [x] webserver_tasks.c
-    - [x] wifi_tasks.c
-- [ ] Ensure all log messages that include unsigned integers use `%u` instead of `%d` for proper formatting.
+- [x] Ensure all log messages that include unsigned integers use `%u` instead of `%d` for proper formatting.
 
 #### Code Cleanup and Standardization
 - [ ] Review and standardize inline function usage:
@@ -270,10 +160,52 @@
   - [ ] Implement automated testing
   - [ ] Add performance benchmarks
 
-## Notes
-- All tasks are extracted from codebase analysis
-- Priority is assigned based on dependencies and impact
-- Some tasks may have interdependencies
-- Tasks marked as "Critical" affect system stability
-- Use checkboxes to track progress: [x] for completed, [ ] for pending
-- Update changelog when making significant changes 
+## Changelog
+
+### 2025-02-24
+- Updated sensor HALs to use new logging format:
+  - Converted BH1750 sensor HAL from ESP_LOG* to log_*
+  - Converted MQ135 sensor HAL from ESP_LOG* to log_*
+  - MQ135 has better error handling and logging
+- Updated controller HALs to use new logging format:
+  - Converted PCA9685 motor controller HAL from ESP_LOG* to log_*
+  - Converted EC11 encoder HAL from ESP_LOG* to log_*
+- Updated common components to use new logging format:
+  - Converted log_handler.c from ESP_LOG* to log_*
+  - Converted error_handler.c from ESP_LOG* to log_*
+  - Converted i2c.c from ESP_LOG* to log_*
+  - Converted uart.c from ESP_LOG* to log_*
+- Updated sd_card_hal.c to use new logging format:
+  - Converted sd_card_hal.c from ESP_LOG* to log_*
+- Updated time_manager.c to use new logging format:
+  - Converted time_manager.c from ESP_LOG* to log_*
+- Updated sensor_tasks.c to use new logging format:
+  - Converted sensor_tasks.c from ESP_LOG* to log_*
+- Updated webserver_tasks.c to use new logging format:
+  - Converted webserver_tasks.c from ESP_LOG* to log_*
+- Updated file_write_manager.c to use new logging format:
+  - Converted file_write_manager.c from ESP_LOG* to log_*
+- Updated main.c to use new logging format:
+  - Converted main.c from ESP_LOG* to log_*
+- Updated gait_movement.c to use new logging format:
+  - Converted gait_movement.c from ESP_LOG* to log_*
+- Updated hexapod_geometry.c to use new logging format:
+  - Converted hexapod_geometry.c from ESP_LOG* to log_*
+- Updated %d to %u in all log messages that include unsigned integers
+
+### 2025-02-23 
+- Updated sensor HALs to use new logging format:
+  - Converted DHT22 sensor HAL from ESP_LOG* to log_*
+  - Converted GY-NEO6MV2 GPS HAL from ESP_LOG* to log_*
+  - Converted MPU6050 motion sensor HAL from ESP_LOG* to log_*
+  - Converted QMC5883L compass HAL from ESP_LOG* to log_*
+  - Converted OV7670 camera HAL from ESP_LOG* to log_*
+  - Converted CCS811 air quality sensor HAL from ESP_LOG* to log_*
+- Added descriptive action and status messages to all log calls
+- Maintained existing functionality while updating log format
+
+### 2025-02-22
+- Initial TODO list creation
+- Organized tasks by priority and component
+- Added system-wide tasks for stability and testing
+- Implemented core logging system with inline functions and proper variadic argument handling

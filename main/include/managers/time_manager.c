@@ -97,7 +97,7 @@ esp_err_t time_manager_init(void)
   int       retry       = 0;
   const int max_retries = 10;
   while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < max_retries) {
-    log_info(time_manager_tag, "Sync Status", "Waiting for time sync (attempt %d/%d)", 
+    log_info(time_manager_tag, "Sync Status", "Waiting for time sync (attempt %u/%u)", 
              retry, max_retries);
     vTaskDelay(pdMS_TO_TICKS(1000));
   }

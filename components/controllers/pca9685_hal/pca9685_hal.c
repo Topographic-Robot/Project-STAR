@@ -75,29 +75,29 @@ static esp_err_t pca9685_set_pwm(uint8_t i2c_addr, uint8_t channel, uint16_t on,
     uint8_t reg = k_pca9685_channel0_on_l_cmd + (channel * 4);
     esp_err_t ret;
 
-    log_info(pca9685_tag, "PWM Update", "Setting channel %d: ON=%u, OFF=%u", channel, on, off);
+    log_info(pca9685_tag, "PWM Update", "Setting channel %u: ON=%u, OFF=%u", channel, on, off);
 
     /* Write ON time */
     ret = pca9685_write_register(i2c_addr, reg, on & 0xFF);
     if (ret != ESP_OK) {
-        log_error(pca9685_tag, "Write Error", "Failed to write ON low byte for channel %d", channel);
+        log_error(pca9685_tag, "Write Error", "Failed to write ON low byte for channel %u", channel);
         return ret;
     }
     ret = pca9685_write_register(i2c_addr, reg + 1, (on >> 8) & 0xFF);
     if (ret != ESP_OK) {
-        log_error(pca9685_tag, "Write Error", "Failed to write ON high byte for channel %d", channel);
+        log_error(pca9685_tag, "Write Error", "Failed to write ON high byte for channel %u", channel);
         return ret;
     }
 
     /* Write OFF time */
     ret = pca9685_write_register(i2c_addr, reg + 2, off & 0xFF);
     if (ret != ESP_OK) {
-        log_error(pca9685_tag, "Write Error", "Failed to write OFF low byte for channel %d", channel);
+        log_error(pca9685_tag, "Write Error", "Failed to write OFF low byte for channel %u", channel);
         return ret;
     }
     ret = pca9685_write_register(i2c_addr, reg + 3, (off >> 8) & 0xFF);
     if (ret != ESP_OK) {
-        log_error(pca9685_tag, "Write Error", "Failed to write OFF high byte for channel %d", channel);
+        log_error(pca9685_tag, "Write Error", "Failed to write OFF high byte for channel %u", channel);
         return ret;
     }
 
@@ -171,7 +171,7 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
     for (uint8_t i = 0; i < num_boards; i++) {
         pca9685_board_t *board = calloc(1, sizeof(pca9685_board_t));
         if (board == NULL) {
-            log_error(pca9685_tag, "Memory Error", "Failed to allocate memory for board %d", i);
+            log_error(pca9685_tag, "Memory Error", "Failed to allocate memory for board %u", i);
             /* Clean up on allocation failure */
             while (head != NULL) {
                 current = head;
@@ -209,14 +209,14 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
         /* Reset the device */
         ret = pca9685_write_register(board->i2c_address, k_pca9685_mode1_cmd, k_pca9685_restart_cmd);
         if (ret != ESP_OK) {
-            log_error(pca9685_tag, "Reset Error", "Failed to reset board %d", i);
+            log_error(pca9685_tag, "Reset Error", "Failed to reset board %u", i);
             continue;
         }
 
         /* Set frequency */
         ret = pca9685_set_pwm_freq(board->i2c_address, pca9685_default_pwm_freq);
         if (ret != ESP_OK) {
-            log_error(pca9685_tag, "Freq Error", "Failed to set PWM frequency for board %d", i);
+            log_error(pca9685_tag, "Freq Error", "Failed to set PWM frequency for board %u", i);
             continue;
         }
 
@@ -224,19 +224,19 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
         ret = pca9685_write_register(board->i2c_address, k_pca9685_mode2_cmd, 
                                      k_pca9685_output_logic_mode | k_pca9685_output_change_stop_cmd);
         if (ret != ESP_OK) {
-            log_error(pca9685_tag, "Config Error", "Failed to configure output mode for board %d", i);
+            log_error(pca9685_tag, "Config Error", "Failed to configure output mode for board %u", i);
             continue;
         }
 
         board->state = k_pca9685_ready;
-        log_info(pca9685_tag, "Board Init", "Initialized board %d at address 0x%02X", i, board->i2c_address);
+        log_info(pca9685_tag, "Board Init", "Initialized board %u at address 0x%02X", i, board->i2c_address);
 
         /* Set all motors to their default angle */
         uint16_t default_pwm = angle_to_pwm(pca9685_default_angle);
         for (int j = 0; j < PCA9685_MOTORS_PER_BOARD; j++) {
             ret = pca9685_set_pwm(board->i2c_address, j, 0, default_pwm);
             if (ret != ESP_OK) {
-                log_warn(pca9685_tag, "Motor Init", "Failed to set default angle for motor %d on board %d", j, i);
+                log_warn(pca9685_tag, "Motor Init", "Failed to set default angle for motor %u on board %u", j, i);
                 continue;
             }
         }
@@ -261,33 +261,33 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, uint16_t motor_mas
     }
 
     if (board == NULL || board->state != k_pca9685_ready) {
-        log_error(pca9685_tag, "Board Error", "Board %d not found or not ready (state=%d)", 
+        log_error(pca9685_tag, "Board Error", "Board %u not found or not ready (state=%u)", 
                   board_id, board ? board->state : -1);
         return ESP_FAIL;
     }
 
     /* Convert angle to PWM value */
     uint16_t pwm_value = angle_to_pwm(target_angle);
-    log_info(pca9685_tag, "Angle Set", "Setting board %d to angle %.2f° (PWM: %u)", 
+    log_info(pca9685_tag, "Angle Set", "Setting board %u to angle %.2f° (PWM: %u)", 
              board_id, target_angle, pwm_value);
 
     /* Update each motor specified in the mask */
     esp_err_t ret = ESP_OK;
     for (uint8_t channel = 0; channel < PCA9685_MOTORS_PER_BOARD; channel++) {
         if (motor_mask & (1 << channel)) {
-            log_info(pca9685_tag, "Motor Update", "Setting channel %d on board %d", channel, board_id);
+            log_info(pca9685_tag, "Motor Update", "Setting channel %u on board %u", channel, board_id);
             
             /* Set PWM values (ON time = 0, OFF time = calculated value) */
             ret = pca9685_set_pwm(board->i2c_address, channel, 0, pwm_value);
             if (ret != ESP_OK) {
-                log_error(pca9685_tag, "PWM Error", "Failed to set PWM for channel %d on board %d", 
+                log_error(pca9685_tag, "PWM Error", "Failed to set PWM for channel %u on board %u", 
                           channel, board_id);
                 return ret;
             }
             
             /* Update motor state */
             board->motors[channel].pos_deg = target_angle;
-            log_info(pca9685_tag, "Motor Set", "Channel %d on board %d set to %.2f°", 
+            log_info(pca9685_tag, "Motor Set", "Channel %u on board %u set to %.2f°", 
                      channel, board_id, target_angle);
         }
     }

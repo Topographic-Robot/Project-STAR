@@ -93,7 +93,7 @@ esp_err_t ec11_init(ec11_data_t *encoder)
 
   esp_err_t ret = gpio_config(&io_conf);
   if (ret != ESP_OK) {
-    log_error(ec11_tag, "GPIO Error", "Failed to configure pins A:%d, B:%d, BTN:%d", 
+    log_error(ec11_tag, "GPIO Error", "Failed to configure pins A:%u, B:%u, BTN:%u", 
               encoder->pin_a, encoder->pin_b, encoder->pin_btn);
     encoder->state = k_ec11_error;
     return ret;

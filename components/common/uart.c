@@ -34,7 +34,7 @@ esp_err_t priv_uart_init(uint8_t     tx_io,
   /* Set the TX and RX pin numbers for the UART interface */
   ret = uart_set_pin(uart_num, tx_io, rx_io, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
   if (ret != ESP_OK) {
-    log_error(tag, "Pin Error", "Failed to configure UART pins TX:%d, RX:%d: %s", 
+    log_error(tag, "Pin Error", "Failed to configure UART pins TX:%u RX:%u: %s", 
               tx_io, rx_io, esp_err_to_name(ret));
     return ret;
   }

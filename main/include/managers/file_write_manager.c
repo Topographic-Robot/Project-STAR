@@ -42,7 +42,7 @@ static void priv_get_timestamp(char *buffer, size_t buffer_len)
   struct tm timeinfo;
 
   localtime_r(&now, &timeinfo);
-  strftime(buffer, buffer_len, "%Y-%m-%d %H:%M:%S", &timeinfo);
+  strftime(buffer, buffer_len, "%Y-%m-%u %H:%M:%S", &timeinfo);
 }
 
 /**
