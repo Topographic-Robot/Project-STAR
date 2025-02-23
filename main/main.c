@@ -13,31 +13,41 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
 #include "pca9685_hal.h"
 #include "ec11_hal.h"
 #include "system_tasks.h"
+#include "log_handler.h"
 
 void app_main(void)
 {
-  ESP_LOGI(system_tag, "Starting Topographic Robot initialization...");
+  log_info(system_tag,
+          "Starting initialization",
+          "Starting Topographic Robot initialization sequence");
 
   /* Initialize System-Level Tasks (motor, sensors, webserver, etc) */
   if (system_tasks_init() != ESP_OK) {
-    ESP_LOGE(system_tag, "- System initialization failed - one or more components failed to initialize");
+    log_error(system_tag,
+              "System initialization failed",
+              "One or more components failed to initialize");
   } else {
-    ESP_LOGI(system_tag, "- System initialization successful - all components ready");
+    log_info(system_tag,
+             "System initialization complete",
+             "All components initialized successfully");
   }
 
   /* Start System-Level Tasks (motor, sensors, webserver, etc) */
   if (system_tasks_start() != ESP_OK) {
-    ESP_LOGE(system_tag, "- System startup failed - critical tasks could not be started");
-    ESP_LOGE(system_tag, "- System halted - manual intervention required");
+    log_error(system_tag,
+              "System startup failed",
+              "Critical tasks could not be started - manual intervention required");
     return; /* Exit app_main if tasks cannot start */
   } else {
-    ESP_LOGI(system_tag, "- System startup successful - all tasks running");
+    log_info(system_tag,
+             "System startup complete",
+             "All tasks started and running");
   }
 
-  ESP_LOGI(system_tag, "Topographic Robot is now operational - monitoring system state");
+  log_info(system_tag,
+           "System operational",
+           "Topographic Robot is now operational and monitoring system state");
 }
-

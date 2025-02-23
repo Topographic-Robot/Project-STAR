@@ -14,7 +14,7 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char    *dht22_tag;                    /**< Logging tag for ESP_LOG messages related to the DHT22 sensor. */
+extern const char    *dht22_tag;                    /**< Logging tag for log_handler messages related to the DHT22 sensor. */
 extern const uint8_t  dht22_data_io;                /**< GPIO pin number for the DHT22 data line. */
 extern const uint32_t dht22_polling_rate_ticks;     /**< Polling interval for DHT22 in system ticks. */
 extern const uint8_t  dht22_bit_count;              /**< Total number of bits transmitted by the DHT22 sensor (40 bits). */

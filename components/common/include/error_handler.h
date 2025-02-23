@@ -10,7 +10,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
+#include "log_handler.h"
 
 /**
  * @brief Data structure for managing component state and recovery.
@@ -30,7 +30,7 @@ typedef struct {
   TickType_t  last_attempt_ticks;         /**< Tick count of the last retry attempt */
   esp_err_t   last_status;                /**< Last status code encountered */
   bool        in_error_state;             /**< Whether the component is in an error state */
-  const char *tag;                        /**< Tag for ESP_LOG messages */
+  const char *tag;                        /**< Tag for log_handler messages */
   void       *context;                    /**< Context pointer for the reset function */
   esp_err_t (*reset_func)(void *context); /**< Function to call during reset, returns ESP_OK on success */
 } error_handler_t;

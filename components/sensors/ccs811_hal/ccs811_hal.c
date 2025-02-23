@@ -5,8 +5,8 @@
 #include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/i2c.h"
-#include "esp_log.h"
 #include "error_handler.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -55,7 +55,7 @@ static esp_err_t priv_ccs811_reset(void *context)
                             ccs811_tag);
   if (ret != ESP_OK) {
     ccs811_data->state = k_ccs811_app_start_error;
-    ESP_LOGE(ccs811_tag, "CCS811 App Start failed: %s", esp_err_to_name(ret));
+    log_error(ccs811_tag, "App Start Error", "Failed to start CCS811 application mode");
     return ret;
   }
 
@@ -69,31 +69,31 @@ char *ccs811_data_to_json(const ccs811_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    ESP_LOGE(ccs811_tag, "Failed to create JSON object.");
+    log_error(ccs811_tag, "JSON Error", "Failed to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "air_quality")) {
-    ESP_LOGE(ccs811_tag, "Failed to add sensor_type to JSON.");
+    log_error(ccs811_tag, "JSON Error", "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "eCO2", data->eco2)) {
-    ESP_LOGE(ccs811_tag, "Failed to add eCO2 to JSON.");
+    log_error(ccs811_tag, "JSON Error", "Failed to add eCO2 field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "TVOC", data->tvoc)) {
-    ESP_LOGE(ccs811_tag, "Failed to add TVOC to JSON.");
+    log_error(ccs811_tag, "JSON Error", "Failed to add TVOC field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    ESP_LOGE(ccs811_tag, "Failed to serialize JSON object.");
+    log_error(ccs811_tag, "JSON Error", "Failed to serialize JSON object to string");
     cJSON_Delete(json);
     return NULL;
   }
@@ -105,7 +105,7 @@ char *ccs811_data_to_json(const ccs811_data_t *data)
 esp_err_t ccs811_init(void *sensor_data)
 {
   ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
-  ESP_LOGI(ccs811_tag, "Starting Configuration");
+  log_info(ccs811_tag, "Init Start", "Beginning CCS811 sensor initialization");
 
   /* Initialize error handler */
   error_handler_init(&(ccs811_data->error_handler), ccs811_tag,
@@ -124,17 +124,18 @@ esp_err_t ccs811_init(void *sensor_data)
   esp_err_t ret = priv_i2c_init(ccs811_scl_io, ccs811_sda_io, ccs811_i2c_freq_hz,
                                 ccs811_i2c_bus, ccs811_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(ccs811_tag, "I2C driver install failed: %s", esp_err_to_name(ret));
+    log_error(ccs811_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;
   }
 
   /* Perform initial sensor setup */
   ret = priv_ccs811_reset(ccs811_data);
   if (ret != ESP_OK) {
+    log_error(ccs811_tag, "Reset Error", "Failed to perform initial sensor reset");
     return ret;
   }
 
-  ESP_LOGI(ccs811_tag, "CCS811 Configuration Complete");
+  log_info(ccs811_tag, "Init Complete", "CCS811 sensor initialized successfully");
   return ESP_OK;
 }
 
@@ -147,16 +148,18 @@ esp_err_t ccs811_read(ccs811_data_t *sensor_data)
                                       ccs811_i2c_address,
                                       ccs811_tag);
   if (ret != ESP_OK) {
+    log_error(ccs811_tag, "Read Error", "Failed to read sensor data via I2C");
     sensor_data->eco2  = 0;
     sensor_data->tvoc  = 0;
     sensor_data->state = k_ccs811_read_error;
-    ESP_LOGE(ccs811_tag, "Failed to read data from CCS811");
     return ESP_FAIL;
   }
 
   sensor_data->eco2 = (data[0] << 8) | data[1];
   sensor_data->tvoc = (data[2] << 8) | data[3];
-  ESP_LOGI(ccs811_tag, "eCO2: %u ppm, TVOC: %u ppb", sensor_data->eco2, sensor_data->tvoc);
+  log_info(ccs811_tag, "Data Update", 
+           "New readings - eCO2: %u ppm, TVOC: %u ppb", 
+           sensor_data->eco2, sensor_data->tvoc);
 
   sensor_data->state = k_ccs811_data_updated;
   return ESP_OK;
@@ -166,7 +169,7 @@ void ccs811_tasks(void *sensor_data)
 {
   ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
   if (!ccs811_data) {
-    ESP_LOGE(ccs811_tag, "Invalid sensor data pointer");
+    log_error(ccs811_tag, "Task Error", "Invalid sensor data pointer provided");
     vTaskDelete(NULL);
     return;
   }
@@ -180,7 +183,7 @@ void ccs811_tasks(void *sensor_data)
         file_write_enqueue("ccs811.txt", json);
         free(json);
       } else {
-        ESP_LOGE(ccs811_tag, "Failed to convert data to JSON");
+        log_error(ccs811_tag, "JSON Error", "Failed to convert sensor data to JSON format");
       }
     } else if (ccs811_data->state & k_ccs811_error) {
       error_handler_record_error(&(ccs811_data->error_handler), ESP_FAIL);

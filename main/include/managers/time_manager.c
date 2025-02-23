@@ -1,12 +1,12 @@
 /* main/include/managers/time_manager.c */
 
 #include "time_manager.h"
-#include "esp_log.h"
 #include "esp_sntp.h"
 #include "esp_netif.h"
 #include <time.h>
 #include <sys/time.h>
 #include "wifi_tasks.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -26,7 +26,7 @@ const char *time_manager_tag = "TIME_MANAGER";
  */
 static void priv_initialize_sntp(void)
 {
-  ESP_LOGI(time_manager_tag, "- Starting SNTP initialization - configuring time sync");
+  log_info(time_manager_tag, "SNTP Start", "Beginning SNTP service initialization");
 
   /* Set SNTP operating mode (polling mode) */
   esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
@@ -37,7 +37,7 @@ static void priv_initialize_sntp(void)
   /* Initialize SNTP */
   esp_sntp_init();
 
-  ESP_LOGI(time_manager_tag, "- SNTP initialization complete - awaiting time sync");
+  log_info(time_manager_tag, "SNTP Complete", "SNTP service initialized, awaiting time sync");
 }
 
 /**
@@ -51,7 +51,7 @@ static void priv_initialize_sntp(void)
  */
 static void priv_set_default_time(void)
 {
-  ESP_LOGW(time_manager_tag, "- Using default time - network sync unavailable");
+  log_warn(time_manager_tag, "Default Time", "Using default time due to unavailable network sync");
 
   struct timeval tv;
   struct tm      tm;
@@ -72,7 +72,7 @@ static void priv_set_default_time(void)
   /* Remove the trailing newline added by asctime */
   time_str[strcspn(time_str, "\n")] = '\0'; 
   
-  ESP_LOGI(time_manager_tag, "- Default time set - system date: 2024-01-01 00:00:00");
+  log_info(time_manager_tag, "Time Set", "System time set to default: 2025-01-01 00:00:00");
 }
 
 /* Public Functions ***********************************************************/
@@ -80,11 +80,11 @@ static void priv_set_default_time(void)
 /* TODO: Make this non-blocking */
 esp_err_t time_manager_init(void)
 {
-  ESP_LOGI(time_manager_tag, "- Starting time manager initialization");
+  log_info(time_manager_tag, "Init Start", "Beginning time manager initialization");
   
   esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (netif == NULL || !esp_netif_is_netif_up(netif)) {
-    ESP_LOGW(time_manager_tag, "- Network unavailable - falling back to default time");
+    log_warn(time_manager_tag, "Network Error", "Network unavailable, falling back to default time");
     priv_set_default_time();
     return ESP_OK;
   }
@@ -97,12 +97,13 @@ esp_err_t time_manager_init(void)
   int       retry       = 0;
   const int max_retries = 10;
   while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < max_retries) {
-    ESP_LOGI(time_manager_tag, "- Waiting for time sync - attempt %u/%u", retry, max_retries);
+    log_info(time_manager_tag, "Sync Status", "Waiting for time sync (attempt %d/%d)", 
+             retry, max_retries);
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
   
   if (retry == max_retries) {
-    ESP_LOGW(time_manager_tag, "- Time sync failed - maximum retries reached");
+    log_error(time_manager_tag, "Sync Error", "Time sync failed after maximum retries");
     priv_set_default_time();
     return ESP_OK;
   }
@@ -113,8 +114,8 @@ esp_err_t time_manager_init(void)
   localtime_r(&now, &timeinfo);
   strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
   
-  ESP_LOGI(time_manager_tag, "- Time sync successful - current time: %s", strftime_buf);
-  ESP_LOGI(time_manager_tag, "- Time manager initialization complete - system clock ready");
+  log_info(time_manager_tag, "Sync Complete", "Time synchronized successfully: %s", strftime_buf);
+  log_info(time_manager_tag, "Init Complete", "Time manager initialization finished");
   
   return ESP_OK;
 }

@@ -16,7 +16,7 @@ extern "C" {
 /* Constants ******************************************************************/
 
 /* Module constants */
-extern const char       *gy_neo6mv2_tag;                    /**< Logging tag for ESP_LOG messages related to the GY-NEO6MV2 module. */
+extern const char       *gy_neo6mv2_tag;                    /**< Logging tag for log_handler messages related to the GY-NEO6MV2 module. */
 extern const uint8_t     gy_neo6mv2_tx_io;                  /**< GPIO pin for UART TX line to the GY-NEO6MV2 module. */
 extern const uint8_t     gy_neo6mv2_rx_io;                  /**< GPIO pin for UART RX line from the GY-NEO6MV2 module. */
 extern const uart_port_t gy_neo6mv2_uart_num;               /**< UART number used for GY-NEO6MV2 communication. */

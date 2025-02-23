@@ -8,8 +8,8 @@
 #include "ov7670_hal.h"
 #include <inttypes.h>
 #include "common/i2c.h"
-#include "esp_log.h"
 #include "freertos/task.h"
+#include "log_handler.h"
 
 #ifdef USE_OV7670_XCLK_GPIO_27
 #include "driver/ledc.h"
@@ -44,7 +44,7 @@ const uint8_t    ov7670_sda_io             = GPIO_NUM_21;
  */
 static esp_err_t priv_configure_xclk_on_gpio_27(uint32_t freq_hz)
 {
-  ESP_LOGI(ov7670_tag, "Configuring XCLK on GPIO 27 at %" PRIu32 " Hz", freq_hz);
+  log_info(ov7670_tag, "XCLK Setup", "Setting up GPIO 27 at %" PRIu32 " Hz", freq_hz);
 
   /* LEDC Timer Configuration */
   ledc_timer_config_t ledc_timer = {
@@ -56,7 +56,7 @@ static esp_err_t priv_configure_xclk_on_gpio_27(uint32_t freq_hz)
   };
   esp_err_t ret = ledc_timer_config(&ledc_timer);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Failed to configure LEDC timer (err=0x%x)", ret);
+    log_error(ov7670_tag, "Timer Error", "Failed to configure LEDC timer: %s", esp_err_to_name(ret));
     return ret;
   }
 
@@ -71,7 +71,7 @@ static esp_err_t priv_configure_xclk_on_gpio_27(uint32_t freq_hz)
   };
   ret = ledc_channel_config(&ledc_channel);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Failed to configure LEDC channel (err=0x%x)", ret);
+    log_error(ov7670_tag, "Channel Error", "Failed to configure LEDC channel: %s", esp_err_to_name(ret));
   }
 
   return ret;
@@ -91,7 +91,7 @@ static esp_err_t priv_ov7670_apply_config(const ov7670_config_t *config)
                                                  ov7670_i2c_bus, ov7670_i2c_address,
                                                  ov7670_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Failed to set COM7 (resolution/format).");
+    log_error(ov7670_tag, "Register Error", "Failed to configure COM7 register for resolution/format");
     return ret;
   }
 
@@ -99,11 +99,11 @@ static esp_err_t priv_ov7670_apply_config(const ov7670_config_t *config)
   ret = priv_i2c_write_reg_byte(k_ov7670_reg_clkrc, (uint8_t)config->clock_divider,
                                 ov7670_i2c_bus, ov7670_i2c_address, ov7670_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Failed to set CLKRC (clock divider).");
+    log_error(ov7670_tag, "Register Error", "Failed to configure CLKRC register for clock divider");
     return ret;
   }
 
-  ESP_LOGI(ov7670_tag, "Configuration applied: COM7=0x%02X, CLKRC=0x%02X",
+  log_info(ov7670_tag, "Config Applied", "COM7=0x%02X, CLKRC=0x%02X",
            com7_value, (uint8_t)config->clock_divider);
   return ESP_OK;
 }
@@ -127,18 +127,18 @@ static esp_err_t priv_ov7670_configure_defaults(void)
 esp_err_t ov7670_init(ov7670_data_t *camera_data)
 {
   if (!camera_data) {
-    ESP_LOGE(ov7670_tag, "Camera data pointer is NULL");
+    log_error(ov7670_tag, "Invalid Parameter", "Camera data pointer is NULL, cannot proceed with initialization");
     return ESP_ERR_INVALID_ARG;
   }
 
-  ESP_LOGI(ov7670_tag, "Initializing OV7670 Camera");
+  log_info(ov7670_tag, "Init Started", "Beginning OV7670 camera initialization sequence");
 
   /* 1. Initialize I2C interface */
   esp_err_t ret = priv_i2c_init(ov7670_scl_io, ov7670_sda_io,
                                 ov7670_i2c_freq_hz, ov7670_i2c_bus,
                                 ov7670_tag);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "I2C initialization failed");
+    log_error(ov7670_tag, "I2C Error", "Failed to initialize I2C interface: %s", esp_err_to_name(ret));
     camera_data->state = k_ov7670_config_error;
     return ret;
   }
@@ -147,46 +147,45 @@ esp_err_t ov7670_init(ov7670_data_t *camera_data)
   /* 2. Configure the ESP32 to generate the XCLK on GPIO_NUM_27 */
   ret = priv_configure_xclk_on_gpio_27(ov7670_xclk_freq_hz);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Failed to configure XCLK on GPIO 27");
+    log_error(ov7670_tag, "XCLK Error", "Failed to configure external clock on GPIO 27");
     camera_data->state = k_ov7670_config_error;
     return ret;
   }
-  ESP_LOGI(ov7670_tag, "XCLK is now driven on GPIO 27 at %" PRIu32 " Hz",
-           ov7670_xclk_freq_hz);
+  log_info(ov7670_tag, "XCLK Ready", "External clock configured on GPIO 27 at %" PRIu32 " Hz", ov7670_xclk_freq_hz);
 #else
   /* If not defined, do nothing: we assume an external clock is provided */
-  ESP_LOGI(ov7670_tag, "No internal XCLK; an external clock is expected.");
+  log_info(ov7670_tag, "Clock Mode", "Using external clock source for camera timing");
 #endif
 
   /* 3. Apply default settings */
   ret = priv_ov7670_configure_defaults();
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Default configuration failed");
+    log_error(ov7670_tag, "Config Error", "Failed to apply default camera settings");
     camera_data->state = k_ov7670_config_error;
     return ret;
   }
 
   camera_data->state = k_ov7670_ready;
-  ESP_LOGI(ov7670_tag, "OV7670 initialization complete (state=%u)", camera_data->state);
+  log_info(ov7670_tag, "Init Complete", "Camera initialized successfully (state=%u)", camera_data->state);
   return ESP_OK;
 }
 
 esp_err_t ov7670_configure(ov7670_data_t *camera_data)
 {
   if (!camera_data) {
-    ESP_LOGE(ov7670_tag, "Camera data pointer is NULL");
+    log_error(ov7670_tag, "Invalid Parameter", "Camera data pointer is NULL, cannot proceed with configuration");
     return ESP_ERR_INVALID_ARG;
   }
 
-  ESP_LOGI(ov7670_tag, "Applying new configuration to OV7670 Camera");
+  log_info(ov7670_tag, "Config Started", "Applying new camera configuration settings");
   esp_err_t ret = priv_ov7670_apply_config(&camera_data->config);
   if (ret != ESP_OK) {
-    ESP_LOGE(ov7670_tag, "Configuration failed");
+    log_error(ov7670_tag, "Config Error", "Failed to apply new camera configuration settings");
     camera_data->state = k_ov7670_config_error;
     return ret;
   }
 
-  ESP_LOGI(ov7670_tag, "Configuration successfully applied (state=%u)",
+  log_info(ov7670_tag, "Config Complete", "New camera settings applied successfully (state=%u)",
            camera_data->state);
   return ESP_OK;
 }
@@ -194,7 +193,7 @@ esp_err_t ov7670_configure(ov7670_data_t *camera_data)
 void ov7670_reset_on_error(ov7670_data_t *camera_data)
 {
   if (!camera_data) {
-    ESP_LOGE(ov7670_tag, "Camera data pointer is NULL");
+    log_error(ov7670_tag, "Invalid Parameter", "Camera data pointer is NULL, cannot perform error reset");
     return;
   }
 
@@ -203,18 +202,18 @@ void ov7670_reset_on_error(ov7670_data_t *camera_data)
 
     /* Check if enough time has elapsed since last attempt */
     if ((current_ticks - camera_data->last_attempt_ticks) >= camera_data->retry_interval) {
-      ESP_LOGW(ov7670_tag, "Attempting to reset OV7670 (retries=%u)", camera_data->retries);
+      log_warn(ov7670_tag, "Reset Started", "Attempting camera reset (retry count=%u)", camera_data->retries);
 
       /* Attempt re-initialization */
       if (ov7670_init(camera_data) == ESP_OK) {
         camera_data->retries        = 0;
         camera_data->retry_interval = pdMS_TO_TICKS(15000);
-        ESP_LOGI(ov7670_tag, "OV7670 re-initialized successfully");
+        log_info(ov7670_tag, "Reset Success", "Camera successfully re-initialized");
       } else {
         camera_data->retries++;
         camera_data->retry_interval = pdMS_TO_TICKS(camera_data->retry_interval * 2);
-        ESP_LOGE(ov7670_tag, "OV7670 re-initialization failed. Next retry interval = %" PRIu32 " ms",
-                 (camera_data->retry_interval * portTICK_PERIOD_MS));
+        log_error(ov7670_tag, "Reset Failed", "Next retry scheduled in %" PRIu32 " ms",
+                  (camera_data->retry_interval * portTICK_PERIOD_MS));
       }
       camera_data->last_attempt_ticks = current_ticks;
     }
@@ -225,7 +224,7 @@ void ov7670_tasks(void *camera_data_)
 {
   ov7670_data_t *camera_data = (ov7670_data_t *)camera_data_;
   if (!camera_data) {
-    ESP_LOGE(ov7670_tag, "Camera data pointer is NULL in ov7670_tasks");
+    log_error(ov7670_tag, "Invalid Parameter", "Camera data pointer is NULL, terminating task");
     vTaskDelete(NULL);
     return;
   }

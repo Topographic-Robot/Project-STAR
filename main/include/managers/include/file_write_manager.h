@@ -12,7 +12,7 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char    *file_manager_tag;   /**< Logging tag for ESP_LOG messages related to the file write manager. */
+extern const char    *file_manager_tag;   /**< Logging tag for log_handler messages related to the file write manager. */
 extern const uint32_t max_pending_writes; /**< Maximum number of queued file write requests to prevent overflow. */
 
 /* Macros *********************************************************************/

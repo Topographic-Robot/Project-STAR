@@ -16,7 +16,7 @@ extern "C" {
 
 extern const uint8_t    mpu6050_i2c_address;        /**< I2C address for the MPU6050 sensor (default 0x68, configurable to 0x69). */
 extern const i2c_port_t mpu6050_i2c_bus;            /**< I2C bus number used by the ESP32 for MPU6050 communication. */
-extern const char      *mpu6050_tag;                /**< Tag for ESP_LOG messages related to the MPU6050 sensor. */
+extern const char      *mpu6050_tag;                /**< Tag for log_handler messages related to the MPU6050 sensor. */
 extern const uint8_t    mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line (SCL) for MPU6050. */
 extern const uint8_t    mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line (SDA) for MPU6050. */
 extern const uint32_t   mpu6050_i2c_freq_hz;        /**< I2C bus frequency for MPU6050 communication (default 100 kHz). */

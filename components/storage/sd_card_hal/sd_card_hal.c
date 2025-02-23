@@ -6,13 +6,13 @@
 #include "sd_card_hal.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
 #include "esp_err.h"
 #include "driver/spi_common.h"
 #include "driver/sdspi_host.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include "error_handler.h"
+#include "log_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -45,7 +45,7 @@ static void priv_sd_card_cleanup(void)
   if (s_card) {
     esp_vfs_fat_sdcard_unmount(sd_card_mount_path, s_card);
     s_card = NULL;
-    ESP_LOGI(sd_card_tag, "SD card unmounted.");
+    log_info(sd_card_tag, "Cleanup", "SD card unmounted successfully");
   }
   spi_bus_free(sd_card_spi_host);
 }
@@ -57,7 +57,7 @@ esp_err_t sd_card_init(void)
   esp_err_t ret;
   uint8_t   retry_count = 0;
 
-  ESP_LOGI(sd_card_tag, "Initializing SD card");
+  log_info(sd_card_tag, "Init Start", "Beginning SD card initialization");
 
   while (retry_count < sd_card_max_retries) {
     /* Configure SPI host */
@@ -77,7 +77,7 @@ esp_err_t sd_card_init(void)
 
     ret = spi_bus_initialize(sd_card_spi_host, &bus_cfg, SDSPI_DEFAULT_DMA);
     if (ret != ESP_OK) {
-      ESP_LOGE(sd_card_tag, "Failed to initialize SPI bus: %s", esp_err_to_name(ret));
+      log_error(sd_card_tag, "SPI Error", "Failed to initialize SPI bus: %s", esp_err_to_name(ret));
       vTaskDelay(pdMS_TO_TICKS(sd_card_retry_delay_ms));
       retry_count++;
       continue;
@@ -100,17 +100,17 @@ esp_err_t sd_card_init(void)
     if (ret == ESP_OK) {
       /* Log SD card information */
       sdmmc_card_print_info(stdout, s_card);
-      ESP_LOGI(sd_card_tag, "SD card initialized successfully");
+      log_info(sd_card_tag, "Init Complete", "SD card mounted at %s", sd_card_mount_path);
       return ESP_OK;
     } else {
-      ESP_LOGE(sd_card_tag, "Failed to mount filesystem: %s", esp_err_to_name(ret));
+      log_error(sd_card_tag, "Mount Error", "Failed to mount filesystem: %s", esp_err_to_name(ret));
       priv_sd_card_cleanup();
       vTaskDelay(pdMS_TO_TICKS(sd_card_retry_delay_ms));
       retry_count++;
     }
   }
 
-  ESP_LOGE(sd_card_tag, "SD card initialization failed after %u retries.", sd_card_max_retries);
+  log_error(sd_card_tag, "Init Error", "SD card initialization failed after %u retries", sd_card_max_retries);
   return ESP_FAIL;
 }
 

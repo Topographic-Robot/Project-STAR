@@ -18,7 +18,7 @@ extern "C" {
 
 extern const uint8_t    bh1750_i2c_address;            /**< I2C address of the BH1750 sensor (default 0x23 when ADDR pin is GND). */
 extern const i2c_port_t bh1750_i2c_bus;                /**< I2C bus number used by the ESP32 to communicate with the BH1750 sensor. */
-extern const char      *bh1750_tag;                    /**< Tag for ESP_LOG messages related to the BH1750 sensor. */
+extern const char      *bh1750_tag;                    /**< Tag for log_handler messages related to the BH1750 sensor. */
 extern const uint8_t    bh1750_scl_io;                 /**< GPIO pin for the I2C Serial Clock Line (SCL). */
 extern const uint8_t    bh1750_sda_io;                 /**< GPIO pin for the I2C Serial Data Line (SDA). */
 extern const uint32_t   bh1750_i2c_freq_hz;            /**< I2C bus frequency in Hz for BH1750 communication (default 100 kHz). */
