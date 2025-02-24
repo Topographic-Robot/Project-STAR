@@ -1,3 +1,5 @@
+/* fpga_cam/DE10_LITE_Golden_Top.v */
+
 `define ENABLE_CLOCK1
 `define ENABLE_CLOCK2
 `define ENABLE_SDRAM

@@ -1,3 +1,5 @@
+/* fpga_cam/dataRegistering.v */
+
 // Module Name: data
 // Description: module for handling databus
 // Author: Jeremie Hews

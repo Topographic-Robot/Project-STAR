@@ -1,3 +1,5 @@
+/* fpga_cam/vgaGen.v */
+
 module vgaGen(
 
 pixClock, resetN, VSync, HSync, red, green, blue 

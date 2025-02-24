@@ -1,3 +1,5 @@
+/* fpga_cam/buffCapControl.v */
+
 // Module Name: data
 // Description: module for handling databus
 // Author: Jeremie Hews

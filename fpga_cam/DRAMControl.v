@@ -1,3 +1,5 @@
+/* fpga_cam/DRAMControl.v */
+
 module DRAMControl
   #(
     parameter [4:0] INIT0     = 5'b00000,

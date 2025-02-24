@@ -1,3 +1,5 @@
+/* fpga_cam/testBench.v */
+
 //`define ENABLE_ADC_CLOCK
 `define ENABLE_CLOCK1
 `define ENABLE_CLOCK2

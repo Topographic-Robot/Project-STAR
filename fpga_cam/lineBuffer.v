@@ -1,3 +1,5 @@
+/* fpga_cam/lineBuffer.v */
+
 // megafunction wizard: %FIFO%
 // GENERATION: STANDARD
 // VERSION: WM1.0
