@@ -4,6 +4,52 @@
 
 ### Critical Tasks
 
+#### FPGA Code Style and Standardization
+- [ ] Verilog Code Style Fixes:
+  - [ ] DE10_LITE_Golden_Top.v:
+    - [ ] Add module description and port documentation
+    - [ ] Standardize signal naming (all lowercase with underscores)
+    - [ ] Group and document `define statements
+  - [ ] DRAMControl.v:
+    - [ ] Add state machine documentation
+    - [ ] Add timing diagrams in comments
+    - [ ] Document memory interface signals
+  - [x] vgaGen.v:
+    - [x] Standardize formatting and indentation
+    - [ ] Document VGA timing parameters
+    - [ ] Add waveform diagrams in comments
+  - [x] buffCapControl.v:
+    - [x] Standardize formatting and indentation
+    - [ ] Document buffer control logic
+    - [ ] Add state machine diagrams
+  - [x] dataRegistering.v:
+    - [x] Standardize formatting and indentation
+    - [ ] Document data flow and timing
+    - [ ] Add signal descriptions
+  - [ ] lineBuffer.v:
+    - [ ] Document memory organization
+    - [ ] Add timing requirements
+  - [ ] refCLKPLL.v:
+    - [ ] Document clock frequencies and relationships
+    - [ ] Add timing constraints
+  - [x] testBench.v:
+    - [x] Standardize formatting and indentation
+    - [ ] Add test case documentation
+    - [ ] Document test coverage
+  - [ ] General Style Guidelines:
+    - [x] Use consistent indentation (2 spaces)
+    - [x] Use consistent comment style (/* */)
+    - [x] Place begin on same line as if/else statements
+    - [x] Place begin on next line after always blocks
+    - [x] Remove excessive alignment across different blocks
+    - [x] Use camelCase for signal names
+    - [x] Add proper spacing around operators
+    - [ ] Add parameter documentation
+    - [ ] Add timing constraints documentation
+    - [ ] Add block comments for major sections
+    - [ ] Document all state machines
+    - [ ] Add clock domain crossing documentation
+
 #### Log Handler Implementation
 - [ ] Add timestamp to all log messages
 - [ ] Add sequence numbers for message ordering
@@ -161,6 +207,34 @@
   - [ ] Add performance benchmarks
 
 ## Changelog
+
+### 2025-02-25
+- FPGA Code Style Improvements:
+  - Reformatted all Verilog files to follow consistent style guidelines:
+    - Updated buffCapControl.v with consistent comment style and indentation
+    - Updated vgaGen.v with proper formatting and comment style
+    - Updated dataRegistering.v with consistent indentation and spacing
+    - Updated testBench.v with proper formatting without cross-block alignment
+  - Applied consistent style across all files:
+    - Used /* */ style comments instead of // comments
+    - Placed begin on the same line as if/else statements
+    - Placed begin on the next line after always blocks
+    - Used consistent 2-space indentation
+    - Removed excessive alignment across different blocks
+    - Used camelCase for signal names
+    - Added proper spacing around operators
+
+### 2025-02-24
+- FPGA Project Cleanup:
+  - Added .gitignore patterns for Quartus-generated files
+  - Added .gitignore patterns for AMD/Xilinx-generated files
+  - Removed tracked generated files from repository:
+    - Removed db/, incremental_db/, output_files/, and greybox_tmp/ directories
+    - Removed *_bb.v (black box) files
+    - Removed .qws, .bak, .rpt, .ppf files
+    - Removed other Quartus-generated temporary files
+  - Added file headers to all Verilog files
+  - Added new FPGA Code Style TODOs for all Verilog files
 
 ### 2025-02-24
 - Updated sensor HALs to use new logging format:
