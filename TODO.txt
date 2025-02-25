@@ -14,13 +14,16 @@
     - [ ] Add state machine documentation
     - [ ] Add timing diagrams in comments
     - [ ] Document memory interface signals
-  - [ ] vgaGen.v:
+  - [x] vgaGen.v:
+    - [x] Standardize formatting and indentation
     - [ ] Document VGA timing parameters
     - [ ] Add waveform diagrams in comments
-  - [ ] buffCapControl.v:
+  - [x] buffCapControl.v:
+    - [x] Standardize formatting and indentation
     - [ ] Document buffer control logic
     - [ ] Add state machine diagrams
-  - [ ] dataRegistering.v:
+  - [x] dataRegistering.v:
+    - [x] Standardize formatting and indentation
     - [ ] Document data flow and timing
     - [ ] Add signal descriptions
   - [ ] lineBuffer.v:
@@ -29,14 +32,20 @@
   - [ ] refCLKPLL.v:
     - [ ] Document clock frequencies and relationships
     - [ ] Add timing constraints
-  - [ ] testBench.v:
+  - [x] testBench.v:
+    - [x] Standardize formatting and indentation
     - [ ] Add test case documentation
     - [ ] Document test coverage
   - [ ] General Style Guidelines:
-    - [ ] Use consistent indentation (2 spaces)
+    - [x] Use consistent indentation (2 spaces)
+    - [x] Use consistent comment style (/* */)
+    - [x] Place begin on same line as if/else statements
+    - [x] Place begin on next line after always blocks
+    - [x] Remove excessive alignment across different blocks
+    - [x] Use camelCase for signal names
+    - [x] Add proper spacing around operators
     - [ ] Add parameter documentation
     - [ ] Add timing constraints documentation
-    - [ ] Use consistent naming conventions
     - [ ] Add block comments for major sections
     - [ ] Document all state machines
     - [ ] Add clock domain crossing documentation
@@ -198,6 +207,22 @@
   - [ ] Add performance benchmarks
 
 ## Changelog
+
+### 2025-02-25
+- FPGA Code Style Improvements:
+  - Reformatted all Verilog files to follow consistent style guidelines:
+    - Updated buffCapControl.v with consistent comment style and indentation
+    - Updated vgaGen.v with proper formatting and comment style
+    - Updated dataRegistering.v with consistent indentation and spacing
+    - Updated testBench.v with proper formatting without cross-block alignment
+  - Applied consistent style across all files:
+    - Used /* */ style comments instead of // comments
+    - Placed begin on the same line as if/else statements
+    - Placed begin on the next line after always blocks
+    - Used consistent 2-space indentation
+    - Removed excessive alignment across different blocks
+    - Used camelCase for signal names
+    - Added proper spacing around operators
 
 ### 2025-02-24
 - FPGA Project Cleanup:
