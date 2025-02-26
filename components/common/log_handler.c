@@ -64,8 +64,13 @@ void log_write_va(esp_log_level_t level, const char *tag,
 
   /* Create the complete log message with the required format */
   char complete_msg[LOG_MAX_MESSAGE_LENGTH * 2];
-  char *timestamp = time_manager_get_timestamp();
+  char *timestamp = NULL;
   uint64_t seq_num = atomic_fetch_add(&g_log_sequence_number, 1);
+
+  /* Only try to get timestamp if time manager is initialized */
+  if (time_manager_is_initialized()) {
+    timestamp = time_manager_get_timestamp();
+  }
 
   if (timestamp != NULL) {
     /* Include timestamp, sequence number, and task info */
