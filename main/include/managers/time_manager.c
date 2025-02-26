@@ -12,6 +12,10 @@
 
 const char *time_manager_tag = "TIME_MANAGER";
 
+/* Globals (Static) ***********************************************************/
+
+static bool s_time_initialized = false; /*< Flag indicating if time is initialized */
+
 /* Private Functions **********************************************************/
 
 /**
@@ -73,9 +77,36 @@ static void priv_set_default_time(void)
   time_str[strcspn(time_str, "\n")] = '\0'; 
   
   log_info(time_manager_tag, "Time Set", "System time set to default: 2025-01-01 00:00:00");
+  s_time_initialized = true;  /* Mark time as initialized even though it's default */
 }
 
 /* Public Functions ***********************************************************/
+
+bool time_manager_is_initialized(void)
+{
+  return s_time_initialized;
+}
+
+char *time_manager_get_timestamp(void)
+{
+  if (!s_time_initialized) {
+    return NULL;  /* Don't generate timestamps until time is properly initialized */
+  }
+
+  time_t    now = time(NULL);
+  struct tm timeinfo;
+  char     *buffer;
+
+  /* Allocate memory for the timestamp string (YYYY-MM-DD HH:MM:SS\0 = 20 bytes) */
+  buffer = malloc(20);
+  if (buffer == NULL) {
+    return NULL;  /* Simply return NULL on allocation failure */
+  }
+
+  localtime_r(&now, &timeinfo);
+  strftime(buffer, 20, "%Y-%m-%d %H:%M:%S", &timeinfo);
+  return buffer;
+}
 
 /* TODO: Make this non-blocking */
 esp_err_t time_manager_init(void)
@@ -117,6 +148,7 @@ esp_err_t time_manager_init(void)
   log_info(time_manager_tag, "Sync Complete", "Time synchronized successfully: %s", strftime_buf);
   log_info(time_manager_tag, "Init Complete", "Time manager initialization finished");
   
+  s_time_initialized = true;  /* Mark time as initialized after successful NTP sync */
   return ESP_OK;
 }
 

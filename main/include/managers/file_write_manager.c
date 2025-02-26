@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "log_handler.h"
+#include "time_manager.h"
 
 /* Constants ******************************************************************/
 
@@ -24,26 +25,6 @@ static TaskHandle_t         s_file_write_task_handle = NULL;
 static file_writer_config_t s_file_writer_config     = { 3, 4096, false };
 
 /* Private Functions **********************************************************/
-
-/**
- * @brief Formats the current date and time as a string.
- *
- * Retrieves the current system time and formats it as `YYYY-MM-DD HH:MM:SS`.
- *
- * @param[out] buffer Buffer to store the formatted timestamp.
- * @param[in]  buffer_len Length of the buffer.
- *
- * @note 
- * - The system time must be properly initialized before calling this function.
- */
-static void priv_get_timestamp(char *buffer, size_t buffer_len)
-{
-  time_t    now = time(NULL);
-  struct tm timeinfo;
-
-  localtime_r(&now, &timeinfo);
-  strftime(buffer, buffer_len, "%Y-%m-%u %H:%M:%S", &timeinfo);
-}
 
 /**
  * @brief Task to handle queued file write requests.
@@ -144,11 +125,17 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   }
 
   file_write_request_t request;
-  char timestamp[32] = { '\0' };
+  char *timestamp = time_manager_get_timestamp();
+  if (timestamp == NULL) {
+    log_error(file_manager_tag, "Memory Error", "Failed to get timestamp");
+    return ESP_FAIL;
+  }
   
-  priv_get_timestamp(timestamp, sizeof(timestamp));
   snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s",   sd_card_mount_path, file_path);
   snprintf(request.data,      MAX_DATA_LENGTH,      "%s %s\n", timestamp,          data);
+
+  /* Free the dynamically allocated timestamp */
+  free(timestamp);
 
   log_info(file_manager_tag, "Queue Write", "Enqueueing write request for file: %s", file_path);
   if (xQueueSend(s_file_write_queue, &request, 0) != pdTRUE) {
