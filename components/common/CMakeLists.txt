@@ -8,5 +8,6 @@ idf_component_register(
     "include"
   PRIV_REQUIRES
     driver
+    main
 )
 

@@ -35,11 +35,6 @@ static esp_err_t pca9685_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t v
     return ret;
 }
 
-static inline esp_err_t pca9685_read_register(uint8_t i2c_addr, uint8_t reg, uint8_t *value) 
-{
-    return i2c_master_write_read_device(pca9685_i2c_bus, i2c_addr, &reg, 1, value, 1, pdMS_TO_TICKS(100));
-}
-
 static esp_err_t pca9685_set_pwm_freq(uint8_t i2c_addr, uint16_t freq) 
 {
     /* Calculate prescale value based on the formula from the datasheet */
