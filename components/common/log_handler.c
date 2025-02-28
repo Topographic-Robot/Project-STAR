@@ -74,26 +74,22 @@ void log_write_va(esp_log_level_t level, const char *tag,
 
   if (timestamp != NULL) {
     /* Include timestamp, sequence number, and task info */
-    snprintf(complete_msg, sizeof(complete_msg), "[%s][%llu]%s%s%s%s%s%s",
+    snprintf(complete_msg, sizeof(complete_msg), "[%s][%llu]%s %s%s%s",
              timestamp,
              seq_num,
              task_info,
              short_msg,
              LOG_SEPARATOR,
-             formatted_msg,
-             LOG_SEPARATOR,
-             tag);
+             formatted_msg);
     free(timestamp);
   } else {
     /* Skip timestamp but include sequence number and task info */
-    snprintf(complete_msg, sizeof(complete_msg), "[%llu]%s%s%s%s%s%s",
+    snprintf(complete_msg, sizeof(complete_msg), "[%llu]%s %s%s%s",
              seq_num,
              task_info,
              short_msg,
              LOG_SEPARATOR,
-             formatted_msg,
-             LOG_SEPARATOR,
-             tag);
+             formatted_msg);
   }
 
   /* Log using ESP's logging system */
