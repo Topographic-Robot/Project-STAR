@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code formatting updates
   - Improved README documentation
   - Updated wiring documentation
+- Logging system updates (by @bsikar)
+  - Converted all components from ESP_LOG* to log_* format:
+    - Sensor HALs (DHT22, GY-NEO6MV2, MPU6050, QMC5883L, OV7670, CCS811, BH1750, MQ135)
+    - Controller HALs (PCA9685, EC11)
+    - Common components (log_handler, error_handler, i2c, uart)
+    - System components (sd_card_hal, time_manager, sensor_tasks, webserver_tasks, file_write_manager)
+    - Core components (main, gait_movement, hexapod_geometry)
+  - Added descriptive action and status messages to all log calls
+  - Updated %d to %u in all log messages that include unsigned integers
+  - Maintained existing functionality while updating log format
 
 ### Fixed
 

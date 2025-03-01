@@ -56,6 +56,7 @@ static void priv_set_default_time(void)
   struct timeval tv;
   struct tm      tm;
 
+  /* TODO, i would like to make all things set to 0 */
   tm.tm_year  = 2025 - 1900; /* Year since 1900 */
   tm.tm_mon   = 0;           /* January */
   tm.tm_mday  = 1;           /* Day 1 */
