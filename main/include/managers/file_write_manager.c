@@ -6,11 +6,62 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include "sd_card_hal.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "log_handler.h"
+
+/* TODO: Implement directory creation support
+ *
+ * Currently, the file writer assumes all directories in the file path
+ * already exist. If they don't, the file open operation will fail.
+ *
+ * Add a helper function to:
+ * - Parse the file path to extract directory components
+ * - Create each directory level if it doesn't exist
+ * - Log success/failure of directory creation
+ *
+ * This will make the file writer more robust when dealing with
+ * complex file paths.
+ */
+
+/* TODO: Implement a graceful shutdown mechanism for the file writer
+ *
+ * When power management is implemented, add a function to:
+ * - Process any remaining items in the write queue
+ * - Close any open files properly
+ * - Free allocated resources
+ * - Signal completion to allow safe power down
+ *
+ * This is important because sudden power loss (like unplugging the USB)
+ * could lead to data corruption or loss, even with fsync() in place.
+ */
+
+/* TODO: Enhance error handling mechanisms
+ *
+ * Current error handling primarily logs errors but doesn't provide
+ * recovery mechanisms. Consider implementing:
+ *
+ * 1. Retry mechanism: Attempt to retry failed operations with
+ *    exponential backoff to handle transient failures
+ *
+ * 2. Fallback storage: If primary storage fails, attempt to write
+ *    to a secondary location (e.g., internal flash if SD card fails)
+ *
+ * 3. Error statistics: Track error rates and types to help diagnose
+ *    recurring issues
+ *
+ * 4. Watchdog integration: Reset the file writer task if it becomes
+ *    unresponsive
+ *
+ * 5. Critical data prioritization: Ensure critical data gets written
+ *    even when resources are constrained
+ *
+ * These improvements will make the system more resilient to failures
+ * and provide better diagnostics for troubleshooting.
+ */
 
 /* Constants ******************************************************************/
 
@@ -42,7 +93,7 @@ static void priv_get_timestamp(char *buffer, size_t buffer_len)
   struct tm timeinfo;
 
   localtime_r(&now, &timeinfo);
-  strftime(buffer, buffer_len, "%Y-%m-%u %H:%M:%S", &timeinfo);
+  strftime(buffer, buffer_len, "%Y-%m-%d %H:%M:%S", &timeinfo);
 }
 
 /**
@@ -73,6 +124,8 @@ static void priv_file_write_task(void *param)
       }
 
       size_t bytes_written = fwrite(request.data, 1, strlen(request.data), file);
+      fflush(file);
+      fsync(fileno(file));
       fclose(file);
 
       if (bytes_written != strlen(request.data)) {
@@ -147,8 +200,21 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   char timestamp[32] = { '\0' };
   
   priv_get_timestamp(timestamp, sizeof(timestamp));
-  snprintf(request.file_path, MAX_FILE_PATH_LENGTH, "%s/%s",   sd_card_mount_path, file_path);
-  snprintf(request.data,      MAX_DATA_LENGTH,      "%s %s\n", timestamp,          data);
+  const char *format = (file_path[0] == '/') ? "%s%s" : "%s/%s";
+  int result = snprintf(request.file_path, MAX_FILE_PATH_LENGTH, format, sd_card_mount_path, file_path);
+  if (result >= MAX_FILE_PATH_LENGTH) {
+    log_error(file_manager_tag, "Path Error", "File path too long");
+    return ESP_ERR_INVALID_ARG;
+  }
+  snprintf(request.data, MAX_DATA_LENGTH, "%s %s\n", timestamp, data);
+
+  /* Check if the combined timestamp and data will fit in the buffer */
+  size_t timestamp_len = strlen(timestamp);
+  size_t data_len      = strlen(data);
+  if (timestamp_len + data_len + 2 > MAX_DATA_LENGTH) { /* +2 for space and newline */
+    log_error(file_manager_tag, "Data Error", "Combined data too large for buffer");
+    return ESP_ERR_INVALID_ARG;
+  }
 
   log_info(file_manager_tag, "Queue Write", "Enqueueing write request for file: %s", file_path);
   if (xQueueSend(s_file_write_queue, &request, 0) != pdTRUE) {
