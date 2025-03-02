@@ -52,14 +52,14 @@ typedef struct {
  * @param[in] max_backoff_interval Maximum backoff interval in ticks
  */
 void error_handler_init(error_handler_t *handler, 
-                        const char *tag,
-                        uint8_t     max_retries, 
-                        uint32_t    initial_interval,
-                        uint32_t    max_interval, 
-                        esp_err_t (*reset_func)(void *context),
-                        void       *context, 
-                        uint32_t    initial_backoff_interval,
-                        uint32_t    max_backoff_interval);
+                        const char      *tag,
+                        uint8_t          max_retries, 
+                        uint32_t         initial_interval,
+                        uint32_t         max_interval, 
+                        esp_err_t      (*reset_func)(void *context),
+                        void            *context, 
+                        uint32_t         initial_backoff_interval,
+                        uint32_t         max_backoff_interval);
 
 /**
  * @brief Records a state change in the handler and triggers reset if needed.

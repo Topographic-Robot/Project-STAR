@@ -111,7 +111,7 @@ static void priv_file_write_task(void *param)
 
       if (bytes_written != strlen(request.data)) {
         log_error(file_manager_tag, "Write Error", "Incomplete write to %s: %zu/%zu bytes written", 
-                 request.file_path, bytes_written, strlen(request.data));
+                  request.file_path, bytes_written, strlen(request.data));
       } else {
         log_info(file_manager_tag, "Write Success", "Successfully wrote %zu bytes to %s", 
                  bytes_written, request.file_path);

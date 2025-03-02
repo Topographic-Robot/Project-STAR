@@ -17,8 +17,9 @@ extern const uint32_t max_pending_writes; /**< Maximum number of queued file wri
 
 /* Macros *********************************************************************/
 
-#define MAX_FILE_PATH_LENGTH (64)  /**< Maximum file path length, including the null terminator. */
-#define MAX_DATA_LENGTH      (256) /**< Maximum data length per write request, including the null terminator. */
+#define MAX_FILE_PATH_LENGTH  (64)  /**< Maximum file path length, including the null terminator. */
+#define MAX_DATA_LENGTH       (256) /**< Maximum data length per write request, including the null terminator. */
+#define TIMESTAMP_BUFFER_SIZE (32)  /**< Size of buffer for timestamp strings. */
 
 /* Structs ********************************************************************/
 
