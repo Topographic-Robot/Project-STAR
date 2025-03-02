@@ -9,8 +9,11 @@ extern "C" {
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 
 /* Constants ******************************************************************/
 
@@ -21,6 +24,11 @@ extern const char *log_tag; /* Tag for logging */
 #define LOG_MAX_MESSAGE_LENGTH (256)   /* Maximum length of log messages */
 #define LOG_MAX_TAG_LENGTH     (32)    /* Maximum length of log tags */
 #define LOG_SEPARATOR          (" - ") /* Separator between log components */
+#define LOG_TASK_NAME_LENGTH   (16)    /* Maximum length of task name to display */
+
+/* Global Variables **********************************************************/
+
+extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequence numbers */
 
 /* Public Functions **********************************************************/
 

@@ -97,6 +97,24 @@ typedef struct pca9685_board_t {
   struct pca9685_board_t *next;        /**< Pointer to the next board in the singly linked list. */
 } pca9685_board_t;
 
+/* Private Inline Functions ***************************************************/
+
+/**
+ * @brief Reads a single register from the PCA9685 device.
+ *
+ * Performs a single I2C read operation to get the value of a specified register.
+ *
+ * @param[in] i2c_addr I2C address of the PCA9685 device.
+ * @param[in] reg Register address to read from.
+ * @param[out] value Pointer to store the read value.
+ *
+ * @return ESP_OK if successful, otherwise an error code.
+ */
+static inline esp_err_t pca9685_read_register(uint8_t i2c_addr, uint8_t reg, uint8_t *value) 
+{
+    return i2c_master_write_read_device(pca9685_i2c_bus, i2c_addr, &reg, 1, value, 1, pdMS_TO_TICKS(100));
+}
+
 /* Public Functions ***********************************************************/
 
 /**
