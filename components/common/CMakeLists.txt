@@ -12,6 +12,5 @@ idf_component_register(
     storage
     esp_timer
     main
-    zlib
 )
 

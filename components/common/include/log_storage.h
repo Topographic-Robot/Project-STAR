@@ -13,7 +13,6 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_timer.h"
-#include "zlib.h"
 
 /* Constants ******************************************************************/
 
@@ -29,18 +28,12 @@ extern const char *log_base_dir;    /* Base directory for logs */
 #define LOG_MAX_MESSAGE_LENGTH  (256)         /* Maximum length of log messages */
 #define DATE_STRING_BUFFER_SIZE (32)          /* Size of buffer for date strings */
 
-/* Compression related macros */
-#define LOG_COMPRESSION_ENABLED  (1)                     /* Enable/disable compression (1=enabled, 0=disabled) */
-#define LOG_COMPRESSION_LEVEL    (Z_DEFAULT_COMPRESSION) /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
-#define LOG_COMPRESSION_BUFFER   (4096)                  /* Size of compression buffer */
-#define LOG_COMPRESSED_EXTENSION ".gz"                   /* Extension for compressed log files */
-
 /* Format strings for consistent formatting */
 #define DATE_FORMAT         "%04d-%02d-%02d"
 #define TIME_FORMAT         "%02d:%02d:%02d"
 #define TIMESTAMP_FORMAT    "[" DATE_FORMAT " " TIME_FORMAT ".%03llu]"
 #define LOG_ENTRY_FORMAT    "%s [%s] %s"
-#define LOG_FILENAME_FORMAT "log_%04d%02d%02d_%02d%02d%02d%s"
+#define LOG_FILENAME_FORMAT "log_%04d%02d%02d_%02d%02d%02d.txt"
 
 /* Macro to format date components from a tm struct */
 #define FORMAT_DATE_ARGS(tm_ptr) ((tm_ptr)->tm_year + 1900), ((tm_ptr)->tm_mon + 1), ((tm_ptr)->tm_mday)
@@ -102,24 +95,6 @@ esp_err_t log_storage_write(esp_log_level_t level, const char *message);
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
 esp_err_t log_storage_flush(void);
-
-/**
- * @brief Enables or disables log compression
- * 
- * Controls whether log files are compressed when written to the SD card.
- * When enabled, log files are compressed using zlib with the .gz extension.
- * 
- * @param enabled true to enable compression, false to disable
- * @return ESP_OK if successful, ESP_FAIL otherwise
- */
-esp_err_t log_storage_set_compression(bool enabled);
-
-/**
- * @brief Gets the current compression status
- * 
- * @return true if compression is enabled, false otherwise
- */
-bool log_storage_is_compression_enabled(void);
 
 #ifdef __cplusplus
 }

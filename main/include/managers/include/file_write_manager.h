@@ -51,18 +51,6 @@ typedef struct {
   char data[MAX_DATA_LENGTH];           /**< Data to write to the file. Must be null-terminated if it is a string. */
 } file_write_request_t;
 
-/**
- * @brief Represents a request to write binary data to a file.
- *
- * Contains the file path, data pointer, and data length for a binary file write operation.
- */
-typedef struct {
-  char     file_path[MAX_FILE_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
-  void    *data;                            /**< Pointer to the binary data to write. */
-  uint32_t data_length;                     /**< Length of the binary data in bytes. */
-  bool     is_binary;                       /**< Flag indicating this is a binary write request. */
-} file_write_binary_request_t;
-
 /* Public Functions ***********************************************************/
 
 /**
@@ -109,32 +97,6 @@ esp_err_t file_write_manager_init(void);
  *       after enqueueing the request.
  */
 esp_err_t file_write_enqueue(const char *file_path, const char *data);
-
-/**
- * @brief Enqueues a binary file write request.
- *
- * Adds a binary file write request to the queue for asynchronous processing.
- * The binary data will be written to the specified file in the background by
- * the file write task. If the file does not exist, it will be created
- * automatically. All writes append data to the file.
- *
- * @param[in] file_path   Path to the file (e.g., "/sdcard/logs/log.gz").
- *                        This must be a valid file path accessible by
- *                        the system.
- * @param[in] data        Pointer to the binary data to write.
- * @param[in] data_length Length of the binary data in bytes.
- *
- * @return
- * - ESP_OK              if the request was successfully enqueued.
- * - ESP_ERR_INVALID_ARG if any argument is invalid (e.g., NULL pointers).
- * - ESP_FAIL            if the queue is full.
- *
- * @note Ensure `file_write_manager_init` has been called before invoking
- *       this function. The function does not block but returns immediately
- *       after enqueueing the request. The data is copied to an internal buffer,
- *       so the caller can free the original data after this function returns.
- */
-esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uint32_t data_length);
 
 #ifdef __cplusplus
 }
