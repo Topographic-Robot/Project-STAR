@@ -17,12 +17,13 @@ const char *log_base_dir    = "logs";
 
 /* Globals (Static) ***********************************************************/
 
-static log_entry_t       s_log_buffer[LOG_BUFFER_SIZE]            = {0};   /* Buffer to store logs when SD card is not available */
-static uint32_t          s_log_buffer_index                       = 0;     /* Current index in the buffer */
-static bool              s_sd_card_available                      = false; /* Flag to track SD card availability */
-static bool              s_log_storage_initialized                = false; /* Flag to track initialization status */
-static char              s_current_log_file[MAX_FILE_PATH_LENGTH] = {0};   /* Current log file path */
-static SemaphoreHandle_t s_log_mutex                              = NULL;  /* Mutex for thread-safe access */
+static log_entry_t       s_log_buffer[LOG_BUFFER_SIZE]            = {0};                     /* Buffer to store logs when SD card is not available */
+static uint32_t          s_log_buffer_index                       = 0;                       /* Current index in the buffer */
+static bool              s_sd_card_available                      = false;                   /* Flag to track SD card availability */
+static bool              s_log_storage_initialized                = false;                   /* Flag to track initialization status */
+static char              s_current_log_file[MAX_FILE_PATH_LENGTH] = {0};                     /* Current log file path */
+static SemaphoreHandle_t s_log_mutex                              = NULL;                    /* Mutex for thread-safe access */
+static bool              s_compression_enabled                    = LOG_COMPRESSION_ENABLED; /* Compression state */
 
 /* Private Functions **********************************************************/
 
@@ -107,11 +108,15 @@ static void priv_generate_log_file_path(char *file_path, size_t file_path_len)
   char date_str[DATE_STRING_BUFFER_SIZE];
   snprintf(date_str, sizeof(date_str), DATE_FORMAT, FORMAT_DATE_ARGS(&timeinfo));
   
+  /* Add appropriate extension based on compression setting */
+  const char *extension = s_compression_enabled ? LOG_COMPRESSED_EXTENSION : ".txt";
+  
   snprintf(file_path, file_path_len, "%s/%s/" LOG_FILENAME_FORMAT, 
            log_base_dir,
            date_str,
            FORMAT_DATE_ARGS(&timeinfo),
-           FORMAT_TIME_ARGS(&timeinfo));
+           FORMAT_TIME_ARGS(&timeinfo),
+           extension);
 }
 
 /**
@@ -149,6 +154,12 @@ static bool priv_check_log_rotation(void)
     return true; /* Day has changed, need new log file */
   }
   
+  /* Check if compression setting has changed */
+  bool is_compressed = strstr(s_current_log_file, LOG_COMPRESSED_EXTENSION) != NULL;
+  if (is_compressed != s_compression_enabled) {
+    return true; /* Compression setting changed, need new log file */
+  }
+  
   return false;
 }
 
@@ -176,6 +187,94 @@ static esp_err_t priv_rotate_log_file(void)
 }
 
 /**
+ * @brief Compresses data using zlib
+ * 
+ * @param[in] input Input data to compress
+ * @param[in] input_len Length of input data
+ * @param[out] output Buffer to store compressed data
+ * @param[in,out] output_len Size of output buffer on input, size of compressed data on output
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ */
+static esp_err_t priv_compress_data(const char *input, size_t input_len, 
+                                   char *output, size_t *output_len)
+{
+  if (!input || !output || !output_len || input_len == 0 || *output_len == 0) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  z_stream stream;
+  memset(&stream, 0, sizeof(stream));
+  
+  /* Initialize zlib for compression */
+  int ret = deflateInit2(&stream, LOG_COMPRESSION_LEVEL, Z_DEFLATED,
+                         15 + 16, /* 15 for max window bits, +16 for gzip header */
+                         8, Z_DEFAULT_STRATEGY);
+  if (ret != Z_OK) {
+    log_error(log_storage_tag, "Compression Error", "Failed to initialize zlib: %d", ret);
+    return ESP_FAIL;
+  }
+  
+  /* Set up input and output buffers */
+  stream.next_in = (Bytef *)input;
+  stream.avail_in = input_len;
+  stream.next_out = (Bytef *)output;
+  stream.avail_out = *output_len;
+  
+  /* Compress the data */
+  ret = deflate(&stream, Z_FINISH);
+  
+  /* Clean up */
+  deflateEnd(&stream);
+  
+  if (ret != Z_STREAM_END) {
+    log_error(log_storage_tag, "Compression Error", "Failed to compress data: %d", ret);
+    return ESP_FAIL;
+  }
+  
+  /* Update output length */
+  *output_len = stream.total_out;
+  
+  return ESP_OK;
+}
+
+/**
+ * @brief Writes log data to file, with optional compression
+ * 
+ * @param[in] file_path Path to the log file
+ * @param[in] data Data to write
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ */
+static esp_err_t priv_write_log_data(const char *file_path, const char *data)
+{
+  if (!s_compression_enabled) {
+    /* No compression, write directly */
+    return file_write_enqueue(file_path, data);
+  }
+  
+  /* Compress the data */
+  size_t input_len = strlen(data);
+  char *compress_buffer = malloc(LOG_COMPRESSION_BUFFER);
+  if (!compress_buffer) {
+    log_error(log_storage_tag, "Memory Error", "Failed to allocate compression buffer");
+    return ESP_FAIL;
+  }
+  
+  size_t output_len = LOG_COMPRESSION_BUFFER;
+  esp_err_t ret = priv_compress_data(data, input_len, compress_buffer, &output_len);
+  
+  if (ret != ESP_OK) {
+    free(compress_buffer);
+    return ret;
+  }
+  
+  /* Write compressed data using a binary write function */
+  ret = file_write_binary_enqueue(file_path, compress_buffer, output_len);
+  
+  free(compress_buffer);
+  return ret;
+}
+
+/**
  * @brief Flushes the buffered logs to the SD card
  * 
  * @return ESP_OK if successful, ESP_FAIL otherwise
@@ -197,33 +296,109 @@ static esp_err_t priv_flush_log_buffer(void)
     return ESP_FAIL;
   }
   
-  /* Write each buffered log entry to the file */
-  for (uint32_t i = 0; i < s_log_buffer_index; i++) {
-    const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+  /* If compression is enabled, we'll collect all logs into a single buffer first */
+  char *all_logs = NULL;
+  size_t total_size = 0;
+  
+  if (s_compression_enabled) {
+    /* Calculate total size needed */
+    for (uint32_t i = 0; i < s_log_buffer_index; i++) {
+      const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+      
+      /* Format: [TIMESTAMP] [LEVEL] MESSAGE */
+      time_t log_time = s_log_buffer[i].timestamp / 1000000; /* Convert microseconds to seconds */
+      struct tm timeinfo;
+      localtime_r(&log_time, &timeinfo);
+      
+      uint64_t milliseconds = (s_log_buffer[i].timestamp % 1000000) / 1000; /* Milliseconds */
+      
+      /* Calculate the size of this log entry */
+      char timestamp[64];
+      snprintf(timestamp, sizeof(timestamp), 
+               TIMESTAMP_FORMAT,
+               FORMAT_DATE_ARGS(&timeinfo),
+               FORMAT_TIME_ARGS(&timeinfo),
+               milliseconds);
+      
+      total_size += strlen(timestamp) + strlen(level_str) + strlen(s_log_buffer[i].buffer) + 10; /* Extra for brackets, spaces, newline */
+    }
     
-    /* Format: [TIMESTAMP] [LEVEL] MESSAGE */
-    char formatted_log[MAX_DATA_LENGTH * 2]; /* Doubled the size to ensure enough space */
-    time_t log_time = s_log_buffer[i].timestamp / 1000000; /* Convert microseconds to seconds */
-    struct tm timeinfo;
-    localtime_r(&log_time, &timeinfo);
+    /* Allocate buffer for all logs */
+    all_logs = malloc(total_size + 1); /* +1 for null terminator */
+    if (!all_logs) {
+      log_error(log_storage_tag, "Memory Error", "Failed to allocate buffer for log compression");
+      return ESP_FAIL;
+    }
     
-    uint64_t milliseconds = (s_log_buffer[i].timestamp % 1000000) / 1000; /* Milliseconds */
+    /* Reset buffer position */
+    size_t pos = 0;
     
-    /* Format the timestamp and log entry */
-    snprintf(formatted_log, sizeof(formatted_log), 
-             TIMESTAMP_FORMAT " [%s] %s",
-             FORMAT_DATE_ARGS(&timeinfo),
-             FORMAT_TIME_ARGS(&timeinfo),
-             milliseconds,
-             level_str,
-             s_log_buffer[i].buffer);
+    /* Collect all logs into the buffer */
+    for (uint32_t i = 0; i < s_log_buffer_index; i++) {
+      const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+      
+      /* Format: [TIMESTAMP] [LEVEL] MESSAGE */
+      time_t log_time = s_log_buffer[i].timestamp / 1000000; /* Convert microseconds to seconds */
+      struct tm timeinfo;
+      localtime_r(&log_time, &timeinfo);
+      
+      uint64_t milliseconds = (s_log_buffer[i].timestamp % 1000000) / 1000; /* Milliseconds */
+      
+      /* Format the timestamp and log entry */
+      int written = snprintf(all_logs + pos, total_size - pos, 
+                 TIMESTAMP_FORMAT " [%s] %s\n",
+                 FORMAT_DATE_ARGS(&timeinfo),
+                 FORMAT_TIME_ARGS(&timeinfo),
+                 milliseconds,
+                 level_str,
+                 s_log_buffer[i].buffer);
+      
+      if (written > 0) {
+        pos += written;
+      }
+    }
     
-    /* Enqueue the log for writing */
-    esp_err_t ret = file_write_enqueue(s_current_log_file, formatted_log);
+    /* Ensure null termination */
+    all_logs[pos] = '\0';
+    
+    /* Write all logs at once */
+    esp_err_t ret = priv_write_log_data(s_current_log_file, all_logs);
+    free(all_logs);
+    
     if (ret != ESP_OK) {
-      log_error(log_storage_tag, "Write Failed", "Failed to enqueue log for writing: %s", 
+      log_error(log_storage_tag, "Write Failed", "Failed to write compressed logs: %s", 
                 esp_err_to_name(ret));
       return ESP_FAIL;
+    }
+  } else {
+    /* No compression, write each log entry individually */
+    for (uint32_t i = 0; i < s_log_buffer_index; i++) {
+      const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+      
+      /* Format: [TIMESTAMP] [LEVEL] MESSAGE */
+      char formatted_log[MAX_DATA_LENGTH * 2]; /* Doubled the size to ensure enough space */
+      time_t log_time = s_log_buffer[i].timestamp / 1000000; /* Convert microseconds to seconds */
+      struct tm timeinfo;
+      localtime_r(&log_time, &timeinfo);
+      
+      uint64_t milliseconds = (s_log_buffer[i].timestamp % 1000000) / 1000; /* Milliseconds */
+      
+      /* Format the timestamp and log entry */
+      snprintf(formatted_log, sizeof(formatted_log), 
+               TIMESTAMP_FORMAT " [%s] %s",
+               FORMAT_DATE_ARGS(&timeinfo),
+               FORMAT_TIME_ARGS(&timeinfo),
+               milliseconds,
+               level_str,
+               s_log_buffer[i].buffer);
+      
+      /* Enqueue the log for writing */
+      esp_err_t ret = file_write_enqueue(s_current_log_file, formatted_log);
+      if (ret != ESP_OK) {
+        log_error(log_storage_tag, "Write Failed", "Failed to enqueue log for writing: %s", 
+                  esp_err_to_name(ret));
+        return ESP_FAIL;
+      }
     }
   }
   
@@ -258,6 +433,9 @@ esp_err_t log_storage_init(void)
   
   /* Check SD card availability */
   s_sd_card_available = true; /* Assume available initially */
+  
+  /* Set initial compression state */
+  s_compression_enabled = LOG_COMPRESSION_ENABLED;
   
   /* Generate initial log file path */
   s_current_log_file[0] = '\0'; /* Will be generated on first write */
@@ -352,4 +530,38 @@ esp_err_t log_storage_flush(void)
   xSemaphoreGive(s_log_mutex);
   log_info(log_storage_tag, "Flush Complete", "Log flush completed successfully");
   return ret;
+}
+
+esp_err_t log_storage_set_compression(bool enabled)
+{
+  if (!s_log_storage_initialized) {
+    log_error(log_storage_tag, "Config Error", "Log storage not initialized");
+    return ESP_FAIL;
+  }
+  
+  if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+    log_error(log_storage_tag, "Mutex Error", "Failed to acquire mutex for compression config");
+    return ESP_FAIL;
+  }
+  
+  /* Only update if the setting has changed */
+  if (s_compression_enabled != enabled) {
+    s_compression_enabled = enabled;
+    log_info(log_storage_tag, "Compression Config", "Log compression %s", 
+             enabled ? "enabled" : "disabled");
+    
+    /* Flush current logs before changing compression setting */
+    priv_flush_log_buffer();
+    
+    /* Force log rotation on next write to use new extension */
+    s_current_log_file[0] = '\0';
+  }
+  
+  xSemaphoreGive(s_log_mutex);
+  return ESP_OK;
+}
+
+bool log_storage_is_compression_enabled(void)
+{
+  return s_compression_enabled;
 } 
