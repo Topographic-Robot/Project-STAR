@@ -5,16 +5,12 @@
 ### Critical Tasks
 
 #### Log Handler Implementation
-- [x] Add timestamp to all log messages
-- [x] Add sequence numbers for message ordering
-- [x] Add thread/task ID for multi-threaded debugging
-- [ ] Log Storage and Management
-  - [ ] Implement log rotation
+- [x] Log Storage and Management
+  - [x] Implement log rotation
   - [ ] Add log compression for storage efficiency
-  - [ ] Add log filtering capabilities
-  - [ ] Implement log persistence across reboots
-  - [ ] Add log retrieval interface
-- [x] Ensure all log messages that include unsigned integers use `%u` instead of `%d` for proper formatting.
+  - [x] Add log filtering capabilities
+  - [x] Implement log persistence across reboots
+  - [x] Add log retrieval interface
 
 #### Code Cleanup and Standardization
 - [ ] Review and standardize inline function usage:
@@ -27,6 +23,11 @@
   - [ ] Review and fix variadic argument handling
   - [ ] Add null pointer checks to all public functions
   - [ ] Add range validation for critical parameters
+- [ ] Array Size Standardization:
+  - [x] Replace all hardcoded array sizes with macros
+  - [ ] Create consistent naming convention for size macros
+  - [ ] Document array size macro usage in coding standards
+  - [ ] Add static analysis checks for hardcoded array sizes
 
 #### Error Handling
 - [ ] Core Components Error Handler Integration

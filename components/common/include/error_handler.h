@@ -92,7 +92,7 @@ esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status
 esp_err_t error_handler_reset(error_handler_t *handler);
 
 /* For backward compatibility */
-#define error_handler_record_error(handler, error) error_handler_record_status(handler, error)
+#define error_handler_record_error(handler, error) (error_handler_record_status((handler), (error)))
 
 #ifdef __cplusplus
 }

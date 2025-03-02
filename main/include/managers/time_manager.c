@@ -56,24 +56,18 @@ static void priv_set_default_time(void)
   struct timeval tv;
   struct tm      tm;
 
-  /* TODO, i would like to make all things set to 0 */
-  tm.tm_year  = 2025 - 1900; /* Year since 1900 */
-  tm.tm_mon   = 0;           /* January */
-  tm.tm_mday  = 1;           /* Day 1 */
-  tm.tm_hour  = 0;           /* Midnight */
-  tm.tm_min   = 0;           /* Zero minutes */
-  tm.tm_sec   = 0;           /* Zero seconds */
-  tm.tm_isdst = -1;          /* Not considering daylight saving time */
+  /* Set all time values to 0 */
+  memset(&tm, 0, sizeof(tm));
+  tm.tm_mday  = 1;  /* Day must be at least 1 to be valid */
+  tm.tm_isdst = -1; /* Not considering daylight saving time */
 
-  tv.tv_sec  = mktime(&tm); /* Convert to seconds since epoch */
-  tv.tv_usec = 0;
+  /* Set the actual time values to 0 */
+  tv.tv_sec  = 0; /* 0 seconds since epoch */
+  tv.tv_usec = 0; /* 0 microseconds */
 
   settimeofday(&tv, NULL);
-  char *time_str = asctime(&tm);
-  /* Remove the trailing newline added by asctime */
-  time_str[strcspn(time_str, "\n")] = '\0'; 
   
-  log_info(time_manager_tag, "Time Set", "System time set to default: 2025-01-01 00:00:00");
+  log_info(time_manager_tag, "Time Set", "System time set to 0 (Jan 1, 1970 00:00:00.000000 UTC)");
 }
 
 /* Public Functions ***********************************************************/

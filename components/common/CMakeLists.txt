@@ -4,9 +4,13 @@ idf_component_register(
     "uart.c"
     "error_handler.c"
     "log_handler.c"
+    "log_storage.c"
   INCLUDE_DIRS
     "include"
   PRIV_REQUIRES
     driver
+    storage
+    esp_timer
+    main
 )
 

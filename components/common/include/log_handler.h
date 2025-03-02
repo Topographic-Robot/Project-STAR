@@ -10,18 +10,43 @@ extern "C" {
 #include "esp_err.h"
 #include "esp_log.h"
 #include <stdarg.h>
+#include <stdbool.h>
 
 /* Constants ******************************************************************/
 
-extern const char *log_tag;
+extern const char *log_tag; /* Tag for logging */
 
 /* Macros ********************************************************************/
 
-#define LOG_MAX_MESSAGE_LENGTH (256)
-#define LOG_MAX_TAG_LENGTH     (32)
-#define LOG_SEPARATOR          (" - ")  /* Separator between log components */
+#define LOG_MAX_MESSAGE_LENGTH (256)   /* Maximum length of log messages */
+#define LOG_MAX_TAG_LENGTH     (32)    /* Maximum length of log tags */
+#define LOG_SEPARATOR          (" - ") /* Separator between log components */
 
 /* Public Functions **********************************************************/
+
+/**
+ * @brief Initializes the log handler
+ * 
+ * Sets up the log handler and optionally initializes SD card logging.
+ * 
+ * @param log_to_sd Whether to enable logging to SD card
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ */
+esp_err_t log_init(bool log_to_sd);
+
+/**
+ * @brief Enables or disables logging to SD card
+ * 
+ * @param enabled Whether to enable logging to SD card
+ */
+void log_set_sd_logging(bool enabled);
+
+/**
+ * @brief Flushes any buffered logs to the SD card
+ * 
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ */
+esp_err_t log_flush(void);
 
 /**
  * @brief Log a message with the specified level and tag

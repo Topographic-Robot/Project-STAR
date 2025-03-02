@@ -58,6 +58,13 @@ esp_err_t system_tasks_init(void)
 {
   esp_err_t ret = ESP_OK;
 
+  /* Initialize logging system */
+  log_info(system_tag, "Log Start", "Beginning log system initialization");
+  if (log_init(true) != ESP_OK) {
+    ESP_LOGE(system_tag, "Failed to initialize log system");
+    ret = ESP_FAIL;
+  }
+
   /* Initialize NVS storage */
   if (priv_clear_nvs_flash() != ESP_OK) {
     log_error(system_tag, "NVS Error", "Storage system initialization failed");
