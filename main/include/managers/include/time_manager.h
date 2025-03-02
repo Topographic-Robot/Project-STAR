@@ -14,6 +14,10 @@ extern "C" {
 
 extern const char *time_manager_tag; /**< For Logging */
 
+/* Macro Definitions **********************************************************/
+
+#define TIME_STRFTIME_BUFFER_SIZE (64) /**< Size of buffer for formatted time strings */
+
 /* Public Functions ***********************************************************/
 
 /**

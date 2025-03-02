@@ -134,7 +134,7 @@ esp_err_t time_manager_init(void)
     return ESP_OK;
   }
   
-  char strftime_buf[64];
+  char strftime_buf[TIME_STRFTIME_BUFFER_SIZE];
   
   time(&now);
   localtime_r(&now, &timeinfo);

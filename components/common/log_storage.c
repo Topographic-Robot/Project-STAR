@@ -72,7 +72,7 @@ static esp_err_t priv_create_log_directories(void)
   struct tm timeinfo;
   localtime_r(&now, &timeinfo);
   
-  char date_str[32];
+  char date_str[DATE_STRING_BUFFER_SIZE];
   snprintf(date_str, sizeof(date_str), DATE_FORMAT, FORMAT_DATE_ARGS(&timeinfo));
   
   snprintf(dir_path, sizeof(dir_path), "%s/%s", 
@@ -104,7 +104,7 @@ static void priv_generate_log_file_path(char *file_path, size_t file_path_len)
   struct tm timeinfo;
   localtime_r(&now, &timeinfo);
   
-  char date_str[32];
+  char date_str[DATE_STRING_BUFFER_SIZE];
   snprintf(date_str, sizeof(date_str), DATE_FORMAT, FORMAT_DATE_ARGS(&timeinfo));
   
   snprintf(file_path, file_path_len, "%s/%s/" LOG_FILENAME_FORMAT, 
@@ -142,7 +142,7 @@ static bool priv_check_log_rotation(void)
   struct tm timeinfo;
   localtime_r(&now, &timeinfo);
   
-  char date_str[32]; /* Increased from 20 to ensure enough space */
+  char date_str[DATE_STRING_BUFFER_SIZE]; /* Increased from 20 to ensure enough space */
   snprintf(date_str, sizeof(date_str), DATE_FORMAT, FORMAT_DATE_ARGS(&timeinfo));
   
   if (strstr(s_current_log_file, date_str) == NULL) {

@@ -26,6 +26,7 @@ extern const char *log_base_dir;    /* Base directory for logs */
 #define LOG_MAX_FILE_SIZE      (1024 * 1024) /* Maximum log file size in bytes (1MB) */
 #define LOG_MAX_FILES          (10)          /* Maximum number of log files to keep */
 #define LOG_MAX_MESSAGE_LENGTH (256)         /* Maximum length of log messages */
+#define DATE_STRING_BUFFER_SIZE (32)         /* Size of buffer for date strings */
 
 /* Format strings for consistent formatting */
 #define DATE_FORMAT         "%04d-%02d-%02d"
