@@ -47,7 +47,7 @@
 |                 | RET           | Controlled by DE10-Lite                                       |
 |                 | PWDN          | Controlled by DE10-Lite                                       |
 | Micro-SD Reader |               |                                                               |
-|                 | CD            | Optional                                                      |
+|                 | CD            | GPIO_NUM_13 (D13)                                             |
 |                 | CS            | GPIO_NUM_5 (D5)                                               |
 |                 | DI            | GPIO_NUM_23 (D23)                                             |
 |                 | DO            | GPIO_NUM_19 (D19)                                             |
