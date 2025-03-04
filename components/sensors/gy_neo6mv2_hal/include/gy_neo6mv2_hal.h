@@ -25,6 +25,8 @@ extern const uint32_t    gy_neo6mv2_polling_rate_ticks;     /**< Polling interva
 extern const uint8_t     gy_neo6mv2_max_retries;            /**< Maximum retry attempts for GY-NEO6MV2 reinitialization. */
 extern const uint32_t    gy_neo6mv2_initial_retry_interval; /**< Initial retry interval for GY-NEO6MV2 in system ticks. */
 extern const uint32_t    gy_neo6mv2_max_backoff_interval;   /**< Maximum backoff interval for GY-NEO6MV2 retries in ticks. */
+extern const size_t      gy_neo6mv2_rx_buffer_size;         /**< Size of the UART RX buffer for GY-NEO6MV2 in bytes. */
+extern const size_t      gy_neo6mv2_tx_buffer_size;         /**< Size of the UART TX buffer for GY-NEO6MV2 in bytes. */
 
 /* GPGSV sentence parsing constants */
 extern const uint8_t gy_neo6mv2_gpgsv_sats_per_sentence; /**< Number of satellites per GPGSV sentence */

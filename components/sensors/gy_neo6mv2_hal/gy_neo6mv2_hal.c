@@ -24,6 +24,8 @@ const uint32_t    gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 100);
 const uint8_t     gy_neo6mv2_max_retries            = 4;
 const uint32_t    gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
+const size_t      gy_neo6mv2_rx_buffer_size         = 1024 * 2; /* 2KB RX buffer */
+const size_t      gy_neo6mv2_tx_buffer_size         = 1024;     /* 1KB TX buffer */
 
 /* GPGSV sentence parsing constants */
 const uint8_t gy_neo6mv2_gpgsv_sats_per_sentence = 4;  /**< Number of satellites per GPGSV sentence */
@@ -285,7 +287,8 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
   /* Initialize UART using the common UART function */
   esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io, gy_neo6mv2_uart_baudrate,
-                                 gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+                                 gy_neo6mv2_uart_num, gy_neo6mv2_rx_buffer_size, 
+                                 gy_neo6mv2_tx_buffer_size, gy_neo6mv2_tag);
   if (ret != ESP_OK) {
     log_error(gy_neo6mv2_tag, "UART Init Failed", "Failed to initialize UART communication");
     return ret;
@@ -304,7 +307,9 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
 
   /* Send configuration commands */
   for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
-    uart_write_bytes(gy_neo6mv2_uart_num, config_commands[i], strlen(config_commands[i]));
+    int32_t bytes_written = 0;
+    priv_uart_write((const uint8_t *)config_commands[i], strlen(config_commands[i]), 
+                   &bytes_written, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
     vTaskDelay(pdMS_TO_TICKS(100)); /* Wait for command processing */
   }
 
