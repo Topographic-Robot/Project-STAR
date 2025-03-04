@@ -19,7 +19,7 @@ extern const uint32_t max_pending_writes; /**< Maximum number of queued file wri
 
 #define MAX_FILE_PATH_LENGTH  (64)  /**< Maximum file path length, including the null terminator. */
 #define MAX_DATA_LENGTH       (256) /**< Maximum data length per write request, including the null terminator. */
-#define TIMESTAMP_BUFFER_SIZE (32)  /**< Size of buffer for timestamp strings. */
+#define TIMESTAMP_BUFFER_SIZE (64)  /**< Size of buffer for timestamp strings. */
 
 /* Structs ********************************************************************/
 
@@ -38,30 +38,21 @@ typedef struct {
 /**
  * @brief Represents a request to write data to a file.
  *
- * Contains the file path and data required for a file write operation.
+ * Contains the file path, data, and data length for a file write operation.
+ * The is_binary flag indicates whether the data should be treated as binary or text.
  * 
  * @note
  * - The `file_path` must be null-terminated and have a length defined by 
  *   the `max_file_path_length` macro to prevent memory overflow.
- * - The `data` field must also be null-terminated if it contains a string and
- *   has a length defined by the `max_data_length` macro.
- */
-typedef struct {
-  char file_path[MAX_FILE_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
-  char data[MAX_DATA_LENGTH];           /**< Data to write to the file. Must be null-terminated if it is a string. */
-} file_write_request_t;
-
-/**
- * @brief Represents a request to write binary data to a file.
- *
- * Contains the file path, data pointer, and data length for a binary file write operation.
+ * - For text data (is_binary = false), the data field contains the null-terminated string.
+ * - For binary data (is_binary = true), the data field contains a pointer to the binary data.
  */
 typedef struct {
   char     file_path[MAX_FILE_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
-  void    *data;                            /**< Pointer to the binary data to write. */
-  uint32_t data_length;                     /**< Length of the binary data in bytes. */
-  bool     is_binary;                       /**< Flag indicating this is a binary write request. */
-} file_write_binary_request_t;
+  void    *data;                            /**< Pointer to the data to write. For text, this is a null-terminated string. */
+  uint32_t data_length;                     /**< Length of the data in bytes. For text, this can be 0 (will use strlen). */
+  bool     is_binary;                       /**< Flag indicating if this is a binary write request (true) or text (false). */
+} file_write_request_t;
 
 /* Public Functions ***********************************************************/
 

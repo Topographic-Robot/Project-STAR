@@ -99,16 +99,23 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
   time_t now = time(NULL);
   struct tm timeinfo;
   localtime_r(&now, &timeinfo);
-  strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &timeinfo);
   
-  /* Write timestamp and data */
-  fprintf(file, "[%s] %s\n", timestamp, data);
+  /* Format timestamp */
+  snprintf(timestamp, sizeof(timestamp), "%04d-%02d-%02d %02d:%02d:%02d",
+           timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+           timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  
+  /* Write timestamp and data to file */
+  fprintf(file, "%s: %s\n", timestamp, data);
   
   /* Ensure data is written to disk */
   fflush(file);
   fsync(fileno(file));
   
+  /* Close file */
   fclose(file);
+  
+  log_debug(file_manager_tag, "Write Success", "Data written to file: %s", file_path);
   return ESP_OK;
 }
 
@@ -116,8 +123,8 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
  * @brief Writes binary data to a file
  * 
  * @param[in] file_path Path to the file
- * @param[in] data Pointer to binary data
- * @param[in] data_length Length of binary data
+ * @param[in] data Binary data to write
+ * @param[in] data_length Length of the binary data
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
 static esp_err_t priv_write_binary_to_file(const char *file_path, const void *data, uint32_t data_length)
@@ -130,18 +137,18 @@ static esp_err_t priv_write_binary_to_file(const char *file_path, const void *da
   char full_path[MAX_FILE_PATH_LENGTH * 2];
   snprintf(full_path, sizeof(full_path), "%s/%s", sd_card_mount_path, file_path);
   
-  FILE *file = fopen(full_path, "ab"); /* Open in binary append mode */
+  FILE *file = fopen(full_path, "ab");
   if (!file) {
     log_error(file_manager_tag, "Binary File Open Error", "Failed to open file: %s (errno: %d)", 
               full_path, errno);
     return ESP_FAIL;
   }
   
-  /* Write binary data */
-  size_t written = fwrite(data, 1, data_length, file);
-  if (written != data_length) {
-    log_error(file_manager_tag, "Binary Write Error", "Failed to write all data: %lu of %lu bytes written", 
-              (unsigned long)written, (unsigned long)data_length);
+  /* Write binary data to file */
+  size_t bytes_written = fwrite(data, 1, data_length, file);
+  if (bytes_written != data_length) {
+    log_error(file_manager_tag, "Binary Write Error", "Failed to write all data: %zu of %lu bytes written",
+              bytes_written, (unsigned long)data_length);
     fclose(file);
     return ESP_FAIL;
   }
@@ -150,8 +157,11 @@ static esp_err_t priv_write_binary_to_file(const char *file_path, const void *da
   fflush(file);
   fsync(fileno(file));
   
+  /* Close file */
   fclose(file);
-  log_debug(file_manager_tag, "Binary Write Success", "Wrote %lu bytes to %s", (unsigned long)data_length, file_path);
+  
+  log_debug(file_manager_tag, "Binary Write Success", "Binary data written to file: %s (%lu bytes)",
+            file_path, (unsigned long)data_length);
   return ESP_OK;
 }
 
@@ -165,31 +175,33 @@ static void priv_file_write_task(void *param)
   log_info(file_manager_tag, "Task Start", "File write task started");
   
   while (1) {
-    /* Union to hold either type of request */
-    union {
-      file_write_request_t       text_request;
-      file_write_binary_request_t binary_request;
-    } request;
-    
     /* Wait for a request from the queue */
+    file_write_request_t request;
+    
     if (xQueueReceive(s_file_write_queue, &request, portMAX_DELAY) == pdTRUE) {
       /* Check if this is a binary request */
-      if (request.binary_request.is_binary) {
+      if (request.is_binary) {
         /* Process binary write request */
         priv_write_binary_to_file(
-          request.binary_request.file_path,
-          request.binary_request.data,
-          request.binary_request.data_length
+          request.file_path,
+          request.data,
+          request.data_length
         );
         
         /* Free the allocated data buffer */
-        if (request.binary_request.data) {
-          free(request.binary_request.data);
-          request.binary_request.data = NULL;
+        if (request.data) {
+          free(request.data);
+          request.data = NULL;
         }
       } else {
         /* Process text write request */
-        priv_write_to_file(request.text_request.file_path, request.text_request.data);
+        priv_write_to_file(request.file_path, (const char *)request.data);
+        
+        /* Free the allocated data buffer */
+        if (request.data) {
+          free(request.data);
+          request.data = NULL;
+        }
       }
     }
   }
@@ -207,7 +219,7 @@ esp_err_t file_write_manager_init(void)
   log_info(file_manager_tag, "Init Start", "Initializing file write manager");
   
   /* Create queue for file write requests */
-  s_file_write_queue = xQueueCreate(max_pending_writes, sizeof(file_write_binary_request_t));
+  s_file_write_queue = xQueueCreate(max_pending_writes, sizeof(file_write_request_t));
   if (s_file_write_queue == NULL) {
     log_error(file_manager_tag, "Queue Error", "Failed to create file write queue");
     return ESP_FAIL;
@@ -251,28 +263,26 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   file_write_request_t request;
   memset(&request, 0, sizeof(request));
   
-  /* Copy file path and data to the request */
+  /* Copy file path to the request */
   strncpy(request.file_path, file_path, MAX_FILE_PATH_LENGTH - 1);
-  strncpy(request.data, data, MAX_DATA_LENGTH - 1);
-  
-  /* Ensure null termination */
   request.file_path[MAX_FILE_PATH_LENGTH - 1] = '\0';
-  request.data[MAX_DATA_LENGTH - 1] = '\0';
   
-  /* Create a binary request with is_binary set to false */
-  file_write_binary_request_t binary_request;
-  memset(&binary_request, 0, sizeof(binary_request));
+  /* Allocate memory for the text data and copy it */
+  size_t data_length = strlen(data) + 1; /* Include null terminator */
+  request.data = malloc(data_length);
+  if (!request.data) {
+    log_error(file_manager_tag, "Memory Error", "Failed to allocate memory for text data");
+    return ESP_FAIL;
+  }
   
-  /* Copy the text request data to the binary request */
-  strncpy(binary_request.file_path, request.file_path, MAX_FILE_PATH_LENGTH - 1);
-  binary_request.file_path[MAX_FILE_PATH_LENGTH - 1] = '\0';
-  binary_request.data = NULL; /* No binary data */
-  binary_request.data_length = 0;
-  binary_request.is_binary = false; /* This is a text request */
+  memcpy(request.data, data, data_length);
+  request.data_length = data_length;
+  request.is_binary = false; /* This is a text request */
   
   /* Send the request to the queue */
-  if (xQueueSend(s_file_write_queue, &binary_request, pdMS_TO_TICKS(100)) != pdTRUE) {
+  if (xQueueSend(s_file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {
     log_error(file_manager_tag, "Queue Error", "Failed to enqueue file write request: queue full");
+    free(request.data);
     return ESP_FAIL;
   }
   
@@ -293,7 +303,7 @@ esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uin
   }
   
   /* Create a binary request */
-  file_write_binary_request_t request;
+  file_write_request_t request;
   memset(&request, 0, sizeof(request));
   
   /* Copy file path to the request */
