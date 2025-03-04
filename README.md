@@ -33,6 +33,7 @@
 - **Modular Design:** Built using ESP-IDF with a modular component structure for easy maintenance and expansion.
 - **JTAG Debugging:** Supports JTAG debugging for development and troubleshooting.
 - **Interrupt-Driven Sensor Handling:** The MPU6050 sensor implementation uses interrupts for efficient data acquisition.
+- **SD Card Hot-Swap:** Supports SD card hot-swapping with automatic detection using the CD pin.
 
 ## Hardware
 

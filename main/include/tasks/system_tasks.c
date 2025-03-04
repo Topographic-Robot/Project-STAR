@@ -135,12 +135,13 @@ esp_err_t system_tasks_start(void)
     ret = ESP_FAIL;
   }
 
-  ///* Start camera monitoring task */
-  //log_info(system_tag, "Camera Start", "Beginning camera monitoring system");
-  //if (ov7670_task_start(&g_camera_data) != ESP_OK) {
-  //  log_error(system_tag, "Camera Error", "Failed to start camera monitoring: vision system offline");
-  //  ret = ESP_FAIL;
-  //} /* TODO: Add this back in/make this work */
+  /* Start camera monitoring task 
+  log_info(system_tag, "Camera Start", "Beginning camera monitoring system");
+  if (ov7670_task_start(&g_camera_data) != ESP_OK) {
+    log_error(system_tag, "Camera Error", "Failed to start camera monitoring: vision system offline");
+    ret = ESP_FAIL;
+  } 
+  TODO: Add this back in/make this work */
 
   /* Start sensor tasks */
   log_info(system_tag, "Sensor Start", "Beginning sensor monitoring system");

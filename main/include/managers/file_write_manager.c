@@ -8,26 +8,14 @@
 #include <time.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "sd_card_hal.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "log_handler.h"
 #include "time_manager.h"
-
-/* TODO: Implement directory creation support
- *
- * Currently, the file writer assumes all directories in the file path
- * already exist. If they don't, the file open operation will fail.
- *
- * Add a helper function to:
- * - Parse the file path to extract directory components
- * - Create each directory level if it doesn't exist
- * - Log success/failure of directory creation
- *
- * This will make the file writer more robust when dealing with
- * complex file paths.
- */
 
 /* TODO: Implement a graceful shutdown mechanism for the file writer
  *
@@ -71,6 +59,82 @@ static bool          s_initialized      = false;
 /* Private Functions **********************************************************/
 
 /**
+ * @brief Creates all directories in a file path if they don't exist
+ * 
+ * @param[in] file_path Full path to the file (including SD card mount path)
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ */
+static esp_err_t priv_create_directories(const char *file_path)
+{
+  if (file_path == NULL) {
+    log_error(file_manager_tag, "Dir Create Error", "Invalid file path (NULL)");
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  /* Make a copy of the path that we can modify */
+  char path_copy[MAX_FILE_PATH_LENGTH * 2];
+  strncpy(path_copy, file_path, sizeof(path_copy) - 1);
+  path_copy[sizeof(path_copy) - 1] = '\0';
+  
+  /* Find the last slash in the path to get the directory part */
+  char *last_slash = strrchr(path_copy, '/');
+  if (last_slash == NULL) {
+    /* No directory component, nothing to create */
+    return ESP_OK;
+  }
+  
+  /* Terminate the string at the last slash to get just the directory path */
+  *last_slash = '\0';
+  
+  /* If the directory path is empty, nothing to create */
+  if (strlen(path_copy) == 0) {
+    return ESP_OK;
+  }
+  
+  /* Create the directory path recursively */
+  char *p = path_copy;
+  
+  /* Skip leading slashes */
+  while (*p == '/') {
+    p++;
+  }
+  
+  while (p && *p) {
+    /* Find the next slash */
+    char *next_slash = strchr(p, '/');
+    if (next_slash) {
+      *next_slash = '\0'; /* Temporarily terminate the string at this slash */
+    }
+    
+    /* Create the directory up to this point */
+    struct stat st;
+    if (stat(path_copy, &st) != 0) {
+      /* Directory doesn't exist, create it */
+      if (mkdir(path_copy, 0755) != 0) {
+        log_error(file_manager_tag, "Dir Create Failed", "Failed to create directory: %s (errno: %d)", 
+                  path_copy, errno);
+        return ESP_FAIL;
+      }
+      log_debug(file_manager_tag, "Dir Created", "Created directory: %s", path_copy);
+    } else if (!S_ISDIR(st.st_mode)) {
+      /* Path exists but is not a directory */
+      log_error(file_manager_tag, "Dir Create Failed", "Path exists but is not a directory: %s", path_copy);
+      return ESP_FAIL;
+    }
+    
+    /* Restore the slash and move to the next component */
+    if (next_slash) {
+      *next_slash = '/';
+      p = next_slash + 1;
+    } else {
+      break;
+    }
+  }
+  
+  return ESP_OK;
+}
+
+/**
  * @brief Writes a string to a file with timestamp
  * 
  * @param[in] file_path Path to the file
@@ -79,17 +143,32 @@ static bool          s_initialized      = false;
  */
 static esp_err_t priv_write_to_file(const char *file_path, const char *data)
 {
-  if (!file_path || !data) {
+  if (file_path == NULL || data == NULL) {
     log_error(file_manager_tag, "Write Error", "Invalid arguments: file_path or data is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
+  /* Check if SD card is available */
+  if (!sd_card_is_available()) {
+    log_error(file_manager_tag, "SD Card Error", "SD card not available, cannot write to file: %s", file_path);
+    return ESP_FAIL;
+  }
+  
+  /* Prepend the SD card mount path to the file path */
   char full_path[MAX_FILE_PATH_LENGTH * 2];
   snprintf(full_path, sizeof(full_path), "%s/%s", sd_card_mount_path, file_path);
   
+  /* Create directories if they don't exist */
+  esp_err_t ret = priv_create_directories(full_path);
+  if (ret != ESP_OK) {
+    log_error(file_manager_tag, "Dir Create Error", "Failed to create directories for file: %s", full_path);
+    return ret;
+  }
+  
+  /* Open the file for writing (append mode) */
   FILE *file = fopen(full_path, "a");
-  if (!file) {
-    log_error(file_manager_tag, "File Open Error", "Failed to open file: %s (errno: %d)", 
+  if (file == NULL) {
+    log_error(file_manager_tag, "File Open Error", "Failed to open file: %s (errno: %d)",
               full_path, errno);
     return ESP_FAIL;
   }
@@ -129,39 +208,52 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
  */
 static esp_err_t priv_write_binary_to_file(const char *file_path, const void *data, uint32_t data_length)
 {
-  if (!file_path || !data || data_length == 0) {
+  if (file_path == NULL || data == NULL || data_length == 0) {
     log_error(file_manager_tag, "Binary Write Error", "Invalid arguments: file_path or data is NULL, or data_length is 0");
     return ESP_ERR_INVALID_ARG;
   }
   
+  /* Check if SD card is available */
+  if (!sd_card_is_available()) {
+    log_error(file_manager_tag, "SD Card Error", "SD card not available, cannot write binary data to file: %s", file_path);
+    return ESP_FAIL;
+  }
+  
+  /* Prepend the SD card mount path to the file path */
   char full_path[MAX_FILE_PATH_LENGTH * 2];
   snprintf(full_path, sizeof(full_path), "%s/%s", sd_card_mount_path, file_path);
   
-  FILE *file = fopen(full_path, "ab");
-  if (!file) {
-    log_error(file_manager_tag, "Binary File Open Error", "Failed to open file: %s (errno: %d)", 
+  /* Create directories if they don't exist */
+  esp_err_t ret = priv_create_directories(full_path);
+  if (ret != ESP_OK) {
+    log_error(file_manager_tag, "Dir Create Error", "Failed to create directories for binary file: %s", full_path);
+    return ret;
+  }
+  
+  /* Open the file for writing (binary mode) */
+  FILE *file = fopen(full_path, "wb");
+  if (file == NULL) {
+    log_error(file_manager_tag, "Binary File Open Error", "Failed to open file: %s (errno: %d)",
               full_path, errno);
     return ESP_FAIL;
   }
   
-  /* Write binary data to file */
+  /* Write the binary data to the file */
   size_t bytes_written = fwrite(data, 1, data_length, file);
   if (bytes_written != data_length) {
     log_error(file_manager_tag, "Binary Write Error", "Failed to write all data: %zu of %lu bytes written",
-              bytes_written, (unsigned long)data_length);
-    fclose(file);
-    return ESP_FAIL;
+              bytes_written, data_length);
   }
   
   /* Ensure data is written to disk */
   fflush(file);
   fsync(fileno(file));
   
-  /* Close file */
+  /* Close the file */
   fclose(file);
   
   log_debug(file_manager_tag, "Binary Write Success", "Binary data written to file: %s (%lu bytes)",
-            file_path, (unsigned long)data_length);
+            file_path, data_length);
   return ESP_OK;
 }
 
@@ -225,6 +317,12 @@ esp_err_t file_write_manager_init(void)
     return ESP_FAIL;
   }
   
+  /* Initialize SD card detection system */
+  esp_err_t ret = sd_card_detection_init();
+  if (ret != ESP_OK) {
+    log_warn(file_manager_tag, "SD Card Warning", "SD card detection system initialization failed, file writes may fail");
+  }
+  
   /* Create task to process file write requests */
   BaseType_t task_created = xTaskCreate(
     priv_file_write_task,
@@ -277,7 +375,7 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   
   memcpy(request.data, data, data_length);
   request.data_length = data_length;
-  request.is_binary = false; /* This is a text request */
+  request.is_binary   = false; /* This is a text request */
   
   /* Send the request to the queue */
   if (xQueueSend(s_file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {
@@ -319,7 +417,7 @@ esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uin
   
   memcpy(request.data, data, data_length);
   request.data_length = data_length;
-  request.is_binary = true; /* This is a binary request */
+  request.is_binary   = true; /* This is a binary request */
   
   /* Send the request to the queue */
   if (xQueueSend(s_file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {

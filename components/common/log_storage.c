@@ -8,29 +8,34 @@
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <errno.h>
+#include <unistd.h>
+#include <zlib.h>
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
 
 /* Constants ******************************************************************/
 
-const char *log_storage_tag = "LOG_STORAGE";
-const char *log_base_dir    = "logs";
-const int log_max_file_size = 1024 * 1024; /* Maximum log file size in bytes (1MB) */
-const int log_max_files = 10;              /* Maximum number of log files to keep */
-const int date_string_buffer_size = 32;    /* Size of buffer for date strings */
-const int log_compression_enabled = 1;     /* Enable/disable compression (1=enabled, 0=disabled) */
-const int log_compression_level = Z_DEFAULT_COMPRESSION; /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
-const int log_compression_buffer = 4096;   /* Size of compression buffer */
-const char *log_compressed_extension = ".gz"; /* Extension for compressed log files */
+const char *log_storage_tag          = "LOG_STORAGE";
+const char *log_base_dir             = "logs";
+const int log_max_file_size          = 1024 * 1024;           /* Maximum log file size in bytes (1MB) */
+const int log_max_files              = 10;                    /* Maximum number of log files to keep */
+const int date_string_buffer_size    = 32;                    /* Size of buffer for date strings */
+const int log_compression_enabled    = 1;                     /* Enable/disable compression (1=enabled, 0=disabled) */
+const int log_compression_level      = Z_DEFAULT_COMPRESSION; /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
+const int log_compression_buffer     = 4096;                  /* Size of compression buffer */
+const char *log_compressed_extension = ".gz";                 /* Extension for compressed log files */
 
 /* Globals (Static) ***********************************************************/
 
 static log_entry_t       s_log_buffer[LOG_BUFFER_SIZE]            = {0};                     /* Buffer to store logs when SD card is not available */
 static uint32_t          s_log_buffer_index                       = 0;                       /* Current index in the buffer */
-static bool              s_sd_card_available                      = false;                   /* Flag to track SD card availability */
 static bool              s_log_storage_initialized                = false;                   /* Flag to track initialization status */
 static char              s_current_log_file[MAX_FILE_PATH_LENGTH] = {0};                     /* Current log file path */
 static SemaphoreHandle_t s_log_mutex                              = NULL;                    /* Mutex for thread-safe access */
-static bool              s_compression_enabled                    = true; /* Compression state */
+static bool              s_compression_enabled                    = true;                    /* Compression state */
 
 /* Private Functions **********************************************************/
 
@@ -53,52 +58,10 @@ static const char *priv_log_level_to_string(esp_log_level_t level)
 }
 
 /**
- * @brief Creates the log directory structure if it doesn't exist
+ * @brief Generates a log file path based on the current date and time
  * 
- * @return ESP_OK if successful, ESP_FAIL otherwise
- */
-static esp_err_t priv_create_log_directories(void)
-{
-  ESP_LOGI(log_storage_tag, "Creating log directories");
-  
-  /* Check if base directory exists */
-  struct stat st;
-  if (stat(log_base_dir, &st) != 0) {
-    /* Directory doesn't exist, create it */
-    if (mkdir(log_base_dir, 0755) != 0) {
-      ESP_LOGE(log_storage_tag, "Failed to create log directory: %s (errno: %d)", log_base_dir, errno);
-      return ESP_FAIL;
-    }
-  }
-  
-  /* Create date-based subdirectory */
-  struct tm timeinfo;
-  time_t now = time(NULL);
-  localtime_r(&now, &timeinfo);
-  
-  char date_str[date_string_buffer_size];
-  snprintf(date_str, sizeof(date_str), "%04d-%02d-%02d", 
-           timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
-  
-  char subdir[MAX_FILE_PATH_LENGTH];
-  snprintf(subdir, sizeof(subdir), "%s/%s", log_base_dir, date_str);
-  
-  if (stat(subdir, &st) != 0) {
-    /* Subdirectory doesn't exist, create it */
-    if (mkdir(subdir, 0755) != 0) {
-      ESP_LOGE(log_storage_tag, "Failed to create log subdirectory: %s (errno: %d)", subdir, errno);
-      return ESP_FAIL;
-    }
-  }
-  
-  return ESP_OK;
-}
-
-/**
- * @brief Generates a log file path based on the current time
- * 
- * @param[out] file_path Buffer to store the generated file path
- * @param[in] file_path_len Length of the file_path buffer
+ * @param[out] file_path Buffer to store the file path
+ * @param[in] file_path_len Length of the buffer
  */
 static void priv_generate_log_file_path(char *file_path, size_t file_path_len)
 {
@@ -112,7 +75,7 @@ static void priv_generate_log_file_path(char *file_path, size_t file_path_len)
   
   const char *extension = s_compression_enabled ? log_compressed_extension : ".txt";
   
-  snprintf(file_path, file_path_len, "%s/%s/" LOG_FILENAME_FORMAT,
+  snprintf(file_path, file_path_len, "%s/%s/%04d-%02d-%02d_%02d-%02d-%02d%s",
            log_base_dir, date_str,
            timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec,
@@ -177,14 +140,14 @@ static esp_err_t priv_rotate_log_file(void)
     return ESP_OK; /* No rotation needed */
   }
   
-  /* Create directories if needed */
-  if (priv_create_log_directories() != ESP_OK) {
-    return ESP_FAIL;
-  }
-  
   /* Generate new log file path */
   priv_generate_log_file_path(s_current_log_file, sizeof(s_current_log_file));
   log_info(log_storage_tag, "Log Rotation", "Rotating to new log file: %s", s_current_log_file);
+  
+  /* Note: We no longer need to explicitly create directories here.
+   * The file_write_manager now handles directory creation automatically
+   * when files are written.
+   */
   
   return ESP_OK;
 }
@@ -213,7 +176,7 @@ static esp_err_t priv_compress_data(const char *input, size_t input_len,
                          15 + 16, /* 15 for max window size, +16 for gzip header */
                          8, Z_DEFAULT_STRATEGY);
   if (ret != Z_OK) {
-    ESP_LOGE(log_storage_tag, "Failed to initialize zlib: %d", ret);
+    log_error(log_storage_tag, "Zlib Init Failed", "Failed to initialize zlib: %d", ret);
     return ESP_FAIL;
   }
   
@@ -230,7 +193,7 @@ static esp_err_t priv_compress_data(const char *input, size_t input_len,
   deflateEnd(&stream);
   
   if (ret != Z_STREAM_END) {
-    ESP_LOGE(log_storage_tag, "Failed to compress data: %d", ret);
+    log_error(log_storage_tag, "Compression Failed", "Failed to compress data: %d", ret);
     return ESP_FAIL;
   }
   
@@ -258,7 +221,7 @@ static esp_err_t priv_write_log_data(const char *file_path, const char *data)
     /* Compress data before writing */
     char *compress_buffer = malloc(log_compression_buffer);
     if (compress_buffer == NULL) {
-      ESP_LOGE(log_storage_tag, "Failed to allocate compression buffer");
+      log_error(log_storage_tag, "Memory Error", "Failed to allocate compression buffer");
       return ESP_FAIL;
     }
     
@@ -282,7 +245,7 @@ static esp_err_t priv_write_log_data(const char *file_path, const char *data)
 }
 
 /**
- * @brief Flushes the buffered logs to the SD card
+ * @brief Flushes the log buffer to disk
  * 
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
@@ -292,7 +255,7 @@ static esp_err_t priv_flush_log_buffer(void)
     return ESP_OK; /* Nothing to flush */
   }
   
-  if (!s_sd_card_available) {
+  if (!sd_card_is_available()) {
     log_warn(log_storage_tag, "Flush Skip", "SD card not available, keeping %lu logs in buffer", 
              s_log_buffer_index);
     return ESP_FAIL;
@@ -411,73 +374,66 @@ static esp_err_t priv_flush_log_buffer(void)
   
   /* Reset buffer index */
   s_log_buffer_index = 0;
-  log_info(log_storage_tag, "Buffer Flushed", "Successfully flushed log buffer to SD card");
   
+  log_info(log_storage_tag, "Buffer Flushed", "Successfully flushed log buffer to SD card");
   return ESP_OK;
 }
 
 /* Public Functions ***********************************************************/
 
-/**
- * @brief Initializes the log storage system
- * 
- * @return ESP_OK if successful, ESP_FAIL otherwise
- */
 esp_err_t log_storage_init(void)
 {
-  ESP_LOGI(log_storage_tag, "Initializing log storage");
+  log_info(log_storage_tag, "Init", "Initializing log storage");
   
-  /* Check if already initialized */
   if (s_log_storage_initialized) {
-    ESP_LOGW(log_storage_tag, "Log storage already initialized");
+    log_warn(log_storage_tag, "Already Init", "Log storage already initialized");
     return ESP_OK;
   }
   
-  /* Create mutex for thread safety */
+  /* Create mutex for thread-safe access */
   s_log_mutex = xSemaphoreCreateMutex();
   if (s_log_mutex == NULL) {
-    ESP_LOGE(log_storage_tag, "Failed to create mutex");
+    log_error(log_storage_tag, "Mutex Failed", "Failed to create mutex");
     return ESP_FAIL;
   }
   
-  /* Initialize log buffer */
-  memset(s_log_buffer, 0, sizeof(s_log_buffer));
-  s_log_buffer_index = 0;
+  /* Register for SD card availability notifications */
+  sd_card_register_availability_callback(log_storage_set_sd_available);
   
-  /* Set default compression state */
-  s_compression_enabled = (log_compression_enabled != 0);
-  
-  /* Mark as initialized */
   s_log_storage_initialized = true;
+  log_info(log_storage_tag, "Init Success", "Log storage initialized successfully");
   
-  ESP_LOGI(log_storage_tag, "Log storage initialized successfully");
   return ESP_OK;
 }
 
-esp_err_t log_storage_set_sd_available(bool available)
+/**
+ * @brief Callback function for SD card availability changes
+ * 
+ * This function is called by the SD card HAL when the SD card availability changes.
+ * It updates the internal state and flushes the log buffer if the SD card becomes available.
+ * 
+ * @param available Whether the SD card is available
+ */
+void log_storage_set_sd_available(bool available)
 {
   if (!s_log_storage_initialized) {
-    return ESP_FAIL;
+    return;
   }
   
   if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
     log_error(log_storage_tag, "Mutex Error", "Failed to acquire mutex for SD card status update");
-    return ESP_FAIL;
+    return;
   }
   
-  bool previous_state = s_sd_card_available;
-  s_sd_card_available = available;
-  
-  if (!previous_state && available) {
+  if (available) {
     /* SD card became available, try to flush buffer */
     log_info(log_storage_tag, "SD Available", "SD card became available, flushing buffered logs");
     priv_flush_log_buffer();
-  } else if (previous_state && !available) {
+  } else {
     log_warn(log_storage_tag, "SD Unavailable", "SD card became unavailable, logs will be buffered");
   }
   
   xSemaphoreGive(s_log_mutex);
-  return ESP_OK;
 }
 
 esp_err_t log_storage_write(esp_log_level_t level, const char *message)
@@ -487,8 +443,7 @@ esp_err_t log_storage_write(esp_log_level_t level, const char *message)
   }
   
   if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    /* Can't log this error through normal channels as it might cause recursion */
-    ESP_LOGE(log_storage_tag, "Failed to acquire mutex for log write");
+    log_error(log_storage_tag, "Mutex Error", "Failed to acquire mutex for log write");
     return ESP_FAIL;
   }
   
@@ -513,7 +468,7 @@ esp_err_t log_storage_write(esp_log_level_t level, const char *message)
   }
   
   /* If buffer is full or SD card is available, try to flush */
-  if (s_log_buffer_index >= LOG_BUFFER_SIZE && s_sd_card_available) {
+  if (s_log_buffer_index >= LOG_BUFFER_SIZE && sd_card_is_available()) {
     priv_flush_log_buffer();
   }
   
@@ -572,4 +527,9 @@ esp_err_t log_storage_set_compression(bool enabled)
 bool log_storage_is_compression_enabled(void)
 {
   return s_compression_enabled;
-} 
+}
+
+/* Define LOG_FILENAME_FORMAT if it's not defined elsewhere */
+#ifndef LOG_FILENAME_FORMAT
+#define LOG_FILENAME_FORMAT "%04d-%02d-%02d_%02d-%02d-%02d%s"
+#endif 
