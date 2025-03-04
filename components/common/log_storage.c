@@ -36,6 +36,7 @@ static bool              s_log_storage_initialized                = false;      
 static char              s_current_log_file[MAX_FILE_PATH_LENGTH] = {0};                     /* Current log file path */
 static SemaphoreHandle_t s_log_mutex                              = NULL;                    /* Mutex for thread-safe access */
 static bool              s_compression_enabled                    = true;                    /* Compression state */
+static bool              s_sd_card_available                      = false;                   /* Flag indicating if SD card is available */
 
 /* Private Functions **********************************************************/
 
@@ -255,7 +256,7 @@ static esp_err_t priv_flush_log_buffer(void)
     return ESP_OK; /* Nothing to flush */
   }
   
-  if (!sd_card_is_available()) {
+  if (!s_sd_card_available) {
     log_warn(log_storage_tag, "Flush Skip", "SD card not available, keeping %lu logs in buffer", 
              s_log_buffer_index);
     return ESP_FAIL;
@@ -397,6 +398,9 @@ esp_err_t log_storage_init(void)
     return ESP_FAIL;
   }
   
+  /* Initialize SD card availability status */
+  s_sd_card_available = false;
+  
   /* Register for SD card availability notifications */
   sd_card_register_availability_callback(log_storage_set_sd_available);
   
@@ -424,6 +428,8 @@ void log_storage_set_sd_available(bool available)
     log_error(log_storage_tag, "Mutex Error", "Failed to acquire mutex for SD card status update");
     return;
   }
+  
+  s_sd_card_available = available;
   
   if (available) {
     /* SD card became available, try to flush buffer */
@@ -468,7 +474,7 @@ esp_err_t log_storage_write(esp_log_level_t level, const char *message)
   }
   
   /* If buffer is full or SD card is available, try to flush */
-  if (s_log_buffer_index >= LOG_BUFFER_SIZE && sd_card_is_available()) {
+  if (s_log_buffer_index >= LOG_BUFFER_SIZE && s_sd_card_available) {
     priv_flush_log_buffer();
   }
   
