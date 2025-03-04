@@ -13,7 +13,9 @@ const uint32_t uart_timeout_ticks = pdMS_TO_TICKS(1000); /* Timeout for UART ope
 esp_err_t priv_uart_init(uint8_t     tx_io, 
                          uint8_t     rx_io, 
                          uint32_t    baud_rate,
-                         uart_port_t uart_num, 
+                         uart_port_t uart_num,
+                         size_t      rx_buffer_size,
+                         size_t      tx_buffer_size,
                          const char *tag)
 {
   uart_config_t uart_config = {
@@ -39,8 +41,8 @@ esp_err_t priv_uart_init(uint8_t     tx_io,
     return ret;
   }
 
-  /* Install the UART driver with no buffer (0 TX and RX buffer size) */
-  ret = uart_driver_install(uart_num, 1024 * 2, 0, 0, NULL, 0);
+  /* Install the UART driver with RX and TX buffers */
+  ret = uart_driver_install(uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
   if (ret != ESP_OK) {
     log_error(tag, "Driver Error", "Failed to install UART driver: %s", esp_err_to_name(ret));
   }
@@ -64,6 +66,26 @@ esp_err_t priv_uart_read(uint8_t    *data,
   } else {
     log_error(tag, "Read Error", "Failed to read data from UART (timeout or error)");
     *out_length = 0; /* No data read */
+    return ESP_FAIL;
+  }
+}
+
+esp_err_t priv_uart_write(const uint8_t *data,
+                          size_t         len,
+                          int32_t       *bytes_written,
+                          uart_port_t    uart_num,
+                          const char    *tag)
+{
+  /* Write data to the UART port */
+  int32_t written = uart_write_bytes(uart_num, (const char*)data, len);
+  
+  if (written > 0) {
+    *bytes_written = written; /* Store the number of bytes written */
+    log_info(tag, "Data Sent", "Wrote %lu bytes to UART", written);
+    return ESP_OK;
+  } else {
+    log_error(tag, "Write Error", "Failed to write data to UART");
+    *bytes_written = 0; /* No data written */
     return ESP_FAIL;
   }
 }
