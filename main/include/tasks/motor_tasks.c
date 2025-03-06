@@ -23,7 +23,7 @@ const char   *motor_tag          = "Motor Tasks";
  * and button press resets motor to default position.
  *
  * @param[in] event      The encoder event (CW, CCW, or button press)
- * @param[in] arg      Pointer to the PCA9685 board
+ * @param[in] arg        Pointer to the PCA9685 board
  * @param[in] motor_mask Bitmask indicating which motor to control
  */ 
 static void priv_motor_control_callback(ec11_event_t event, 
@@ -40,20 +40,26 @@ static void priv_motor_control_callback(ec11_event_t event,
       switch (event) {
         case k_ec11_cw:
           if (board->motors[i].pos_deg + angle_step <= 180.0f) {
-            pca9685_set_angle(board, (1 << i), board->board_id, 
+            pca9685_set_angle(board, 
+                              (1 << i), 
+                              board->board_id, 
                               board->motors[i].pos_deg + angle_step);
           }
           break;
 
         case k_ec11_ccw:
           if (board->motors[i].pos_deg - angle_step >= 0.0f) {
-            pca9685_set_angle(board, (1 << i), board->board_id, 
+            pca9685_set_angle(board, 
+                              (1 << i), 
+                              board->board_id, 
                               board->motors[i].pos_deg - angle_step);
           }
           break;
 
         case k_ec11_btn_press:
-          pca9685_set_angle(board, (1 << i), board->board_id, 
+          pca9685_set_angle(board, 
+                            (1 << i), 
+                            board->board_id, 
                             pca9685_default_angle);
           break;
 
@@ -70,11 +76,15 @@ esp_err_t motors_init(pca9685_board_t **pwm_controller)
 {
   esp_err_t ret = pca9685_init(pwm_controller, num_pca9685_boards);
   if (ret != ESP_OK) {
-    log_error(motor_tag, "PWM initialization failed", "Failed to initialize all PWM boards");
+    log_error(motor_tag, 
+              "PWM initialization failed", 
+              "Failed to initialize all PWM boards");
     return ret;
   }
 
-  log_info(motor_tag, "PWM initialization complete", "Initialized all PWM boards with default values");
+  log_info(motor_tag, 
+           "PWM initialization complete", 
+           "Initialized all PWM boards with default values");
 
   /* TODO: Map the motors with their identifications e.g hip/femur/tibia */
 

@@ -67,12 +67,20 @@ esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller,
 
   /* Clamp the angle to the joint's range */
   if (absolute_angle < angle_min) {
-    log_warn(gait_tag, "Angle Clamp", "Joint angle %.2f° clamped to minimum %.2f° for joint type %u", 
-             absolute_angle, angle_min, joint_type);
+    log_warn(gait_tag, 
+             "Angle Clamp", 
+             "Joint angle %.2f° clamped to minimum %.2f° for joint type %u", 
+             absolute_angle, 
+             angle_min, 
+             joint_type);
     absolute_angle = angle_min;
   } else if (absolute_angle > angle_max) {
-    log_warn(gait_tag, "Angle Clamp", "Joint angle %.2f° clamped to maximum %.2f° for joint type %u", 
-             absolute_angle, angle_max, joint_type);
+    log_warn(gait_tag, 
+             "Angle Clamp", 
+             "Joint angle %.2f° clamped to maximum %.2f° for joint type %u", 
+             absolute_angle, 
+             angle_max, 
+             joint_type);
     absolute_angle = angle_max;
   }
 
@@ -109,7 +117,9 @@ static esp_err_t priv_assign_motor(motor_t          *motor,
 {
   if (*motor_index >= 16) {
     if ((*board)->next == NULL) {
-      log_error(gait_tag, "Board Error", "Insufficient PCA9685 boards available for motor assignment");
+      log_error(gait_tag, 
+                "Board Error", 
+                "Insufficient PCA9685 boards available for motor assignment");
       return ESP_FAIL;
     }
     *board       = (*board)->next;
@@ -152,21 +162,36 @@ float priv_calculate_step_distance(float hip_angle_deg,
   /* TODO: Verify this for accuracy */
 
   /* Validate input parameters */
-  if (hip_angle_deg < hip_angle_from_90_min || hip_angle_deg > hip_angle_from_90_max) {
-    log_error(gait_tag, "Hip Error", "Hip angle %.2f° outside valid range [%.2f°, %.2f°]",
-             hip_angle_deg, hip_angle_from_90_min, hip_angle_from_90_max);
+  if (hip_angle_deg < hip_angle_from_90_min || 
+      hip_angle_deg > hip_angle_from_90_max) {
+    log_error(gait_tag, 
+              "Hip Error", 
+              "Hip angle %.2f° outside valid range [%.2f°, %.2f°]",
+              hip_angle_deg, 
+              hip_angle_from_90_min, 
+              hip_angle_from_90_max);
     return -1.0f;
   }
 
-  if (knee_angle_deg < knee_angle_from_90_min || knee_angle_deg > knee_angle_from_90_max) {
-    log_error(gait_tag, "Knee Error", "Knee angle %.2f° outside valid range [%.2f°, %.2f°]",
-             knee_angle_deg, knee_angle_from_90_min, knee_angle_from_90_max);
+  if (knee_angle_deg < knee_angle_from_90_min || 
+      knee_angle_deg > knee_angle_from_90_max) {
+    log_error(gait_tag, 
+              "Knee Error", 
+              "Knee angle %.2f° outside valid range [%.2f°, %.2f°]",
+              knee_angle_deg, 
+              knee_angle_from_90_min, 
+              knee_angle_from_90_max);
     return -1.0f;
   }
 
-  if (tibia_angle_deg < tibia_angle_from_90_min || tibia_angle_deg > tibia_angle_from_90_max) {
-    log_error(gait_tag, "Tibia Error", "Tibia angle %.2f° outside valid range [%.2f°, %.2f°]",
-             tibia_angle_deg, tibia_angle_from_90_min, tibia_angle_from_90_max);
+  if (tibia_angle_deg < tibia_angle_from_90_min || 
+      tibia_angle_deg > tibia_angle_from_90_max) {
+    log_error(gait_tag, 
+              "Tibia Error", 
+              "Tibia angle %.2f° outside valid range [%.2f°, %.2f°]",
+              tibia_angle_deg, 
+              tibia_angle_from_90_min, 
+              tibia_angle_from_90_max);
     return -1.0f;
   }
 
@@ -183,7 +208,9 @@ float priv_calculate_step_distance(float hip_angle_deg,
   float vertical_clearance = femur_length_cm * cosf(knee_angle_rad) +
                              tibia_length_cm * cosf(tibia_angle_rad);
 
-  log_info(gait_tag, "Step Calc", "Horizontal stride: %.2f cm, vertical clearance: %.2f cm", 
+  log_info(gait_tag, 
+           "Step Calc", 
+           "Horizontal stride: %.2f cm, vertical clearance: %.2f cm", 
            horizontal_stride, vertical_clearance);
 
   return horizontal_stride;
@@ -266,9 +293,15 @@ esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller,
     hip_mask = priv_extract_chunk(hip_mask, max_active_servos, &chunk);
 
     /* Apply relative angle to hip motors in the current chunk */
-    ret = pca9685_set_angle(pwm_controller, chunk, pwm_controller->board_id, relative_angle);
+    ret = pca9685_set_angle(pwm_controller, 
+                            chunk, 
+                            pwm_controller->board_id, 
+                            relative_angle);
     if (ret != ESP_OK) {
-      log_error(gait_tag, "Hip Error", "Failed to set hip motor angles, error: %s", esp_err_to_name(ret));
+      log_error(gait_tag, 
+                "Hip Error", 
+                "Failed to set hip motor angles, error: %s", 
+                esp_err_to_name(ret));
       return ret;
     }
 
@@ -291,9 +324,15 @@ esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller,
     remaining_mask = priv_extract_chunk(remaining_mask, max_active_servos, &chunk);
 
     /* Apply relative angle to motors in the current chunk */
-    ret = pca9685_set_angle(pwm_controller, chunk, pwm_controller->board_id, relative_angle);
+    ret = pca9685_set_angle(pwm_controller, 
+                            chunk, 
+                            pwm_controller->board_id, 
+                            relative_angle);
     if (ret != ESP_OK) {
-      log_error(gait_tag, "Motor Error", "Failed to set motor angles, error: %s", esp_err_to_name(ret));
+      log_error(gait_tag, 
+                "Motor Error", 
+                "Failed to set motor angles, error: %s", 
+                esp_err_to_name(ret));
       return ret;
     }
 
@@ -318,8 +357,11 @@ esp_err_t tripod_gait(pca9685_board_t *pwm_controller,
                       float            heading, 
                       uint16_t         distance)
 {
-  log_info(gait_tag, "Tripod Start", "Initiating tripod gait (heading: %.2f°, distance: %u cm)", 
-           heading, distance);
+  log_info(gait_tag, 
+           "Tripod Start", 
+           "Initiating tripod gait (heading: %.2f°, distance: %u cm)", 
+           heading, 
+           distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -329,8 +371,11 @@ esp_err_t wave_gait(pca9685_board_t *pwm_controller,
                     float            heading, 
                     uint16_t         distance)
 {
-  log_info(gait_tag, "Wave Start", "Initiating wave gait (heading: %.2f°, distance: %u cm)", 
-           heading, distance);
+  log_info(gait_tag, 
+           "Wave Start", 
+           "Initiating wave gait (heading: %.2f°, distance: %u cm)", 
+           heading, 
+           distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -340,8 +385,11 @@ esp_err_t ripple_gait(pca9685_board_t *pwm_controller,
                       float            heading, 
                       uint16_t         distance)
 {
-  log_info(gait_tag, "Ripple Start", "Initiating ripple gait (heading: %.2f°, distance: %u cm)", 
-           heading, distance);
+  log_info(gait_tag, 
+           "Ripple Start", 
+           "Initiating ripple gait (heading: %.2f°, distance: %u cm)", 
+           heading, 
+           distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -351,8 +399,11 @@ esp_err_t quadruped_gait(pca9685_board_t *pwm_controller,
                          float            heading, 
                          uint16_t         distance)
 {
-  log_info(gait_tag, "Quad Start", "Initiating quadruped gait (heading: %.2f°, distance: %u cm)", 
-           heading, distance);
+  log_info(gait_tag, 
+           "Quad Start", 
+           "Initiating quadruped gait (heading: %.2f°, distance: %u cm)", 
+           heading, 
+           distance);
 
   /* TODO: Implement this */
   return ESP_OK;
@@ -370,7 +421,9 @@ esp_err_t gait_init(pca9685_board_t *pwm_controller)
   uint8_t          board_id    = 0;
   pca9685_board_t *board       = pwm_controller;
 
-  log_info(gait_tag, "Init Start", "Beginning gait initialization, mapping motors to legs");
+  log_info(gait_tag, 
+           "Init Start", 
+           "Beginning gait initialization, mapping motors to legs");
 
   /* Map motors to s_legs and joints */
   for (uint8_t leg_id = 0; leg_id < 6; ++leg_id) {
@@ -382,17 +435,37 @@ esp_err_t gait_init(pca9685_board_t *pwm_controller)
     s_legs[leg_id].knee_motor  = &(board->motors[motor_index]);
     s_legs[leg_id].tibia_motor = &(board->motors[motor_index]);
 
-    ret1 = priv_assign_motor(s_legs[leg_id].hip_motor,   k_hip,   &board, &motor_index, &board_id);
-    ret2 = priv_assign_motor(s_legs[leg_id].knee_motor,  k_knee,  &board, &motor_index, &board_id);
-    ret3 = priv_assign_motor(s_legs[leg_id].tibia_motor, k_tibia, &board, &motor_index, &board_id);
+    ret1 = priv_assign_motor(s_legs[leg_id].hip_motor,   
+                             k_hip,   
+                             &board, 
+                             &motor_index, 
+                             &board_id);
+    ret2 = priv_assign_motor(s_legs[leg_id].knee_motor,  
+                             k_knee,  
+                             &board, 
+                             &motor_index, 
+                             &board_id);
+    ret3 = priv_assign_motor(s_legs[leg_id].tibia_motor, 
+                             k_tibia, 
+                             &board, 
+                             &motor_index, 
+                             &board_id);
 
     if (ret1 != ESP_OK || ret2 != ESP_OK || ret3 != ESP_OK) {
-      log_error(gait_tag, "Motor Error", "Failed to assign motors for leg %u", leg_id);
+      log_error(gait_tag, 
+                "Motor Error", 
+                "Failed to assign motors for leg %u", 
+                leg_id);
       return ESP_FAIL;
     }
-    log_info(gait_tag, "Leg Init", "Successfully assigned all motors for leg %u", leg_id);
+    log_info(gait_tag, 
+             "Leg Init", 
+             "Successfully assigned all motors for leg %u", 
+             leg_id);
   }
 
-  log_info(gait_tag, "Init Complete", "Gait initialization successful, all legs configured");
+  log_info(gait_tag, 
+           "Init Complete", 
+           "Gait initialization successful, all legs configured");
   return ESP_OK;
 }

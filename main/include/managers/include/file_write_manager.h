@@ -97,7 +97,8 @@ esp_err_t file_write_manager_init(void);
  *
  * @note Ensure `file_write_manager_init` has been called before invoking 
  *       this function. The function does not block but returns immediately 
- *       after enqueueing the request.
+ *       after enqueueing the request. The data is copied to an internal buffer,
+ *       so the caller can free the original data after this function returns.
  */
 esp_err_t file_write_enqueue(const char *file_path, const char *data);
 
@@ -125,7 +126,9 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data);
  *       after enqueueing the request. The data is copied to an internal buffer,
  *       so the caller can free the original data after this function returns.
  */
-esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uint32_t data_length);
+esp_err_t file_write_binary_enqueue(const char *file_path, 
+                                    const void *data, 
+                                    uint32_t    data_length);
 
 #ifdef __cplusplus
 }

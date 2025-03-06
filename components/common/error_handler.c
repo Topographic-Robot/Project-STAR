@@ -20,7 +20,10 @@ void error_handler_init(error_handler_t *handler,
     return;
   }
 
-  log_info(tag, "Init Start", "Initializing error handler with max_retries=%u", max_retries);
+  log_info(tag, 
+           "Init Start", 
+           "Initializing error handler with max_retries=%u", 
+           max_retries);
 
   handler->retry_count              = 0;
   handler->max_retries              = max_retries;
@@ -68,7 +71,10 @@ esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status
 
     /* Check if we've exceeded max retries */
     if (handler->retry_count >= handler->max_retries) {
-      log_error(handler->tag, "Retry Error", "Maximum retry attempts (%u) exceeded", handler->max_retries);
+      log_error(handler->tag, 
+                "Retry Error", 
+                "Maximum retry attempts (%u) exceeded", 
+                handler->max_retries);
       
       /* Update retry interval with exponential backoff */
       handler->retry_interval = (handler->retry_interval * 2 <= handler->max_interval) ?
@@ -81,8 +87,11 @@ esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status
     /* Call component-specific reset function if set */
     esp_err_t ret = ESP_OK;
     if (handler->reset_func) {
-      log_info(handler->tag, "Reset Start", "Attempting component reset (attempt %u/%u)", 
-               handler->retry_count, handler->max_retries);
+      log_info(handler->tag, 
+               "Reset Start", 
+               "Attempting component reset (attempt %u/%u)", 
+               handler->retry_count, 
+               handler->max_retries);
       ret = handler->reset_func(handler->context);
       if (ret == ESP_OK) {
         /* If reset was successful, restore initial state */
@@ -97,7 +106,9 @@ esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status
     }
     return ret;
   } else {
-    log_warn(handler->tag, "Retry Delay", "Next retry available in %u ticks",
+    log_warn(handler->tag, 
+             "Retry Delay", 
+             "Next retry available in %u ticks",
              (unsigned int)(handler->retry_interval - (now_ticks - handler->last_attempt_ticks)));
     return ESP_ERR_INVALID_STATE;
   }

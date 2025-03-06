@@ -63,8 +63,8 @@ static void process_button_state(ec11_data_t *encoder, bool current_button)
     encoder->last_button_time = current_time;
     if (encoder->callback) {
       encoder->callback(current_button ? k_ec11_btn_press : k_ec11_btn_release,
-                       encoder->board_ptr,
-                       encoder->motor_mask);
+                        encoder->board_ptr,
+                        encoder->motor_mask);
     }
   }
 }
@@ -93,8 +93,12 @@ esp_err_t ec11_init(ec11_data_t *encoder)
 
   esp_err_t ret = gpio_config(&io_conf);
   if (ret != ESP_OK) {
-    log_error(ec11_tag, "GPIO Error", "Failed to configure pins A:%u, B:%u, BTN:%u", 
-              encoder->pin_a, encoder->pin_b, encoder->pin_btn);
+    log_error(ec11_tag, 
+              "GPIO Error", 
+              "Failed to configure pins A:%u, B:%u, BTN:%u", 
+              encoder->pin_a, 
+              encoder->pin_b, 
+              encoder->pin_btn);
     encoder->state = k_ec11_error;
     return ret;
   }
@@ -160,20 +164,29 @@ void ec11_register_callback(ec11_data_t  *encoder,
                           uint16_t        motor_mask)
 {
   if (encoder == NULL || callback == NULL || board_ptr == NULL) {
-    log_error(ec11_tag, "Callback Error", "Invalid parameters: encoder=%p, callback=%p, board=%p",
-              (void*)encoder, (void*)callback, board_ptr);
+    log_error(ec11_tag, 
+              "Callback Error", 
+              "Invalid parameters: encoder=%p, callback=%p, board=%p",
+              (void*)encoder, 
+              (void*)callback, 
+              board_ptr);
     return;
   }
 
   if (xSemaphoreTake(encoder->mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(ec11_tag, "Mutex Error", "Failed to acquire mutex for callback registration");
+    log_error(ec11_tag, 
+              "Mutex Error", 
+              "Failed to acquire mutex for callback registration");
     return;
   }
   
   encoder->callback   = callback;
   encoder->board_ptr  = board_ptr;
   encoder->motor_mask = motor_mask;
-  log_info(ec11_tag, "Callback Set", "Registered callback for encoder with motor mask 0x%04X", motor_mask);
+  log_info(ec11_tag, 
+           "Callback Set", 
+           "Registered callback for encoder with motor mask 0x%04X", 
+           motor_mask);
   xSemaphoreGive(encoder->mutex);
 }
 

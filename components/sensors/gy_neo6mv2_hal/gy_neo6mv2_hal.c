@@ -154,12 +154,18 @@ static void priv_gy_neo6mv2_add_satellite(uint8_t  prn,
     sat->snr         = snr;
     s_gy_neo6mv2_satellite_count++;
 
-    log_info(gy_neo6mv2_tag, "Satellite Added", 
+    log_info(gy_neo6mv2_tag, 
+             "Satellite Added", 
              "PRN=%u, Elevation=%u°, Azimuth=%u°, SNR=%u",
-             prn, elevation, azimuth, snr);
+             prn, 
+             elevation, 
+             azimuth, 
+             snr);
   } else {
-    log_warn(gy_neo6mv2_tag, "Buffer Full", 
-             "Cannot add satellite PRN=%u, maximum capacity reached", prn);
+    log_warn(gy_neo6mv2_tag, 
+             "Buffer Full", 
+             "Cannot add satellite PRN=%u, maximum capacity reached", 
+             prn);
   }
 }
 
@@ -187,13 +193,17 @@ static void priv_gy_neo6mv2_clear_satellites(void)
  *
  * @return The number of satellites copied into the output buffer.
  */
-static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, uint8_t max_count)
+static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, 
+                                              uint8_t      max_count)
 {
   uint8_t count = (s_gy_neo6mv2_satellite_count < max_count) ?
                    s_gy_neo6mv2_satellite_count : max_count;
 
   memcpy(satellites, s_gy_neo6mv2_satellites, count * sizeof(satellite_t));
-  log_info(gy_neo6mv2_tag, "Data Retrieved", "Copied %u satellites from buffer", count);
+  log_info(gy_neo6mv2_tag, 
+           "Data Retrieved", 
+           "Copied %u satellites from buffer", 
+           count);
   return count;
 }
 
@@ -203,73 +213,97 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    log_error(gy_neo6mv2_tag, "JSON Creation Failed", "Unable to allocate memory for JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Creation Failed", 
+              "Unable to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "gps")) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add sensor_type field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "latitude", gy_neo6mv2_data->latitude)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add latitude field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add latitude field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "longitude", gy_neo6mv2_data->longitude)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add longitude field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add longitude field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "speed", gy_neo6mv2_data->speed)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add speed field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add speed field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "time", gy_neo6mv2_data->time)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add time field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add time field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "fix_status", gy_neo6mv2_data->fix_status)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add fix_status field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add fix_status field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "satellite_count", gy_neo6mv2_data->satellite_count)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add satellite_count field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add satellite_count field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "hdop", gy_neo6mv2_data->hdop)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add hdop field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add hdop field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "retry_count", gy_neo6mv2_data->retry_count)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add retry_count field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add retry_count field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "retry_interval", gy_neo6mv2_data->retry_interval)) {
-    log_error(gy_neo6mv2_tag, "JSON Field Error", "Failed to add retry_interval field to JSON object");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Field Error", 
+              "Failed to add retry_interval field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    log_error(gy_neo6mv2_tag, "JSON Serialization Failed", "Unable to convert JSON object to string format");
+    log_error(gy_neo6mv2_tag, 
+              "JSON Serialization Failed", 
+              "Unable to convert JSON object to string format");
     cJSON_Delete(json);
     return NULL;
   }
@@ -281,16 +315,24 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 esp_err_t gy_neo6mv2_init(void *sensor_data)
 {
   gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
-  log_info(gy_neo6mv2_tag, "Init Started", "Beginning GY-NEO6MV2 GPS module initialization");
+  log_info(gy_neo6mv2_tag, 
+           "Init Started", 
+           "Beginning GY-NEO6MV2 GPS module initialization");
 
   /* TODO: Initialize error handler */
 
   /* Initialize UART using the common UART function */
-  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io, gy_neo6mv2_uart_baudrate,
-                                 gy_neo6mv2_uart_num, gy_neo6mv2_rx_buffer_size, 
-                                 gy_neo6mv2_tx_buffer_size, gy_neo6mv2_tag);
+  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, 
+                                 gy_neo6mv2_rx_io, 
+                                 gy_neo6mv2_uart_baudrate,
+                                 gy_neo6mv2_uart_num, 
+                                 gy_neo6mv2_rx_buffer_size, 
+                                 gy_neo6mv2_tx_buffer_size, 
+                                 gy_neo6mv2_tag);
   if (ret != ESP_OK) {
-    log_error(gy_neo6mv2_tag, "UART Init Failed", "Failed to initialize UART communication");
+    log_error(gy_neo6mv2_tag, 
+              "UART Init Failed", 
+              "Failed to initialize UART communication");
     return ret;
   }
 
@@ -308,8 +350,11 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   /* Send configuration commands */
   for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
     int32_t bytes_written = 0;
-    priv_uart_write((const uint8_t *)config_commands[i], strlen(config_commands[i]), 
-                   &bytes_written, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+    priv_uart_write((const uint8_t *)config_commands[i], 
+                    strlen(config_commands[i]), 
+                    &bytes_written, 
+                    gy_neo6mv2_uart_num, 
+                    gy_neo6mv2_tag);
     vTaskDelay(pdMS_TO_TICKS(100)); /* Wait for command processing */
   }
 
@@ -329,7 +374,9 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   gy_neo6mv2_data->last_attempt_ticks = 0;                                 /* Reset last attempt ticks */
   memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));         /* Clear time field */
 
-  log_info(gy_neo6mv2_tag, "Init Complete", "GPS module initialization completed successfully");
+  log_info(gy_neo6mv2_tag, 
+           "Init Complete", 
+           "GPS module initialization completed successfully");
   return ESP_OK;
 }
 
@@ -339,8 +386,11 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
   int32_t length = 0;
 
   /* Read from UART */
-  esp_err_t ret = priv_uart_read(uart_rx_buffer, sizeof(uart_rx_buffer),
-                                 &length, gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  esp_err_t ret = priv_uart_read(uart_rx_buffer, 
+                                 sizeof(uart_rx_buffer),
+                                 &length, 
+                                 gy_neo6mv2_uart_num, 
+                                 gy_neo6mv2_tag);
 
   if (ret == ESP_OK && length > 0) {
     for (uint32_t i = 0; i < length; i++) {
@@ -363,11 +413,17 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
         }
 
         /* Log raw sentence */
-        log_debug(gy_neo6mv2_tag, "NMEA Data", "Received sentence: %s", s_gy_neo6mv2_sentence_buffer);
+        log_debug(gy_neo6mv2_tag, 
+                  "NMEA Data", 
+                  "Received sentence: %s", 
+                  s_gy_neo6mv2_sentence_buffer);
 
         /* Validate checksum */
         if (!priv_gy_neo6mv2_validate_nmea_checksum(s_gy_neo6mv2_sentence_buffer)) {
-          log_error(gy_neo6mv2_tag, "Checksum Error", "Invalid NMEA sentence checksum: %s", s_gy_neo6mv2_sentence_buffer);
+          log_error(gy_neo6mv2_tag, 
+                    "Checksum Error", 
+                    "Invalid NMEA sentence checksum: %s", 
+                    s_gy_neo6mv2_sentence_buffer);
           s_gy_neo6mv2_sentence_index = 0;
           continue;
         }
@@ -381,9 +437,11 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           /* Extract and log status */
           if (fields[2]) {
             const char *status = fields[2];
-            log_info(gy_neo6mv2_tag, "GPS Status", 
+            log_info(gy_neo6mv2_tag, 
+                     "GPS Status", 
                      "Fix status: %s (%s)", 
-                     status, (status[0] == 'A') ? "Fix acquired" : "No fix");
+                     status, 
+                     (status[0] == 'A') ? "Fix acquired" : "No fix");
 
             /* Process only valid readings */
             if (status[0] == 'A') {
@@ -396,27 +454,36 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
               sensor_data->fix_status = 1; /* Fix acquired */
               strncpy(sensor_data->time, fields[1], sizeof(sensor_data->time) - 1);
 
-              log_info(gy_neo6mv2_tag, "Position Updated", 
+              log_info(gy_neo6mv2_tag, 
+                       "Position Updated", 
                        "Lat: %.6f°, Lon: %.6f°, Speed: %.2f m/s",
-                       sensor_data->latitude, sensor_data->longitude, 
+                       sensor_data->latitude, 
+                       sensor_data->longitude, 
                        sensor_data->speed);
             } else {
               sensor_data->fix_status = 0; /* No fix */
-              log_warn(gy_neo6mv2_tag, "No Fix", "Skipping invalid GPS reading");
+              log_warn(gy_neo6mv2_tag, 
+                       "No Fix", 
+                       "Skipping invalid GPS reading");
             }
           }
         } else if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPGSV") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPGSV sentence for satellite information */
           char *fields[GY_NEO6MV2_GPGSV_MAX_FIELDS] = { '\0' };
-          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, GY_NEO6MV2_GPGSV_MAX_FIELDS);
+          priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, 
+                                              fields, 
+                                              GY_NEO6MV2_GPGSV_MAX_FIELDS);
 
           uint8_t total_sentences  = fields[1] ? (uint8_t)atoi(fields[1]) : 0;
           uint8_t sentence_number  = fields[2] ? (uint8_t)atoi(fields[2]) : 0;
           uint8_t total_satellites = fields[3] ? (uint8_t)atoi(fields[3]) : 0;
 
-          log_info(gy_neo6mv2_tag, "Satellite Info", 
+          log_info(gy_neo6mv2_tag, 
+                   "Satellite Info", 
                    "Sentence %u of %u, Total satellites in view: %u", 
-                   sentence_number, total_sentences, total_satellites);
+                   sentence_number, 
+                   total_sentences, 
+                   total_satellites);
 
           /* Clear satellite data if this is the first sentence */
           if (sentence_number == 1) {
@@ -452,15 +519,20 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
 
     /* Process satellite data as needed */
     for (uint8_t i = 0; i < satellite_count; i++) {
-      log_info(gy_neo6mv2_tag, "Satellite Details", 
+      log_info(gy_neo6mv2_tag, 
+               "Satellite Details", 
                "Retrieved satellite PRN=%u, Elevation=%u°, Azimuth=%u°, SNR=%u",
-               local_satellites[i].prn, local_satellites[i].elevation,
-               local_satellites[i].azimuth, local_satellites[i].snr);
+               local_satellites[i].prn, 
+               local_satellites[i].elevation,
+               local_satellites[i].azimuth, 
+               local_satellites[i].snr);
     }
 
     return ESP_OK;
   } else {
-    log_error(gy_neo6mv2_tag, "Read Failed", "Unable to read data from GPS module");
+    log_error(gy_neo6mv2_tag, 
+              "Read Failed", 
+              "Unable to read data from GPS module");
     sensor_data->state = k_gy_neo6mv2_error;
     return ESP_FAIL;
   }
@@ -488,4 +560,5 @@ void gy_neo6mv2_tasks(void *sensor_data)
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }
 }
+
 

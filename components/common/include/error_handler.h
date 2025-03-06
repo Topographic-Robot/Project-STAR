@@ -41,15 +41,15 @@ typedef struct {
  * Sets up initial values for retry management and state tracking. The reset_func
  * is initialized to NULL and can be set after initialization if needed.
  *
- * @param[out] handler Pointer to the error_handler_t structure to initialize
- * @param[in] tag Tag to use for logging messages (usually component name)
- * @param[in] max_retries Maximum number of retry attempts
- * @param[in] initial_interval Initial retry interval in ticks
- * @param[in] max_interval Maximum backoff interval in ticks
- * @param[in] reset_func Pointer to the reset function to call when an error occurs
- * @param[in] context Context pointer to pass to reset_func
- * @param[in] initial_backoff_interval Initial backoff interval in ticks
- * @param[in] max_backoff_interval Maximum backoff interval in ticks
+ * @param[out] handler                  Pointer to the error_handler_t structure to initialize
+ * @param[in]  tag                      Tag to use for logging messages (usually component name)
+ * @param[in]  max_retries              Maximum number of retry attempts
+ * @param[in]  initial_interval         Initial retry interval in ticks
+ * @param[in]  max_interval             Maximum backoff interval in ticks
+ * @param[in]  reset_func               Pointer to the reset function to call when an error occurs
+ * @param[in]  context                  Context pointer to pass to reset_func
+ * @param[in]  initial_backoff_interval Initial backoff interval in ticks
+ * @param[in]  max_backoff_interval     Maximum backoff interval in ticks
  */
 void error_handler_init(error_handler_t *handler, 
                         const char      *tag,
@@ -62,16 +62,19 @@ void error_handler_init(error_handler_t *handler,
                         uint32_t         max_backoff_interval);
 
 /**
- * @brief Records a state change in the handler and triggers reset if needed.
+ * @brief Records a new status and updates the handler state.
  *
- * Updates the state and triggers the reset function if in error state and enough 
- * time has passed since the last attempt. Implements exponential backoff for 
- * repeated errors. For success states, resets error counters and intervals.
+ * This function handles the exponential backoff and retry logic based on the
+ * status provided. It will apply the following rules:
+ *   - If the status is ESP_OK, reset the retry counter and state
+ *   - If in an error state, increase the backoff interval exponentially
+ *   - If the max retries is reached, put the component in an error state
  *
- * @param[in,out] handler Pointer to the error_handler_t structure
- * @param[in] status The status code to record (ESP_OK for success)
+ * @param[in,out] handler Pointer to the error_handler_t structure to update
+ * @param[in]     status  The status code to record
  * @return
- * - ESP_OK if status is success or reset was successful
+ * - ESP_OK                if the status was handled successfully
+ * - ESP_ERR_INVALID_ARG   if handler is NULL
  * - ESP_ERR_INVALID_STATE if in backoff period
  * - Other error codes from the reset function
  */

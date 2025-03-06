@@ -69,11 +69,11 @@ esp_err_t priv_i2c_write_byte(uint8_t     data,
  *
  * Reads data from a target device using the specified bus and address.
  *
- * @param[out] data       Buffer to store the read data.
- * @param[in] len         Number of bytes to read.
- * @param[in] i2c_bus     I2C bus number.
- * @param[in] i2c_address 7-bit I2C address of the target device.
- * @param[in] tag         Logging tag for error messages.
+ * @param[out] data        Buffer to store the read data.
+ * @param[in]  len         Number of bytes to read.
+ * @param[in]  i2c_bus     I2C bus number.
+ * @param[in]  i2c_address 7-bit I2C address of the target device.
+ * @param[in]  tag         Logging tag for error messages.
  *
  * @return
  * - `ESP_OK` on success.
@@ -117,12 +117,12 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t     reg_addr,
  *
  * Reads data from consecutive registers of a target device.
  *
- * @param[in] reg_addr    Starting register address to read from.
- * @param[out] data       Buffer to store the read data.
- * @param[in] len         Number of bytes to read.
- * @param[in] i2c_bus     I2C bus number.
- * @param[in] i2c_address 7-bit I2C address of the target device.
- * @param[in] tag         Logging tag for error messages.
+ * @param[in]  reg_addr    Starting register address to read from.
+ * @param[out] data        Buffer to store the read data.
+ * @param[in]  len         Number of bytes to read.
+ * @param[in]  i2c_bus     I2C bus number.
+ * @param[in]  i2c_address 7-bit I2C address of the target device.
+ * @param[in]  tag         Logging tag for error messages.
  *
  * @return
  * - `ESP_OK` on success.

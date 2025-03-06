@@ -14,10 +14,6 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-/* NOTE: The terms 'data_to_card' (Data to Card) and 'data_from_card' (Data from Card) are used 
- * to promote inclusivity and align with modern engineering practices, ensuring that technical
- * language remains respectful and accessible to all developers.
- */
 extern const char             *sd_card_tag;                  /**< Tag for Logging */
 extern const char             *sd_card_mount_path;           /**< Root path for the mounting */
 extern const uint8_t           sd_card_cs;                   /**< GPIO pin for SPI Chip Select (CS) */

@@ -37,7 +37,7 @@ extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequenc
  * 
  * Sets up the log handler and optionally initializes SD card logging.
  * 
- * @param log_to_sd Whether to enable logging to SD card
+ * @param[in] log_to_sd Whether to enable logging to SD card
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
 esp_err_t log_init(bool log_to_sd);
@@ -45,7 +45,7 @@ esp_err_t log_init(bool log_to_sd);
 /**
  * @brief Enables or disables logging to SD card
  * 
- * @param enabled Whether to enable logging to SD card
+ * @param[in] enabled Whether to enable logging to SD card
  */
 void log_set_sd_logging(bool enabled);
 
@@ -62,27 +62,37 @@ esp_err_t log_flush(void);
  * This is the core logging function. The inline wrappers below provide
  * a more convenient interface with compile-time format checking.
  * 
- * @param level        Log level (ESP_LOG_xxx)
- * @param tag          Component or module identifier
- * @param short_msg    Short description of the log
- * @param detailed_msg Detailed message with optional format specifiers
- * @param args         va_list of arguments for format string
+ * @param[in] level        Log level (ESP_LOG_xxx)
+ * @param[in] tag          Component or module identifier
+ * @param[in] short_msg    Short description of the log
+ * @param[in] detailed_msg Detailed message with optional format specifiers
+ * @param[in] args         va_list of arguments for format string
  */
-void log_write_va(esp_log_level_t level, const char *tag,
-                  const char *short_msg, const char *detailed_msg,
-                  va_list args);
+void log_write_va(esp_log_level_t level, 
+                  const char     *tag,
+                  const char     *short_msg, 
+                  const char     *detailed_msg,
+                  va_list         args);
 
 /**
  * @brief Variadic version of log_write
  */
-void log_write(esp_log_level_t level, const char *tag,
-               const char *short_msg, const char *detailed_msg, ...)
+void log_write(esp_log_level_t level, 
+               const char     *tag,
+               const char     *short_msg, 
+               const char     *detailed_msg, 
+               ...)
                __attribute__((format(printf, 4, 5)));
 
 /* Inline Function Wrappers *************************************************/
 
 /**
  * @brief Log an error message
+ * 
+ * @param[in] tag          Component or module identifier
+ * @param[in] short_msg    Short description of the log
+ * @param[in] detailed_msg Detailed message with optional format specifiers
+ * @param[in] args         va_list of arguments for format string
  * 
  * The inline keyword suggests to the compiler to insert the function code
  * directly at the call site instead of generating a function call.
@@ -94,8 +104,10 @@ void log_write(esp_log_level_t level, const char *tag,
  * This enables compile-time format string checking.
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_error(const char *tag, const char *short_msg, 
-               const char *detailed_msg, ...) 
+void log_error(const char *tag, 
+               const char *short_msg, 
+               const char *detailed_msg, 
+               ...) 
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -105,10 +117,17 @@ void log_error(const char *tag, const char *short_msg,
 
 /**
  * @brief Log a warning message
+ * 
+ * @param[in] tag          Component or module identifier
+ * @param[in] short_msg    Short description of the log
+ * @param[in] detailed_msg Detailed message with optional format specifiers
+ * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_warn(const char *tag, const char *short_msg,
-              const char *detailed_msg, ...) 
+void log_warn(const char *tag, 
+              const char *short_msg, 
+              const char *detailed_msg, 
+              ...) 
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -118,10 +137,17 @@ void log_warn(const char *tag, const char *short_msg,
 
 /**
  * @brief Log an info message
+ * 
+ * @param[in] tag          Component or module identifier
+ * @param[in] short_msg    Short description of the log
+ * @param[in] detailed_msg Detailed message with optional format specifiers
+ * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_info(const char *tag, const char *short_msg,
-              const char *detailed_msg, ...) 
+void log_info(const char *tag, 
+              const char *short_msg,
+              const char *detailed_msg, 
+              ...) 
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -131,10 +157,17 @@ void log_info(const char *tag, const char *short_msg,
 
 /**
  * @brief Log a debug message
+ * 
+ * @param[in] tag          Component or module identifier
+ * @param[in] short_msg    Short description of the log
+ * @param[in] detailed_msg Detailed message with optional format specifiers
+ * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_debug(const char *tag, const char *short_msg,
-               const char *detailed_msg, ...) 
+void log_debug(const char *tag, 
+               const char *short_msg,
+               const char *detailed_msg, 
+               ...) 
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -144,10 +177,17 @@ void log_debug(const char *tag, const char *short_msg,
 
 /**
  * @brief Log a verbose message
+ * 
+ * @param[in] tag          Component or module identifier
+ * @param[in] short_msg    Short description of the log
+ * @param[in] detailed_msg Detailed message with optional format specifiers
+ * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_verbose(const char *tag, const char *short_msg,
-                 const char *detailed_msg, ...) 
+void log_verbose(const char *tag, 
+                 const char *short_msg,
+                 const char *detailed_msg, 
+                 ...) 
 {
   va_list args;
   va_start(args, detailed_msg);

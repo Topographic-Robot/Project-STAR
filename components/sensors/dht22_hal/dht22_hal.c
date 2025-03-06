@@ -50,12 +50,13 @@ static error_handler_t s_dht22_error_handler = { 0 };
  */
 static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
 {
-  gpio_config_t io_conf;
-  io_conf.pin_bit_mask = (1ULL << data_io);
-  io_conf.mode         = GPIO_MODE_OUTPUT;
-  io_conf.pull_up_en   = GPIO_PULLUP_ENABLE;
-  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  io_conf.intr_type    = GPIO_INTR_DISABLE;
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << data_io),
+    .mode         = GPIO_MODE_OUTPUT,
+    .pull_up_en   = GPIO_PULLUP_ENABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
 
   return gpio_config(&io_conf);
 }
@@ -106,11 +107,11 @@ static bool priv_dht22_wait_for_level_with_duration(int8_t    level,
 static void priv_dht22_send_start_signal(void)
 {
   gpio_set_direction(dht22_data_io, GPIO_MODE_OUTPUT);
-  gpio_set_level(dht22_data_io, 0); /* Pull line low */
+  gpio_set_level(dht22_data_io, 0);              /* Pull line low */
   esp_rom_delay_us(dht22_start_delay_ms * 1000); /* Wait for start signal duration */
 
   gpio_set_level(dht22_data_io, 1); /* Release line */
-  esp_rom_delay_us(30); /* Wait for 30 microseconds before switching to input */
+  esp_rom_delay_us(30);             /* Wait for 30 microseconds before switching to input */
 }
 
 /**
@@ -135,7 +136,9 @@ static esp_err_t priv_dht22_wait_for_response(void)
   if (!priv_dht22_wait_for_level_with_duration(0, dht22_response_timeout_us, &duration) ||
       !priv_dht22_wait_for_level_with_duration(1, dht22_response_timeout_us, &duration) ||
       !priv_dht22_wait_for_level_with_duration(0, dht22_response_timeout_us, &duration)) {
-    log_error(dht22_tag, "Sensor Not Responding", "Communication failed during DHT22 response sequence");
+    log_error(dht22_tag, 
+              "Sensor Not Responding", 
+              "Communication failed during DHT22 response sequence");
     return ESP_FAIL;
   }
   return ESP_OK;
@@ -159,13 +162,17 @@ static int8_t priv_dht22_read_bit(void)
 
   /* Wait for the line to go high (start of bit transmission) */
   if (!priv_dht22_wait_for_level_with_duration(1, 50, &duration)) {
-    log_error(dht22_tag, "Bit Read Timeout", "Timeout occurred while waiting for bit start signal");
+    log_error(dht22_tag, 
+              "Bit Read Timeout", 
+              "Timeout occurred while waiting for bit start signal");
     return ESP_FAIL;
   }
 
   /* Wait for the line to go low again, measuring the duration of the high level */
   if (!priv_dht22_wait_for_level_with_duration(0, 70, &duration)) {
-    log_error(dht22_tag, "Bit Read Timeout", "Timeout occurred while waiting for bit end signal");
+    log_error(dht22_tag, 
+              "Bit Read Timeout", 
+              "Timeout occurred while waiting for bit end signal");
     return ESP_FAIL;
   }
 
@@ -236,7 +243,9 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
 {
   uint8_t checksum = data_buffer[0] + data_buffer[1] + data_buffer[2] + data_buffer[3];
   if ((checksum & 0xFF) != data_buffer[4]) {
-    log_error(dht22_tag, "Checksum Error", "Data validation failed: calculated checksum does not match received checksum");
+    log_error(dht22_tag, 
+              "Checksum Error", 
+              "Data validation failed: calculated checksum does not match received checksum");
     return ESP_FAIL;
   }
   return ESP_OK;
@@ -248,37 +257,49 @@ char *dht22_data_to_json(const dht22_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    log_error(dht22_tag, "JSON Creation Failed", "Unable to allocate memory for JSON object");
+    log_error(dht22_tag, 
+              "JSON Creation Failed", 
+              "Unable to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "temperature_humidity")) {
-    log_error(dht22_tag, "JSON Field Error", "Failed to add sensor_type field to JSON object");
+    log_error(dht22_tag, 
+              "JSON Field Error", 
+              "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c)) {
-    log_error(dht22_tag, "JSON Field Error", "Failed to add temperature_c field to JSON object");
+    log_error(dht22_tag, 
+              "JSON Field Error", 
+              "Failed to add temperature_c field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "temperature_f", data->temperature_f)) {
-    log_error(dht22_tag, "JSON Field Error", "Failed to add temperature_f field to JSON object");
+    log_error(dht22_tag, 
+              "JSON Field Error", 
+              "Failed to add temperature_f field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "humidity", data->humidity)) {
-    log_error(dht22_tag, "JSON Field Error", "Failed to add humidity field to JSON object");
+    log_error(dht22_tag, 
+              "JSON Field Error", 
+              "Failed to add humidity field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    log_error(dht22_tag, "JSON Serialization Failed", "Unable to convert JSON object to string format");
+    log_error(dht22_tag, 
+              "JSON Serialization Failed", 
+              "Unable to convert JSON object to string format");
     cJSON_Delete(json);
     return NULL;
   }
@@ -290,7 +311,9 @@ char *dht22_data_to_json(const dht22_data_t *data)
 esp_err_t dht22_init(void *sensor_data)
 {
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  log_info(dht22_tag, "Init Started", "Beginning DHT22 sensor initialization sequence");
+  log_info(dht22_tag, 
+           "Init Started", 
+           "Beginning DHT22 sensor initialization sequence");
 
   /* TODO: Initialize error handler */
 
@@ -305,20 +328,26 @@ esp_err_t dht22_init(void *sensor_data)
 
   esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
-    log_error(dht22_tag, "GPIO Config Failed", "Failed to configure GPIO pin with error: %s", esp_err_to_name(ret));
+    log_error(dht22_tag, 
+              "GPIO Config Failed", 
+              "Failed to configure GPIO pin with error: %s", esp_err_to_name(ret));
     return ret;
   }
 
   gpio_set_level(dht22_data_io, 1);
   dht22_data->state = k_dht22_ready;
-  log_info(dht22_tag, "Init Complete", "DHT22 sensor initialization completed successfully");
+  log_info(dht22_tag, 
+           "Init Complete", 
+           "DHT22 sensor initialization completed successfully");
   return ESP_OK;
 }
 
 esp_err_t dht22_read(dht22_data_t *sensor_data)
 {
   if (sensor_data == NULL) {
-    log_error(dht22_tag, "Invalid Parameter", "Sensor data pointer is NULL, cannot proceed with read operation");
+    log_error(dht22_tag, 
+              "Invalid Parameter", 
+              "Sensor data pointer is NULL, cannot proceed with read operation");
     return ESP_FAIL;
   }
 
@@ -333,7 +362,9 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
-    log_error(dht22_tag, "No Response", "DHT22 sensor failed to respond to start signal");
+    log_error(dht22_tag, 
+              "No Response", 
+              "DHT22 sensor failed to respond to start signal");
     return ESP_FAIL;
   }
 
@@ -342,7 +373,9 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
-    log_error(dht22_tag, "Read Failed", "Unable to read complete data sequence from DHT22 sensor");
+    log_error(dht22_tag, 
+              "Read Failed", 
+              "Unable to read complete data sequence from DHT22 sensor");
     return ESP_FAIL;
   }
 
@@ -351,7 +384,9 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   if (ret != ESP_OK) {
     sensor_data->fail_count++;
     sensor_data->state = k_dht22_error;
-    log_error(dht22_tag, "Checksum Error", "Data validation failed: checksum verification error");
+    log_error(dht22_tag, 
+              "Checksum Error", 
+              "Data validation failed: checksum verification error");
     return ESP_FAIL;
   }
 
@@ -370,7 +405,11 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
 
   sensor_data->state = k_dht22_data_updated;
 
-  log_info(dht22_tag, "Read Success", "Temperature: %.1f°C, Humidity: %.1f%%", sensor_data->temperature_c, sensor_data->humidity);
+  log_info(dht22_tag, 
+           "Read Success", 
+           "Temperature: %.1f°C, Humidity: %.1f%%", 
+           sensor_data->temperature_c, 
+           sensor_data->humidity);
   return ESP_OK;
 }
 
@@ -396,4 +435,3 @@ void dht22_tasks(void *sensor_data)
     vTaskDelay(dht22_polling_rate_ticks);
   }
 }
-

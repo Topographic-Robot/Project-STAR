@@ -88,13 +88,13 @@ typedef enum : uint8_t {
  * It also supports a singly linked list structure for managing multiple boards.
  */
 typedef struct pca9685_board_t {
-  uint8_t                 i2c_address; /**< Base I2C address of the PCA9685 board. */
-  uint8_t                 i2c_bus;     /**< I2C bus number used for communication. */
-  uint8_t                 state;       /**< Current state of the PCA9685 (see pca9685_states_t). */
-  uint8_t                 board_id;    /**< Unique ID for this board in multi-board setups. */
-  uint8_t                 num_boards;  /**< Total number of PCA9685 boards in the system. */
-  motor_t                 motors[PCA9685_MOTORS_PER_BOARD];  /**< Array representing the motors controlled by this board. */
-  struct pca9685_board_t *next;        /**< Pointer to the next board in the singly linked list. */
+  uint8_t                 i2c_address;                      /**< Base I2C address of the PCA9685 board. */
+  uint8_t                 i2c_bus;                          /**< I2C bus number used for communication. */
+  uint8_t                 state;                            /**< Current state of the PCA9685 (see pca9685_states_t). */
+  uint8_t                 board_id;                         /**< Unique ID for this board in multi-board setups. */
+  uint8_t                 num_boards;                       /**< Total number of PCA9685 boards in the system. */
+  motor_t                 motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
+  struct pca9685_board_t *next;                             /**< Pointer to the next board in the singly linked list. */
 } pca9685_board_t;
 
 /* Private Inline Functions ***************************************************/
@@ -104,15 +104,23 @@ typedef struct pca9685_board_t {
  *
  * Performs a single I2C read operation to get the value of a specified register.
  *
- * @param[in] i2c_addr I2C address of the PCA9685 device.
- * @param[in] reg Register address to read from.
- * @param[out] value Pointer to store the read value.
+ * @param[in]  i2c_addr I2C address of the PCA9685 device.
+ * @param[in]  reg      Register address to read from.
+ * @param[out] value    Pointer to store the read value.
  *
  * @return ESP_OK if successful, otherwise an error code.
  */
-static inline esp_err_t pca9685_read_register(uint8_t i2c_addr, uint8_t reg, uint8_t *value) 
+static inline esp_err_t pca9685_read_register(uint8_t  i2c_addr, 
+                                              uint8_t  reg, 
+                                              uint8_t *value) 
 {
-    return i2c_master_write_read_device(pca9685_i2c_bus, i2c_addr, &reg, 1, value, 1, pdMS_TO_TICKS(100));
+    return i2c_master_write_read_device(pca9685_i2c_bus, 
+                                        i2c_addr, 
+                                        &reg, 
+                                        1, 
+                                        value, 
+                                        1, 
+                                        pdMS_TO_TICKS(100));
 }
 
 /* Public Functions ***********************************************************/
@@ -125,7 +133,7 @@ static inline esp_err_t pca9685_read_register(uint8_t i2c_addr, uint8_t reg, uin
  * Logs errors and returns a failure code if any board initialization fails.
  *
  * @param[in,out] controller_data Pointer to the head of the linked list of PCA9685 boards.
- * @param[in] num_boards          Number of PCA9685 boards to initialize.
+ * @param[in]     num_boards      Number of PCA9685 boards to initialize.
  *
  * @return 
  * - `ESP_OK`              if all boards are successfully initialized.

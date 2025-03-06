@@ -16,7 +16,8 @@ module dataRegistering
     output reg        buffSelect
   );
   
-  /* _i means it is stored in a register, the non _i is just an input value and is not stored aka pipe stage */
+  /* _i means it is stored in a register, the non _i is just an input value and 
+   * is not stored aka pipe stage */
   reg [7:0]  pixData_i;
   reg        camVSYNC_i;
   reg        HREF_i;
