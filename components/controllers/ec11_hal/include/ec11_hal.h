@@ -115,9 +115,9 @@ void IRAM_ATTR ec11_isr_handler(void* arg);
 /**
  * @brief Registers a callback function for encoder events.
  *
- * @param[in] encoder  Pointer to the encoder data structure
- * @param[in] callback The callback function to register
- * @param[in] board_ptr Pointer to the PCA9685 board
+ * @param[in] encoder    Pointer to the encoder data structure
+ * @param[in] callback   The callback function to register
+ * @param[in] board_ptr  Pointer to the PCA9685 board
  * @param[in] motor_mask Bitmask indicating which motor to control
  */
 void ec11_register_callback(ec11_data_t  *encoder, 

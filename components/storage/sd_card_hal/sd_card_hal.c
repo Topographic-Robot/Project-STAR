@@ -82,16 +82,23 @@ static void priv_sd_card_mount_task(void *arg)
       if (state_changed) {
         if (card_present) {
           /* Card inserted - try to mount */
-          log_info(sd_card_tag, "Card Detected", "SD card inserted, attempting to mount");
+          log_info(sd_card_tag, 
+                   "Card Detected", 
+                   "SD card inserted, attempting to mount");
           
           /* Initialize and mount the card */
           esp_err_t ret = sd_card_init();
           if (ret == ESP_OK) {
             s_sd_card_available = true;
-            log_info(sd_card_tag, "Mount Success", "SD card mounted successfully");
+            log_info(sd_card_tag, 
+                     "Mount Success", 
+                     "SD card mounted successfully");
           } else {
             s_sd_card_available = false;
-            log_error(sd_card_tag, "Mount Failed", "Failed to mount SD card: %s", esp_err_to_name(ret));
+            log_error(sd_card_tag, 
+                      "Mount Failed", 
+                      "Failed to mount SD card: %s", 
+                      esp_err_to_name(ret));
           }
         } else {
           /* Card removed - unmount */
@@ -166,14 +173,12 @@ static esp_err_t priv_sd_card_init_cd_pin(void)
   }
   
   /* Create mount task */
-  BaseType_t task_created = xTaskCreate(
-    priv_sd_card_mount_task,
-    "sd_mount_task",
-    4096,
-    NULL,
-    5,
-    &s_mount_task_handle
-  );
+  BaseType_t task_created = xTaskCreate(priv_sd_card_mount_task,
+                                        "sd_mount_task",
+                                        4096,
+                                        NULL,
+                                        5,
+                                        &s_mount_task_handle);
   
   if (task_created != pdPASS) {
     log_error(sd_card_tag, "Task Error", "Failed to create SD card mount task");

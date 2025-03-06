@@ -39,7 +39,7 @@ void app_main(void)
   if (system_tasks_start() != ESP_OK) {
     log_error(system_tag,
               "System startup failed",
-              "Critical tasks could not be started - manual intervention required");
+              "Critical tasks could not be started manual intervention required");
     return; /* Exit app_main if tasks cannot start */
   } else {
     log_info(system_tag,

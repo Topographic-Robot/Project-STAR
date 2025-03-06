@@ -15,15 +15,15 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char    *log_storage_tag;          /* Tag for logging */
-extern const char    *log_base_dir;             /* Base directory for logs */
-extern const int      log_max_file_size;        /* Maximum log file size in bytes */
-extern const int      log_max_files;            /* Maximum number of log files to keep */
-extern const int      date_string_buffer_size;  /* Size of buffer for date strings */
-extern const int      log_compression_enabled;  /* Enable/disable compression (1=enabled, 0=disabled) */
-extern const int      log_compression_level;    /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
-extern const int      log_compression_buffer;   /* Size of compression buffer */
-extern const char    *log_compressed_extension; /* Extension for compressed log files */
+extern const char *log_storage_tag;          /* Tag for logging */
+extern const char *log_base_dir;             /* Base directory for logs */
+extern const int   log_max_file_size;        /* Maximum log file size in bytes */
+extern const int   log_max_files;            /* Maximum number of log files to keep */
+extern const int   date_string_buffer_size;  /* Size of buffer for date strings */
+extern const int   log_compression_enabled;  /* Enable/disable compression (1=enabled, 0=disabled) */
+extern const int   log_compression_level;    /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
+extern const int   log_compression_buffer;   /* Size of compression buffer */
+extern const char *log_compressed_extension; /* Extension for compressed log files */
 
 /* Macros *********************************************************************/
 
@@ -32,15 +32,21 @@ extern const char    *log_compressed_extension; /* Extension for compressed log 
 #define TIMESTAMP_FORMAT                "%04d-%02d-%02d %02d:%02d:%02d.%03llu"
 
 /* Format helpers for timestamp */
-#define FORMAT_DATE_ARGS(tm_ptr)        ((tm_ptr)->tm_year + 1900), ((tm_ptr)->tm_mon + 1), ((tm_ptr)->tm_mday)
-#define FORMAT_TIME_ARGS(tm_ptr)        ((tm_ptr)->tm_hour), ((tm_ptr)->tm_min), ((tm_ptr)->tm_sec)
+#define FORMAT_DATE_ARGS(tm_ptr) ((tm_ptr)->tm_year + 1900), ((tm_ptr)->tm_mon + 1), ((tm_ptr)->tm_mday)
+#define FORMAT_TIME_ARGS(tm_ptr) ((tm_ptr)->tm_hour), ((tm_ptr)->tm_min), ((tm_ptr)->tm_sec)
 
 /* Structs ********************************************************************/
 
+/**
+ * @brief Structure for storing a log entry
+ *      
+ * This structure contains all the information needed for a single log entry,
+ * including the message text, log level, and timestamp when the log was created.
+ */
 typedef struct {
-  char            buffer[LOG_STORAGE_MAX_MESSAGE_LENGTH];
-  esp_log_level_t level;
-  uint64_t        timestamp;
+  char            buffer[LOG_STORAGE_MAX_MESSAGE_LENGTH]; /**< Buffer for the log message text */
+  esp_log_level_t level;                                  /**< Log level (error, warning, info, etc.) */
+  uint64_t        timestamp;                              /**< Timestamp when the log was created */
 } log_entry_t;
 
 /* Public Functions ***********************************************************/
@@ -65,7 +71,7 @@ void log_storage_set_sd_available(bool available);
 /**
  * @brief Writes a log message to storage
  * 
- * @param[in] level Log level
+ * @param[in] level   Log level
  * @param[in] message Log message
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */

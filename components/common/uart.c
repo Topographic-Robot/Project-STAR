@@ -29,22 +29,32 @@ esp_err_t priv_uart_init(uint8_t     tx_io,
   /* Configure the UART driver with the specified settings */
   esp_err_t ret = uart_param_config(uart_num, &uart_config);
   if (ret != ESP_OK) {
-    log_error(tag, "Config Error", "Failed to configure UART parameters: %s", esp_err_to_name(ret));
+    log_error(tag, 
+              "Config Error", 
+              "Failed to configure UART parameters: %s", 
+              esp_err_to_name(ret));
     return ret;
   }
 
   /* Set the TX and RX pin numbers for the UART interface */
   ret = uart_set_pin(uart_num, tx_io, rx_io, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
   if (ret != ESP_OK) {
-    log_error(tag, "Pin Error", "Failed to configure UART pins TX:%u RX:%u: %s", 
-              tx_io, rx_io, esp_err_to_name(ret));
+    log_error(tag, 
+              "Pin Error", 
+              "Failed to configure UART pins TX:%u RX:%u: %s", 
+              tx_io, 
+              rx_io, 
+              esp_err_to_name(ret));
     return ret;
   }
 
   /* Install the UART driver with RX and TX buffers */
   ret = uart_driver_install(uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
   if (ret != ESP_OK) {
-    log_error(tag, "Driver Error", "Failed to install UART driver: %s", esp_err_to_name(ret));
+    log_error(tag, 
+              "Driver Error", 
+              "Failed to install UART driver: %s", 
+              esp_err_to_name(ret));
   }
 
   return ret; /* Return the error status or ESP_OK */
@@ -64,7 +74,9 @@ esp_err_t priv_uart_read(uint8_t    *data,
     log_info(tag, "Data Received", "Read %lu bytes from UART", length);
     return ESP_OK;
   } else {
-    log_error(tag, "Read Error", "Failed to read data from UART (timeout or error)");
+    log_error(tag, 
+              "Read Error", 
+              "Failed to read data from UART (timeout or error)");
     *out_length = 0; /* No data read */
     return ESP_FAIL;
   }

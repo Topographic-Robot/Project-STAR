@@ -4,17 +4,10 @@
 `define ENABLE_CLOCK1
 `define ENABLE_CLOCK2
 `define ENABLE_SDRAM
-/* `define ENABLE_HEX0 */
-/* `define ENABLE_HEX1 */
-/* `define ENABLE_HEX2 */
-/* `define ENABLE_HEX3 */
-/* `define ENABLE_HEX4 */
-/* `define ENABLE_HEX5 */
 `define ENABLE_KEY
 `define ENABLE_LED
 `define ENABLE_SW
 `define ENABLE_VGA
-/* `define ENABLE_ACCELEROMETER */
 /* `define ENABLE_ARDUINO */
 /* `define ENABLE_GPIO */
 

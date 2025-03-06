@@ -1,6 +1,7 @@
 /* main/include/managers/file_write_manager.c */
 
 /* TODO: Test this */
+/* TODO: Don't use a buffer, but like dynamically allocate memory for the file path and data */
 
 #include "file_write_manager.h"
 #include <stdio.h>
@@ -99,7 +100,7 @@ static esp_err_t priv_create_directories(const char *file_path)
     p++;
   }
   
-  while (p && *p) {
+  while (p && *p) { /* while there is a path and the path is not empty */
     /* Find the next slash */
     char *next_slash = strchr(p, '/');
     if (next_slash) {
@@ -111,21 +112,27 @@ static esp_err_t priv_create_directories(const char *file_path)
     if (stat(path_copy, &st) != 0) {
       /* Directory doesn't exist, create it */
       if (mkdir(path_copy, 0755) != 0) {
-        log_error(file_manager_tag, "Dir Create Failed", "Failed to create directory: %s (errno: %d)", 
-                  path_copy, errno);
+        log_error(file_manager_tag, 
+                  "Dir Create Failed", 
+                  "Failed to create directory: %s (errno: %d)", 
+                  path_copy, 
+                  errno);
         return ESP_FAIL;
       }
       log_debug(file_manager_tag, "Dir Created", "Created directory: %s", path_copy);
     } else if (!S_ISDIR(st.st_mode)) {
       /* Path exists but is not a directory */
-      log_error(file_manager_tag, "Dir Create Failed", "Path exists but is not a directory: %s", path_copy);
+      log_error(file_manager_tag, 
+                "Dir Create Failed", 
+                "Path exists but is not a directory: %s", 
+                path_copy);
       return ESP_FAIL;
     }
     
     /* Restore the slash and move to the next component */
     if (next_slash) {
       *next_slash = '/';
-      p = next_slash + 1;
+      p           = next_slash + 1;
     } else {
       break;
     }
@@ -138,19 +145,24 @@ static esp_err_t priv_create_directories(const char *file_path)
  * @brief Writes a string to a file with timestamp
  * 
  * @param[in] file_path Path to the file
- * @param[in] data String to write
+ * @param[in] data      String to write
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
 static esp_err_t priv_write_to_file(const char *file_path, const char *data)
 {
   if (file_path == NULL || data == NULL) {
-    log_error(file_manager_tag, "Write Error", "Invalid arguments: file_path or data is NULL");
+    log_error(file_manager_tag, 
+              "Write Error", 
+              "Invalid arguments: file_path or data is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
   /* Check if SD card is available */
   if (!sd_card_is_available()) {
-    log_error(file_manager_tag, "SD Card Error", "SD card not available, cannot write to file: %s", file_path);
+    log_error(file_manager_tag, 
+              "SD Card Error", 
+              "SD card not available, cannot write to file: %s", 
+              file_path);
     return ESP_FAIL;
   }
   
@@ -161,28 +173,40 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
   /* Create directories if they don't exist */
   esp_err_t ret = priv_create_directories(full_path);
   if (ret != ESP_OK) {
-    log_error(file_manager_tag, "Dir Create Error", "Failed to create directories for file: %s", full_path);
+    log_error(file_manager_tag, 
+              "Dir Create Error", 
+              "Failed to create directories for file: %s", 
+              full_path);
     return ret;
   }
   
   /* Open the file for writing (append mode) */
   FILE *file = fopen(full_path, "a");
   if (file == NULL) {
-    log_error(file_manager_tag, "File Open Error", "Failed to open file: %s (errno: %d)",
-              full_path, errno);
+    log_error(file_manager_tag, 
+              "File Open Error", 
+              "Failed to open file: %s (errno: %d)",
+              full_path, 
+              errno);
     return ESP_FAIL;
   }
   
   /* Get current timestamp */
-  char timestamp[TIMESTAMP_BUFFER_SIZE];
-  time_t now = time(NULL);
-  struct tm timeinfo;
+  char   timestamp[TIMESTAMP_BUFFER_SIZE];
+  time_t now         = time(NULL);
+  struct tm timeinfo = { 0 };
   localtime_r(&now, &timeinfo);
   
   /* Format timestamp */
-  snprintf(timestamp, sizeof(timestamp), "%04d-%02d-%02d %02d:%02d:%02d",
-           timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
-           timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  snprintf(timestamp, 
+           sizeof(timestamp), 
+           "%04d-%02d-%02d %02d:%02d:%02d",
+           timeinfo.tm_year + 1900, 
+           timeinfo.tm_mon + 1, 
+           timeinfo.tm_mday,
+           timeinfo.tm_hour, 
+           timeinfo.tm_min, 
+           timeinfo.tm_sec);
   
   /* Write timestamp and data to file */
   fprintf(file, "%s: %s\n", timestamp, data);
@@ -194,28 +218,38 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
   /* Close file */
   fclose(file);
   
-  log_debug(file_manager_tag, "Write Success", "Data written to file: %s", file_path);
+  log_debug(file_manager_tag, 
+            "Write Success", 
+            "Data written to file: %s", 
+            file_path);
   return ESP_OK;
 }
 
 /**
  * @brief Writes binary data to a file
  * 
- * @param[in] file_path Path to the file
- * @param[in] data Binary data to write
+ * @param[in] file_path   Path to the file
+ * @param[in] data        Binary data to write
  * @param[in] data_length Length of the binary data
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-static esp_err_t priv_write_binary_to_file(const char *file_path, const void *data, uint32_t data_length)
+static esp_err_t priv_write_binary_to_file(const char *file_path, 
+                                           const void *data, 
+                                           uint32_t    data_length)
 {
   if (file_path == NULL || data == NULL || data_length == 0) {
-    log_error(file_manager_tag, "Binary Write Error", "Invalid arguments: file_path or data is NULL, or data_length is 0");
+    log_error(file_manager_tag, 
+              "Binary Write Error", 
+              "Invalid arguments: file_path or data is NULL, or data_length is 0");
     return ESP_ERR_INVALID_ARG;
   }
   
   /* Check if SD card is available */
   if (!sd_card_is_available()) {
-    log_error(file_manager_tag, "SD Card Error", "SD card not available, cannot write binary data to file: %s", file_path);
+    log_error(file_manager_tag, 
+              "SD Card Error", 
+              "SD card not available, cannot write binary data to file: %s", 
+              file_path);
     return ESP_FAIL;
   }
   
@@ -226,23 +260,32 @@ static esp_err_t priv_write_binary_to_file(const char *file_path, const void *da
   /* Create directories if they don't exist */
   esp_err_t ret = priv_create_directories(full_path);
   if (ret != ESP_OK) {
-    log_error(file_manager_tag, "Dir Create Error", "Failed to create directories for binary file: %s", full_path);
+    log_error(file_manager_tag, 
+              "Dir Create Error", 
+              "Failed to create directories for binary file: %s", 
+              full_path);
     return ret;
   }
   
   /* Open the file for writing (binary mode) */
   FILE *file = fopen(full_path, "wb");
   if (file == NULL) {
-    log_error(file_manager_tag, "Binary File Open Error", "Failed to open file: %s (errno: %d)",
-              full_path, errno);
+    log_error(file_manager_tag, 
+              "Binary File Open Error", 
+              "Failed to open file: %s (errno: %d)",
+              full_path, 
+              errno);
     return ESP_FAIL;
   }
   
   /* Write the binary data to the file */
   size_t bytes_written = fwrite(data, 1, data_length, file);
   if (bytes_written != data_length) {
-    log_error(file_manager_tag, "Binary Write Error", "Failed to write all data: %zu of %lu bytes written",
-              bytes_written, data_length);
+    log_error(file_manager_tag, 
+              "Binary Write Error", 
+              "Failed to write all data: %zu of %lu bytes written",
+              bytes_written, 
+              data_length);
   }
   
   /* Ensure data is written to disk */
@@ -252,8 +295,11 @@ static esp_err_t priv_write_binary_to_file(const char *file_path, const void *da
   /* Close the file */
   fclose(file);
   
-  log_debug(file_manager_tag, "Binary Write Success", "Binary data written to file: %s (%lu bytes)",
-            file_path, data_length);
+  log_debug(file_manager_tag, 
+            "Binary Write Success", 
+            "Binary data written to file: %s (%lu bytes)",
+            file_path, 
+            data_length);
   return ESP_OK;
 }
 
@@ -274,11 +320,9 @@ static void priv_file_write_task(void *param)
       /* Check if this is a binary request */
       if (request.is_binary) {
         /* Process binary write request */
-        priv_write_binary_to_file(
-          request.file_path,
-          request.data,
-          request.data_length
-        );
+        priv_write_binary_to_file(request.file_path,
+                                  request.data,
+                                  request.data_length);
         
         /* Free the allocated data buffer */
         if (request.data) {
@@ -304,7 +348,9 @@ static void priv_file_write_task(void *param)
 esp_err_t file_write_manager_init(void)
 {
   if (s_initialized) {
-    log_warn(file_manager_tag, "Init Skip", "File write manager already initialized");
+    log_warn(file_manager_tag, 
+             "Init Skip", 
+             "File write manager already initialized");
     return ESP_OK;
   }
   
@@ -320,18 +366,18 @@ esp_err_t file_write_manager_init(void)
   /* Initialize SD card detection system */
   esp_err_t ret = sd_card_detection_init();
   if (ret != ESP_OK) {
-    log_warn(file_manager_tag, "SD Card Warning", "SD card detection system initialization failed, file writes may fail");
+    log_warn(file_manager_tag, 
+             "SD Card Warning", 
+             "SD card detection system initialization failed, file writes may fail");
   }
   
   /* Create task to process file write requests */
-  BaseType_t task_created = xTaskCreate(
-    priv_file_write_task,
-    "file_write_task",
-    4096,
-    NULL,
-    5,
-    &s_file_write_task
-  );
+  BaseType_t task_created = xTaskCreate(priv_file_write_task,
+                                        "file_write_task",
+                                        4096,
+                                        NULL,
+                                        5,
+                                        &s_file_write_task);
   
   if (task_created != pdPASS) {
     log_error(file_manager_tag, "Task Error", "Failed to create file write task");
@@ -341,19 +387,25 @@ esp_err_t file_write_manager_init(void)
   }
   
   s_initialized = true;
-  log_info(file_manager_tag, "Init Complete", "File write manager initialized successfully");
+  log_info(file_manager_tag, 
+           "Init Complete", 
+           "File write manager initialized successfully");
   return ESP_OK;
 }
 
 esp_err_t file_write_enqueue(const char *file_path, const char *data)
 {
   if (!s_initialized) {
-    log_error(file_manager_tag, "Enqueue Error", "File write manager not initialized");
+    log_error(file_manager_tag, 
+              "Enqueue Error", 
+              "File write manager not initialized");
     return ESP_FAIL;
   }
   
   if (!file_path || !data) {
-    log_error(file_manager_tag, "Enqueue Error", "Invalid arguments: file_path or data is NULL");
+    log_error(file_manager_tag, 
+              "Enqueue Error", 
+              "Invalid arguments: file_path or data is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
@@ -367,9 +419,11 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   
   /* Allocate memory for the text data and copy it */
   size_t data_length = strlen(data) + 1; /* Include null terminator */
-  request.data = malloc(data_length);
+  request.data       = malloc(data_length);
   if (!request.data) {
-    log_error(file_manager_tag, "Memory Error", "Failed to allocate memory for text data");
+    log_error(file_manager_tag, 
+              "Memory Error", 
+              "Failed to allocate memory for text data");
     return ESP_FAIL;
   }
   
@@ -379,24 +433,35 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   
   /* Send the request to the queue */
   if (xQueueSend(s_file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(file_manager_tag, "Queue Error", "Failed to enqueue file write request: queue full");
+    log_error(file_manager_tag, 
+              "Queue Error", 
+              "Failed to enqueue file write request: queue full");
     free(request.data);
     return ESP_FAIL;
   }
   
-  log_debug(file_manager_tag, "Enqueue Success", "Enqueued write request for file: %s", file_path);
+  log_debug(file_manager_tag, 
+            "Enqueue Success", 
+            "Enqueued write request for file: %s", 
+            file_path);
   return ESP_OK;
 }
 
-esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uint32_t data_length)
+esp_err_t file_write_binary_enqueue(const char *file_path, 
+                                    const void *data, 
+                                    uint32_t    data_length)
 {
   if (!s_initialized) {
-    log_error(file_manager_tag, "Binary Enqueue Error", "File write manager not initialized");
+    log_error(file_manager_tag, 
+              "Binary Enqueue Error", 
+              "File write manager not initialized");
     return ESP_FAIL;
   }
   
   if (!file_path || !data || data_length == 0) {
-    log_error(file_manager_tag, "Binary Enqueue Error", "Invalid arguments: file_path or data is NULL, or data_length is 0");
+    log_error(file_manager_tag, 
+              "Binary Enqueue Error", 
+              "Invalid arguments: file_path or data is NULL, or data_length is 0");
     return ESP_ERR_INVALID_ARG;
   }
   
@@ -411,7 +476,9 @@ esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uin
   /* Allocate memory for the binary data and copy it */
   request.data = malloc(data_length);
   if (!request.data) {
-    log_error(file_manager_tag, "Memory Error", "Failed to allocate memory for binary data");
+    log_error(file_manager_tag, 
+              "Memory Error", 
+              "Failed to allocate memory for binary data");
     return ESP_FAIL;
   }
   
@@ -421,12 +488,16 @@ esp_err_t file_write_binary_enqueue(const char *file_path, const void *data, uin
   
   /* Send the request to the queue */
   if (xQueueSend(s_file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(file_manager_tag, "Queue Error", "Failed to enqueue binary write request: queue full");
+    log_error(file_manager_tag, 
+              "Queue Error", 
+              "Failed to enqueue binary write request: queue full");
     free(request.data);
     return ESP_FAIL;
   }
   
-  log_debug(file_manager_tag, "Binary Enqueue Success", "Enqueued binary write request for file: %s (%lu bytes)", 
+  log_debug(file_manager_tag, 
+            "Binary Enqueue Success", 
+            "Enqueued binary write request for file: %s (%lu bytes)", 
             file_path, (unsigned long)data_length);
   return ESP_OK;
 }

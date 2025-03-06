@@ -54,25 +54,33 @@ char *mq135_data_to_json(const mq135_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    log_error(mq135_tag, "JSON Error", "Failed to allocate memory for JSON object");
+    log_error(mq135_tag, 
+              "JSON Error", 
+              "Failed to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "gas")) {
-    log_error(mq135_tag, "JSON Error", "Failed to add sensor_type field to JSON object");
+    log_error(mq135_tag, 
+              "JSON Error", 
+              "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "gas_concentration", data->gas_concentration)) {
-    log_error(mq135_tag, "JSON Error", "Failed to add gas_concentration field to JSON object");
+    log_error(mq135_tag, 
+              "JSON Error", 
+              "Failed to add gas_concentration field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    log_error(mq135_tag, "JSON Error", "Failed to serialize JSON object to string");
+    log_error(mq135_tag, 
+              "JSON Error", 
+              "Failed to serialize JSON object to string");
     cJSON_Delete(json);
     return NULL;
   }
@@ -94,7 +102,9 @@ esp_err_t mq135_init(void *sensor_data)
   adc_oneshot_unit_init_cfg_t adc1_init_cfg = { .unit_id = ADC_UNIT_1 };
   esp_err_t ret = adc_oneshot_new_unit(&adc1_init_cfg, &s_adc1_handle);
   if (ret != ESP_OK) {
-    log_error(mq135_tag, "ADC Error", "Failed to initialize ADC unit for gas sensor");
+    log_error(mq135_tag, 
+              "ADC Error", 
+              "Failed to initialize ADC unit for gas sensor");
     return ret;
   }
 
@@ -104,11 +114,15 @@ esp_err_t mq135_init(void *sensor_data)
   };
   ret = adc_oneshot_config_channel(s_adc1_handle, ADC_CHANNEL_6, &chan_cfg);
   if (ret != ESP_OK) {
-    log_error(mq135_tag, "ADC Error", "Failed to configure ADC channel for gas sensor");
+    log_error(mq135_tag, 
+              "ADC Error", 
+              "Failed to configure ADC channel for gas sensor");
     return ret;
   }
 
-  log_info(mq135_tag, "Init Complete", "MQ135 gas sensor initialized successfully");
+  log_info(mq135_tag, 
+           "Init Complete", 
+           "MQ135 gas sensor initialized successfully");
   return ESP_OK;
 }
 
@@ -127,7 +141,9 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   esp_err_t ret = adc_oneshot_read(s_adc1_handle, ADC_CHANNEL_6, &raw_adc);
   if (ret != ESP_OK) {
     mq135_data->state = k_mq135_read_error;
-    log_error(mq135_tag, "Read Error", "Failed to read ADC value from gas sensor");
+    log_error(mq135_tag, 
+              "Read Error", 
+              "Failed to read ADC value from gas sensor");
     return ESP_FAIL;
   }
 
@@ -161,7 +177,9 @@ void mq135_reset_on_error(mq135_data_t *sensor_data)
           sensor_data->retry_count    = 0;
           sensor_data->retry_interval = (sensor_data->retry_interval * 2 > mq135_max_backoff_interval) ?
                                         mq135_max_backoff_interval : sensor_data->retry_interval * 2;
-          log_warn(mq135_tag, "Reset Backoff", "Increasing retry interval after multiple failed attempts");
+          log_warn(mq135_tag, 
+                   "Reset Backoff", 
+                   "Increasing retry interval after multiple failed attempts");
         }
       }
 
@@ -187,7 +205,9 @@ void mq135_tasks(void *sensor_data)
         file_write_enqueue("mq135.txt", json);
         free(json);
       } else {
-        log_error(mq135_tag, "JSON Error", "Failed to convert gas sensor data to JSON format");
+        log_error(mq135_tag, 
+                  "JSON Error", 
+                  "Failed to convert gas sensor data to JSON format");
       }
     } else {
       mq135_reset_on_error(mq135_data);

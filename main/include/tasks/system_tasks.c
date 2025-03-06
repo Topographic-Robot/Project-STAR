@@ -16,6 +16,16 @@
 #include "time_manager.h"
 #include "file_write_manager.h"
 
+/* Defines ********************************************************************/
+
+#ifndef ENABLE_SD_CARD_LOGGING
+#define ENABLE_SD_CARD_LOGGING true
+#endif
+
+#ifndef ENABLE_LOG_COMPRESSION
+#define ENABLE_LOG_COMPRESSION true
+#endif
+
 /* Constants ******************************************************************/
 
 const char *system_tag = "Project-Star";
@@ -44,13 +54,18 @@ static esp_err_t priv_clear_nvs_flash(void)
   esp_err_t ret = nvs_flash_init();
 
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    log_warn(system_tag, "NVS Clean", "Flash memory requires cleanup, performing erase");
+    log_warn(system_tag, 
+             "NVS Clean", 
+             "Flash memory requires cleanup, performing erase");
     ESP_ERROR_CHECK(nvs_flash_erase());
     ret = nvs_flash_init();
   }
 
   if (ret != ESP_OK) {
-    log_error(system_tag, "NVS Error", "Flash memory initialization failed: %s", esp_err_to_name(ret));
+    log_error(system_tag, 
+              "NVS Error", 
+              "Flash memory initialization failed: %s", 
+              esp_err_to_name(ret));
   } else {
     log_info(system_tag, "NVS Complete", "Flash memory initialized successfully");
   }
@@ -66,14 +81,16 @@ esp_err_t system_tasks_init(void)
 
   /* Initialize logging system */
   log_info(system_tag, "Log Start", "Beginning log system initialization");
-  if (log_init(true) != ESP_OK) {
+  if (log_init(ENABLE_SD_CARD_LOGGING) != ESP_OK) {
     ESP_LOGE(system_tag, "Failed to initialize log system");
     ret = ESP_FAIL;
   }
   
   /* Enable log compression for storage efficiency */
-  log_storage_set_compression(true);
-  log_info(system_tag, "Log Compression", "Enabled log compression for storage efficiency");
+  log_storage_set_compression(ENABLE_LOG_COMPRESSION);
+  log_info(system_tag, 
+           "Log Compression", 
+           "Enabled log compression for storage efficiency");
 
   /* Initialize NVS storage */
   if (priv_clear_nvs_flash() != ESP_OK) {
@@ -84,42 +101,56 @@ esp_err_t system_tasks_init(void)
   /* Initialize sensor communication */
   log_info(system_tag, "Sensor Start", "Beginning sensor subsystem initialization");
   if (sensors_init(&g_sensor_data) != ESP_OK) {
-    log_error(system_tag, "Sensor Error", "Failed to initialize sensors: communication errors detected");
+    log_error(system_tag, 
+              "Sensor Error", 
+              "Failed to initialize sensors: communication errors detected");
     ret = ESP_FAIL;
   }
 
   /* Initialize cameras */
   log_info(system_tag, "Camera Start", "Beginning camera subsystem initialization");
   if (ov7670_init(&g_camera_data) != ESP_OK) {
-    log_error(system_tag, "Camera Error", "Failed to initialize camera: hardware communication error");
+    log_error(system_tag, 
+              "Camera Error", 
+              "Failed to initialize camera: hardware communication error");
     ret = ESP_FAIL;
   }
   
   /* Initialize motor controllers */
   log_info(system_tag, "Motor Start", "Beginning motor controller initialization");
   if (motors_init(&g_pwm_controller) != ESP_OK) {
-    log_error(system_tag, "Motor Error", "Failed to initialize motor controllers: PWM system error");
+    log_error(system_tag, 
+              "Motor Error", 
+              "Failed to initialize motor controllers: PWM system error");
     ret = ESP_FAIL;
   }
 
   /* Initialize gait array (Must be done after initializing motor controllers */
   log_info(system_tag, "Gait Start", "Beginning gait system initialization");
   if (gait_init(g_pwm_controller) != ESP_OK) {
-    log_error(system_tag, "Gait Error", "Failed to initialize gait system: motor mapping error");
+    log_error(system_tag, 
+              "Gait Error", 
+              "Failed to initialize gait system: motor mapping error");
     ret = ESP_FAIL;
   }
   
   /* Initialize storage (e.g., SD card or SPIFFS) */
   log_info(system_tag, "Storage Start", "Beginning storage system initialization");
   if (file_write_manager_init() != ESP_OK) {
-    log_error(system_tag, "Storage Error", "Failed to initialize storage: file system error");
+    log_error(system_tag, 
+              "Storage Error", 
+              "Failed to initialize storage: file system error");
     ret = ESP_FAIL;
   }
 
   if (ret == ESP_OK) {
-    log_info(system_tag, "Init Complete", "All system components initialized successfully");
+    log_info(system_tag, 
+             "Init Complete", 
+             "All system components initialized successfully");
   } else {
-    log_warn(system_tag, "Init Warning", "System initialization incomplete: some components failed");
+    log_warn(system_tag, 
+             "Init Warning", 
+             "System initialization incomplete: some components failed");
   }
   return ret;
 }
@@ -131,7 +162,9 @@ esp_err_t system_tasks_start(void)
   /* Start WiFi task */
   log_info(system_tag, "WiFi Start", "Beginning WiFi subsystem initialization");
   if (wifi_task_start() != ESP_OK) {
-    log_error(system_tag, "WiFi Error", "Failed to start WiFi task: network functionality limited");
+    log_error(system_tag, 
+              "WiFi Error", 
+              "Failed to start WiFi task: network functionality limited");
     ret = ESP_FAIL;
   }
 
@@ -146,14 +179,18 @@ esp_err_t system_tasks_start(void)
   /* Start sensor tasks */
   log_info(system_tag, "Sensor Start", "Beginning sensor monitoring system");
   if (sensor_tasks(&g_sensor_data) != ESP_OK) {
-    log_error(system_tag, "Sensor Error", "Failed to start sensor tasks: environmental monitoring limited");
+    log_error(system_tag, 
+              "Sensor Error", 
+              "Failed to start sensor tasks: environmental monitoring limited");
     ret = ESP_FAIL;
   }
 
   /* Start motor control tasks */
   log_info(system_tag, "Motor Start", "Beginning motor control system");
   if (motor_tasks_start(g_pwm_controller) != ESP_OK) {
-    log_error(system_tag, "Motor Error", "Failed to start motor tasks: movement system offline");
+    log_error(system_tag, 
+              "Motor Error", 
+              "Failed to start motor tasks: movement system offline");
     ret = ESP_FAIL;
   }
 

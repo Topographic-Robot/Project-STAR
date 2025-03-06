@@ -51,11 +51,15 @@ static esp_err_t priv_ccs811_reset(void *context)
   vTaskDelay(pdMS_TO_TICKS(10));
 
   /* Application start */
-  ret = priv_i2c_write_byte(k_ccs811_cmd_app_start, ccs811_i2c_bus, ccs811_i2c_address, 
+  ret = priv_i2c_write_byte(k_ccs811_cmd_app_start, 
+                            ccs811_i2c_bus, 
+                            ccs811_i2c_address, 
                             ccs811_tag);
   if (ret != ESP_OK) {
     ccs811_data->state = k_ccs811_app_start_error;
-    log_error(ccs811_tag, "App Start Error", "Failed to start CCS811 application mode");
+    log_error(ccs811_tag, 
+              "Sensor Start Error", 
+              "Failed to start CCS811 application mode");
     return ret;
   }
 
@@ -69,31 +73,41 @@ char *ccs811_data_to_json(const ccs811_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
-    log_error(ccs811_tag, "JSON Error", "Failed to allocate memory for JSON object");
+    log_error(ccs811_tag, 
+              "JSON Error", 
+              "Failed to allocate memory for JSON object");
     return NULL;
   }
 
   if (!cJSON_AddStringToObject(json, "sensor_type", "air_quality")) {
-    log_error(ccs811_tag, "JSON Error", "Failed to add sensor_type field to JSON object");
+    log_error(ccs811_tag, 
+              "JSON Error", 
+              "Failed to add sensor_type field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "eCO2", data->eco2)) {
-    log_error(ccs811_tag, "JSON Error", "Failed to add eCO2 field to JSON object");
+    log_error(ccs811_tag, 
+              "JSON Error", 
+              "Failed to add eCO2 field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   if (!cJSON_AddNumberToObject(json, "TVOC", data->tvoc)) {
-    log_error(ccs811_tag, "JSON Error", "Failed to add TVOC field to JSON object");
+    log_error(ccs811_tag, 
+              "JSON Error", 
+              "Failed to add TVOC field to JSON object");
     cJSON_Delete(json);
     return NULL;
   }
 
   char *json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
-    log_error(ccs811_tag, "JSON Error", "Failed to serialize JSON object to string");
+    log_error(ccs811_tag, 
+              "JSON Error", 
+              "Failed to serialize JSON object to string");
     cJSON_Delete(json);
     return NULL;
   }
@@ -108,10 +122,14 @@ esp_err_t ccs811_init(void *sensor_data)
   log_info(ccs811_tag, "Init Start", "Beginning CCS811 sensor initialization");
 
   /* Initialize error handler */
-  error_handler_init(&(ccs811_data->error_handler), ccs811_tag,
-                     ccs811_max_retries, ccs811_initial_retry_interval,
-                     ccs811_max_backoff_interval, priv_ccs811_reset,
-                     ccs811_data, ccs811_initial_retry_interval,
+  error_handler_init(&(ccs811_data->error_handler), 
+                     ccs811_tag,
+                     ccs811_max_retries, 
+                     ccs811_initial_retry_interval,
+                     ccs811_max_backoff_interval, 
+                     priv_ccs811_reset,
+                     ccs811_data, 
+                     ccs811_initial_retry_interval,
                      ccs811_max_backoff_interval);
 
   ccs811_data->i2c_address = ccs811_i2c_address;
@@ -121,8 +139,11 @@ esp_err_t ccs811_init(void *sensor_data)
   ccs811_data->state       = k_ccs811_uninitialized;
 
   /* Initialize the I2C bus */
-  esp_err_t ret = priv_i2c_init(ccs811_scl_io, ccs811_sda_io, ccs811_i2c_freq_hz,
-                                ccs811_i2c_bus, ccs811_tag);
+  esp_err_t ret = priv_i2c_init(ccs811_scl_io, 
+                                ccs811_sda_io, 
+                                ccs811_i2c_freq_hz,
+                                ccs811_i2c_bus, 
+                                ccs811_tag);
   if (ret != ESP_OK) {
     log_error(ccs811_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;

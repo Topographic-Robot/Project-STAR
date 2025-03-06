@@ -25,13 +25,13 @@ extern const uint32_t uart_timeout_ticks; /**< Timeout for UART commands in tick
  * data bits, parity, and stop bits. The UART driver is initialized with both
  * TX and RX buffers for efficient communication.
  *
- * @param[in] tx_io          Pin number for the TX (transmit) line.
- * @param[in] rx_io          Pin number for the RX (receive) line.
- * @param[in] baud_rate      Communication baud rate (e.g., 9600, 115200).
- * @param[in,out] uart_num   UART port number to configure.
- * @param[in] rx_buffer_size Size of the RX buffer in bytes.
- * @param[in] tx_buffer_size Size of the TX buffer in bytes.
- * @param[in] tag            Tag for logging errors and events.
+ * @param[in]     tx_io          Pin number for the TX (transmit) line.
+ * @param[in]     rx_io          Pin number for the RX (receive) line.
+ * @param[in]     baud_rate      Communication baud rate (e.g., 9600, 115200).
+ * @param[in,out] uart_num       UART port number to configure.
+ * @param[in]     rx_buffer_size Size of the RX buffer in bytes.
+ * @param[in]     tx_buffer_size Size of the TX buffer in bytes.
+ * @param[in]     tag            Tag for logging errors and events.
  *
  * @return 
  * - `ESP_OK` on successful initialization.
@@ -58,10 +58,10 @@ esp_err_t priv_uart_init(uint8_t      tx_io,
  * and the number of bytes read is saved in `out_length`.
  *
  * @param[out] data       Buffer to store the read data.
- * @param[in] len         Maximum number of bytes to read.
+ * @param[in]  len        Maximum number of bytes to read.
  * @param[out] out_length Pointer to an integer to store the number of bytes read.
- * @param[in] uart_num    UART port number to read from.
- * @param[in] tag         Tag for logging errors and events.
+ * @param[in]  uart_num   UART port number to read from.
+ * @param[in]  tag        Tag for logging errors and events.
  *
  * @return 
  * - `ESP_OK`   if data is successfully read.
@@ -84,11 +84,11 @@ esp_err_t priv_uart_read(uint8_t    *data,
  * Sends data over the specified UART interface. On success, the number of bytes
  * written is stored in `bytes_written`.
  *
- * @param[in] data          Buffer containing the data to send.
- * @param[in] len           Number of bytes to write.
+ * @param[in]  data          Buffer containing the data to send.
+ * @param[in]  len           Number of bytes to write.
  * @param[out] bytes_written Pointer to an integer to store the number of bytes written.
- * @param[in] uart_num      UART port number to write to.
- * @param[in] tag           Tag for logging errors and events.
+ * @param[in]  uart_num      UART port number to write to.
+ * @param[in]  tag           Tag for logging errors and events.
  *
  * @return 
  * - `ESP_OK`   if data is successfully written.

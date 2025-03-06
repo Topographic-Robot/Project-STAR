@@ -50,9 +50,11 @@ static void priv_get_task_info(char *buffer, size_t size)
 
 /* Public Functions ********************************************************/
 
-void log_write_va(esp_log_level_t level, const char *tag,
-                  const char *short_msg, const char *detailed_msg,
-                  va_list args) 
+void log_write_va(esp_log_level_t level, 
+                  const char     *tag,
+                  const char     *short_msg, 
+                  const char     *detailed_msg,
+                  va_list         args) 
 {
   if (!tag || !short_msg || !detailed_msg) {
     ESP_LOGE(tag, "Invalid arguments: tag, short_msg, or detailed_msg is NULL");
@@ -79,7 +81,9 @@ void log_write_va(esp_log_level_t level, const char *tag,
 
   if (timestamp != NULL) {
     /* Include timestamp, sequence number, and task info */
-    snprintf(complete_msg, sizeof(complete_msg), "[%s][%llu]%s %s%s%s",
+    snprintf(complete_msg, 
+             sizeof(complete_msg), 
+             "[%s][%llu]%s %s%s%s",
              timestamp,
              seq_num,
              task_info,
@@ -89,7 +93,9 @@ void log_write_va(esp_log_level_t level, const char *tag,
     free(timestamp);
   } else {
     /* Skip timestamp but include sequence number and task info */
-    snprintf(complete_msg, sizeof(complete_msg), "[%llu]%s %s%s%s",
+    snprintf(complete_msg, 
+             sizeof(complete_msg), 
+             "[%llu]%s %s%s%s",
              seq_num,
              task_info,
              short_msg,
@@ -125,8 +131,11 @@ void log_write_va(esp_log_level_t level, const char *tag,
   }
 }
 
-void log_write(esp_log_level_t level, const char *tag,
-               const char *short_msg, const char *detailed_msg, ...)
+void log_write(esp_log_level_t level, 
+               const char      *tag,
+               const char      *short_msg, 
+               const char      *detailed_msg, 
+               ...)
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -143,7 +152,10 @@ esp_err_t log_init(bool log_to_sd)
   if (log_to_sd) {
     esp_err_t ret = log_storage_init();
     if (ret != ESP_OK) {
-      log_error(log_tag, "Storage Error", "Failed to initialize log storage: %s", esp_err_to_name(ret));
+      log_error(log_tag, 
+                "Storage Error", 
+                "Failed to initialize log storage: %s", 
+                esp_err_to_name(ret));
       s_log_to_sd_enabled = false;
       return ret;
     }
@@ -157,7 +169,10 @@ esp_err_t log_init(bool log_to_sd)
 void log_set_sd_logging(bool enabled)
 {
   s_log_to_sd_enabled = enabled;
-  log_info(log_tag, "SD Config", "SD card logging %s", enabled ? "enabled" : "disabled");
+  log_info(log_tag, 
+           "SD Config", 
+           "SD card logging %s", 
+           enabled ? "enabled" : "disabled");
 }
 
 esp_err_t log_flush(void)
@@ -169,7 +184,10 @@ esp_err_t log_flush(void)
   
   esp_err_t ret = log_storage_flush();
   if (ret != ESP_OK) {
-    log_error(log_tag, "Flush Error", "Failed to flush log storage: %s", esp_err_to_name(ret));
+    log_error(log_tag, 
+              "Flush Error", 
+              "Failed to flush log storage: %s", 
+              esp_err_to_name(ret));
   }
   
   return ret;

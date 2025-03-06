@@ -41,7 +41,9 @@ static void priv_initialize_sntp(void)
   /* Initialize SNTP */
   esp_sntp_init();
 
-  log_info(time_manager_tag, "SNTP Complete", "SNTP service initialized, awaiting time sync");
+  log_info(time_manager_tag, 
+           "SNTP Complete", 
+           "SNTP service initialized, awaiting time sync");
 }
 
 /**
@@ -55,7 +57,9 @@ static void priv_initialize_sntp(void)
  */
 static void priv_set_default_time(void)
 {
-  log_warn(time_manager_tag, "Default Time", "Using default time due to unavailable network sync");
+  log_warn(time_manager_tag, 
+           "Default Time", 
+           "Using default time due to unavailable network sync");
 
   struct timeval tv;
   struct tm      tm;
@@ -71,7 +75,9 @@ static void priv_set_default_time(void)
 
   settimeofday(&tv, NULL);
   
-  log_info(time_manager_tag, "Time Set", "System time set to default: 2025-01-01 00:00:00");
+  log_info(time_manager_tag, 
+           "Time Set", 
+           "System time set to default: 2025-01-01 00:00:00");
   s_time_initialized = true; /* Mark time as initialized even though it's default */
 }
 
@@ -110,7 +116,9 @@ esp_err_t time_manager_init(void)
   
   esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (netif == NULL || !esp_netif_is_netif_up(netif)) {
-    log_warn(time_manager_tag, "Network Error", "Network unavailable, falling back to default time");
+    log_warn(time_manager_tag, 
+             "Network Error", 
+             "Network unavailable, falling back to default time");
     priv_set_default_time();
     return ESP_OK;
   }
@@ -123,13 +131,18 @@ esp_err_t time_manager_init(void)
   int       retry       = 0;
   const int max_retries = 10;
   while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < max_retries) {
-    log_info(time_manager_tag, "Sync Status", "Waiting for time sync (attempt %u/%u)", 
-             retry, max_retries);
+    log_info(time_manager_tag, 
+             "Sync Status", 
+             "Waiting for time sync (attempt %u/%u)", 
+             retry, 
+             max_retries);
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
   
   if (retry == max_retries) {
-    log_error(time_manager_tag, "Sync Error", "Time sync failed after maximum retries");
+    log_error(time_manager_tag, 
+              "Sync Error", 
+              "Time sync failed after maximum retries");
     priv_set_default_time();
     return ESP_OK;
   }
@@ -140,8 +153,13 @@ esp_err_t time_manager_init(void)
   localtime_r(&now, &timeinfo);
   strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
   
-  log_info(time_manager_tag, "Sync Complete", "Time synchronized successfully: %s", strftime_buf);
-  log_info(time_manager_tag, "Init Complete", "Time manager initialization finished");
+  log_info(time_manager_tag, 
+           "Sync Complete", 
+           "Time synchronized successfully: %s", 
+           strftime_buf);
+  log_info(time_manager_tag, 
+           "Init Complete", 
+           "Time manager initialization finished");
   
   s_time_initialized = true;  /* Mark time as initialized after successful NTP sync */
   return ESP_OK;

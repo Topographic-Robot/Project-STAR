@@ -17,7 +17,9 @@ esp_err_t send_sensor_data_to_webserver(const char *json_string)
 
   /* Check if the network is ready */
   if (wifi_check_connection() != ESP_OK) {
-    log_error(system_tag, "Network Error", "Network connection unavailable for data transmission");
+    log_error(system_tag, 
+              "Network Error", 
+              "Network connection unavailable for data transmission");
     return ESP_FAIL;
   }
 
@@ -46,13 +48,22 @@ esp_err_t send_sensor_data_to_webserver(const char *json_string)
     return ESP_FAIL;
   }
 
-  log_info(system_tag, "Send Start", "Transmitting data to server at %s", webserver_url);
+  log_info(system_tag, 
+           "Send Start", 
+           "Transmitting data to server at %s", 
+           webserver_url);
   esp_err_t err = esp_http_client_perform(client);
   if (err == ESP_OK) {
     int status_code = esp_http_client_get_status_code(client);
-    log_info(system_tag, "Send Success", "Data transmitted successfully, server response code: %u", status_code);
+    log_info(system_tag, 
+             "Send Success", 
+             "Data transmitted successfully, server response code: %u", 
+             status_code);
   } else {
-    log_error(system_tag, "Send Error", "HTTP transmission failed: %s", esp_err_to_name(err));
+    log_error(system_tag, 
+              "Send Error", 
+              "HTTP transmission failed: %s", 
+              esp_err_to_name(err));
   }
 
   esp_http_client_cleanup(client);
