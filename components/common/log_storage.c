@@ -26,6 +26,8 @@ const int   log_compression_enabled  = 1;                     /* Enable/disable 
 const int   log_compression_level    = Z_DEFAULT_COMPRESSION; /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
 const int   log_compression_buffer   = 4096;                  /* Size of compression buffer */
 const char *log_compressed_extension = ".gz";                 /* Extension for compressed log files */
+const int   log_zlib_window_bits     = 15 + 16;               /* Window size with gzip header */
+const int   log_zlib_mem_level       = 8;                     /* Memory level for zlib compression */
 
 /* Globals (Static) ***********************************************************/
 
@@ -45,7 +47,7 @@ static bool              s_sd_card_available                      = false; /* Fl
  * @param[in] timestamp_us Timestamp in microseconds
  * @return Timestamp in seconds
  */
-static inline time_t timestamp_us_to_seconds(uint64_t timestamp_us)
+static inline time_t priv_timestamp_us_to_seconds(uint64_t timestamp_us)
 {
   return timestamp_us / 1000000;
 }
@@ -56,7 +58,7 @@ static inline time_t timestamp_us_to_seconds(uint64_t timestamp_us)
  * @param[in] timestamp_us Timestamp in microseconds
  * @return Milliseconds component (0-999)
  */
-static inline uint64_t timestamp_us_to_milliseconds(uint64_t timestamp_us)
+static inline uint64_t priv_timestamp_us_to_milliseconds(uint64_t timestamp_us)
 {
   return (timestamp_us % 1000000) / 1000;
 }
@@ -69,9 +71,9 @@ static inline uint64_t timestamp_us_to_milliseconds(uint64_t timestamp_us)
  * @param[in]  timeinfo    Time information structure
  * @return Number of characters written (excluding null terminator)
  */
-static inline int format_date_string(char            *buffer, 
-                                     size_t           buffer_size, 
-                                     const struct tm *timeinfo)
+static inline int priv_format_date_string(char            *buffer, 
+                                          size_t           buffer_size, 
+                                          const struct tm *timeinfo)
 {
   return snprintf(buffer, 
                   buffer_size, 
@@ -92,12 +94,12 @@ static inline int format_date_string(char            *buffer,
  * @param[in]  message      The log message
  * @return Number of characters written (excluding null terminator)
  */
-static inline int format_log_entry(char            *buffer,
-                                   size_t           buffer_size,
-                                   const struct tm *timeinfo,
-                                   uint64_t         milliseconds,
-                                   const char      *level_str,
-                                   const char      *message)
+static inline int priv_format_log_entry(char            *buffer,
+                                        size_t           buffer_size,
+                                        const struct tm *timeinfo,
+                                        uint64_t         milliseconds,
+                                        const char      *level_str,
+                                        const char      *message)
 {
   return snprintf(buffer, 
                   buffer_size,
@@ -122,13 +124,13 @@ static inline int format_log_entry(char            *buffer,
  * @param[in]  extension   File extension to use
  * @return Number of characters written (excluding null terminator)
  */
-static inline int format_log_filepath(char            *buffer,
+static inline int priv_format_log_filepath(char            *buffer,
                                       size_t           buffer_size,
                                       const struct tm *timeinfo,
                                       const char      *extension)
 {
   char date_str[DATE_STRING_BUFFER_SIZE];
-  format_date_string(date_str, sizeof(date_str), timeinfo);
+  priv_format_date_string(date_str, sizeof(date_str), timeinfo);
   
   return snprintf(buffer, 
                   buffer_size,
@@ -177,7 +179,7 @@ static void priv_generate_log_file_path(char *file_path, size_t file_path_len)
   localtime_r(&now, &timeinfo);
   
   const char *extension = s_compression_enabled ? log_compressed_extension : ".txt";
-  format_log_filepath(file_path, file_path_len, &timeinfo, extension);
+  priv_format_log_filepath(file_path, file_path_len, &timeinfo, extension);
 }
 
 /**
@@ -210,7 +212,7 @@ static bool priv_check_log_rotation(void)
   localtime_r(&now, &timeinfo);
   
   char date_str[DATE_STRING_BUFFER_SIZE];
-  format_date_string(date_str, sizeof(date_str), &timeinfo);
+  priv_format_date_string(date_str, sizeof(date_str), &timeinfo);
   
   /* Extract date from current log file path */
   char *date_start = strstr(s_current_log_file, log_base_dir);
@@ -272,8 +274,8 @@ static esp_err_t priv_compress_data(const char *input,
   int ret = deflateInit2(&stream, 
                          log_compression_level, 
                          Z_DEFLATED,
-                         ZLIB_WINDOW_BITS,
-                         ZLIB_MEM_LEVEL,
+                         log_zlib_window_bits,
+                         log_zlib_mem_level,
                          Z_DEFAULT_STRATEGY);
   if (ret != Z_OK) {
     log_error(log_storage_tag, 
@@ -389,25 +391,24 @@ static esp_err_t priv_flush_log_buffer(void)
       const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
       
       /* Convert timestamp to time components */
-      time_t    log_time = timestamp_us_to_seconds(s_log_buffer[i].timestamp);
+      time_t    log_time = priv_timestamp_us_to_seconds(s_log_buffer[i].timestamp);
       struct tm timeinfo;
       localtime_r(&log_time, &timeinfo);
       
-      uint64_t milliseconds = timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
+      uint64_t milliseconds = priv_timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
       
       /* Calculate the size of this log entry */
       char timestamp[TIMESTAMP_BUFFER_SIZE];
-      format_log_entry(timestamp, 
-                       sizeof(timestamp), 
-                       &timeinfo,
-                       milliseconds,
-                       "",  /* Empty level string for size calculation */
-                       ""); /* Empty message for size calculation */
+      priv_format_log_entry(timestamp, 
+                            sizeof(timestamp), 
+                            &timeinfo,
+                            milliseconds,
+                            "",  /* Empty level string for size calculation */
+                            ""); /* Empty message for size calculation */
       
       total_size += strlen(timestamp) + 
                     strlen(level_str) + 
-                    strlen(s_log_buffer[i].buffer) + 
-                    LOG_ENTRY_EXTRA_CHARS;
+                    strlen(s_log_buffer[i].buffer);
     }
     
     /* Allocate buffer for all logs */
@@ -427,19 +428,19 @@ static esp_err_t priv_flush_log_buffer(void)
       const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
       
       /* Convert timestamp to time components */
-      time_t    log_time = timestamp_us_to_seconds(s_log_buffer[i].timestamp);
+      time_t    log_time = priv_timestamp_us_to_seconds(s_log_buffer[i].timestamp);
       struct tm timeinfo;
       localtime_r(&log_time, &timeinfo);
       
-      uint64_t milliseconds = timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
+      uint64_t milliseconds = priv_timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
       
       /* Format the timestamp and log entry */
-      int written = format_log_entry(all_logs + pos, 
-                                     total_size - pos, 
-                                     &timeinfo,
-                                     milliseconds,
-                                     level_str,
-                                     s_log_buffer[i].buffer);
+      int written = priv_format_log_entry(all_logs + pos, 
+                                          total_size - pos, 
+                                          &timeinfo,
+                                          milliseconds,
+                                          level_str,
+                                          s_log_buffer[i].buffer);
       
       if (written > 0) {
         pos += written;
@@ -471,20 +472,20 @@ static esp_err_t priv_flush_log_buffer(void)
       const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
       
       /* Convert timestamp to time components */
-      time_t    log_time = timestamp_us_to_seconds(s_log_buffer[i].timestamp);
+      time_t    log_time = priv_timestamp_us_to_seconds(s_log_buffer[i].timestamp);
       struct tm timeinfo;
       localtime_r(&log_time, &timeinfo);
       
-      uint64_t milliseconds = timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
+      uint64_t milliseconds = priv_timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
       
       /* Format the timestamp and log entry */
       char formatted_log[LOG_STORAGE_MAX_FORMATTED_ENTRY_LENGTH];
-      format_log_entry(formatted_log, 
-                       sizeof(formatted_log), 
-                       &timeinfo,
-                       milliseconds,
-                       level_str,
-                       s_log_buffer[i].buffer);
+      priv_format_log_entry(formatted_log, 
+                            sizeof(formatted_log), 
+                            &timeinfo,
+                            milliseconds,
+                            level_str,
+                            s_log_buffer[i].buffer);
       
       /* Enqueue the log for writing */
       esp_err_t ret = file_write_enqueue(s_current_log_file, formatted_log);

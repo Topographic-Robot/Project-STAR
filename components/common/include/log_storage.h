@@ -21,6 +21,8 @@ extern const int   log_compression_enabled;  /* Enable/disable compression (1=en
 extern const int   log_compression_level;    /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
 extern const int   log_compression_buffer;   /* Size of compression buffer */
 extern const char *log_compressed_extension; /* Extension for compressed log files */
+extern const int   zlib_window_bits;         /* Window size with gzip header */
+extern const int   zlib_mem_level;           /* Memory level for zlib compression */
 
 /* Macros *********************************************************************/
 
@@ -29,9 +31,6 @@ extern const char *log_compressed_extension; /* Extension for compressed log fil
 #define TIMESTAMP_BUFFER_SIZE                  (64)                                     /* Buffer size for formatted timestamp strings */
 #define DATE_STRING_BUFFER_SIZE                (32)                                     /* Buffer size for date strings */
 #define LOG_STORAGE_MAX_FORMATTED_ENTRY_LENGTH (LOG_STORAGE_MAX_MESSAGE_LENGTH * 2)     /* Formatted log entry buffer size */
-#define LOG_ENTRY_EXTRA_CHARS                  (10)                                     /* Extra characters for log formatting */
-#define ZLIB_WINDOW_BITS                       (15 + 16)                                /* Maximum window size with gzip header */
-#define ZLIB_MEM_LEVEL                         (8)                                      /* Memory level for zlib compression */
 
 /* Structs ********************************************************************/
 
