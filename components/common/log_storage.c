@@ -98,8 +98,8 @@ static inline int priv_format_log_entry(char                  *buffer,
                                         size_t                 buffer_size,
                                         const struct tm *const timeinfo,
                                         uint64_t               milliseconds,
-                                        const char      *const level_str,
-                                        const char      *const message)
+                                        const char *const      level_str,
+                                        const char *const      message)
 {
   return snprintf(buffer, 
                   buffer_size,
@@ -127,7 +127,7 @@ static inline int priv_format_log_entry(char                  *buffer,
 static inline int priv_format_log_filepath(char                  *buffer,
                                            size_t                 buffer_size,
                                            const struct tm *const timeinfo,
-                                           const char      *const extension)
+                                           const char *const      extension)
 {
   char date_str[DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), timeinfo);
