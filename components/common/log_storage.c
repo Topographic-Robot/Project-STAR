@@ -71,9 +71,9 @@ static inline uint64_t priv_timestamp_us_to_milliseconds(uint64_t timestamp_us)
  * @param[in]  timeinfo    Time information structure
  * @return Number of characters written (excluding null terminator)
  */
-static inline int priv_format_date_string(char            *buffer, 
-                                          size_t           buffer_size, 
-                                          const struct tm *timeinfo)
+static inline int priv_format_date_string(char                  *buffer, 
+                                          size_t                 buffer_size, 
+                                          const struct tm *const timeinfo)
 {
   return snprintf(buffer, 
                   buffer_size, 
@@ -94,12 +94,12 @@ static inline int priv_format_date_string(char            *buffer,
  * @param[in]  message      The log message
  * @return Number of characters written (excluding null terminator)
  */
-static inline int priv_format_log_entry(char            *buffer,
-                                        size_t           buffer_size,
-                                        const struct tm *timeinfo,
-                                        uint64_t         milliseconds,
-                                        const char      *level_str,
-                                        const char      *message)
+static inline int priv_format_log_entry(char                  *buffer,
+                                        size_t                 buffer_size,
+                                        const struct tm *const timeinfo,
+                                        uint64_t               milliseconds,
+                                        const char      *const level_str,
+                                        const char      *const message)
 {
   return snprintf(buffer, 
                   buffer_size,
@@ -124,10 +124,10 @@ static inline int priv_format_log_entry(char            *buffer,
  * @param[in]  extension   File extension to use
  * @return Number of characters written (excluding null terminator)
  */
-static inline int priv_format_log_filepath(char            *buffer,
-                                      size_t           buffer_size,
-                                      const struct tm *timeinfo,
-                                      const char      *extension)
+static inline int priv_format_log_filepath(char                  *buffer,
+                                           size_t                 buffer_size,
+                                           const struct tm *const timeinfo,
+                                           const char      *const extension)
 {
   char date_str[DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), timeinfo);
