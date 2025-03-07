@@ -106,13 +106,6 @@ typedef struct {
 esp_err_t ec11_init(ec11_data_t *encoder);
 
 /**
- * @brief ISR handler for EC11 encoder interrupts.
- * This function is automatically registered during initialization.
- * @param[in] arg Pointer to the encoder data structure
- */
-void IRAM_ATTR ec11_isr_handler(void* arg);
-
-/**
  * @brief Registers a callback function for encoder events.
  *
  * @param[in] encoder    Pointer to the encoder data structure

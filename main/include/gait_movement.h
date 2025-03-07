@@ -14,6 +14,10 @@ extern "C" {
 
 extern const char *gait_tag; /**< Tag for logs */
 
+/* Macros *********************************************************************/
+
+#define NUMBER_OF_LEGS (6)
+
 /* Public Functions ***********************************************************/
 
 /**

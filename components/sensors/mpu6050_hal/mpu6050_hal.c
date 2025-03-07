@@ -413,13 +413,14 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
     return ESP_FAIL;
   }
 
-  uint8_t accel_data[6];
-  uint8_t gyro_data[6];
+  uint8_t accel_data[MPU6050_ACCEL_DATA_SIZE];
+  uint8_t gyro_data[MPU6050_GYRO_DATA_SIZE];
+  uint8_t temp[MPU6050_TEMP_DATA_SIZE]; /* TODO: Add temperature data */
 
   /* Read accelerometer data starting from ACCEL_XOUT_H */
   esp_err_t ret = priv_i2c_read_reg_bytes(k_mpu6050_accel_xout_h_cmd, 
                                           accel_data, 
-                                          6,
+                                          MPU6050_ACCEL_DATA_SIZE,
                                           sensor_data->i2c_bus, 
                                           sensor_data->i2c_address,
                                           mpu6050_tag);
@@ -434,7 +435,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   /* Read gyroscope data starting from GYRO_XOUT_H */
   ret = priv_i2c_read_reg_bytes(k_mpu6050_gyro_xout_h_cmd, 
                                 gyro_data, 
-                                6,
+                                MPU6050_GYRO_DATA_SIZE,
                                 sensor_data->i2c_bus, 
                                 sensor_data->i2c_address, 
                                 mpu6050_tag);

@@ -17,7 +17,7 @@ const uint32_t ec11_rotation_debounce_ms = 5;
 
 /* Private Functions **********************************************************/
 
-static void process_encoder_state(ec11_data_t *encoder, int current_state) 
+static void priv_process_encoder_state(ec11_data_t *encoder, int current_state) 
 {
   int64_t current_time = esp_timer_get_time() / 1000; /* Convert to milliseconds */
   
@@ -49,7 +49,7 @@ static void process_encoder_state(ec11_data_t *encoder, int current_state)
   encoder->prev_state = current_state;
 }
 
-static void process_button_state(ec11_data_t *encoder, bool current_button) 
+static void priv_process_button_state(ec11_data_t *encoder, bool current_button) 
 {
   int64_t current_time = esp_timer_get_time() / 1000; /* Convert to milliseconds */
   
@@ -66,6 +66,37 @@ static void process_button_state(ec11_data_t *encoder, bool current_button)
                         encoder->board_ptr,
                         encoder->motor_mask);
     }
+  }
+}
+
+/**
+ * @brief ISR handler for EC11 encoder interrupts.
+ * This function is automatically registered during initialization.
+ * @param[in] arg Pointer to the encoder data structure
+ */
+static void IRAM_ATTR priv_ec11_isr_handler(void *arg)
+{
+  ec11_data_t *encoder                  = (ec11_data_t *)arg;
+  BaseType_t higher_priority_task_woken = pdFALSE;
+
+  if (xSemaphoreTakeFromISR(encoder->mutex, &higher_priority_task_woken) == pdTRUE) {
+    /* Read current state */
+    int current_state   = (gpio_get_level(encoder->pin_a) << 1) |
+                          gpio_get_level(encoder->pin_b);
+    bool current_button = gpio_get_level(encoder->pin_btn) == 0; /* Active low */
+
+    /* Process encoder and button states */
+    if (current_state != encoder->prev_state) {
+      priv_process_encoder_state(encoder, current_state);
+    }
+    priv_process_button_state(encoder, current_button);
+
+    xSemaphoreGiveFromISR(encoder->mutex, &higher_priority_task_woken);
+  }
+
+  /* Yield if a higher priority task was woken */
+  if (higher_priority_task_woken) {
+    portYIELD_FROM_ISR();
   }
 }
 
@@ -129,7 +160,7 @@ esp_err_t ec11_init(ec11_data_t *encoder)
   }
 
   /* Add ISR handler for pin A */
-  ret = gpio_isr_handler_add(encoder->pin_a, ec11_isr_handler, (void *)encoder);
+  ret = gpio_isr_handler_add(encoder->pin_a, priv_ec11_isr_handler, (void *)encoder);
   if (ret != ESP_OK) {
     log_error(ec11_tag, "ISR Error", "Failed to add ISR handler for pin A");
     encoder->state = k_ec11_error;
@@ -137,7 +168,7 @@ esp_err_t ec11_init(ec11_data_t *encoder)
   }
 
   /* Add ISR handler for pin B */
-  ret = gpio_isr_handler_add(encoder->pin_b, ec11_isr_handler, (void *)encoder);
+  ret = gpio_isr_handler_add(encoder->pin_b, priv_ec11_isr_handler, (void *)encoder);
   if (ret != ESP_OK) {
     log_error(ec11_tag, "ISR Error", "Failed to add ISR handler for pin B");
     encoder->state = k_ec11_error;
@@ -145,7 +176,7 @@ esp_err_t ec11_init(ec11_data_t *encoder)
   }
 
   /* Add ISR handler for button pin */
-  ret = gpio_isr_handler_add(encoder->pin_btn, ec11_isr_handler, (void *)encoder);
+  ret = gpio_isr_handler_add(encoder->pin_btn, priv_ec11_isr_handler, (void *)encoder);
   if (ret != ESP_OK) {
     log_error(ec11_tag, "ISR Error", "Failed to add ISR handler for button pin");
     encoder->state = k_ec11_error;
@@ -190,28 +221,3 @@ void ec11_register_callback(ec11_data_t  *encoder,
   xSemaphoreGive(encoder->mutex);
 }
 
-void IRAM_ATTR ec11_isr_handler(void *arg)
-{
-  ec11_data_t *encoder                  = (ec11_data_t *)arg;
-  BaseType_t higher_priority_task_woken = pdFALSE;
-
-  if (xSemaphoreTakeFromISR(encoder->mutex, &higher_priority_task_woken) == pdTRUE) {
-    /* Read current state */
-    int current_state   = (gpio_get_level(encoder->pin_a) << 1) |
-                          gpio_get_level(encoder->pin_b);
-    bool current_button = gpio_get_level(encoder->pin_btn) == 0; /* Active low */
-
-    /* Process encoder and button states */
-    if (current_state != encoder->prev_state) {
-      process_encoder_state(encoder, current_state);
-    }
-    process_button_state(encoder, current_button);
-
-    xSemaphoreGiveFromISR(encoder->mutex, &higher_priority_task_woken);
-  }
-
-  /* Yield if a higher priority task was woken */
-  if (higher_priority_task_woken) {
-    portYIELD_FROM_ISR();
-  }
-}
