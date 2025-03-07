@@ -25,6 +25,12 @@ extern const uint8_t    mpu6050_sample_rate_div;    /**< Sample rate divider for
 extern const uint8_t    mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
 extern const uint8_t    mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
 
+/* Macros *********************************************************************/
+
+#define MPU6050_ACCEL_DATA_SIZE (6)
+#define MPU6050_GYRO_DATA_SIZE  (6)
+#define MPU6050_TEMP_DATA_SIZE  (2)
+
 /* Enums **********************************************************************/
 
 /**
