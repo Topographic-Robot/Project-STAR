@@ -1,4 +1,4 @@
-# Project-Star: Survey and Terrain Analysis Robot (STAR)
+# Project-STAR: Survey and Terrain Analysis Robot (STAR)
 
 [![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html)
 
