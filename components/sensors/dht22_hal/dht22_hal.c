@@ -15,17 +15,17 @@
 
 /* Constants *******************************************************************/
 
-const char    *dht22_tag                    = "DHT22";
-const uint8_t  dht22_data_io                = GPIO_NUM_4;
-const uint32_t dht22_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
-const uint8_t  dht22_bit_count              = 40;
-const uint8_t  dht22_max_retries            = 4;
-const uint32_t dht22_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
-const uint32_t dht22_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
-const uint32_t dht22_start_delay_ms         = 20;
-const uint32_t dht22_response_timeout_us    = 80;
-const uint32_t dht22_bit_threshold_us       = 40;
-const uint8_t  dht22_allowed_fail_attempts  = 3;
+const char* const dht22_tag                    = "DHT22";
+const uint8_t     dht22_data_io                = GPIO_NUM_4;
+const uint32_t    dht22_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
+const uint8_t     dht22_bit_count              = 40;
+const uint8_t     dht22_max_retries            = 4;
+const uint32_t    dht22_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
+const uint32_t    dht22_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
+const uint32_t    dht22_start_delay_ms         = 20;
+const uint32_t    dht22_response_timeout_us    = 80;
+const uint32_t    dht22_bit_threshold_us       = 40;
+const uint8_t     dht22_allowed_fail_attempts  = 3;
 
 /* Globals (Static) ***********************************************************/
 
@@ -78,9 +78,9 @@ static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
  * - `true`  if the level was reached within the timeout.
  * - `false` if the timeout occurred.
  */
-static bool priv_dht22_wait_for_level_with_duration(int8_t    level, 
-                                                    uint32_t  timeout_us,
-                                                    uint32_t *duration_us)
+static bool priv_dht22_wait_for_level_with_duration(int8_t          level, 
+                                                    uint32_t        timeout_us,
+                                                    uint32_t* const duration_us)
 {
   uint64_t start_time = esp_timer_get_time();
   while (gpio_get_level(dht22_data_io) != level) {
@@ -198,7 +198,7 @@ static int8_t priv_dht22_read_bit(void)
  * - `ESP_OK`   on successful data read.
  * - `ESP_FAIL` on timeout or other errors while reading bits.
  */
-static esp_err_t priv_dht22_read_data_bits(uint8_t *data_buffer)
+static esp_err_t priv_dht22_read_data_bits(uint8_t* const data_buffer)
 {
   uint8_t byte_index = 0, bit_index = 7;
   memset(data_buffer, 0, 5);
@@ -239,7 +239,7 @@ static esp_err_t priv_dht22_read_data_bits(uint8_t *data_buffer)
  * - `ESP_OK`   if the calculated checksum matches the received checksum.
  * - `ESP_FAIL` if the checksum verification fails.
  */
-static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
+static esp_err_t priv_dht22_verify_checksum(uint8_t* const data_buffer)
 {
   uint8_t checksum = data_buffer[0] + data_buffer[1] + data_buffer[2] + data_buffer[3];
   if ((checksum & 0xFF) != data_buffer[4]) {
@@ -253,9 +253,9 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t *data_buffer)
 
 /* Public Functions ************************************************************/
 
-char *dht22_data_to_json(const dht22_data_t *data)
+char* dht22_data_to_json(const dht22_data_t* const data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* json = cJSON_CreateObject();
   if (!json) {
     log_error(dht22_tag, 
               "JSON Creation Failed", 
@@ -308,9 +308,9 @@ char *dht22_data_to_json(const dht22_data_t *data)
   return json_string;
 }
 
-esp_err_t dht22_init(void *sensor_data)
+esp_err_t dht22_init(void* const sensor_data)
 {
-  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
+  dht22_data_t* dht22_data = (dht22_data_t*)sensor_data;
   log_info(dht22_tag, 
            "Init Started", 
            "Beginning DHT22 sensor initialization sequence");
@@ -342,7 +342,7 @@ esp_err_t dht22_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t dht22_read(dht22_data_t *sensor_data)
+esp_err_t dht22_read(dht22_data_t* const sensor_data)
 {
   if (sensor_data == NULL) {
     log_error(dht22_tag, 
@@ -413,19 +413,19 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   return ESP_OK;
 }
 
-void dht22_reset_on_error(dht22_data_t *sensor_data)
+void dht22_reset_on_error(dht22_data_t* const sensor_data)
 {
   if (sensor_data->fail_count >= dht22_allowed_fail_attempts) {
     /* TODO: Reset error handler */
   }
 }
 
-void dht22_tasks(void *sensor_data)
+void dht22_tasks(void* const sensor_data)
 {
-  dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
+  dht22_data_t* dht22_data = (dht22_data_t*)sensor_data;
   while (1) {
     if (dht22_read(dht22_data) == ESP_OK) {
-      char *json = dht22_data_to_json(dht22_data);
+      char* json = dht22_data_to_json(dht22_data);
       send_sensor_data_to_webserver(json);
       file_write_enqueue("dht22.txt", json);
       free(json);

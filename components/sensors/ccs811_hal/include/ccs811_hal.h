@@ -16,19 +16,19 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const uint8_t    ccs811_i2c_address;            /**< Default I2C address for the CCS811 sensor (default 0x5A). */
-extern const i2c_port_t ccs811_i2c_bus;                /**< I2C bus number used for communication. */
-extern const char      *ccs811_tag;                    /**< Tag used for logging messages related to the CCS811 sensor. */
-extern const uint8_t    ccs811_scl_io;                 /**< GPIO pin for I2C clock line (SCL). */
-extern const uint8_t    ccs811_sda_io;                 /**< GPIO pin for I2C data line (SDA). */
-extern const uint8_t    ccs811_wake_io;                /**< GPIO pin for the sensor's wake-up function. */
-extern const uint8_t    ccs811_rst_io;                 /**< GPIO pin for the sensor's reset function. */
-extern const uint8_t    ccs811_int_io;                 /**< GPIO pin for the sensor's interrupt function (optional). */
-extern const uint32_t   ccs811_i2c_freq_hz;            /**< I2C bus frequency in Hz. */
-extern const uint32_t   ccs811_polling_rate_ticks;     /**< Polling rate for sensor readings in system ticks. */
-extern const uint8_t    ccs811_max_retries;            /**< Maximum number of retry attempts for sensor operations. */
-extern const uint32_t   ccs811_initial_retry_interval; /**< Initial retry interval in system ticks. */
-extern const uint32_t   ccs811_max_backoff_interval;   /**< Maximum backoff interval in system ticks. */
+extern const uint8_t     ccs811_i2c_address;            /**< Default I2C address for the CCS811 sensor (default 0x5A). */
+extern const i2c_port_t  ccs811_i2c_bus;                /**< I2C bus number used for communication. */
+extern const char* const ccs811_tag;                    /**< Tag used for logging messages related to the CCS811 sensor. */
+extern const uint8_t     ccs811_scl_io;                 /**< GPIO pin for I2C clock line (SCL). */
+extern const uint8_t     ccs811_sda_io;                 /**< GPIO pin for I2C data line (SDA). */
+extern const uint8_t     ccs811_wake_io;                /**< GPIO pin for the sensor's wake-up function. */
+extern const uint8_t     ccs811_rst_io;                 /**< GPIO pin for the sensor's reset function. */
+extern const uint8_t     ccs811_int_io;                 /**< GPIO pin for the sensor's interrupt function (optional). */
+extern const uint32_t    ccs811_i2c_freq_hz;            /**< I2C bus frequency in Hz. */
+extern const uint32_t    ccs811_polling_rate_ticks;     /**< Polling rate for sensor readings in system ticks. */
+extern const uint8_t     ccs811_max_retries;            /**< Maximum number of retry attempts for sensor operations. */
+extern const uint32_t    ccs811_initial_retry_interval; /**< Initial retry interval in system ticks. */
+extern const uint32_t    ccs811_max_backoff_interval;   /**< Maximum backoff interval in system ticks. */
 
 /* Enums **********************************************************************/
 
@@ -104,7 +104,7 @@ typedef struct {
  * - Pointer to the JSON-formatted string on success.
  * - `NULL` if memory allocation fails.
  */
-char *ccs811_data_to_json(const ccs811_data_t *data);
+char* ccs811_data_to_json(const ccs811_data_t* const data);
 
 /**
  * @brief Initializes the CCS811 sensor.
@@ -119,7 +119,7 @@ char *ccs811_data_to_json(const ccs811_data_t *data);
  * - `ESP_OK` on success.
  * - Relevant `esp_err_t` codes on failure.
  */
-esp_err_t ccs811_init(void *sensor_data);
+esp_err_t ccs811_init(void* const sensor_data);
 
 /**
  * @brief Reads eCO2 and TVOC data from the CCS811 sensor.
@@ -133,7 +133,7 @@ esp_err_t ccs811_init(void *sensor_data);
  * - `ESP_OK`   on success.
  * - `ESP_FAIL` on failure.
  */
-esp_err_t ccs811_read(ccs811_data_t *sensor_data);
+esp_err_t ccs811_read(ccs811_data_t* const sensor_data);
 
 /**
  * @brief Executes periodic tasks for the CCS811 sensor.
@@ -144,7 +144,7 @@ esp_err_t ccs811_read(ccs811_data_t *sensor_data);
  * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure managing 
  *                            sensor data and state.
  */
-void ccs811_tasks(void *sensor_data);
+void ccs811_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

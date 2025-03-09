@@ -10,19 +10,19 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t    bh1750_i2c_address            = 0x23;
-const i2c_port_t bh1750_i2c_bus                = I2C_NUM_0;
-const char      *bh1750_tag                    = "BH1750";
-const uint8_t    bh1750_scl_io                 = GPIO_NUM_22;
-const uint8_t    bh1750_sda_io                 = GPIO_NUM_21;
-const uint32_t   bh1750_i2c_freq_hz            = 100000;
-const uint32_t   bh1750_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
-const uint8_t    bh1750_max_retries            = 4;
-const uint32_t   bh1750_initial_retry_interval = pdMS_TO_TICKS(15);
-const uint32_t   bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
-const uint8_t    bh1750_measurement_bytes      = 2;
-const float      bh1750_raw_to_lux_factor      = 1.2f;
-const uint8_t    bh1750_high_byte_shift        = 8;
+const uint8_t     bh1750_i2c_address            = 0x23;
+const i2c_port_t  bh1750_i2c_bus                = I2C_NUM_0;
+const char* const bh1750_tag                    = "BH1750";
+const uint8_t     bh1750_scl_io                 = GPIO_NUM_22;
+const uint8_t     bh1750_sda_io                 = GPIO_NUM_21;
+const uint32_t    bh1750_i2c_freq_hz            = 100000;
+const uint32_t    bh1750_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
+const uint8_t     bh1750_max_retries            = 4;
+const uint32_t    bh1750_initial_retry_interval = pdMS_TO_TICKS(15);
+const uint32_t    bh1750_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
+const uint8_t     bh1750_measurement_bytes      = 2;
+const float       bh1750_raw_to_lux_factor      = 1.2f;
+const uint8_t     bh1750_high_byte_shift        = 8;
 
 /* Static Functions **********************************************************/
 
@@ -35,9 +35,9 @@ const uint8_t    bh1750_high_byte_shift        = 8;
  * @param context Pointer to the bh1750_data_t structure
  * @return ESP_OK on success, error code otherwise
  */
-static esp_err_t priv_bh1750_reset(void *context)
+static esp_err_t priv_bh1750_reset(void* const context)
 {
-  bh1750_data_t *bh1750_data = (bh1750_data_t *)context;
+  bh1750_data_t* bh1750_data = (bh1750_data_t*)context;
   esp_err_t      ret;
 
   /* Power on the sensor */
@@ -84,9 +84,9 @@ static esp_err_t priv_bh1750_reset(void *context)
 
 /* Public Functions ***********************************************************/
 
-char *bh1750_data_to_json(const bh1750_data_t *data)
+char* bh1750_data_to_json(const bh1750_data_t* const data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* json = cJSON_CreateObject();
   if (!json) {
     log_error(bh1750_tag, 
               "JSON Error", 
@@ -123,9 +123,9 @@ char *bh1750_data_to_json(const bh1750_data_t *data)
   return json_string;
 }
 
-esp_err_t bh1750_init(void *sensor_data)
+esp_err_t bh1750_init(void* const sensor_data)
 {
-  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  bh1750_data_t* bh1750_data = (bh1750_data_t*)sensor_data;
   log_info(bh1750_tag, "Init Start", "Beginning BH1750 sensor initialization");
 
   /* Initialize error handler */
@@ -165,7 +165,7 @@ esp_err_t bh1750_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t bh1750_read(bh1750_data_t *sensor_data)
+esp_err_t bh1750_read(bh1750_data_t* const sensor_data)
 {
   /* Buffer to store the 2-byte measurement value from BH1750 */
   uint8_t   data[bh1750_measurement_bytes];
@@ -195,9 +195,9 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data)
   return ESP_OK;
 }
 
-void bh1750_tasks(void *sensor_data)
+void bh1750_tasks(void* const sensor_data)
 {
-  bh1750_data_t *bh1750_data = (bh1750_data_t *)sensor_data;
+  bh1750_data_t* bh1750_data = (bh1750_data_t*)sensor_data;
   if (!bh1750_data) {
     log_error(bh1750_tag, "Task Error", "Invalid sensor data pointer provided");
     vTaskDelete(NULL);
@@ -207,7 +207,7 @@ void bh1750_tasks(void *sensor_data)
   while (1) {
     esp_err_t ret = bh1750_read(bh1750_data);
     if (ret == ESP_OK) {
-      char *json = bh1750_data_to_json(bh1750_data);
+      char* json = bh1750_data_to_json(bh1750_data);
       if (json) {
         send_sensor_data_to_webserver(json);
         file_write_enqueue("bh1750.txt", json);
@@ -218,7 +218,7 @@ void bh1750_tasks(void *sensor_data)
                   "Failed to convert sensor data to JSON format");
       }
     } else if (bh1750_data->state & k_bh1750_error) {
-      error_handler_record_error(&(bh1750_data->error_handler), ESP_FAIL);
+      error_handler_record_status(&(bh1750_data->error_handler), ESP_FAIL);
     }
     vTaskDelay(bh1750_polling_rate_ticks);
   }

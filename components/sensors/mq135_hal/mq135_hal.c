@@ -12,14 +12,14 @@
 
 /* Constants *******************************************************************/
 
-const char    *mq135_tag                    = "MQ135";
-const uint8_t  mq135_aout_pin               = GPIO_NUM_34;
-const uint8_t  mq135_dout_pin               = GPIO_NUM_35;
-const uint32_t mq135_polling_rate_ticks     = pdMS_TO_TICKS(1000);
-const uint32_t mq135_warmup_time_ms         = 180000; /**< 3-minute warm-up time */
-const uint8_t  mq135_max_retries            = 4;
-const uint32_t mq135_initial_retry_interval = pdMS_TO_TICKS(15000);
-const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
+const char* const mq135_tag                    = "MQ135";
+const uint8_t     mq135_aout_pin               = GPIO_NUM_34;
+const uint8_t     mq135_dout_pin               = GPIO_NUM_35;
+const uint32_t    mq135_polling_rate_ticks     = pdMS_TO_TICKS(1000);
+const uint32_t    mq135_warmup_time_ms         = 180000; /**< 3-minute warm-up time */
+const uint8_t     mq135_max_retries            = 4;
+const uint32_t    mq135_initial_retry_interval = pdMS_TO_TICKS(15000);
+const uint32_t    mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
 
 /* Globals (Static) ***********************************************************/
 
@@ -50,9 +50,9 @@ static float priv_mq135_calculate_ppm(int raw_adc_value)
 
 /* Public Functions ***********************************************************/
 
-char *mq135_data_to_json(const mq135_data_t *data)
+char* mq135_data_to_json(const mq135_data_t* const data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* json = cJSON_CreateObject();
   if (!json) {
     log_error(mq135_tag, 
               "JSON Error", 
@@ -89,9 +89,9 @@ char *mq135_data_to_json(const mq135_data_t *data)
   return json_string;
 }
 
-esp_err_t mq135_init(void *sensor_data)
+esp_err_t mq135_init(void* const sensor_data)
 {
-  mq135_data_t *mq135_data = (mq135_data_t *)sensor_data;
+  mq135_data_t* const mq135_data = (mq135_data_t*)sensor_data;
   log_info(mq135_tag, "Init Start", "Beginning MQ135 gas sensor initialization");
 
   mq135_data->raw_adc_value      = 0;
@@ -126,9 +126,9 @@ esp_err_t mq135_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t mq135_read(mq135_data_t *sensor_data)
+esp_err_t mq135_read(mq135_data_t* const sensor_data)
 {
-  mq135_data_t *mq135_data = (mq135_data_t *)sensor_data;
+  mq135_data_t* const mq135_data = (mq135_data_t*)sensor_data;
 
   TickType_t now_ticks = xTaskGetTickCount();
   if (now_ticks - mq135_data->warmup_start_ticks < pdMS_TO_TICKS(mq135_warmup_time_ms)) {
@@ -158,7 +158,7 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   return ESP_OK;
 }
 
-void mq135_reset_on_error(mq135_data_t *sensor_data)
+void mq135_reset_on_error(mq135_data_t* const sensor_data)
 {
   if (sensor_data->state == k_mq135_read_error) {
     TickType_t current_ticks = xTaskGetTickCount();
@@ -188,9 +188,9 @@ void mq135_reset_on_error(mq135_data_t *sensor_data)
   }
 }
 
-void mq135_tasks(void *sensor_data)
+void mq135_tasks(void* const sensor_data)
 {
-  mq135_data_t *mq135_data = (mq135_data_t *)sensor_data;
+  mq135_data_t* const mq135_data = (mq135_data_t*)sensor_data;
   if (!mq135_data) {
     log_error(mq135_tag, "Task Error", "Invalid sensor data pointer provided");
     vTaskDelete(NULL);
@@ -199,7 +199,7 @@ void mq135_tasks(void *sensor_data)
 
   while (1) {
     if (mq135_read(mq135_data) == ESP_OK) {
-      char *json = mq135_data_to_json(mq135_data);
+      char* json = mq135_data_to_json(mq135_data);
       if (json) {
         send_sensor_data_to_webserver(json);
         file_write_enqueue("mq135.txt", json);

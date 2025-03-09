@@ -17,12 +17,12 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char *system_tag; /**< Logging tag */
+extern const char* const system_tag; /**< Logging tag */
 
 /* Globals ********************************************************************/
 
 extern sensor_data_t    g_sensor_data;    /**< Global variable that holds the sensor data */
-extern pca9685_board_t *g_pwm_controller; /**< Global variable that holds the PWM controller linked list */
+extern pca9685_board_t* g_pwm_controller; /**< Global variable that holds the PWM controller linked list */
 /* TODO: Make this support all 6 cameras */
 extern ov7670_data_t    g_camera_data;    /**< Global variable that holds the camera data */
 

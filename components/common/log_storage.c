@@ -18,16 +18,16 @@
 
 /* Constants ******************************************************************/
 
-const char *log_storage_tag          = "LOG_STORAGE";
-const char *log_base_dir             = "logs";
-const int   log_max_file_size        = 1024 * 1024;           /* Maximum log file size in bytes (1MB) */
-const int   log_max_files            = 10;                    /* Maximum number of log files to keep */
-const int   log_compression_enabled  = 1;                     /* Enable/disable compression (1=enabled, 0=disabled) */
-const int   log_compression_level    = Z_DEFAULT_COMPRESSION; /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
-const int   log_compression_buffer   = 4096;                  /* Size of compression buffer */
-const char *log_compressed_extension = ".gz";                 /* Extension for compressed log files */
-const int   log_zlib_window_bits     = 15 + 16;               /* Window size with gzip header */
-const int   log_zlib_mem_level       = 8;                     /* Memory level for zlib compression */
+const char* const log_storage_tag          = "Log Storage";
+const char* const log_base_dir             = "logs";
+const int         log_max_file_size        = 1024 * 1024;           /* Maximum log file size in bytes (1MB) */
+const int         log_max_files            = 10;                    /* Maximum number of log files to keep */
+const int         log_compression_enabled  = 1;                     /* Enable/disable compression (1=enabled, 0=disabled) */
+const int         log_compression_level    = Z_DEFAULT_COMPRESSION; /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
+const int         log_compression_buffer   = 4096;                  /* Size of compression buffer */
+const char* const log_compressed_extension = ".gz";                 /* Extension for compressed log files */
+const int         log_zlib_window_bits     = 15 + 16;               /* Window size with gzip header */
+const int         log_zlib_mem_level       = 8;                     /* Memory level for zlib compression */
 
 /* Globals (Static) ***********************************************************/
 
@@ -71,7 +71,7 @@ static inline uint64_t priv_timestamp_us_to_milliseconds(uint64_t timestamp_us)
  * @param[in]  timeinfo    Time information structure
  * @return Number of characters written (excluding null terminator)
  */
-static inline int priv_format_date_string(char                  *buffer, 
+static inline int priv_format_date_string(char*                  buffer, 
                                           size_t                 buffer_size, 
                                           const struct tm *const timeinfo)
 {
@@ -94,12 +94,12 @@ static inline int priv_format_date_string(char                  *buffer,
  * @param[in]  message      The log message
  * @return Number of characters written (excluding null terminator)
  */
-static inline int priv_format_log_entry(char                  *buffer,
+static inline int priv_format_log_entry(char*                  buffer,
                                         size_t                 buffer_size,
-                                        const struct tm *const timeinfo,
+                                        const struct tm* const timeinfo,
                                         uint64_t               milliseconds,
-                                        const char *const      level_str,
-                                        const char *const      message)
+                                        const char* const      level_str,
+                                        const char* const      message)
 {
   return snprintf(buffer, 
                   buffer_size,
@@ -124,10 +124,10 @@ static inline int priv_format_log_entry(char                  *buffer,
  * @param[in]  extension   File extension to use
  * @return Number of characters written (excluding null terminator)
  */
-static inline int priv_format_log_filepath(char                  *buffer,
+static inline int priv_format_log_filepath(char*                  buffer,
                                            size_t                 buffer_size,
-                                           const struct tm *const timeinfo,
-                                           const char *const      extension)
+                                           const struct tm* const timeinfo,
+                                           const char* const      extension)
 {
   char date_str[DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), timeinfo);
@@ -172,13 +172,14 @@ static const char *priv_log_level_to_string(esp_log_level_t level)
  * @param[out] file_path     Buffer to store the file path
  * @param[in]  file_path_len Length of the buffer
  */
-static void priv_generate_log_file_path(char *file_path, size_t file_path_len)
+static void priv_generate_log_file_path(char*  file_path, 
+                                        size_t file_path_len)
 {
   struct tm timeinfo;
   time_t    now = time(NULL);
   localtime_r(&now, &timeinfo);
   
-  const char *extension = s_compression_enabled ? log_compressed_extension : ".txt";
+  const char* const extension = s_compression_enabled ? log_compressed_extension : ".txt";
   priv_format_log_filepath(file_path, file_path_len, &timeinfo, extension);
 }
 
@@ -258,10 +259,10 @@ static esp_err_t priv_rotate_log_file(void)
  * @param[in,out] output_len Size of output buffer on input, size of compressed data on output
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-static esp_err_t priv_compress_data(const char *input, 
-                                    size_t      input_len, 
-                                    char       *output, 
-                                    size_t     *output_len)
+static esp_err_t priv_compress_data(const char* const input, 
+                                    size_t            input_len, 
+                                    char*             output, 
+                                    size_t*           output_len)
 {
   if (input == NULL || output == NULL || output_len == NULL) {
     return ESP_FAIL;
@@ -286,9 +287,9 @@ static esp_err_t priv_compress_data(const char *input,
   }
   
   /* Set up input and output buffers */
-  stream.next_in   = (Bytef *)input;
+  stream.next_in   = (Bytef*)input;
   stream.avail_in  = input_len;
-  stream.next_out  = (Bytef *)output;
+  stream.next_out  = (Bytef*)output;
   stream.avail_out = *output_len;
   
   /* Compress data */
@@ -318,7 +319,8 @@ static esp_err_t priv_compress_data(const char *input,
  * @param[in] data      Data to write
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-static esp_err_t priv_write_log_data(const char *file_path, const char *data)
+static esp_err_t priv_write_log_data(const char* const file_path, 
+                                     const char* const data)
 {
   if (file_path == NULL || data == NULL) {
     return ESP_FAIL;
@@ -382,13 +384,13 @@ static esp_err_t priv_flush_log_buffer(void)
   }
   
   /* If compression is enabled, we'll collect all logs into a single buffer first */
-  char  *all_logs   = NULL;
+  char*  all_logs   = NULL;
   size_t total_size = 0;
   
   if (s_compression_enabled) {
     /* Calculate total size needed */
     for (uint32_t i = 0; i < s_log_buffer_index; i++) {
-      const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+      const char* level_str = priv_log_level_to_string(s_log_buffer[i].level);
       
       /* Convert timestamp to time components */
       time_t    log_time = priv_timestamp_us_to_seconds(s_log_buffer[i].timestamp);
@@ -425,7 +427,7 @@ static esp_err_t priv_flush_log_buffer(void)
     
     /* Collect all logs into the buffer */
     for (uint32_t i = 0; i < s_log_buffer_index; i++) {
-      const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+      const char* level_str = priv_log_level_to_string(s_log_buffer[i].level);
       
       /* Convert timestamp to time components */
       time_t    log_time = priv_timestamp_us_to_seconds(s_log_buffer[i].timestamp);
@@ -469,7 +471,7 @@ static esp_err_t priv_flush_log_buffer(void)
   } else {
     /* No compression, write each log entry individually */
     for (uint32_t i = 0; i < s_log_buffer_index; i++) {
-      const char *level_str = priv_log_level_to_string(s_log_buffer[i].level);
+      const char* level_str = priv_log_level_to_string(s_log_buffer[i].level);
       
       /* Convert timestamp to time components */
       time_t    log_time = priv_timestamp_us_to_seconds(s_log_buffer[i].timestamp);
@@ -576,7 +578,8 @@ void log_storage_set_sd_available(bool available)
   xSemaphoreGive(s_log_mutex);
 }
 
-esp_err_t log_storage_write(esp_log_level_t level, const char *message)
+esp_err_t log_storage_write(esp_log_level_t  level, 
+                           const char* const message)
 {
   if (!s_log_storage_initialized) {
     return ESP_FAIL;

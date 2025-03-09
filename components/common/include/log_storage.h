@@ -13,16 +13,16 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char *log_storage_tag;          /* Tag for logging */
-extern const char *log_base_dir;             /* Base directory for logs */
-extern const int   log_max_file_size;        /* Maximum log file size in bytes */
-extern const int   log_max_files;            /* Maximum number of log files to keep */
-extern const int   log_compression_enabled;  /* Enable/disable compression (1=enabled, 0=disabled) */
-extern const int   log_compression_level;    /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
-extern const int   log_compression_buffer;   /* Size of compression buffer */
-extern const char *log_compressed_extension; /* Extension for compressed log files */
-extern const int   zlib_window_bits;         /* Window size with gzip header */
-extern const int   zlib_mem_level;           /* Memory level for zlib compression */
+extern const char* const log_storage_tag;          /* Tag for logging */
+extern const char* const log_base_dir;             /* Base directory for logs */
+extern const int         log_max_file_size;        /* Maximum log file size in bytes */
+extern const int         log_max_files;            /* Maximum number of log files to keep */
+extern const int         log_compression_enabled;  /* Enable/disable compression (1=enabled, 0=disabled) */
+extern const int         log_compression_level;    /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
+extern const int         log_compression_buffer;   /* Size of compression buffer */
+extern const char* const log_compressed_extension; /* Extension for compressed log files */
+extern const int         zlib_window_bits;         /* Window size with gzip header */
+extern const int         zlib_mem_level;           /* Memory level for zlib compression */
 
 /* Macros *********************************************************************/
 

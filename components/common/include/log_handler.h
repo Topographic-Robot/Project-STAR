@@ -17,7 +17,7 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char *log_tag; /* Tag for logging */
+extern const char* const log_tag; /* Tag for logging */
 
 /* Macros ********************************************************************/
 
@@ -68,19 +68,19 @@ esp_err_t log_flush(void);
  * @param[in] detailed_msg Detailed message with optional format specifiers
  * @param[in] args         va_list of arguments for format string
  */
-void log_write_va(esp_log_level_t level, 
-                  const char     *tag,
-                  const char     *short_msg, 
-                  const char     *detailed_msg,
-                  va_list         args);
+void log_write_va(esp_log_level_t   level, 
+                  const char* const tag,
+                  const char* const short_msg, 
+                  const char* const detailed_msg,
+                  va_list           args);
 
 /**
  * @brief Variadic version of log_write
  */
-void log_write(esp_log_level_t level, 
-               const char     *tag,
-               const char     *short_msg, 
-               const char     *detailed_msg, 
+void log_write(esp_log_level_t   level, 
+               const char* const tag,
+               const char* const short_msg, 
+               const char* const detailed_msg, 
                ...)
                __attribute__((format(printf, 4, 5)));
 
@@ -104,9 +104,9 @@ void log_write(esp_log_level_t level,
  * This enables compile-time format string checking.
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_error(const char *tag, 
-               const char *short_msg, 
-               const char *detailed_msg, 
+void log_error(const char* const tag, 
+               const char* const short_msg, 
+               const char* const detailed_msg, 
                ...) 
 {
   va_list args;
@@ -124,9 +124,9 @@ void log_error(const char *tag,
  * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_warn(const char *tag, 
-              const char *short_msg, 
-              const char *detailed_msg, 
+void log_warn(const char* const tag, 
+              const char* const short_msg, 
+              const char* const detailed_msg, 
               ...) 
 {
   va_list args;
@@ -144,9 +144,9 @@ void log_warn(const char *tag,
  * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_info(const char *tag, 
-              const char *short_msg,
-              const char *detailed_msg, 
+void log_info(const char* const tag, 
+              const char* const short_msg,
+              const char* const detailed_msg, 
               ...) 
 {
   va_list args;
@@ -164,9 +164,9 @@ void log_info(const char *tag,
  * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_debug(const char *tag, 
-               const char *short_msg,
-               const char *detailed_msg, 
+void log_debug(const char* const tag, 
+               const char* const short_msg,
+               const char* const detailed_msg, 
                ...) 
 {
   va_list args;
@@ -184,9 +184,9 @@ void log_debug(const char *tag,
  * @param[in] args         va_list of arguments for format string
  */
 static inline __attribute__((format(printf, 3, 4))) 
-void log_verbose(const char *tag, 
-                 const char *short_msg,
-                 const char *detailed_msg, 
+void log_verbose(const char* const tag, 
+                 const char* const short_msg,
+                 const char* const detailed_msg, 
                  ...) 
 {
   va_list args;

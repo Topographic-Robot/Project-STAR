@@ -14,7 +14,7 @@ static leg_t s_legs[NUMBER_OF_LEGS] = {};
 
 /* Constants ******************************************************************/
 
-const char *gait_tag = "Gait Movement";
+const char* const gait_tag = "Gait Movement";
 
 /* Private Functions (Static) *************************************************/
 
@@ -34,11 +34,11 @@ const char *gait_tag = "Gait Movement";
  * - `ESP_OK` on success.
  * - Relevant `esp_err_t` codes on failure.
  */
-esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller, 
-                                  uint16_t         motor_mask, 
-                                  uint8_t          board_id, 
-                                  joint_type_t     joint_type, 
-                                  float            relative_angle) 
+esp_err_t priv_set_relative_angle(const pca9685_board_t* const pwm_controller, 
+                                  const uint16_t               motor_mask, 
+                                  const uint8_t                board_id, 
+                                  const joint_type_t           joint_type, 
+                                  const float                  relative_angle) 
 {
   float absolute_angle = 90.0f; /* Default neutral position */
   float angle_min      = 0.0f, angle_max = 180.0f;
@@ -109,11 +109,11 @@ esp_err_t priv_set_relative_angle(pca9685_board_t *pwm_controller,
  * - `ESP_OK`   on success.
  * - `ESP_FAIL` if a new board is required but unavailable.
  */
-static esp_err_t priv_assign_motor(motor_t          *motor, 
-                                   joint_type_t      joint_type, 
-                                   pca9685_board_t **board, 
-                                   uint8_t          *motor_index, 
-                                   uint8_t          *board_id)
+static esp_err_t priv_assign_motor(motor_t* const          motor, 
+                                   joint_type_t            joint_type, 
+                                   pca9685_board_t** const board, 
+                                   uint8_t* const          motor_index, 
+                                   uint8_t* const          board_id)
 {
   if (*motor_index >= 16) {
     if ((*board)->next == NULL) {
@@ -228,9 +228,9 @@ float priv_calculate_step_distance(float hip_angle_deg,
  *
  * @return Updated mask with the processed chunk removed.
  */
-static uint16_t priv_extract_chunk(uint16_t  mask, 
-                                   uint8_t   max_active_servos, 
-                                   uint16_t *chunk) 
+static uint16_t priv_extract_chunk(uint16_t        mask, 
+                                   uint8_t         max_active_servos, 
+                                   uint16_t* const chunk) 
 {
   uint8_t active_count = 0;
   *chunk               = 0;
@@ -268,9 +268,9 @@ static uint16_t priv_extract_chunk(uint16_t  mask,
  * - The `joint_type` parameter must be a valid value from `joint_type_t`.
  * - Includes delays (`vTaskDelay`) between chunk processing to minimize current draw.
  */
-esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller, 
-                                      uint16_t         mask,
-                                      float            relative_angle)
+esp_err_t priv_process_mask_in_chunks(pca9685_board_t* const pwm_controller, 
+                                      uint16_t               mask,
+                                      float                  relative_angle)
 {
   if (pwm_controller == NULL) {
     log_error(gait_tag, "Process Error", "PCA9685 controller pointer is NULL");
@@ -353,9 +353,9 @@ esp_err_t priv_process_mask_in_chunks(pca9685_board_t *pwm_controller,
 
 /* Public Functions ***********************************************************/
 
-esp_err_t tripod_gait(pca9685_board_t *pwm_controller, 
-                      float            heading, 
-                      uint16_t         distance)
+esp_err_t tripod_gait(pca9685_board_t* const pwm_controller, 
+                      float                  heading, 
+                      uint16_t               distance)
 {
   log_info(gait_tag, 
            "Tripod Start", 
@@ -367,9 +367,9 @@ esp_err_t tripod_gait(pca9685_board_t *pwm_controller,
   return ESP_OK;
 }
 
-esp_err_t wave_gait(pca9685_board_t *pwm_controller, 
-                    float            heading, 
-                    uint16_t         distance)
+esp_err_t wave_gait(pca9685_board_t* const pwm_controller, 
+                    float                  heading, 
+                    uint16_t               distance)
 {
   log_info(gait_tag, 
            "Wave Start", 
@@ -381,9 +381,9 @@ esp_err_t wave_gait(pca9685_board_t *pwm_controller,
   return ESP_OK;
 }
 
-esp_err_t ripple_gait(pca9685_board_t *pwm_controller, 
-                      float            heading, 
-                      uint16_t         distance)
+esp_err_t ripple_gait(pca9685_board_t* const pwm_controller, 
+                      float                  heading, 
+                      uint16_t               distance)
 {
   log_info(gait_tag, 
            "Ripple Start", 
@@ -395,9 +395,9 @@ esp_err_t ripple_gait(pca9685_board_t *pwm_controller,
   return ESP_OK;
 }
 
-esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, 
-                         float            heading, 
-                         uint16_t         distance)
+esp_err_t quadruped_gait(pca9685_board_t* const pwm_controller, 
+                         float                  heading, 
+                         uint16_t               distance)
 {
   log_info(gait_tag, 
            "Quad Start", 
@@ -409,7 +409,7 @@ esp_err_t quadruped_gait(pca9685_board_t *pwm_controller,
   return ESP_OK;
 }
 
-esp_err_t gait_init(pca9685_board_t *pwm_controller)
+esp_err_t gait_init(pca9685_board_t* const pwm_controller)
 {
   if (pwm_controller == NULL) {
     log_error(gait_tag, "Init Error", "PCA9685 controller pointer is NULL");
@@ -419,7 +419,7 @@ esp_err_t gait_init(pca9685_board_t *pwm_controller)
   /* Initialize leg configurations */
   uint8_t          motor_index = 0;
   uint8_t          board_id    = 0;
-  pca9685_board_t *board       = pwm_controller;
+  pca9685_board_t* board       = pwm_controller;
 
   log_info(gait_tag, 
            "Init Start", 

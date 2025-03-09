@@ -28,12 +28,12 @@
 
 /* Constants ******************************************************************/
 
-const char *system_tag = "Project-Star";
+const char* const system_tag = "Project Star";
 
 /* Globals ********************************************************************/
 
 sensor_data_t    g_sensor_data    = {};
-pca9685_board_t *g_pwm_controller = {};
+pca9685_board_t* g_pwm_controller = {};
 ov7670_data_t    g_camera_data    = {}; /* TODO: Make this support all 6 cameras */
 
 /* Private (Static) Functions *************************************************/

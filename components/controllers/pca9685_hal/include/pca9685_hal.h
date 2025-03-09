@@ -18,20 +18,20 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const uint8_t    pca9685_scl_io;           /**< GPIO pin for I2C Serial Clock Line */
-extern const uint8_t    pca9685_sda_io;           /**< GPIO pin for I2C Serial Data Line */
-extern const uint32_t   pca9685_i2c_freq_hz;      /**< I2C Bus Frequency in Hz */
-extern const uint8_t    pca9685_i2c_address;      /**< Base I2C address for PCA9685 */
-extern const i2c_port_t pca9685_i2c_bus;          /**< I2C bus for PCA9685 */
-extern const uint32_t   pca9685_osc_freq;         /**< Internal Oscillator Frequency (25 MHz) */
-extern const uint16_t   pca9685_pwm_resolution;   /**< 12-bit PWM resolution (4096 steps) */
-extern const uint16_t   pca9685_default_pwm_freq; /**< Default PWM frequency (50 Hz for servos) */
-extern const uint16_t   pca9685_max_pwm_value;    /**< Maximum value for PWM duty cycle (4095) */
-extern const uint16_t   pca9685_pwm_period_us;    /**< Total PWM period for 50Hz (20000 µs) */
-extern const char      *pca9685_tag;              /**< Tag for logs */
-extern const uint8_t    pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
-extern const uint32_t   pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
-extern const float      pca9685_default_angle;    /**< Default angle for motors */
+extern const uint8_t     pca9685_scl_io;           /**< GPIO pin for I2C Serial Clock Line */
+extern const uint8_t     pca9685_sda_io;           /**< GPIO pin for I2C Serial Data Line */
+extern const uint32_t    pca9685_i2c_freq_hz;      /**< I2C Bus Frequency in Hz */
+extern const uint8_t     pca9685_i2c_address;      /**< Base I2C address for PCA9685 */
+extern const i2c_port_t  pca9685_i2c_bus;          /**< I2C bus for PCA9685 */
+extern const uint32_t    pca9685_osc_freq;         /**< Internal Oscillator Frequency (25 MHz) */
+extern const uint16_t    pca9685_pwm_resolution;   /**< 12-bit PWM resolution (4096 steps) */
+extern const uint16_t    pca9685_default_pwm_freq; /**< Default PWM frequency (50 Hz for servos) */
+extern const uint16_t    pca9685_max_pwm_value;    /**< Maximum value for PWM duty cycle (4095) */
+extern const uint16_t    pca9685_pwm_period_us;    /**< Total PWM period for 50Hz (20000 µs) */
+extern const char* const pca9685_tag;              /**< Tag for logs */
+extern const uint8_t     pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
+extern const uint32_t    pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
+extern const float       pca9685_default_angle;    /**< Default angle for motors */
 
 /* Enums **********************************************************************/
 
@@ -94,7 +94,7 @@ typedef struct pca9685_board_t {
   uint8_t                 board_id;                         /**< Unique ID for this board in multi-board setups. */
   uint8_t                 num_boards;                       /**< Total number of PCA9685 boards in the system. */
   motor_t                 motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
-  struct pca9685_board_t *next;                             /**< Pointer to the next board in the singly linked list. */
+  struct pca9685_board_t* next;                             /**< Pointer to the next board in the singly linked list. */
 } pca9685_board_t;
 
 /* Private Inline Functions ***************************************************/
@@ -110,9 +110,9 @@ typedef struct pca9685_board_t {
  *
  * @return ESP_OK if successful, otherwise an error code.
  */
-static inline esp_err_t pca9685_read_register(uint8_t  i2c_addr, 
-                                              uint8_t  reg, 
-                                              uint8_t *value) 
+static inline esp_err_t pca9685_read_register(uint8_t        i2c_addr, 
+                                              uint8_t        reg, 
+                                              uint8_t* const value) 
 {
     return i2c_master_write_read_device(pca9685_i2c_bus, 
                                         i2c_addr, 
@@ -143,7 +143,8 @@ static inline esp_err_t pca9685_read_register(uint8_t  i2c_addr,
  * @note 
  * - Default PWM frequency is set to 50 Hz, suitable for servos.
  */
-esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards);
+esp_err_t pca9685_init(pca9685_board_t** const controller_data, 
+                       uint8_t                 num_boards);
 
 /**
  * @brief Sets the angle for one or more servo motors on a specific PCA9685 board.
@@ -166,10 +167,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards);
  * - Ensure PCA9685 boards are initialized with `pca9685_init` before using this function.
  * - The function assumes linear mapping of servo angles to PWM pulse widths.
  */
-esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, 
-                            uint16_t         motor_mask,
-                            uint8_t          board_id, 
-                            float            target_angle);
+esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data, 
+                            uint16_t                     motor_mask,
+                            uint8_t                      board_id, 
+                            float                        target_angle);
 
 #ifdef __cplusplus
 }

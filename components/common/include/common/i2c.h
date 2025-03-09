@@ -36,11 +36,11 @@ extern const uint32_t i2c_timeout_ticks; /**< Timeout for I2C commands in ticks 
  * @note 
  * - Internal pull-ups are enabled for SDA and SCL.
  */
-esp_err_t priv_i2c_init(uint8_t     scl_io, 
-                        uint8_t     sda_io, 
-                        uint32_t    freq_hz,
-                        i2c_port_t  i2c_bus, 
-                        const char *tag);
+esp_err_t priv_i2c_init(uint8_t           scl_io, 
+                        uint8_t           sda_io, 
+                        uint32_t          freq_hz,
+                        i2c_port_t        i2c_bus, 
+                        const char* const tag);
 
 /**
  * @brief Writes a single byte to a specific I2C device.
@@ -59,10 +59,10 @@ esp_err_t priv_i2c_init(uint8_t     scl_io,
  * @note 
  * - No semaphore checks or concurrency protection is implemented.
  */
-esp_err_t priv_i2c_write_byte(uint8_t     data, 
-                              i2c_port_t  i2c_bus,
-                              uint8_t     i2c_address, 
-                              const char *tag);
+esp_err_t priv_i2c_write_byte(uint8_t           data, 
+                              i2c_port_t        i2c_bus,
+                              uint8_t           i2c_address, 
+                              const char* const tag);
 
 /**
  * @brief Reads multiple bytes from a specific I2C device.
@@ -82,11 +82,11 @@ esp_err_t priv_i2c_write_byte(uint8_t     data,
  * @note 
  * - This function does not include semaphore checks.
  */
-esp_err_t priv_i2c_read_bytes(uint8_t    *data, 
-                              size_t      len, 
-                              i2c_port_t  i2c_bus,
-                              uint8_t     i2c_address, 
-                              const char *tag);
+esp_err_t priv_i2c_read_bytes(uint8_t*          data, 
+                              size_t            len, 
+                              i2c_port_t        i2c_bus,
+                              uint8_t           i2c_address, 
+                              const char* const tag);
 
 /**
  * @brief Writes a byte to a specific register on an I2C device.
@@ -106,11 +106,11 @@ esp_err_t priv_i2c_read_bytes(uint8_t    *data,
  * @note 
  * - No concurrency protection is implemented.
  */
-esp_err_t priv_i2c_write_reg_byte(uint8_t     reg_addr, 
-                                  uint8_t     data,
-                                  i2c_port_t  i2c_bus, 
-                                  uint8_t     i2c_address,
-                                  const char *tag);
+esp_err_t priv_i2c_write_reg_byte(uint8_t           reg_addr, 
+                                  uint8_t           data,
+                                  i2c_port_t        i2c_bus, 
+                                  uint8_t           i2c_address,
+                                  const char* const tag);
 
 /**
  * @brief Reads multiple bytes starting from a specific register on an I2C device.
@@ -131,12 +131,12 @@ esp_err_t priv_i2c_write_reg_byte(uint8_t     reg_addr,
  * @note 
  * - No semaphore checks or concurrency protection is implemented.
  */
-esp_err_t priv_i2c_read_reg_bytes(uint8_t     reg_addr, 
-                                  uint8_t    *data, 
-                                  size_t      len,
-                                  i2c_port_t  i2c_bus, 
-                                  uint8_t     i2c_address,
-                                  const char *tag);
+esp_err_t priv_i2c_read_reg_bytes(uint8_t           reg_addr, 
+                                  uint8_t*          data, 
+                                  size_t            len,
+                                  i2c_port_t        i2c_bus, 
+                                  uint8_t           i2c_address,
+                                  const char* const tag);
 
 #ifdef __cplusplus
 }

@@ -12,8 +12,8 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char    *file_manager_tag;   /**< Logging tag for log_handler messages related to the file write manager. */
-extern const uint32_t max_pending_writes; /**< Maximum number of queued file write requests to prevent overflow. */
+extern const char* const   file_manager_tag;   /**< Logging tag for log_handler messages related to the file write manager. */
+extern const uint32_t      max_pending_writes; /**< Maximum number of queued file write requests to prevent overflow. */
 
 /* Macros *********************************************************************/
 
@@ -49,7 +49,7 @@ typedef struct {
  */
 typedef struct {
   char     file_path[MAX_FILE_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
-  void    *data;                            /**< Pointer to the data to write. For text, this is a null-terminated string. */
+  void*    data;                            /**< Pointer to the data to write. For text, this is a null-terminated string. */
   uint32_t data_length;                     /**< Length of the data in bytes. For text, this can be 0 (will use strlen). */
   bool     is_binary;                       /**< Flag indicating if this is a binary write request (true) or text (false). */
 } file_write_request_t;
@@ -100,7 +100,8 @@ esp_err_t file_write_manager_init(void);
  *       after enqueueing the request. The data is copied to an internal buffer,
  *       so the caller can free the original data after this function returns.
  */
-esp_err_t file_write_enqueue(const char *file_path, const char *data);
+esp_err_t file_write_enqueue(const char* const file_path, 
+                             const char* const data);
 
 /**
  * @brief Enqueues a binary file write request.
@@ -126,9 +127,9 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data);
  *       after enqueueing the request. The data is copied to an internal buffer,
  *       so the caller can free the original data after this function returns.
  */
-esp_err_t file_write_binary_enqueue(const char *file_path, 
-                                    const void *data, 
-                                    uint32_t    data_length);
+esp_err_t file_write_binary_enqueue(const char* const file_path, 
+                                    const void* const data, 
+                                    uint32_t          data_length);
 
 #ifdef __cplusplus
 }

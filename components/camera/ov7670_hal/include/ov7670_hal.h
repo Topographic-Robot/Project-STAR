@@ -13,6 +13,7 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
+extern const char* const ov7670_tag;               /**< OV7670 tag */
 extern const uint8_t    ov7670_scl_io;             /**< GPIO pin for I2C Clock (SCL) */
 extern const uint8_t    ov7670_sda_io;             /**< GPIO pin for I2C Data (SDA) */
 extern const uint32_t   ov7670_polling_rate_ticks; /**< Polling rate for checking camera configuration status in ticks */
@@ -125,7 +126,7 @@ typedef struct {
  * - `ESP_OK` on successful initialization.
  * - Error codes from `esp_err_t` on failure (e.g., communication errors).
  */
-esp_err_t ov7670_init(ov7670_data_t *sensor_data);
+esp_err_t ov7670_init(ov7670_data_t* const sensor_data);
 
 /**
  * @brief Applies a new set of configuration parameters to the OV7670 module.
@@ -140,7 +141,7 @@ esp_err_t ov7670_init(ov7670_data_t *sensor_data);
  * - `ESP_OK`   if configuration is applied successfully.
  * - `ESP_FAIL` if configuration fails (e.g., invalid parameters or I2C errors).
  */
-esp_err_t ov7670_configure(ov7670_data_t *camera_data);
+esp_err_t ov7670_configure(ov7670_data_t* const camera_data);
 
 /**
  * @brief Handles error recovery for the OV7670 module using retries.
@@ -155,7 +156,7 @@ esp_err_t ov7670_configure(ov7670_data_t *camera_data);
  * - Call this function when an error is detected in the camera's operation.
  * - The retry mechanism reduces system load during repeated failures.
  */
-void ov7670_reset_on_error(ov7670_data_t *sensor_data);
+void ov7670_reset_on_error(ov7670_data_t* const sensor_data);
 
 /**
  * @brief Executes periodic tasks for the OV7670 camera module.
@@ -170,7 +171,7 @@ void ov7670_reset_on_error(ov7670_data_t *sensor_data);
  * - Ensure this function is invoked at regular intervals for continuous operation.
  * - Includes all necessary logic for error recovery and maintenance.
  */
-void ov7670_tasks(void *sensor_data);
+void ov7670_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

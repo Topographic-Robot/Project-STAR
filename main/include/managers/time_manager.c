@@ -10,7 +10,7 @@
 
 /* Constants ******************************************************************/
 
-const char *time_manager_tag = "TIME_MANAGER";
+const char* const time_manager_tag = "Time Manager";
 
 /* Globals (Static) ***********************************************************/
 
@@ -96,7 +96,7 @@ char *time_manager_get_timestamp(void)
 
   time_t    now = time(NULL);
   struct tm timeinfo;
-  char     *buffer;
+  char*     buffer;
 
   /* Allocate memory for the timestamp string (YYYY-MM-DD HH:MM:SS\0 = 20 bytes) */
   buffer = malloc(20);
@@ -114,7 +114,7 @@ esp_err_t time_manager_init(void)
 {
   log_info(time_manager_tag, "Init Start", "Beginning time manager initialization");
   
-  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (netif == NULL || !esp_netif_is_netif_up(netif)) {
     log_warn(time_manager_tag, 
              "Network Error", 

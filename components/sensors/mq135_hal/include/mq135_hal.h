@@ -69,7 +69,7 @@ typedef struct {
  * - Pointer to the JSON-formatted string on success.
  * - `NULL` if memory allocation fails.
  */
-char *mq135_data_to_json(const mq135_data_t *data);
+char *mq135_data_to_json(const mq135_data_t* const data);
 
 /**
  * @brief Initializes the MQ135 sensor.
@@ -87,7 +87,7 @@ char *mq135_data_to_json(const mq135_data_t *data);
  * @note 
  * - Call this function during system initialization.
  */
-esp_err_t mq135_init(void *sensor_data);
+esp_err_t mq135_init(void* const sensor_data);
 
 /**
  * @brief Reads gas concentration data from the MQ135 sensor.
@@ -105,7 +105,7 @@ esp_err_t mq135_init(void *sensor_data);
  * @note
  * - Ensure the sensor is initialized with `mq135_init` before calling.
  */
-esp_err_t mq135_read(mq135_data_t *sensor_data);
+esp_err_t mq135_read(mq135_data_t* const sensor_data);
 
 /**
  * @brief Handles reinitialization and recovery for the MQ135 sensor.
@@ -119,7 +119,7 @@ esp_err_t mq135_read(mq135_data_t *sensor_data);
  * @note 
  * - Call this function periodically within `mq135_tasks`.
  */
-void mq135_reset_on_error(mq135_data_t *sensor_data);
+void mq135_reset_on_error(mq135_data_t* const sensor_data);
 
 /**
  * @brief Executes periodic tasks for the MQ135 sensor.
@@ -134,7 +134,7 @@ void mq135_reset_on_error(mq135_data_t *sensor_data);
  * - Should run at intervals defined by `mq135_polling_rate_ticks`.
  * - Handles error recovery internally to maintain stable operation.
  */
-void mq135_tasks(void *sensor_data);
+void mq135_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

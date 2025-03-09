@@ -12,8 +12,8 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const uint8_t num_pca9685_boards; /**< The number of boards used in this project */
-extern const char   *motor_tag;          /**< Tag for logs */
+extern const uint8_t     num_pca9685_boards; /**< The number of boards used in this project */
+extern const char* const motor_tag;          /**< Tag for logs */
 
 /* Public Functions ***********************************************************/
 
@@ -36,7 +36,7 @@ extern const char   *motor_tag;          /**< Tag for logs */
  * @note Ensure that the PCA9685 controllers are properly initialized before 
  *       invoking this function.
  */
-esp_err_t motors_init(pca9685_board_t **pwm_controller);
+esp_err_t motors_init(pca9685_board_t** pwm_controller);
 
 /**
  * @brief Starts the motor tasks.
@@ -56,7 +56,7 @@ esp_err_t motors_init(pca9685_board_t **pwm_controller);
  * @note Call this function only after successfully initializing the motor tasks 
  *       using `motors_init`.
  */
-esp_err_t motor_tasks_start(pca9685_board_t *pwm_controller);
+esp_err_t motor_tasks_start(pca9685_board_t* pwm_controller);
 
 #ifdef __cplusplus
 }

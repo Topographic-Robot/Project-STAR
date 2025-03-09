@@ -48,8 +48,8 @@
 
 /* Constants ******************************************************************/
 
-const char    *file_manager_tag = "FILE_MANAGER";
-const uint32_t max_pending_writes = 20;
+const char* const file_manager_tag = "File Manager";
+const uint32_t    max_pending_writes = 20;
 
 /* Globals (Static) ***********************************************************/
 
@@ -65,7 +65,7 @@ static bool          s_initialized      = false;
  * @param[in] file_path Full path to the file (including SD card mount path)
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-static esp_err_t priv_create_directories(const char *file_path)
+static esp_err_t priv_create_directories(const char* const file_path)
 {
   if (file_path == NULL) {
     log_error(file_manager_tag, "Dir Create Error", "Invalid file path (NULL)");
@@ -78,7 +78,7 @@ static esp_err_t priv_create_directories(const char *file_path)
   path_copy[sizeof(path_copy) - 1] = '\0';
   
   /* Find the last slash in the path to get the directory part */
-  char *last_slash = strrchr(path_copy, '/');
+  char* last_slash = strrchr(path_copy, '/');
   if (last_slash == NULL) {
     /* No directory component, nothing to create */
     return ESP_OK;
@@ -93,7 +93,7 @@ static esp_err_t priv_create_directories(const char *file_path)
   }
   
   /* Create the directory path recursively */
-  char *p = path_copy;
+  char* p = path_copy;
   
   /* Skip leading slashes */
   while (*p == '/') {
@@ -102,7 +102,7 @@ static esp_err_t priv_create_directories(const char *file_path)
   
   while (p && *p) { /* while there is a path and the path is not empty */
     /* Find the next slash */
-    char *next_slash = strchr(p, '/');
+    char* next_slash = strchr(p, '/');
     if (next_slash) {
       *next_slash = '\0'; /* Temporarily terminate the string at this slash */
     }
@@ -148,7 +148,8 @@ static esp_err_t priv_create_directories(const char *file_path)
  * @param[in] data      String to write
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-static esp_err_t priv_write_to_file(const char *file_path, const char *data)
+static esp_err_t priv_write_to_file(const char* const file_path, 
+                                    const char* const data)
 {
   if (file_path == NULL || data == NULL) {
     log_error(file_manager_tag, 
@@ -181,7 +182,7 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
   }
   
   /* Open the file for writing (append mode) */
-  FILE *file = fopen(full_path, "a");
+  FILE* file = fopen(full_path, "a");
   if (file == NULL) {
     log_error(file_manager_tag, 
               "File Open Error", 
@@ -192,8 +193,8 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
   }
   
   /* Get current timestamp */
-  char   timestamp[TIMESTAMP_BUFFER_SIZE];
-  time_t now         = time(NULL);
+  char      timestamp[TIMESTAMP_BUFFER_SIZE];
+  time_t    now      = time(NULL);
   struct tm timeinfo = { 0 };
   localtime_r(&now, &timeinfo);
   
@@ -233,9 +234,9 @@ static esp_err_t priv_write_to_file(const char *file_path, const char *data)
  * @param[in] data_length Length of the binary data
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-static esp_err_t priv_write_binary_to_file(const char *file_path, 
-                                           const void *data, 
-                                           uint32_t    data_length)
+static esp_err_t priv_write_binary_to_file(const char* const file_path, 
+                                           const void* const data, 
+                                           uint32_t          data_length)
 {
   if (file_path == NULL || data == NULL || data_length == 0) {
     log_error(file_manager_tag, 
@@ -268,7 +269,7 @@ static esp_err_t priv_write_binary_to_file(const char *file_path,
   }
   
   /* Open the file for writing (binary mode) */
-  FILE *file = fopen(full_path, "wb");
+  FILE* file = fopen(full_path, "wb");
   if (file == NULL) {
     log_error(file_manager_tag, 
               "Binary File Open Error", 
@@ -306,9 +307,9 @@ static esp_err_t priv_write_binary_to_file(const char *file_path,
 /**
  * @brief Task that processes file write requests from the queue
  * 
- * @param param Task parameters (unused)
+ * @param[in] param Task parameters (unused)
  */
-static void priv_file_write_task(void *param)
+static void priv_file_write_task(void* param)
 {
   log_info(file_manager_tag, "Task Start", "File write task started");
   
@@ -331,7 +332,7 @@ static void priv_file_write_task(void *param)
         }
       } else {
         /* Process text write request */
-        priv_write_to_file(request.file_path, (const char *)request.data);
+        priv_write_to_file(request.file_path, (const char* const)request.data);
         
         /* Free the allocated data buffer */
         if (request.data) {
@@ -393,7 +394,8 @@ esp_err_t file_write_manager_init(void)
   return ESP_OK;
 }
 
-esp_err_t file_write_enqueue(const char *file_path, const char *data)
+esp_err_t file_write_enqueue(const char* const file_path, 
+                             const char* const data)
 {
   if (!s_initialized) {
     log_error(file_manager_tag, 
@@ -447,9 +449,9 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data)
   return ESP_OK;
 }
 
-esp_err_t file_write_binary_enqueue(const char *file_path, 
-                                    const void *data, 
-                                    uint32_t    data_length)
+esp_err_t file_write_binary_enqueue(const char* const file_path, 
+                                    const void* const data, 
+                                    uint32_t          data_length)
 {
   if (!s_initialized) {
     log_error(file_manager_tag, 

@@ -17,8 +17,8 @@
 
 /* Constants ******************************************************************/
 
-const char             *sd_card_tag                  = "SD_CARD";
-const char             *sd_card_mount_path           = "/sdcard";
+const char* const       sd_card_tag                  = "SD Card";
+const char* const       sd_card_mount_path           = "/sdcard";
 const uint8_t           sd_card_cs                   = GPIO_NUM_5;
 const uint8_t           sd_card_data_to_card         = GPIO_NUM_23;
 const uint8_t           sd_card_clk                  = GPIO_NUM_14;
@@ -35,13 +35,13 @@ const uint32_t          sd_card_debounce_ms          = 100;         /* Debounce 
 
 /* Private Variables **********************************************************/
 
-static sdmmc_card_t     *s_card                         = NULL;  /**< Pointer to hold SD card descriptor */
-static error_handler_t   s_sd_card_error_handler        = { 0 };
-static SemaphoreHandle_t s_sd_mutex                     = NULL;  /**< Mutex for thread-safe access */
-static bool              s_sd_card_available            = false; /**< Flag to track SD card availability */
-static bool              s_sd_card_initialized          = false; /**< Flag to track initialization status */
-static void            (*s_availability_callback)(bool) = NULL;  /**< Callback for SD card availability changes */
-static TaskHandle_t      s_mount_task_handle            = NULL;  /**< Handle for the mount/unmount task */
+static sdmmc_card_t*      s_card                         = NULL;  /**< Pointer to hold SD card descriptor */
+static error_handler_t    s_sd_card_error_handler        = { 0 };
+static SemaphoreHandle_t  s_sd_mutex                     = NULL;  /**< Mutex for thread-safe access */
+static bool               s_sd_card_available            = false; /**< Flag to track SD card availability */
+static bool               s_sd_card_initialized          = false; /**< Flag to track initialization status */
+static void             (*s_availability_callback)(bool) = NULL;  /**< Callback for SD card availability changes */
+static TaskHandle_t       s_mount_task_handle            = NULL;  /**< Handle for the mount/unmount task */
 
 /* Private (Static) Functions *************************************************/
 
@@ -64,7 +64,7 @@ static void priv_sd_card_cleanup(void)
  * This task is triggered by the CD pin interrupt and handles the actual
  * mounting or unmounting of the SD card.
  */
-static void priv_sd_card_mount_task(void *arg)
+static void priv_sd_card_mount_task(void* arg)
 {
   while (1) {
     /* Wait for notification from ISR */

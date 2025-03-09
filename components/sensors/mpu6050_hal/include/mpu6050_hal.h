@@ -14,16 +14,16 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const uint8_t    mpu6050_i2c_address;        /**< I2C address for the MPU6050 sensor (default 0x68, configurable to 0x69). */
-extern const i2c_port_t mpu6050_i2c_bus;            /**< I2C bus number used by the ESP32 for MPU6050 communication. */
-extern const char      *mpu6050_tag;                /**< Tag for log_handler messages related to the MPU6050 sensor. */
-extern const uint8_t    mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line (SCL) for MPU6050. */
-extern const uint8_t    mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line (SDA) for MPU6050. */
-extern const uint32_t   mpu6050_i2c_freq_hz;        /**< I2C bus frequency for MPU6050 communication (default 100 kHz). */
-extern const uint32_t   mpu6050_polling_rate_ticks; /**< Polling interval for MPU6050 sensor reads in system ticks. */
-extern const uint8_t    mpu6050_sample_rate_div;    /**< Sample rate divider for MPU6050 (default divides gyro rate). */
-extern const uint8_t    mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
-extern const uint8_t    mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
+extern const uint8_t     mpu6050_i2c_address;        /**< I2C address for the MPU6050 sensor (default 0x68, configurable to 0x69). */
+extern const i2c_port_t  mpu6050_i2c_bus;            /**< I2C bus number used by the ESP32 for MPU6050 communication. */
+extern const char* const mpu6050_tag;                /**< Tag for log_handler messages related to the MPU6050 sensor. */
+extern const uint8_t     mpu6050_scl_io;             /**< GPIO pin for I2C Serial Clock Line (SCL) for MPU6050. */
+extern const uint8_t     mpu6050_sda_io;             /**< GPIO pin for I2C Serial Data Line (SDA) for MPU6050. */
+extern const uint32_t    mpu6050_i2c_freq_hz;        /**< I2C bus frequency for MPU6050 communication (default 100 kHz). */
+extern const uint32_t    mpu6050_polling_rate_ticks; /**< Polling interval for MPU6050 sensor reads in system ticks. */
+extern const uint8_t     mpu6050_sample_rate_div;    /**< Sample rate divider for MPU6050 (default divides gyro rate). */
+extern const uint8_t     mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
+extern const uint8_t     mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
 
 /* Macros *********************************************************************/
 
@@ -243,7 +243,7 @@ typedef struct {
  * 
  * @note The returned string should be freed by the caller to prevent memory leaks.
  */
-char *mpu6050_data_to_json(const mpu6050_data_t *data);
+char* mpu6050_data_to_json(const mpu6050_data_t* const data);
 
 /**
  * @brief Initializes the MPU6050 sensor in continuous measurement mode.
@@ -262,7 +262,7 @@ char *mpu6050_data_to_json(const mpu6050_data_t *data);
  * @note 
  * - Call this function during system initialization.
  */
-esp_err_t mpu6050_init(void *sensor_data);
+esp_err_t mpu6050_init(void* const sensor_data);
 
 /**
  * @brief Reads accelerometer and gyroscope data from the MPU6050 sensor.
@@ -280,7 +280,7 @@ esp_err_t mpu6050_init(void *sensor_data);
  * @note 
  * - Ensure the sensor is initialized with `mpu6050_init` before calling.
  */
-esp_err_t mpu6050_read(mpu6050_data_t *sensor_data);
+esp_err_t mpu6050_read(mpu6050_data_t* const sensor_data);
 
 /**
  * @brief Handles reinitialization and recovery for the MPU6050 sensor.
@@ -295,7 +295,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data);
  * - Call this function periodically within `mpu6050_tasks`.
  * - Limits retries based on `mpu6050_max_backoff_interval`.
  */
-void mpu6050_reset_on_error(mpu6050_data_t *sensor_data);
+void mpu6050_reset_on_error(mpu6050_data_t* const sensor_data);
 
 /**
  * @brief Executes periodic tasks for the MPU6050 sensor.
@@ -310,7 +310,7 @@ void mpu6050_reset_on_error(mpu6050_data_t *sensor_data);
  * - Should run at intervals defined by `mpu6050_polling_rate_ticks`.
  * - Handles error recovery internally to maintain stable operation.
  */
-void mpu6050_tasks(void *sensor_data);
+void mpu6050_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

@@ -12,6 +12,12 @@ extern "C" {
 #include "freertos/task.h"
 #include "log_handler.h"
 
+/* Constants ******************************************************************/
+
+extern const char* const error_handler_tag;
+
+/* Data Structures ************************************************************/
+
 /**
  * @brief Data structure for managing component state and recovery.
  *
@@ -30,9 +36,9 @@ typedef struct {
   TickType_t  last_attempt_ticks;         /**< Tick count of the last retry attempt */
   esp_err_t   last_status;                /**< Last status code encountered */
   bool        in_error_state;             /**< Whether the component is in an error state */
-  const char *tag;                        /**< Tag for log_handler messages */
-  void       *context;                    /**< Context pointer for the reset function */
-  esp_err_t (*reset_func)(void *context); /**< Function to call during reset, returns ESP_OK on success */
+  const char* tag;                        /**< Tag for log_handler messages */
+  void*       context;                    /**< Context pointer for the reset function */
+  esp_err_t (*reset_func)(void* context); /**< Function to call during reset, returns ESP_OK on success */
 } error_handler_t;
 
 /**
@@ -51,15 +57,15 @@ typedef struct {
  * @param[in]  initial_backoff_interval Initial backoff interval in ticks
  * @param[in]  max_backoff_interval     Maximum backoff interval in ticks
  */
-void error_handler_init(error_handler_t *handler, 
-                        const char      *tag,
-                        uint8_t          max_retries, 
-                        uint32_t         initial_interval,
-                        uint32_t         max_interval, 
-                        esp_err_t      (*reset_func)(void *context),
-                        void            *context, 
-                        uint32_t         initial_backoff_interval,
-                        uint32_t         max_backoff_interval);
+void error_handler_init(error_handler_t*  handler, 
+                        const char* const tag,
+                        uint8_t           max_retries, 
+                        uint32_t          initial_interval,
+                        uint32_t          max_interval, 
+                        esp_err_t       (*reset_func)(void* context),
+                        void*             context, 
+                        uint32_t          initial_backoff_interval,
+                        uint32_t          max_backoff_interval);
 
 /**
  * @brief Records a new status and updates the handler state.
@@ -78,7 +84,8 @@ void error_handler_init(error_handler_t *handler,
  * - ESP_ERR_INVALID_STATE if in backoff period
  * - Other error codes from the reset function
  */
-esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status);
+esp_err_t error_handler_record_status(error_handler_t* const handler, 
+                                      esp_err_t              status);
 
 /**
  * @brief Resets the handler to its initial state.
@@ -92,10 +99,7 @@ esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status
  * - ESP_OK if reset was successful or no reset needed
  * - Other error codes from the reset function
  */
-esp_err_t error_handler_reset(error_handler_t *handler);
-
-/* For backward compatibility */
-#define error_handler_record_error(handler, error) (error_handler_record_status((handler), (error)))
+esp_err_t error_handler_reset(error_handler_t* const handler);
 
 #ifdef __cplusplus
 }

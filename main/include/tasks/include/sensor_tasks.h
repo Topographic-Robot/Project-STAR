@@ -20,13 +20,13 @@ extern "C" {
  * and task functions, data pointer, and an enablement flag.
  */
 typedef struct {
-  const char *sensor_name;            /**< Sensor name used for identification in logs and debugging. */
-  esp_err_t (*init_function)(void *); /**< Pointer to the function that initializes the sensor. */
-  void      (*task_function)(void *); /**< Pointer to the function that handles the sensor's tasks. */
-  void       *data_ptr;               /**< Pointer to the structure holding sensor-specific data. */
-  UBaseType_t priority;               /**< Priority of the sensor's task for scheduling purposes. */
-  uint32_t    stack_depth;            /**< Stack depth allocated for the sensor task, in words. */
-  bool        enabled;                /**< Flag indicating if the sensor is enabled (true) or disabled (false). */
+  const char* const sensor_name;           /**< Sensor name used for identification in logs and debugging. */
+  esp_err_t       (*init_function)(void*); /**< Pointer to the function that initializes the sensor. */
+  void            (*task_function)(void*); /**< Pointer to the function that handles the sensor's tasks. */
+  void*             data_ptr;              /**< Pointer to the structure holding sensor-specific data. */
+  UBaseType_t       priority;              /**< Priority of the sensor's task for scheduling purposes. */
+  uint32_t          stack_depth;           /**< Stack depth allocated for the sensor task, in words. */
+  bool              enabled;               /**< Flag indicating if the sensor is enabled (true) or disabled (false). */
 } sensor_config_t;
 
 /* Public Functions ***********************************************************/
@@ -50,7 +50,7 @@ typedef struct {
  * @note Ensure that the underlying communication protocols (e.g., I2C and UART) are 
  *       initialized before calling this function.
  */
-esp_err_t sensors_init(sensor_data_t *sensor_data);
+esp_err_t sensors_init(sensor_data_t* sensor_data);
 
 /**
  * @brief Records sensor data and stores it in a given variable.
@@ -79,7 +79,7 @@ esp_err_t sensors_init(sensor_data_t *sensor_data);
  * @note This function should run continuously as part of the main sensor task loop 
  *       or be called periodically in a task for data acquisition.
  */
-esp_err_t sensor_tasks(sensor_data_t *sensor_data);
+esp_err_t sensor_tasks(sensor_data_t* sensor_data);
 
 #ifdef __cplusplus
 }

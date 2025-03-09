@@ -11,19 +11,19 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t    qmc5883l_i2c_address            = 0x0D;
-const i2c_port_t qmc5883l_i2c_bus                = I2C_NUM_0;
-const char      *qmc5883l_tag                    = "QMC5883L";
-const uint8_t    qmc5883l_scl_io                 = GPIO_NUM_22;
-const uint8_t    qmc5883l_sda_io                 = GPIO_NUM_21;
-const gpio_num_t qmc5883l_drdy_pin               = GPIO_NUM_18;
-const uint32_t   qmc5883l_i2c_freq_hz            = 100000;
-const uint32_t   qmc5883l_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
-const uint8_t    qmc5883l_odr_setting            = k_qmc5883l_odr_100hz;
-const uint8_t    qmc5883l_max_retries            = 4;
-const uint32_t   qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
-const uint32_t   qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
-const uint8_t    qmc5883l_mag_data_size          = 6;                     /* Size of magnetometer data in bytes (2 bytes x 3 axes) */
+const uint8_t     qmc5883l_i2c_address            = 0x0D;
+const i2c_port_t  qmc5883l_i2c_bus                = I2C_NUM_0;
+const char* const qmc5883l_tag                    = "QMC5883L";
+const uint8_t     qmc5883l_scl_io                 = GPIO_NUM_22;
+const uint8_t     qmc5883l_sda_io                 = GPIO_NUM_21;
+const gpio_num_t  qmc5883l_drdy_pin               = GPIO_NUM_18;
+const uint32_t    qmc5883l_i2c_freq_hz            = 100000;
+const uint32_t    qmc5883l_polling_rate_ticks     = pdMS_TO_TICKS(5 * 1000);
+const uint8_t     qmc5883l_odr_setting            = k_qmc5883l_odr_100hz;
+const uint8_t     qmc5883l_max_retries            = 4;
+const uint32_t    qmc5883l_initial_retry_interval = pdMS_TO_TICKS(15);
+const uint32_t    qmc5883l_max_backoff_interval   = pdMS_TO_TICKS(8 * 60);
+const uint8_t     qmc5883l_mag_data_size          = 6;                     /* Size of magnetometer data in bytes (2 bytes x 3 axes) */
 
 /* Globals (Static) ***********************************************************/
 
@@ -56,9 +56,9 @@ static bool priv_qmc5883l_is_data_ready(void)
 
 /* Public Functions ***********************************************************/
 
-char *qmc5883l_data_to_json(const qmc5883l_data_t *data)
+char* qmc5883l_data_to_json(const qmc5883l_data_t* const data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* json = cJSON_CreateObject();
   if (!json) {
     log_error(qmc5883l_tag, 
               "JSON Creation Failed", 
@@ -106,7 +106,7 @@ char *qmc5883l_data_to_json(const qmc5883l_data_t *data)
     return NULL;
   }
 
-  char *json_string = cJSON_PrintUnformatted(json);
+  char* const json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
     log_error(qmc5883l_tag, 
               "JSON Serialization Failed", 
@@ -119,9 +119,9 @@ char *qmc5883l_data_to_json(const qmc5883l_data_t *data)
   return json_string;
 }
 
-esp_err_t qmc5883l_init(void *sensor_data)
+esp_err_t qmc5883l_init(void* sensor_data)
 {
-  qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
+  qmc5883l_data_t* const qmc5883l_data = (qmc5883l_data_t* const)sensor_data;
   log_info(qmc5883l_tag, 
            "Init Started", 
            "Beginning QMC5883L magnetometer initialization");
@@ -185,7 +185,7 @@ esp_err_t qmc5883l_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
+esp_err_t qmc5883l_read(qmc5883l_data_t* const sensor_data)
 {
   if (sensor_data == NULL) {
     log_error(qmc5883l_tag, 
@@ -252,7 +252,7 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data)
   return ESP_OK;
 }
 
-void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data)
+void qmc5883l_reset_on_error(qmc5883l_data_t* const sensor_data)
 {
   if (sensor_data->state & k_qmc5883l_error) {
     TickType_t now_ticks = xTaskGetTickCount();
@@ -277,9 +277,9 @@ void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data)
   }
 }
 
-void qmc5883l_tasks(void *sensor_data)
+void qmc5883l_tasks(void* const sensor_data)
 {
-  qmc5883l_data_t *qmc5883l_data = (qmc5883l_data_t *)sensor_data;
+  qmc5883l_data_t* const qmc5883l_data = (qmc5883l_data_t* const)sensor_data;
   while (1) {
     if (qmc5883l_read(qmc5883l_data) == ESP_OK) {
       char *json = qmc5883l_data_to_json(qmc5883l_data);

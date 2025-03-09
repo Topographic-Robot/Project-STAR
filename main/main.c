@@ -1,15 +1,5 @@
 /* main/main.c */
 
-/* TODO:
- * 1. mpu6050 + int
- * 2. ov7670 configs
- * 3. gps
- * 
- * 4. Error Handler
- * - updated bh1750 and ccs811 to use error handler
- * - need to update dht22, gy_neo6mv2, mpu6050, qmc5883l
- */
-
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

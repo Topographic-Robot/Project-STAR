@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define webserver_url ("") /**< URL of the web server used for communication. */
+#define WEBSERVER_URL ("") /**< URL of the web server used for communication. */
 
 #ifdef __cplusplus
 }

@@ -14,8 +14,8 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char             *sd_card_tag;                  /**< Tag for Logging */
-extern const char             *sd_card_mount_path;           /**< Root path for the mounting */
+extern const char* const       sd_card_tag;                  /**< Tag for Logging */
+extern const char* const       sd_card_mount_path;           /**< Root path for the mounting */
 extern const uint8_t           sd_card_cs;                   /**< GPIO pin for SPI Chip Select (CS) */
 extern const uint8_t           sd_card_data_to_card;         /**< GPIO pin for SPI communication into the SD card (DI) */
 extern const uint8_t           sd_card_data_from_card;       /**< GPIO pin for SPI communication out of the SD card (DO) */

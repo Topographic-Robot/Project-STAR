@@ -16,19 +16,19 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const uint8_t    bh1750_i2c_address;            /**< I2C address of the BH1750 sensor (default 0x23 when ADDR pin is GND). */
-extern const i2c_port_t bh1750_i2c_bus;                /**< I2C bus number used by the ESP32 to communicate with the BH1750 sensor. */
-extern const char      *bh1750_tag;                    /**< Tag for log_handler messages related to the BH1750 sensor. */
-extern const uint8_t    bh1750_scl_io;                 /**< GPIO pin for the I2C Serial Clock Line (SCL). */
-extern const uint8_t    bh1750_sda_io;                 /**< GPIO pin for the I2C Serial Data Line (SDA). */
-extern const uint32_t   bh1750_i2c_freq_hz;            /**< I2C bus frequency in Hz for BH1750 communication (default 100 kHz). */
-extern const uint32_t   bh1750_polling_rate_ticks;     /**< Polling rate for the BH1750 sensor in system ticks. */
-extern const uint8_t    bh1750_max_retries;            /**< Maximum retry attempts for BH1750 sensor reinitialization. */
-extern const uint32_t   bh1750_initial_retry_interval; /**< Initial retry interval in ticks for BH1750 reinitialization. */
-extern const uint32_t   bh1750_max_backoff_interval;   /**< Maximum backoff interval in ticks for BH1750 reinitialization retries. */
-extern const uint8_t    bh1750_measurement_bytes;      /**< Number of bytes in BH1750 measurement (16-bit value = 2 bytes). */
-extern const float      bh1750_raw_to_lux_factor;      /**< Divisor to convert raw sensor value to actual lux (datasheet specified 1.2). */
-extern const uint8_t    bh1750_high_byte_shift;        /**< Number of bits to shift the high byte for 16-bit measurement (8 bits). */
+extern const uint8_t     bh1750_i2c_address;            /**< I2C address of the BH1750 sensor (default 0x23 when ADDR pin is GND). */
+extern const i2c_port_t  bh1750_i2c_bus;                /**< I2C bus number used by the ESP32 to communicate with the BH1750 sensor. */
+extern const char* const bh1750_tag;                    /**< Tag for log_handler messages related to the BH1750 sensor. */
+extern const uint8_t     bh1750_scl_io;                 /**< GPIO pin for the I2C Serial Clock Line (SCL). */
+extern const uint8_t     bh1750_sda_io;                 /**< GPIO pin for the I2C Serial Data Line (SDA). */
+extern const uint32_t    bh1750_i2c_freq_hz;            /**< I2C bus frequency in Hz for BH1750 communication (default 100 kHz). */
+extern const uint32_t    bh1750_polling_rate_ticks;     /**< Polling rate for the BH1750 sensor in system ticks. */
+extern const uint8_t     bh1750_max_retries;            /**< Maximum retry attempts for BH1750 sensor reinitialization. */
+extern const uint32_t    bh1750_initial_retry_interval; /**< Initial retry interval in ticks for BH1750 reinitialization. */
+extern const uint32_t    bh1750_max_backoff_interval;   /**< Maximum backoff interval in ticks for BH1750 reinitialization retries. */
+extern const uint8_t     bh1750_measurement_bytes;      /**< Number of bytes in BH1750 measurement (16-bit value = 2 bytes). */
+extern const float       bh1750_raw_to_lux_factor;      /**< Divisor to convert raw sensor value to actual lux (datasheet specified 1.2). */
+extern const uint8_t     bh1750_high_byte_shift;        /**< Number of bits to shift the high byte for 16-bit measurement (8 bits). */
 
 /* Enums **********************************************************************/
 
@@ -101,7 +101,7 @@ typedef struct {
  * - Pointer to the JSON-formatted string on success.
  * - `NULL` if memory allocation fails.
  */
-char *bh1750_data_to_json(const bh1750_data_t *data);
+char* bh1750_data_to_json(const bh1750_data_t* const data);
 
 /**
  * @brief Initializes the BH1750 sensor in continuous high-resolution mode.
@@ -119,7 +119,7 @@ char *bh1750_data_to_json(const bh1750_data_t *data);
  * @note 
  * - Call this function during system initialization.
  */
-esp_err_t bh1750_init(void *sensor_data);
+esp_err_t bh1750_init(void* const sensor_data);
 
 /**
  * @brief Reads light intensity data from the BH1750 sensor.
@@ -137,7 +137,7 @@ esp_err_t bh1750_init(void *sensor_data);
  * @note 
  * - Ensure the sensor is initialized with `bh1750_init` before calling.
  */
-esp_err_t bh1750_read(bh1750_data_t *sensor_data);
+esp_err_t bh1750_read(bh1750_data_t* const sensor_data);
 
 /**
  * @brief Executes periodic tasks for the BH1750 sensor.
@@ -152,7 +152,7 @@ esp_err_t bh1750_read(bh1750_data_t *sensor_data);
  * - Should run at intervals defined by `bh1750_polling_rate_ticks`.
  * - Handles error recovery internally to maintain stable operation.
  */
-void bh1750_tasks(void *sensor_data);
+void bh1750_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

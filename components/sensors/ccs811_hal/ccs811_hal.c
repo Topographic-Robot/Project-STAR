@@ -10,19 +10,19 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t    ccs811_i2c_address            = 0x5A;
-const i2c_port_t ccs811_i2c_bus                = I2C_NUM_0;
-const char      *ccs811_tag                    = "CCS811";
-const uint8_t    ccs811_scl_io                 = GPIO_NUM_22;
-const uint8_t    ccs811_sda_io                 = GPIO_NUM_21;
-const uint8_t    ccs811_wake_io                = GPIO_NUM_33;
-const uint8_t    ccs811_rst_io                 = GPIO_NUM_32;
-const uint8_t    ccs811_int_io                 = GPIO_NUM_25;
-const uint32_t   ccs811_i2c_freq_hz            = 100000;
-const uint32_t   ccs811_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
-const uint8_t    ccs811_max_retries            = 4;
-const uint32_t   ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
-const uint32_t   ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
+const uint8_t     ccs811_i2c_address            = 0x5A;
+const i2c_port_t  ccs811_i2c_bus                = I2C_NUM_0;
+const char* const ccs811_tag                    = "CCS811";
+const uint8_t     ccs811_scl_io                 = GPIO_NUM_22;
+const uint8_t     ccs811_sda_io                 = GPIO_NUM_21;
+const uint8_t     ccs811_wake_io                = GPIO_NUM_33;
+const uint8_t     ccs811_rst_io                 = GPIO_NUM_32;
+const uint8_t     ccs811_int_io                 = GPIO_NUM_25;
+const uint32_t    ccs811_i2c_freq_hz            = 100000;
+const uint32_t    ccs811_polling_rate_ticks     = pdMS_TO_TICKS(1 * 1000);
+const uint8_t     ccs811_max_retries            = 4;
+const uint32_t    ccs811_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
+const uint32_t    ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
 
 /* Static Functions **********************************************************/
 
@@ -35,9 +35,9 @@ const uint32_t   ccs811_max_backoff_interval   = pdMS_TO_TICKS(8 * 60 * 1000);
  * @param context Pointer to the ccs811_data_t structure
  * @return ESP_OK on success, error code otherwise
  */
-static esp_err_t priv_ccs811_reset(void *context)
+static esp_err_t priv_ccs811_reset(void* const context)
 {
-  ccs811_data_t *ccs811_data = (ccs811_data_t *)context;
+  ccs811_data_t* ccs811_data = (ccs811_data_t*)context;
   esp_err_t      ret;
 
   /* Reset the sensor */
@@ -69,9 +69,9 @@ static esp_err_t priv_ccs811_reset(void *context)
 
 /* Public Functions ***********************************************************/
 
-char *ccs811_data_to_json(const ccs811_data_t *data)
+char* ccs811_data_to_json(const ccs811_data_t* const data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* json = cJSON_CreateObject();
   if (!json) {
     log_error(ccs811_tag, 
               "JSON Error", 
@@ -116,9 +116,9 @@ char *ccs811_data_to_json(const ccs811_data_t *data)
   return json_string;
 }
 
-esp_err_t ccs811_init(void *sensor_data)
+esp_err_t ccs811_init(void* const sensor_data)
 {
-  ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
+  ccs811_data_t* ccs811_data = (ccs811_data_t*)sensor_data;
   log_info(ccs811_tag, "Init Start", "Beginning CCS811 sensor initialization");
 
   /* Initialize error handler */
@@ -160,7 +160,7 @@ esp_err_t ccs811_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t ccs811_read(ccs811_data_t *sensor_data)
+esp_err_t ccs811_read(ccs811_data_t* const sensor_data)
 {
   uint8_t data[k_ccs811_alg_data_len];
   esp_err_t ret = priv_i2c_read_bytes(data, 
@@ -186,9 +186,9 @@ esp_err_t ccs811_read(ccs811_data_t *sensor_data)
   return ESP_OK;
 }
 
-void ccs811_tasks(void *sensor_data)
+void ccs811_tasks(void* const sensor_data)
 {
-  ccs811_data_t *ccs811_data = (ccs811_data_t *)sensor_data;
+  ccs811_data_t* ccs811_data = (ccs811_data_t*)sensor_data;
   if (!ccs811_data) {
     log_error(ccs811_tag, "Task Error", "Invalid sensor data pointer provided");
     vTaskDelete(NULL);
@@ -198,7 +198,7 @@ void ccs811_tasks(void *sensor_data)
   while (1) {
     esp_err_t ret = ccs811_read(ccs811_data);
     if (ret == ESP_OK) {
-      char *json = ccs811_data_to_json(ccs811_data);
+      char* json = ccs811_data_to_json(ccs811_data);
       if (json) {
         send_sensor_data_to_webserver(json);
         file_write_enqueue("ccs811.txt", json);
@@ -207,7 +207,7 @@ void ccs811_tasks(void *sensor_data)
         log_error(ccs811_tag, "JSON Error", "Failed to convert sensor data to JSON format");
       }
     } else if (ccs811_data->state & k_ccs811_error) {
-      error_handler_record_error(&(ccs811_data->error_handler), ESP_FAIL);
+      error_handler_record_status(&(ccs811_data->error_handler), ESP_FAIL);
     }
     vTaskDelay(ccs811_polling_rate_ticks);
   }

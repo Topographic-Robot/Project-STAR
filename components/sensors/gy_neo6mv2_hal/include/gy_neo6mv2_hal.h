@@ -16,7 +16,7 @@ extern "C" {
 /* Constants ******************************************************************/
 
 /* Module constants */
-extern const char       *gy_neo6mv2_tag;                    /**< Logging tag for log_handler messages related to the GY-NEO6MV2 module. */
+extern const char* const gy_neo6mv2_tag;                    /**< Logging tag for log_handler messages related to the GY-NEO6MV2 module. */
 extern const uint8_t     gy_neo6mv2_tx_io;                  /**< GPIO pin for UART TX line to the GY-NEO6MV2 module. */
 extern const uint8_t     gy_neo6mv2_rx_io;                  /**< GPIO pin for UART RX line from the GY-NEO6MV2 module. */
 extern const uart_port_t gy_neo6mv2_uart_num;               /**< UART number used for GY-NEO6MV2 communication. */
@@ -104,7 +104,7 @@ typedef struct {
  *
  * @note The caller is responsible for freeing the memory.
  */
-char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data);
+char* gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t* const data);
 
 /**
  * @brief Initializes the GY-NEO6MV2 GPS module over UART.
@@ -120,7 +120,7 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data);
  *
  * @note Call during setup to prepare the GPS module for data acquisition.
  */
-esp_err_t gy_neo6mv2_init(void *sensor_data);
+esp_err_t gy_neo6mv2_init(void* const sensor_data);
 
 /**
  * @brief Reads GPS data from the GY-NEO6MV2 GPS module.
@@ -138,7 +138,7 @@ esp_err_t gy_neo6mv2_init(void *sensor_data);
  * @note Ensure the GPS module is initialized with `gy_neo6mv2_init` before 
  *       calling this function.
  */
-esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
+esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t* const sensor_data);
 
 /**
  * @brief Manages error recovery for the GY-NEO6MV2 GPS module using exponential backoff.
@@ -151,7 +151,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
  *
  * @note Call periodically within `gy_neo6mv2_tasks` for error handling.
  */
-void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data);
+void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data);
 
 /**
  * @brief Periodically reads GPS data and manages errors for the GY-NEO6MV2 GPS module.
@@ -165,7 +165,7 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data);
  *
  * @note Run as part of a FreeRTOS task for continuous operation.
  */
-void gy_neo6mv2_tasks(void *sensor_data);
+void gy_neo6mv2_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

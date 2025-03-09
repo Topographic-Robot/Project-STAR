@@ -15,9 +15,9 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char    *ec11_tag;                  /**< Tag for logging messages related to the EC11 encoder. */
-extern const uint32_t ec11_button_debounce_ms;   /**< Button debounce time in milliseconds */
-extern const uint32_t ec11_rotation_debounce_ms; /**< Rotation debounce time in milliseconds */
+extern const char* const ec11_tag;                  /**< Tag for logging messages related to the EC11 encoder. */
+extern const uint32_t    ec11_button_debounce_ms;   /**< Button debounce time in milliseconds */
+extern const uint32_t    ec11_rotation_debounce_ms; /**< Rotation debounce time in milliseconds */
 
 /* Enums **********************************************************************/
 
@@ -53,7 +53,9 @@ typedef enum : uint8_t {
  * @param[in] board      Pointer to the PCA9685 board
  * @param[in] motor_mask Bitmask indicating which motor to control
  */
-typedef void (*ec11_callback_t)(ec11_event_t event, void *board, uint16_t motor_mask);
+typedef void (*ec11_callback_t)(ec11_event_t event, 
+                                void* const board, 
+                                uint16_t motor_mask);
 
 /**
  * @brief Enumeration of EC11 encoder operational states.
@@ -84,7 +86,7 @@ typedef struct {
   bool              button_pressed;     /**< Current state of the push button */
   uint8_t           prev_state;         /**< Previous encoder state for rotation detection */
   ec11_callback_t   callback;           /**< Event callback function */
-  void             *board_ptr;          /**< Pointer to the PCA9685 board */
+  void*             board_ptr;          /**< Pointer to the PCA9685 board */
   uint16_t          motor_mask;         /**< Bitmask indicating which motor to control */
   SemaphoreHandle_t mutex;              /**< Mutex for thread-safe access in ISR */
   int64_t           last_button_time;   /**< Last time the button state changed (ms) */
@@ -103,7 +105,7 @@ typedef struct {
  * - ESP_OK on success
  * - ESP_FAIL or other error codes on failure
  */
-esp_err_t ec11_init(ec11_data_t *encoder);
+esp_err_t ec11_init(ec11_data_t* const encoder);
 
 /**
  * @brief Registers a callback function for encoder events.
@@ -113,10 +115,10 @@ esp_err_t ec11_init(ec11_data_t *encoder);
  * @param[in] board_ptr  Pointer to the PCA9685 board
  * @param[in] motor_mask Bitmask indicating which motor to control
  */
-void ec11_register_callback(ec11_data_t  *encoder, 
-                          ec11_callback_t callback, 
-                          void           *board_ptr, 
-                          uint16_t        motor_mask);
+void ec11_register_callback(ec11_data_t* const encoder, 
+                            ec11_callback_t    callback, 
+                            void* const        board_ptr, 
+                            uint16_t           motor_mask);
 
 #ifdef __cplusplus
 }

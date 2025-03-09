@@ -8,7 +8,7 @@
 
 /* Public Functions ***********************************************************/
 
-esp_err_t send_sensor_data_to_webserver(const char *json_string)
+esp_err_t send_sensor_data_to_webserver(const char* const json_string)
 {
   if (json_string == NULL) {
     log_error(system_tag, "Data Error", "JSON payload is NULL");
@@ -26,7 +26,7 @@ esp_err_t send_sensor_data_to_webserver(const char *json_string)
   log_info(system_tag, "HTTP Start", "Preparing HTTP client for data transmission");
 
   esp_http_client_config_t config = {
-    .url    = webserver_url,
+    .url    = WEBSERVER_URL,
     .method = HTTP_METHOD_POST,
   };
 
@@ -51,7 +51,7 @@ esp_err_t send_sensor_data_to_webserver(const char *json_string)
   log_info(system_tag, 
            "Send Start", 
            "Transmitting data to server at %s", 
-           webserver_url);
+           WEBSERVER_URL);
   esp_err_t err = esp_http_client_perform(client);
   if (err == ESP_OK) {
     int status_code = esp_http_client_get_status_code(client);

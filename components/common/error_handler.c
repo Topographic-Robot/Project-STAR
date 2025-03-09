@@ -3,17 +3,21 @@
 #include "error_handler.h"
 #include "log_handler.h"
 
+/* Constants ******************************************************************/
+
+const char* const error_handler_tag = "Error Handler";
+
 /* Public Functions ***********************************************************/
 
-void error_handler_init(error_handler_t *handler, 
-                        const char      *tag,
-                        uint8_t          max_retries, 
-                        uint32_t         initial_interval,
-                        uint32_t         max_interval, 
-                        esp_err_t      (*reset_func)(void *context),
-                        void            *context, 
-                        uint32_t         initial_backoff_interval,
-                        uint32_t         max_backoff_interval)
+void error_handler_init(error_handler_t* const handler, 
+                        const char* const      tag,
+                        uint8_t                max_retries, 
+                        uint32_t               initial_interval,
+                        uint32_t               max_interval, 
+                        esp_err_t            (*reset_func)(void* context),
+                        void*                  context, 
+                        uint32_t               initial_backoff_interval,
+                        uint32_t               max_backoff_interval)
 {
   if (!handler) {
     log_error(tag, "Init Error", "Handler pointer is NULL");
@@ -42,7 +46,8 @@ void error_handler_init(error_handler_t *handler,
   log_info(tag, "Init Complete", "Error handler initialized successfully");
 }
 
-esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status)
+esp_err_t error_handler_record_status(error_handler_t* const handler, 
+                                      esp_err_t              status)
 {
   if (!handler) {
     return ESP_ERR_INVALID_ARG;
@@ -114,11 +119,11 @@ esp_err_t error_handler_record_status(error_handler_t *handler, esp_err_t status
   }
 }
 
-esp_err_t error_handler_reset(error_handler_t *handler)
+esp_err_t error_handler_reset(error_handler_t* const handler)
 {
   if (!handler) {
     /* handler is NULL, so we need to use "ERROR_HANDLER" as the tag */
-    log_error("ERROR_HANDLER", "Reset Error", "Handler pointer is NULL");
+    log_error(error_handler_tag, "Reset Error", "Handler pointer is NULL");
     return ESP_ERR_INVALID_ARG;
   }
 
