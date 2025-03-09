@@ -15,16 +15,16 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t    mpu6050_i2c_address        = 0x68;
-const i2c_port_t mpu6050_i2c_bus            = I2C_NUM_0;
-const char      *mpu6050_tag                = "MPU6050";
-const uint8_t    mpu6050_scl_io             = GPIO_NUM_22;
-const uint8_t    mpu6050_sda_io             = GPIO_NUM_21;
-const uint32_t   mpu6050_i2c_freq_hz        = 100000;
-const uint32_t   mpu6050_polling_rate_ticks = pdMS_TO_TICKS(20);
-const uint8_t    mpu6050_sample_rate_div    = 4;
-const uint8_t    mpu6050_config_dlpf        = k_mpu6050_config_dlpf_94hz;
-const uint8_t    mpu6050_int_io             = GPIO_NUM_26;
+const uint8_t     mpu6050_i2c_address        = 0x68;
+const i2c_port_t  mpu6050_i2c_bus            = I2C_NUM_0;
+const char* const mpu6050_tag                = "MPU6050";
+const uint8_t     mpu6050_scl_io             = GPIO_NUM_22;
+const uint8_t     mpu6050_sda_io             = GPIO_NUM_21;
+const uint32_t    mpu6050_i2c_freq_hz        = 100000;
+const uint32_t    mpu6050_polling_rate_ticks = pdMS_TO_TICKS(20);
+const uint8_t     mpu6050_sample_rate_div    = 4;
+const uint8_t     mpu6050_config_dlpf        = k_mpu6050_config_dlpf_94hz;
+const uint8_t     mpu6050_int_io             = GPIO_NUM_26;
 
 /**
  * @brief Static constant array of accelerometer configurations and scaling factors.
@@ -98,24 +98,24 @@ static error_handler_t s_mpu6050_error_handler  = { 0 };
  * @note This ISR should be kept as short as possible to avoid blocking other interrupts. 
  *       Ensure that the semaphore is properly initialized before enabling the interrupt.
  */
-static void IRAM_ATTR priv_mpu6050_interrupt_handler(void *arg)
+static void IRAM_ATTR priv_mpu6050_interrupt_handler(void* const arg)
 {
-  mpu6050_data_t *sensor_data              = (mpu6050_data_t *)arg;
-  BaseType_t      xHigherPriorityTaskWoken = pdFALSE;
+  mpu6050_data_t* const sensor_data                = (mpu6050_data_t* const)arg;
+  BaseType_t            higher_priority_task_woken = pdFALSE;
 
   /* Give the semaphore to signal that data is ready */
-  xSemaphoreGiveFromISR(sensor_data->data_ready_sem, &xHigherPriorityTaskWoken);
+  xSemaphoreGiveFromISR(sensor_data->data_ready_sem, &higher_priority_task_woken);
 
-  if (xHigherPriorityTaskWoken == pdTRUE) {
+  if (higher_priority_task_woken == pdTRUE) {
     portYIELD_FROM_ISR();
   }
 }
 
 /* Public Functions ***********************************************************/
 
-char *mpu6050_data_to_json(const mpu6050_data_t *data)
+char* mpu6050_data_to_json(const mpu6050_data_t* const data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* const json = cJSON_CreateObject();
   if (!json) {
     log_error(mpu6050_tag, 
               "JSON Creation Failed", 
@@ -179,7 +179,7 @@ char *mpu6050_data_to_json(const mpu6050_data_t *data)
     return NULL;
   }
 
-  char *json_string = cJSON_PrintUnformatted(json);
+  char* const json_string = cJSON_PrintUnformatted(json);
   if (!json_string) {
     log_error(mpu6050_tag, 
               "JSON Serialization Failed", 
@@ -192,9 +192,9 @@ char *mpu6050_data_to_json(const mpu6050_data_t *data)
   return json_string;
 }
 
-esp_err_t mpu6050_init(void *sensor_data)
+esp_err_t mpu6050_init(void* const sensor_data)
 {
-  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+  mpu6050_data_t* const mpu6050_data = (mpu6050_data_t* const)sensor_data;
   log_info(mpu6050_tag, 
            "Init Started", 
            "Beginning MPU6050 sensor initialization");
@@ -404,7 +404,7 @@ esp_err_t mpu6050_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
+esp_err_t mpu6050_read(mpu6050_data_t* const sensor_data)
 {
   if (sensor_data == NULL) {
     log_error(mpu6050_tag, 
@@ -509,7 +509,7 @@ esp_err_t mpu6050_read(mpu6050_data_t *sensor_data)
   return ESP_OK;
 }
 
-void mpu6050_reset_on_error(mpu6050_data_t *sensor_data)
+void mpu6050_reset_on_error(mpu6050_data_t* const sensor_data)
 {
   /* Check if the state indicates any error */
   if (sensor_data->state & k_mpu6050_error) {
@@ -517,12 +517,12 @@ void mpu6050_reset_on_error(mpu6050_data_t *sensor_data)
   }
 }
 
-void mpu6050_tasks(void *sensor_data)
+void mpu6050_tasks(void* const sensor_data)
 {
-  mpu6050_data_t *mpu6050_data = (mpu6050_data_t *)sensor_data;
+  mpu6050_data_t* const mpu6050_data = (mpu6050_data_t* const)sensor_data;
   while (1) {
     if (mpu6050_read(mpu6050_data) == ESP_OK) {
-      char *json = mpu6050_data_to_json(mpu6050_data);
+      char* const json = mpu6050_data_to_json(mpu6050_data);
       send_sensor_data_to_webserver(json);
       file_write_enqueue("mpu6050.txt", json);
       free(json);

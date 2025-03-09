@@ -12,7 +12,7 @@
 
 /* Constants ******************************************************************/
 
-const char *log_tag = "LOG_HANDLER";
+const char* const log_tag = "Log Handler";
 
 /* Global Variables *********************************************************/
 
@@ -27,10 +27,11 @@ static bool s_log_to_sd_enabled = false;
 /**
  * @brief Get the current task information formatted as a string
  * 
- * @param buffer Buffer to store the task info string
- * @param size Size of the buffer
+ * @param[out] buffer Buffer to store the task info string
+ * @param[in]  size   Size of the buffer
  */
-static void priv_get_task_info(char *buffer, size_t size) 
+static void priv_get_task_info(char*  buffer, 
+                               size_t size) 
 {
   if (!buffer || size == 0) {
     return;
@@ -50,11 +51,11 @@ static void priv_get_task_info(char *buffer, size_t size)
 
 /* Public Functions ********************************************************/
 
-void log_write_va(esp_log_level_t level, 
-                  const char     *tag,
-                  const char     *short_msg, 
-                  const char     *detailed_msg,
-                  va_list         args) 
+void log_write_va(esp_log_level_t   level, 
+                  const char* const tag,
+                  const char* const short_msg, 
+                  const char* const detailed_msg,
+                  va_list           args) 
 {
   if (!tag || !short_msg || !detailed_msg) {
     ESP_LOGE(tag, "Invalid arguments: tag, short_msg, or detailed_msg is NULL");
@@ -71,7 +72,7 @@ void log_write_va(esp_log_level_t level,
 
   /* Create the complete log message with the required format */
   char complete_msg[LOG_MAX_MESSAGE_LENGTH * 2];
-  char *timestamp = NULL;
+  char* timestamp = NULL;
   uint64_t seq_num = atomic_fetch_add(&g_log_sequence_number, 1);
 
   /* Only try to get timestamp if time manager is initialized */
@@ -131,10 +132,10 @@ void log_write_va(esp_log_level_t level,
   }
 }
 
-void log_write(esp_log_level_t level, 
-               const char      *tag,
-               const char      *short_msg, 
-               const char      *detailed_msg, 
+void log_write(esp_log_level_t   level, 
+               const char* const tag,
+               const char* const short_msg, 
+               const char* const detailed_msg, 
                ...)
 {
   va_list args;

@@ -26,13 +26,13 @@ static const uint32_t   ov7670_xclk_freq_hz = 24000000; /* 24 MHz */
 static const gpio_num_t ov7670_xclk_gpio    = GPIO_NUM_27;
 #endif
 
-const char      *ov7670_tag                = "OV7670";
-const uint8_t    ov7670_i2c_address        = (0x42 >> 1);         /* 7-bit address */
-const i2c_port_t ov7670_i2c_bus            = I2C_NUM_0;
-const uint32_t   ov7670_i2c_freq_hz        = 100000;              /* 100 kHz */
-const uint32_t   ov7670_polling_rate_ticks = pdMS_TO_TICKS(5000);
-const uint8_t    ov7670_scl_io             = GPIO_NUM_22;
-const uint8_t    ov7670_sda_io             = GPIO_NUM_21;
+const char* const ov7670_tag                = "OV7670";
+const uint8_t     ov7670_i2c_address        = (0x42 >> 1);         /* 7-bit address */
+const i2c_port_t  ov7670_i2c_bus            = I2C_NUM_0;
+const uint32_t    ov7670_i2c_freq_hz        = 100000;              /* 100 kHz */
+const uint32_t    ov7670_polling_rate_ticks = pdMS_TO_TICKS(5000);
+const uint8_t     ov7670_scl_io             = GPIO_NUM_22;
+const uint8_t     ov7670_sda_io             = GPIO_NUM_21;
 
 /* Private (Static) Functions *************************************************/
 
@@ -92,7 +92,7 @@ static esp_err_t priv_configure_xclk_on_gpio_27(uint32_t freq_hz)
 /**
  * @brief Applies the specified configuration settings to the OV7670 module.
  */
-static esp_err_t priv_ov7670_apply_config(const ov7670_config_t *config)
+static esp_err_t priv_ov7670_apply_config(const ov7670_config_t* const config)
 {
   /* Combine resolution and format into COM7 register. */
   uint8_t   com7_value = (uint8_t)(config->resolution | config->output_format);
@@ -145,7 +145,7 @@ static esp_err_t priv_ov7670_configure_defaults(void)
 
 /* Public Functions ***********************************************************/
 
-esp_err_t ov7670_init(ov7670_data_t *camera_data)
+esp_err_t ov7670_init(ov7670_data_t* const camera_data)
 {
   if (!camera_data) {
     log_error(ov7670_tag, 
@@ -212,7 +212,7 @@ esp_err_t ov7670_init(ov7670_data_t *camera_data)
   return ESP_OK;
 }
 
-esp_err_t ov7670_configure(ov7670_data_t *camera_data)
+esp_err_t ov7670_configure(ov7670_data_t* const camera_data)
 {
   if (!camera_data) {
     log_error(ov7670_tag, 
@@ -240,7 +240,7 @@ esp_err_t ov7670_configure(ov7670_data_t *camera_data)
   return ESP_OK;
 }
 
-void ov7670_reset_on_error(ov7670_data_t *camera_data)
+void ov7670_reset_on_error(ov7670_data_t* const camera_data)
 {
   if (!camera_data) {
     log_error(ov7670_tag, 
@@ -279,9 +279,9 @@ void ov7670_reset_on_error(ov7670_data_t *camera_data)
   }
 }
 
-void ov7670_tasks(void *camera_data_)
+void ov7670_tasks(void* const camera_data_)
 {
-  ov7670_data_t *camera_data = (ov7670_data_t *)camera_data_;
+  ov7670_data_t* camera_data = (ov7670_data_t*)camera_data_;
   if (!camera_data) {
     log_error(ov7670_tag, 
               "Invalid Parameter", 

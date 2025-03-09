@@ -15,7 +15,7 @@
 /* Constants *******************************************************************/
 
 /* Module constants */
-const char       *gy_neo6mv2_tag                    = "GY-NEO6MV2";
+const char* const gy_neo6mv2_tag                    = "GY-NEO6MV2";
 const uint8_t     gy_neo6mv2_tx_io                  = GPIO_NUM_17;
 const uint8_t     gy_neo6mv2_rx_io                  = GPIO_NUM_16;
 const uart_port_t gy_neo6mv2_uart_num               = UART_NUM_2;
@@ -53,8 +53,8 @@ static error_handler_t s_gy_neo6mv2_error_handler   = { 0 };
  *
  * @return The coordinate in decimal degrees.
  */
-static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str, 
-                                              const char *hemisphere)
+static float priv_gy_neo6mv2_parse_coordinate(const char* const coord_str, 
+                                              const char* const hemisphere)
 {
   float    coord           = atof(coord_str);
   uint32_t degrees         = (uint32_t)(coord / 100);
@@ -80,19 +80,19 @@ static float priv_gy_neo6mv2_parse_coordinate(const char *coord_str,
  * - `true`  if the checksum is valid.
  * - `false` otherwise.
  */
-static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
+static bool priv_gy_neo6mv2_validate_nmea_checksum(const char* const sentence)
 {
   if (!sentence || sentence[0] != '$') {
     return false;
   }
 
-  const char *checksum_start = strchr(sentence, '*');
+  const char* checksum_start = strchr(sentence, '*');
   if (!checksum_start || (checksum_start - sentence) > strlen(sentence)) {
     return false;
   }
 
   uint8_t calculated_checksum = 0;
-  for (const char *p = sentence + 1; p < checksum_start; p++) {
+  for (const char* p = sentence + 1; p < checksum_start; p++) {
     calculated_checksum ^= *p;
   }
 
@@ -110,16 +110,16 @@ static bool priv_gy_neo6mv2_validate_nmea_checksum(const char *sentence)
  * @param[out]    fields     Array of pointers to store the extracted fields.
  * @param[in]     max_fields Maximum number of fields to extract.
  */
-static void priv_gy_neo6mv2_split_nmea_sentence(char  *sentence, 
-                                                char **fields, 
-                                                size_t max_fields)
+static void priv_gy_neo6mv2_split_nmea_sentence(char*  const sentence, 
+                                                char** const fields, 
+                                                size_t       max_fields)
 {
   if (!sentence || !fields) {
     return;
   }
 
   size_t index = 0;
-  char  *token = strtok(sentence, ",");
+  char*  token = strtok(sentence, ",");
   while (token != NULL && index < max_fields) {
     fields[index++] = token;
     token           = strtok(NULL, ",");
@@ -147,7 +147,7 @@ static void priv_gy_neo6mv2_add_satellite(uint8_t  prn,
                                           uint8_t  snr)
 {
   if (s_gy_neo6mv2_satellite_count < GY_NEO6MV2_MAX_SATELLITES) {
-    satellite_t *sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
+    satellite_t* sat = &(s_gy_neo6mv2_satellites[s_gy_neo6mv2_satellite_count]);
     sat->prn         = prn;
     sat->elevation   = elevation;
     sat->azimuth     = azimuth;
@@ -193,8 +193,8 @@ static void priv_gy_neo6mv2_clear_satellites(void)
  *
  * @return The number of satellites copied into the output buffer.
  */
-static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, 
-                                              uint8_t      max_count)
+static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t* const satellites, 
+                                              uint8_t            max_count)
 {
   uint8_t count = (s_gy_neo6mv2_satellite_count < max_count) ?
                    s_gy_neo6mv2_satellite_count : max_count;
@@ -209,9 +209,9 @@ static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites,
 
 /* Public Functions ***********************************************************/
 
-char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
+char* gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t* const gy_neo6mv2_data)
 {
-  cJSON *json = cJSON_CreateObject();
+  cJSON* json = cJSON_CreateObject();
   if (!json) {
     log_error(gy_neo6mv2_tag, 
               "JSON Creation Failed", 
@@ -312,9 +312,9 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
   return json_string;
 }
 
-esp_err_t gy_neo6mv2_init(void *sensor_data)
+esp_err_t gy_neo6mv2_init(void* const sensor_data)
 {
-  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  gy_neo6mv2_data_t* const gy_neo6mv2_data = (gy_neo6mv2_data_t*)sensor_data;
   log_info(gy_neo6mv2_tag, 
            "Init Started", 
            "Beginning GY-NEO6MV2 GPS module initialization");
@@ -337,7 +337,7 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   }
 
   /* Configure GPS module with optimal settings */
-  const char *config_commands[] = {
+  const char* const config_commands[] = {
     "$PUBX,41,1,0007,0003,9600,0*10\r\n", /* Set UART1 baud rate */
     "$PUBX,40,GLL,0,0,0,0*5C\r\n",        /* Disable GLL messages */
     "$PUBX,40,GSA,0,0,0,0*4E\r\n",        /* Disable GSA messages */
@@ -350,7 +350,7 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   /* Send configuration commands */
   for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
     int32_t bytes_written = 0;
-    priv_uart_write((const uint8_t *)config_commands[i], 
+    priv_uart_write((const uint8_t*)config_commands[i], 
                     strlen(config_commands[i]), 
                     &bytes_written, 
                     gy_neo6mv2_uart_num, 
@@ -380,7 +380,7 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
   return ESP_OK;
 }
 
-esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
+esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t* const sensor_data)
 {
   uint8_t uart_rx_buffer[GY_NEO6MV2_SENTENCE_BUFFER_SIZE];
   int32_t length = 0;
@@ -431,12 +431,12 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
         /* Parse specific sentences */
         if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPRMC") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPRMC sentence */
-          char *fields[12] = { 0 };
+          char* fields[12] = { 0 };
           priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, fields, 12);
 
           /* Extract and log status */
           if (fields[2]) {
-            const char *status = fields[2];
+            const char* status = fields[2];
             log_info(gy_neo6mv2_tag, 
                      "GPS Status", 
                      "Fix status: %s (%s)", 
@@ -469,7 +469,7 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
         } else if (strstr(s_gy_neo6mv2_sentence_buffer, "$GPGSV") == s_gy_neo6mv2_sentence_buffer) {
           /* Parse GPGSV sentence for satellite information */
-          char *fields[GY_NEO6MV2_GPGSV_MAX_FIELDS] = { '\0' };
+          char* fields[GY_NEO6MV2_GPGSV_MAX_FIELDS] = { '\0' };
           priv_gy_neo6mv2_split_nmea_sentence(s_gy_neo6mv2_sentence_buffer, 
                                               fields, 
                                               GY_NEO6MV2_GPGSV_MAX_FIELDS);
@@ -491,7 +491,8 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
           }
 
           /* Parse satellite details (up to 4 satellites per GPGSV sentence) */
-          for (uint8_t i = gy_neo6mv2_gpgsv_field_start; i < GY_NEO6MV2_GPGSV_MAX_FIELDS; i += gy_neo6mv2_gpgsv_field_step) {
+          for (uint8_t i = gy_neo6mv2_gpgsv_field_start; i < GY_NEO6MV2_GPGSV_MAX_FIELDS; 
+               i += gy_neo6mv2_gpgsv_field_step) {
             if (fields[i] && fields[i + 1] && fields[i + 2] && fields[i + 3]) {
               uint8_t  prn       = (uint8_t)atoi(fields[i]);      /* Satellite ID (PRN) */
               uint8_t  elevation = (uint8_t)atoi(fields[i + 1]);  /* Elevation in degrees */
@@ -538,19 +539,19 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
   }
 }
 
-void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
+void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data)
 {
   if (sensor_data->state == k_gy_neo6mv2_error) {
     /* TODO: Reset error handler */
   }
 }
 
-void gy_neo6mv2_tasks(void *sensor_data)
+void gy_neo6mv2_tasks(void* const sensor_data)
 {
-  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  gy_neo6mv2_data_t* gy_neo6mv2_data = (gy_neo6mv2_data_t*)sensor_data;
   while (1) {
     if (gy_neo6mv2_read(gy_neo6mv2_data) == ESP_OK) {
-      char *json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
+      char* json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
       send_sensor_data_to_webserver(json);
       file_write_enqueue("gy_neo6mv2.txt", json);
       free(json);
@@ -560,5 +561,3 @@ void gy_neo6mv2_tasks(void *sensor_data)
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }
 }
-
-

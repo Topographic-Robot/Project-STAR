@@ -12,7 +12,7 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char *gait_tag; /**< Tag for logs */
+extern const char* const gait_tag; /**< Tag for logs */
 
 /* Macros *********************************************************************/
 
@@ -37,7 +37,7 @@ extern const char *gait_tag; /**< Tag for logs */
  * @note This function is not thread-safe and should be called during the 
  *       initialization phase of the robot's setup.
  */
-esp_err_t gait_init(pca9685_board_t *pwm_controller);
+esp_err_t gait_init(pca9685_board_t* pwm_controller);
 
 /**
  * @brief Executes a tripod gait motion for the hexapod robot.
@@ -53,9 +53,9 @@ esp_err_t gait_init(pca9685_board_t *pwm_controller);
  *
  * @note Ensure `gait_init` has been called before invoking this function.
  */
-esp_err_t tripod_gait(pca9685_board_t *pwm_controller, 
-                      float            heading, 
-                      uint16_t         distance);
+esp_err_t tripod_gait(pca9685_board_t* const pwm_controller, 
+                      float                  heading, 
+                      uint16_t               distance);
 
 /**
  * @brief Executes a wave gait motion for the hexapod robot.
@@ -71,9 +71,9 @@ esp_err_t tripod_gait(pca9685_board_t *pwm_controller,
  *
  * @note Ensure `gait_init` has been called before invoking this function.
  */
-esp_err_t wave_gait(pca9685_board_t *pwm_controller, 
-                    float            heading, 
-                    uint16_t         distance);
+esp_err_t wave_gait(pca9685_board_t* const pwm_controller, 
+                    float                  heading, 
+                    uint16_t               distance);
 
 /**
  * @brief Executes a ripple gait motion for the hexapod robot.
@@ -89,9 +89,9 @@ esp_err_t wave_gait(pca9685_board_t *pwm_controller,
  *
  * @note Ensure `gait_init` has been called before invoking this function.
  */
-esp_err_t ripple_gait(pca9685_board_t *pwm_controller, 
-                      float            heading, 
-                      uint16_t         distance);
+esp_err_t ripple_gait(pca9685_board_t* const pwm_controller, 
+                      float                  heading, 
+                      uint16_t               distance);
 
 /**
  * @brief Executes a quadruped gait motion for the hexapod robot.
@@ -108,9 +108,9 @@ esp_err_t ripple_gait(pca9685_board_t *pwm_controller,
  *
  * @note Ensure `gait_init` has been called before invoking this function.
  */
-esp_err_t quadruped_gait(pca9685_board_t *pwm_controller, 
-                         float            heading, 
-                         uint16_t         distance);
+esp_err_t quadruped_gait(pca9685_board_t* const pwm_controller, 
+                         float                  heading, 
+                         uint16_t               distance);
 
 #ifdef __cplusplus
 }

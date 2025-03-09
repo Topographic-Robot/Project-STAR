@@ -14,17 +14,17 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char    *dht22_tag;                    /**< Logging tag for log_handler messages related to the DHT22 sensor. */
-extern const uint8_t  dht22_data_io;                /**< GPIO pin number for the DHT22 data line. */
-extern const uint32_t dht22_polling_rate_ticks;     /**< Polling interval for DHT22 in system ticks. */
-extern const uint8_t  dht22_bit_count;              /**< Total number of bits transmitted by the DHT22 sensor (40 bits). */
-extern const uint8_t  dht22_max_retries;            /**< Maximum retry attempts for DHT22 reinitialization. */
-extern const uint32_t dht22_initial_retry_interval; /**< Initial retry interval for DHT22 in system ticks. */
-extern const uint32_t dht22_max_backoff_interval;   /**< Maximum backoff interval for DHT22 retries in system ticks. */
-extern const uint32_t dht22_start_delay_ms;         /**< Start signal delay for DHT22 in milliseconds. */
-extern const uint32_t dht22_response_timeout_us;    /**< Timeout for DHT22 sensor response in microseconds. */
-extern const uint32_t dht22_bit_threshold_us;       /**< Timing threshold for distinguishing bits in DHT22 signal. */
-extern const uint8_t  dht22_allowed_fail_attempts;  /**< Number of allowed consecutive failures */
+extern const char* const dht22_tag;                    /**< Logging tag for log_handler messages related to the DHT22 sensor. */
+extern const uint8_t     dht22_data_io;                /**< GPIO pin number for the DHT22 data line. */
+extern const uint32_t    dht22_polling_rate_ticks;     /**< Polling interval for DHT22 in system ticks. */
+extern const uint8_t     dht22_bit_count;              /**< Total number of bits transmitted by the DHT22 sensor (40 bits). */
+extern const uint8_t     dht22_max_retries;            /**< Maximum retry attempts for DHT22 reinitialization. */
+extern const uint32_t    dht22_initial_retry_interval; /**< Initial retry interval for DHT22 in system ticks. */
+extern const uint32_t    dht22_max_backoff_interval;   /**< Maximum backoff interval for DHT22 retries in system ticks. */
+extern const uint32_t    dht22_start_delay_ms;         /**< Start signal delay for DHT22 in milliseconds. */
+extern const uint32_t    dht22_response_timeout_us;    /**< Timeout for DHT22 sensor response in microseconds. */
+extern const uint32_t    dht22_bit_threshold_us;       /**< Timing threshold for distinguishing bits in DHT22 signal. */
+extern const uint8_t     dht22_allowed_fail_attempts;  /**< Number of allowed consecutive failures */
 
 /* Enums **********************************************************************/
 
@@ -76,7 +76,7 @@ typedef struct {
  * - Pointer to the JSON-formatted string on success.
  * - `NULL` if memory allocation fails.
  */
-char *dht22_data_to_json(const dht22_data_t *data);
+char* dht22_data_to_json(const dht22_data_t* const data);
 
 /**
  * @brief Initializes the DHT22 sensor for temperature and humidity measurements.
@@ -96,7 +96,7 @@ char *dht22_data_to_json(const dht22_data_t *data);
  * - Call this function before reading data from the sensor.
  * - Ensures the sensor is in a ready state (`k_dht22_ready`) upon success.
  */
-esp_err_t dht22_init(void *sensor_data);
+esp_err_t dht22_init(void* const sensor_data);
 
 /**
  * @brief Reads temperature and humidity data from the DHT22 sensor.
@@ -115,7 +115,7 @@ esp_err_t dht22_init(void *sensor_data);
  * @note 
  * - Call `dht22_init` before using this function.
  */
-esp_err_t dht22_read(dht22_data_t *sensor_data);
+esp_err_t dht22_read(dht22_data_t* const sensor_data);
 
 /**
  * @brief Handles error recovery for the DHT22 sensor using exponential backoff.
@@ -130,7 +130,7 @@ esp_err_t dht22_read(dht22_data_t *sensor_data);
  * @note 
  * - Call this function periodically within the sensor task to handle errors.
  */
-void dht22_reset_on_error(dht22_data_t *sensor_data);
+void dht22_reset_on_error(dht22_data_t* const sensor_data);
 
 /**
  * @brief Periodically reads data from the DHT22 sensor and manages errors.
@@ -146,7 +146,7 @@ void dht22_reset_on_error(dht22_data_t *sensor_data);
  * - Execute this function as part of a FreeRTOS task for continuous operation.
  * - Includes error handling to ensure reliable data acquisition.
  */
-void dht22_tasks(void *sensor_data);
+void dht22_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

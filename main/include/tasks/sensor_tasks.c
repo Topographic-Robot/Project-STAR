@@ -20,7 +20,7 @@ static sensor_config_t s_sensors[] = {
 
 /* Public Functions ***********************************************************/
 
-esp_err_t sensors_init(sensor_data_t *sensor_data)
+esp_err_t sensors_init(sensor_data_t* sensor_data)
 {
   esp_err_t status         = ESP_OK;
   esp_err_t overall_status = ESP_OK;
@@ -70,7 +70,7 @@ esp_err_t sensors_init(sensor_data_t *sensor_data)
   return overall_status;
 }
 
-esp_err_t sensor_tasks(sensor_data_t *sensor_data)
+esp_err_t sensor_tasks(sensor_data_t* sensor_data)
 {
   esp_err_t overall_status = ESP_OK;
 

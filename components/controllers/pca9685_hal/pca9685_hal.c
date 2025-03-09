@@ -8,20 +8,20 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t    pca9685_scl_io           = GPIO_NUM_22;
-const uint8_t    pca9685_sda_io           = GPIO_NUM_21;
-const uint32_t   pca9685_i2c_freq_hz      = 100000;
-const uint8_t    pca9685_i2c_address      = 0x40;
-const i2c_port_t pca9685_i2c_bus          = I2C_NUM_0;
-const uint32_t   pca9685_osc_freq         = 25000000; /**< 25MHz internal osc */
-const uint16_t   pca9685_pwm_resolution   = 4096;     /**< 12-bit resolution */
-const uint16_t   pca9685_default_pwm_freq = 54;       /**< Measured servo freq */
-const uint16_t   pca9685_max_pwm_value    = 4095;     /**< 0 to 4095 */
-const uint16_t   pca9685_pwm_period_us    = 18519;    /**< 54Hz ≈ 18.519ms */
-const char      *pca9685_tag              = "PCA9685";
-const uint8_t    pca9685_step_size_deg    = 5;
-const uint32_t   pca9685_step_delay_ms    = 20;
-const float      pca9685_default_angle    = 90.0f;
+const uint8_t     pca9685_scl_io           = GPIO_NUM_22;
+const uint8_t     pca9685_sda_io           = GPIO_NUM_21;
+const uint32_t    pca9685_i2c_freq_hz      = 100000;
+const uint8_t     pca9685_i2c_address      = 0x40;
+const i2c_port_t  pca9685_i2c_bus          = I2C_NUM_0;
+const uint32_t    pca9685_osc_freq         = 25000000; /**< 25MHz internal osc */
+const uint16_t    pca9685_pwm_resolution   = 4096;     /**< 12-bit resolution */
+const uint16_t    pca9685_default_pwm_freq = 54;       /**< Measured servo freq */
+const uint16_t    pca9685_max_pwm_value    = 4095;     /**< 0 to 4095 */
+const uint16_t    pca9685_pwm_period_us    = 18519;    /**< 54Hz ≈ 18.519ms */
+const char* const pca9685_tag              = "PCA9685";
+const uint8_t     pca9685_step_size_deg    = 5;
+const uint32_t    pca9685_step_delay_ms    = 20;
+const float       pca9685_default_angle    = 90.0f;
 
 /* Private Function Implementations *******************************************/
 
@@ -29,7 +29,7 @@ static esp_err_t pca9685_write_register(uint8_t i2c_addr,
                                         uint8_t reg, 
                                         uint8_t value) 
 {
-  uint8_t write_buf[2] = {reg, value};
+  uint8_t   write_buf[2] = {reg, value};
   esp_err_t ret = i2c_master_write_to_device(pca9685_i2c_bus, 
                                              i2c_addr, 
                                              write_buf, 
@@ -61,7 +61,8 @@ static esp_err_t pca9685_set_pwm_freq(uint8_t i2c_addr, uint16_t freq)
 
   /* Put the device to sleep (required to change prescale) */
   ret = pca9685_write_register(i2c_addr, 
-                               k_pca9685_mode1_cmd, mode1 | k_pca9685_sleep_cmd);
+                               k_pca9685_mode1_cmd, 
+                               mode1 | k_pca9685_sleep_cmd);
   if (ret != ESP_OK) {
     log_error(pca9685_tag, "Write Error", "Failed to write sleep command");
     return ret;
@@ -183,7 +184,7 @@ static uint16_t angle_to_pwm(float angle)
 
 /* Public Function Implementations *******************************************/
 
-esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards) 
+esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boards) 
 {
   if (controller_data == NULL || num_boards == 0) {
     log_error(pca9685_tag, 
@@ -217,8 +218,8 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
   }
 
   /* Create and initialize the board list */
-  pca9685_board_t *head    = NULL;
-  pca9685_board_t *current = NULL;
+  pca9685_board_t* head    = NULL;
+  pca9685_board_t* current = NULL;
 
   for (uint8_t i = 0; i < num_boards; i++) {
     pca9685_board_t *board = calloc(1, sizeof(pca9685_board_t));
@@ -318,10 +319,10 @@ esp_err_t pca9685_init(pca9685_board_t **controller_data, uint8_t num_boards)
   return ESP_OK;
 }
 
-esp_err_t pca9685_set_angle(pca9685_board_t *controller_data, 
-                            uint16_t         motor_mask,
-                            uint8_t          board_id, 
-                            float            target_angle) 
+esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data, 
+                            uint16_t                     motor_mask,
+                            uint8_t                      board_id, 
+                            float                        target_angle) 
 {
   if (controller_data == NULL || target_angle < 0.0f || target_angle > 180.0f) {
     log_error(pca9685_tag, 
@@ -333,7 +334,7 @@ esp_err_t pca9685_set_angle(pca9685_board_t *controller_data,
   }
 
   /* Find the target board */
-  pca9685_board_t *board = controller_data;
+  pca9685_board_t* board = controller_data;
   while (board != NULL && board->board_id != board_id) {
     board = board->next;
   }

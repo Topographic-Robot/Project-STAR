@@ -12,7 +12,7 @@ extern "C" {
 
 /* Globals (Constants) ********************************************************/
 
-extern const char *time_manager_tag; /**< For Logging */
+extern const char* const time_manager_tag; /**< For Logging */
 
 /* Macro Definitions **********************************************************/
 

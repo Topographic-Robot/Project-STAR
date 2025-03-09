@@ -42,13 +42,13 @@ extern const uint32_t uart_timeout_ticks; /**< Timeout for UART commands in tick
  * - This function assumes the UART driver is not already initialized on the given port.
  * - Buffer sizes should be chosen based on the expected data throughput and available memory.
  */
-esp_err_t priv_uart_init(uint8_t      tx_io, 
-                         uint8_t      rx_io, 
-                         uint32_t     baud_rate,
-                         uart_port_t  uart_num,
-                         size_t       rx_buffer_size,
-                         size_t       tx_buffer_size,
-                         const char  *tag);
+esp_err_t priv_uart_init(uint8_t           tx_io, 
+                         uint8_t           rx_io, 
+                         uint32_t          baud_rate,
+                         uart_port_t       uart_num,
+                         size_t            rx_buffer_size,
+                         size_t            tx_buffer_size,
+                         const char* const tag);
 
 /**
  * @brief Reads data from the UART interface and returns the length of data read.
@@ -72,11 +72,11 @@ esp_err_t priv_uart_init(uint8_t      tx_io,
  * - The `data` buffer must have sufficient space for `len` bytes.
  * - This function does not implement retry logic; consider adding retries if necessary.
  */
-esp_err_t priv_uart_read(uint8_t    *data, 
-                         size_t      len, 
-                         int32_t    *out_length,
-                         uart_port_t uart_num, 
-                         const char *tag);
+esp_err_t priv_uart_read(uint8_t*          data, 
+                         size_t            len, 
+                         int32_t*          out_length,
+                         uart_port_t       uart_num, 
+                         const char* const tag);
 
 /**
  * @brief Writes data to the UART interface.
@@ -98,11 +98,11 @@ esp_err_t priv_uart_read(uint8_t    *data,
  * - Ensure the UART interface is initialized using `priv_uart_init` before calling this function.
  * - This function utilizes the TX buffer configured during initialization for efficient data transmission.
  */
-esp_err_t priv_uart_write(const uint8_t *data,
-                          size_t         len,
-                          int32_t       *bytes_written,
-                          uart_port_t    uart_num,
-                          const char    *tag);
+esp_err_t priv_uart_write(const uint8_t* const data,
+                          size_t               len,
+                          int32_t*             bytes_written,
+                          uart_port_t          uart_num,
+                          const char* const    tag);
 
 #ifdef __cplusplus
 }

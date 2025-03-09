@@ -11,13 +11,14 @@
 
 /* Constants ******************************************************************/
 
-const char    *ec11_tag                  = "EC11";
-const uint32_t ec11_button_debounce_ms   = 50;
-const uint32_t ec11_rotation_debounce_ms = 5;
+const char* const ec11_tag                  = "EC11";
+const uint32_t    ec11_button_debounce_ms   = 50;
+const uint32_t    ec11_rotation_debounce_ms = 5;
 
 /* Private Functions **********************************************************/
 
-static void priv_process_encoder_state(ec11_data_t *encoder, int current_state) 
+static void priv_process_encoder_state(ec11_data_t* const encoder, 
+                                      int                 current_state) 
 {
   int64_t current_time = esp_timer_get_time() / 1000; /* Convert to milliseconds */
   
@@ -49,7 +50,8 @@ static void priv_process_encoder_state(ec11_data_t *encoder, int current_state)
   encoder->prev_state = current_state;
 }
 
-static void priv_process_button_state(ec11_data_t *encoder, bool current_button) 
+static void priv_process_button_state(ec11_data_t* const encoder, 
+                                     bool                current_button) 
 {
   int64_t current_time = esp_timer_get_time() / 1000; /* Convert to milliseconds */
   
@@ -74,10 +76,10 @@ static void priv_process_button_state(ec11_data_t *encoder, bool current_button)
  * This function is automatically registered during initialization.
  * @param[in] arg Pointer to the encoder data structure
  */
-static void IRAM_ATTR priv_ec11_isr_handler(void *arg)
+static void IRAM_ATTR priv_ec11_isr_handler(void* const arg)
 {
-  ec11_data_t *encoder                  = (ec11_data_t *)arg;
-  BaseType_t higher_priority_task_woken = pdFALSE;
+  ec11_data_t* encoder                    = (ec11_data_t*)arg;
+  BaseType_t   higher_priority_task_woken = pdFALSE;
 
   if (xSemaphoreTakeFromISR(encoder->mutex, &higher_priority_task_woken) == pdTRUE) {
     /* Read current state */
@@ -102,7 +104,7 @@ static void IRAM_ATTR priv_ec11_isr_handler(void *arg)
 
 /* Public Functions ***********************************************************/
 
-esp_err_t ec11_init(ec11_data_t *encoder)
+esp_err_t ec11_init(ec11_data_t* const encoder)
 {
   if (!encoder) {
     log_error(ec11_tag, "Init Error", "Encoder pointer is NULL");
@@ -189,10 +191,10 @@ esp_err_t ec11_init(ec11_data_t *encoder)
   return ESP_OK;
 }
 
-void ec11_register_callback(ec11_data_t  *encoder,
-                          ec11_callback_t callback,
-                          void           *board_ptr,
-                          uint16_t        motor_mask)
+void ec11_register_callback(ec11_data_t* const encoder,
+                            ec11_callback_t    callback,
+                            void* const        board_ptr,
+                            uint16_t           motor_mask)
 {
   if (encoder == NULL || callback == NULL || board_ptr == NULL) {
     log_error(ec11_tag, 

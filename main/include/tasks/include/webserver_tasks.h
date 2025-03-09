@@ -36,7 +36,7 @@ extern "C" {
  * - The server endpoint and configuration (e.g., URL, port) must be predefined 
  *   in the application.
  */
-esp_err_t send_sensor_data_to_webserver(const char *json_string);
+esp_err_t send_sensor_data_to_webserver(const char* const json_string);
 
 #ifdef __cplusplus
 }

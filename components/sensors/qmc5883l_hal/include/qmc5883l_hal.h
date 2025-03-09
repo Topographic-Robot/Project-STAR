@@ -15,19 +15,19 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const uint8_t    qmc5883l_i2c_address;            /**< I2C address for the QMC5883L sensor. */
-extern const i2c_port_t qmc5883l_i2c_bus;                /**< I2C bus number used by the ESP32 for QMC5883L communication. */
-extern const char      *qmc5883l_tag;                    /**< Tag for log_handler messages related to the QMC5883L sensor. */
-extern const uint8_t    qmc5883l_scl_io;                 /**< GPIO pin for I2C Serial Clock Line (SCL) for QMC5883L. */
-extern const uint8_t    qmc5883l_sda_io;                 /**< GPIO pin for I2C Serial Data Line (SDA) for QMC5883L. */
-extern const gpio_num_t qmc5883l_drdy_pin;               /**< GPIO pin for Data Ready (DRDY) signal from QMC5883L. */
-extern const uint32_t   qmc5883l_i2c_freq_hz;            /**< I2C bus frequency for QMC5883L communication in Hz. */
-extern const uint32_t   qmc5883l_polling_rate_ticks;     /**< Polling rate for QMC5883L sensor reads in system ticks. */
-extern const uint8_t    qmc5883l_odr_setting;            /**< Output Data Rate (ODR) setting for the QMC5883L sensor. */
-extern const uint8_t    qmc5883l_max_retries;            /**< Maximum retry attempts for QMC5883L reinitialization. */
-extern const uint32_t   qmc5883l_initial_retry_interval; /**< Initial retry interval for QMC5883L reinitialization in ticks. */
-extern const uint32_t   qmc5883l_max_backoff_interval;   /**< Maximum backoff interval for QMC5883L retries in ticks. */
-extern const uint8_t    qmc5883l_mag_data_size;          /**< Size of magnetometer data in bytes (2 bytes x 3 axes). */
+extern const uint8_t     qmc5883l_i2c_address;            /**< I2C address for the QMC5883L sensor. */
+extern const i2c_port_t  qmc5883l_i2c_bus;                /**< I2C bus number used by the ESP32 for QMC5883L communication. */
+extern const char* const qmc5883l_tag;                    /**< Tag for log_handler messages related to the QMC5883L sensor. */
+extern const uint8_t     qmc5883l_scl_io;                 /**< GPIO pin for I2C Serial Clock Line (SCL) for QMC5883L. */
+extern const uint8_t     qmc5883l_sda_io;                 /**< GPIO pin for I2C Serial Data Line (SDA) for QMC5883L. */
+extern const gpio_num_t  qmc5883l_drdy_pin;               /**< GPIO pin for Data Ready (DRDY) signal from QMC5883L. */
+extern const uint32_t    qmc5883l_i2c_freq_hz;            /**< I2C bus frequency for QMC5883L communication in Hz. */
+extern const uint32_t    qmc5883l_polling_rate_ticks;     /**< Polling rate for QMC5883L sensor reads in system ticks. */
+extern const uint8_t     qmc5883l_odr_setting;            /**< Output Data Rate (ODR) setting for the QMC5883L sensor. */
+extern const uint8_t     qmc5883l_max_retries;            /**< Maximum retry attempts for QMC5883L reinitialization. */
+extern const uint32_t    qmc5883l_initial_retry_interval; /**< Initial retry interval for QMC5883L reinitialization in ticks. */
+extern const uint32_t    qmc5883l_max_backoff_interval;   /**< Maximum backoff interval for QMC5883L retries in ticks. */
+extern const uint8_t     qmc5883l_mag_data_size;          /**< Size of magnetometer data in bytes (2 bytes x 3 axes). */
 
 /* Enums **********************************************************************/
 
@@ -143,7 +143,7 @@ typedef struct {
  * - Pointer to the JSON-formatted string on success.
  * - `NULL` if memory allocation fails.
  */
-char *qmc5883l_data_to_json(const qmc5883l_data_t *data);
+char* qmc5883l_data_to_json(const qmc5883l_data_t* const data);
 
 /**
  * @brief Initializes the QMC5883L sensor in continuous measurement mode.
@@ -162,7 +162,7 @@ char *qmc5883l_data_to_json(const qmc5883l_data_t *data);
  * @note 
  * - Call this function during system initialization.
  */
-esp_err_t qmc5883l_init(void *sensor_data);
+esp_err_t qmc5883l_init(void* const sensor_data);
 
 /**
  * @brief Reads magnetometer data from the QMC5883L sensor.
@@ -180,7 +180,7 @@ esp_err_t qmc5883l_init(void *sensor_data);
  * @note 
  * - Ensure the sensor is initialized with `qmc5883l_init` before calling.
  */
-esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data);
+esp_err_t qmc5883l_read(qmc5883l_data_t* const sensor_data);
 
 /**
  * @brief Handles reinitialization and recovery for the QMC5883L sensor.
@@ -195,7 +195,7 @@ esp_err_t qmc5883l_read(qmc5883l_data_t *sensor_data);
  * - Call this function periodically within `qmc5883l_tasks`.
  * - Limits retries based on `qmc5883l_max_backoff_interval`.
  */
-void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data);
+void qmc5883l_reset_on_error(qmc5883l_data_t* const sensor_data);
 
 /**
  * @brief Executes periodic tasks for the QMC5883L sensor.
@@ -210,7 +210,7 @@ void qmc5883l_reset_on_error(qmc5883l_data_t *sensor_data);
  * - Should run at intervals defined by `qmc5883l_polling_rate_ticks`.
  * - Handles error recovery internally to maintain stable operation.
  */
-void qmc5883l_tasks(void *sensor_data);
+void qmc5883l_tasks(void* const sensor_data);
 
 #ifdef __cplusplus
 }

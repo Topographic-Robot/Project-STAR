@@ -10,8 +10,8 @@
 
 /* Constants ******************************************************************/
 
-const uint8_t num_pca9685_boards = 1;
-const char   *motor_tag          = "Motor Tasks";
+const uint8_t      num_pca9685_boards = 1;
+const char* const  motor_tag          = "Motor Tasks";
 
 /* Private Functions (Static) *************************************************/
 
@@ -27,11 +27,11 @@ const char   *motor_tag          = "Motor Tasks";
  * @param[in] motor_mask Bitmask indicating which motor to control
  */ 
 static void priv_motor_control_callback(ec11_event_t event, 
-                                        void        *arg, 
+                                        void*        arg, 
                                         uint16_t     motor_mask)
 {
   static const float angle_step = 5.0f; /* 5 degrees per detent */
-  pca9685_board_t   *board      = (pca9685_board_t *)arg;
+  pca9685_board_t*   board      = (pca9685_board_t*)arg;
 
   /* Iterate through all possible motors in the mask */
   for (uint8_t i = 0; i < PCA9685_MOTORS_PER_BOARD; i++) {
@@ -72,7 +72,7 @@ static void priv_motor_control_callback(ec11_event_t event,
 
 /* Public Functions ***********************************************************/
 
-esp_err_t motors_init(pca9685_board_t **pwm_controller)
+esp_err_t motors_init(pca9685_board_t** pwm_controller)
 {
   esp_err_t ret = pca9685_init(pwm_controller, num_pca9685_boards);
   if (ret != ESP_OK) {
@@ -97,7 +97,7 @@ esp_err_t motors_init(pca9685_board_t **pwm_controller)
   /* Register the motor control callback for each motor */
   for (int i = 0; i < num_pca9685_boards; i++) {
     for (int j = 0; j < PCA9685_MOTORS_PER_BOARD; j++) {
-      pca9685_board_t *board = &(*pwm_controller)[i];
+      pca9685_board_t* board = &(*pwm_controller)[i];
       ec11_register_callback(&board->motors[j].ec11_data, 
                              priv_motor_control_callback, 
                              board, 
@@ -108,7 +108,7 @@ esp_err_t motors_init(pca9685_board_t **pwm_controller)
   return ESP_OK;
 }
 
-esp_err_t motor_tasks_start(pca9685_board_t *pwm_controller)
+esp_err_t motor_tasks_start(pca9685_board_t* pwm_controller)
 {
   log_info(motor_tag, "Task creation complete", "Started priv_testing task");
 

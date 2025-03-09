@@ -60,9 +60,9 @@ typedef struct {
  */
 typedef struct {
   uint8_t  id;          /**< The unique ID of the leg (range: 0 to 5). */
-  motor_t *hip_motor;   /**< Pointer to the hip motor configuration. */
-  motor_t *knee_motor;  /**< Pointer to the knee motor configuration. */
-  motor_t *tibia_motor; /**< Pointer to the tibia motor configuration. */
+  motor_t* hip_motor;   /**< Pointer to the hip motor configuration. */
+  motor_t* knee_motor;  /**< Pointer to the knee motor configuration. */
+  motor_t* tibia_motor; /**< Pointer to the tibia motor configuration. */
 } leg_t;
 
 #ifdef __cplusplus
