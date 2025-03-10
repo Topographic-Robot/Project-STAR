@@ -121,7 +121,7 @@ Example of Using `assert`:
 
     #include <assert.h>
 
-    void process_data(int *data)
+    void process_data(int* data)
     {
       assert(data != NULL);  /* Assert that data is not NULL */
       /* Continue processing */
@@ -133,7 +133,7 @@ Bad Example:
 
 .. code-block:: c
 
-    void read_file(FILE *fp)
+    void read_file(FILE* fp)
     {
       assert(fp != NULL);  /* INCORRECT: This could be a valid runtime error */
       /* Reading file logic */
@@ -143,7 +143,7 @@ Good Example:
 
 .. code-block:: c
 
-    void read_file(FILE *fp)
+    void read_file(FILE* fp)
     {
       if (fp == NULL) {
         /* Handle the error, perhaps by returning an error code */
@@ -313,7 +313,7 @@ Good Example:
 
 .. code-block:: c
 
-    static void my_function(void)
+    static void priv_my_function(void)
     {
       /* Function logic */
     }
@@ -327,6 +327,43 @@ General Guidelines
 
 - Functions are the only structures that have the brace on a new line. All other blocks, including structs and control structures, should keep the brace on the same line.
 
+Switch Statements
+=================
+
+- **Same Line for Switch and Opening Brace**: The opening brace `{` for a `switch` statement should be on the same line as the `switch` keyword.
+
+Example:
+
+.. code-block:: c
+
+    switch (x) {
+      case 1: {
+        /* Code for case 1 */
+        break;
+      }
+      case 2: {
+        /* Code for case 2 */
+        break;
+      }
+      case 3: return 0;
+      case 4: return 1;
+      case 5: return 2;
+      default: {
+        /* Code for default case */
+        break;
+      }
+    }
+
+- **Braces for Case Blocks**: Each `case` should have its own block of code enclosed in braces `{}`. This ensures clarity and prevents errors when adding new statements to a case.
+
+General Guidelines
+------------------
+
+- Keep the opening brace `{` on the same line as the `switch` keyword.
+- Enclose each `case` block in braces `{}`.
+* ** */* */case 3: return 0
+
+      
 Breaking Long Lines
 ===================
 
@@ -403,99 +440,6 @@ General Guidelines
 - Avoid breaking single arguments across multiple lines.
 
 - Align continuation lines with parentheses or logical grouping for clarity.
-
-Centralized Exiting
-===================
-
-In this project, functions should have a **single, centralized exit point** whenever possible. Centralized exiting improves readability, simplifies debugging, and ensures proper cleanup of resources, such as freeing memory or closing file handles, before the function returns.
-
-Guidelines
-----------
-
-- **One Return Statement**: Aim to have only one `return` statement at the end of the function to centralize the exit point.
-
-- **Early Exits for Error Handling**: While centralized exiting is preferred, early exits for error handling can be acceptable if they improve clarity. However, ensure that the function still handles resource cleanup properly before exiting early.
-
-- **Use Helper Functions**: If a function becomes too complex with a single exit point, consider breaking it into smaller helper functions to keep each function simple and readable.
-
-Correct Example:
-
-.. code-block:: c
-
-  int my_function(int input)
-  {
-    int result = 0;
-    
-    /* Check for errors early */
-    if (input < 0) {
-      return -1; /* Early exit for error handling */
-    }
-
-    /* Process input */
-    result = input * 2;
-
-    /* Perform any necessary cleanup */
-    
-    return result; /* Single, centralized return point */
-  }
-
-Incorrect Example:
-
-.. code-block:: c
-
-  int my_function(int input)
-  {
-    int result = 0;
-
-    /* Check for errors */
-    if (input < 0) {
-      return -1; /* Return too early without cleanup */
-    }
-
-    /* Process input */
-    if (input == 0) {
-      return 0; /* Multiple return points */
-    }
-
-    result = input * 2;
-
-    return result;
-  }
-
-Resource Cleanup
-----------------
-
-When centralized exiting is used, it makes it easier to ensure that all resources, such as memory or file handles, are properly cleaned up before exiting the function.
-
-- **Handle Resource Cleanup**: Before the centralized exit point (the final `return`), ensure that any resources allocated during the function (e.g., memory, file handles, network connections) are properly cleaned up.
-
-Correct Example with Resource Cleanup:
-
-.. code-block:: c
-
-  int process_file(const char *file_name)
-  {
-    FILE *file = fopen(file_name, "r");
-    if (!file) {
-      return -1; /* Early exit if file can't be opened */
-    }
-
-    /* Process the file here */
-
-    fclose(file); /* Cleanup resource */
-    return 0; /* Single exit point after resource cleanup */
-  }
-
-General Guidelines
-------------------
-
-- Use a single `return` statement at the end of the function when possible.
-
-- Allow early exits for error handling, but ensure proper cleanup of resources.
-
-- Break complex functions into smaller helper functions if needed.
-
-- Always handle resource cleanup before the final exit.
 
 Comments
 ========
@@ -612,7 +556,7 @@ Example with Additional Tags:
    * @warning    Ensure that the server address is valid before calling this function.
    * @deprecated Use `open_server_connection_v2()` instead.
    */
-  int open_connection(const char *server_address, int port);
+  int open_connection(const char* server_address, int port);
 
 Block Diagrams at the Start of Files
 ------------------------------------
@@ -702,23 +646,49 @@ General Guidelines
 Concurrency and Parallelism
 ===========================
 
-Concurrency and parallelism allow a program to perform multiple tasks simultaneously or overlap I/O-bound tasks with computation. In embedded systems like ESP32, efficient use of concurrency is crucial to manage tasks such as networking, sensors, or interrupt handling. This section outlines the best practices for ensuring thread-safe and efficient concurrent programming, along with an explanation of when to use **mutexes**, **semaphores**, and **atomic operations**.
+Concurrency and parallelism allow a program to perform multiple tasks simultaneously or overlap I/O-bound tasks with computation. In embedded systems like ESP32, efficient use of concurrency is crucial to manage tasks such as networking, sensors, or interrupt handling. This section outlines the best practices for ensuring thread-safe and efficient concurrent programming, along with an explanation of when to use **RTOS types**, **mutexes**, **semaphores**, and **atomic operations**.
 
 General Guidelines
 ------------------
 
 - **Avoid Global State**: Global variables should be avoided, especially in multi-threaded environments, to prevent race conditions. Use thread-local storage or pass variables explicitly to functions.
 
-- **Thread Safety**: Ensure that shared resources (e.g., data structures, hardware peripherals) are properly synchronized when accessed by multiple threads or tasks. This can be done using mutexes, semaphores, or atomic operations.
+- **Thread Safety**: Ensure that shared resources (e.g., data structures, hardware peripherals) are properly synchronized when accessed by multiple threads or tasks. This can be done using RTOS types, mutexes, semaphores, or atomic operations.
 
 - **Minimize Lock Contention**: When using synchronization primitives like mutexes, hold locks for the shortest time possible to avoid contention between threads. Design critical sections carefully to reduce lock duration.
 
-Mutexes, Semaphores, and Atomic Operations
-------------------------------------------
+RTOS Types, Mutexes, Semaphores, and Atomic Operations
+------------------------------------------------------
 
-When dealing with concurrency, choosing the right synchronization mechanism is key. Each has its strengths, limitations, and specific use cases.
+When dealing with concurrency, choosing the right synchronization mechanism is key. In embedded systems like ESP32, using RTOS types is often more efficient and suitable than traditional methods. Each has its strengths, limitations, and specific use cases.
 
-**Mutexes**  
+**RTOS Types**
+RTOS types, such as FreeRTOS tasks, queues, and semaphores, are specifically designed for embedded systems, providing efficient task management and synchronization.
+
+- **What They Do**: RTOS types manage task scheduling, communication, and synchronization in a way that is optimized for embedded environments.
+
+- **How They Work**: RTOS types leverage the real-time operating system's capabilities to ensure efficient and predictable task execution and resource management.
+
+- **When to Use**: Use RTOS types when developing for embedded systems like ESP32, where efficient task management and low overhead are crucial.
+
+  **Example**:
+
+  .. code-block:: c
+
+    void task1(void *pvParameters)
+    {
+      while (1) {
+        /* Task code */
+        vTaskDelay(1000 / portTICK_PERIOD_MS); /* Delay for 1 second */
+      }
+    }
+
+    void app_main(void)
+    {
+      xTaskCreate(task1, "Task 1", 2048, NULL, 5, NULL);
+    }
+
+**Mutexes**
 A **mutex** (mutual exclusion) is a synchronization primitive used to protect shared resources by ensuring that only one thread or task can access the resource at any given time. Mutexes are ideal for ensuring **exclusive access** to a critical section of code.
 
 - **What It Does**: A mutex locks access to a resource. When one thread locks a mutex, other threads attempting to lock it must wait until the mutex is unlocked by the original thread.
@@ -740,8 +710,8 @@ A **mutex** (mutual exclusion) is a synchronization primitive used to protect sh
       pthread_mutex_unlock(&lock);
     }
 
-**Semaphores**  
-A **semaphore** is a signaling mechanism and can be used to synchronize threads or tasks. Unlike mutexes, semaphores allow multiple threads or tasks to access a resource concurrently, depending on the semaphore count. 
+**Semaphores**
+A **semaphore** is a signaling mechanism and can be used to synchronize threads or tasks. Unlike mutexes, semaphores allow multiple threads or tasks to access a resource concurrently, depending on the semaphore count.
 
 - **What It Does**: A semaphore has a counter that allows it to manage access to a pool of resources. Threads can increment or decrement the counter to signal that a resource is available or has been used.
 
@@ -767,10 +737,10 @@ A **semaphore** is a signaling mechanism and can be used to synchronize threads 
       /* Consume data */
     }
 
-**Atomic Operations**  
+**Atomic Operations**
 **Atomic operations** are a low-level synchronization mechanism that allows certain operations (such as incrementing a counter) to be performed without interference from other threads, without the overhead of using mutexes or semaphores. Atomic operations work directly on the memory in a thread-safe manner.
 
-- **What It Does**: An atomic operation ensures that a specific operation (such as incrementing or comparing) happens **atomically**, meaning without interruption. 
+- **What It Does**: An atomic operation ensures that a specific operation (such as incrementing or comparing) happens **atomically**, meaning without interruption.
 
 - **How It Works**: Atomic operations leverage hardware support to ensure that the operation completes in a single step, without the risk of being interrupted by another thread.
 
@@ -787,8 +757,14 @@ A **semaphore** is a signaling mechanism and can be used to synchronize threads 
       atomic_fetch_add(&counter, 1);
     }
 
-When to Use Mutexes, Semaphores, or Atomic Operations
------------------------------------------------------
+When to Use RTOS Types, Mutexes, Semaphores, or Atomic Operations
+-----------------------------------------------------------------
+
+- **Use RTOS Types** when:
+  
+  - Developing for embedded systems like ESP32, where efficient task management and low overhead are crucial.
+  
+  - You need to leverage the real-time operating system's capabilities for task scheduling and synchronization.
 
 - **Use Mutexes** when:
   
@@ -872,6 +848,8 @@ In ESP32, FreeRTOS is the operating system that handles task scheduling, making 
 Concurrency Best Practices
 --------------------------
 
+- **Use RTOS Types for Embedded Systems**: Leverage RTOS types like tasks, queues, and semaphores for efficient task management and synchronization in embedded systems.
+
 - **Use Mutexes for Shared Resources**: Protect access to shared resources with mutexes or semaphores to avoid race conditions.
 
 - **Minimize Critical Section Length**: Keep the duration of critical sections short to reduce lock contention between threads.
@@ -909,58 +887,21 @@ General Guidelines for Enums
 
 - **Enum Names Should End in `_t`**: All enum types should end with `_t` to indicate that they are typedefs, ensuring consistency across the project.
 
-  Example:
-
-  .. code-block:: c
-
-    typedef enum {
-      k_status_success,
-      k_status_failure
-    } status_t;
-
 - **Use Snake Case for Enum Values**: All enum values should follow snake_case naming conventions, just like variables and function names.
-
-  Example:
-
-  .. code-block:: c
-
-    typedef enum {
-      k_connection_open,
-      k_connection_closed,
-      k_connection_fail
-    } connection_status_t;
 
 - **Use Descriptive Names for Enum Members**: Enum members should have descriptive names that convey their meaning. Avoid abbreviations or ambiguous terms.
 
-  Example:
-
-  .. code-block:: c
-
-    typedef enum {
-      k_color_red,
-      k_color_green,
-      k_color_blue
-    } color_t;
-
 - **Enum Values Should Start with `k_`**: To distinguish enum members from other constants or variables, enum values should start with `k_`. This helps with consistency and clarity in the code.
-
-  Example:
-
-  .. code-block:: c
-
-    typedef enum {
-      k_log_error,
-      k_log_warning,
-      k_log_info
-    } log_level_t;
 
 - **Assign Specific Values Only When Necessary**: Enum members are automatically assigned incremental values starting from `0`. Only assign specific values if they are necessary, such as for protocol definitions or when compatibility is required.
 
+- **Use `typedef enum : uint8_t` for Embedded Systems**: When working with embedded systems, use `typedef enum : uint8_t` to ensure efficient memory usage.
+
   Example:
 
   .. code-block:: c
 
-    typedef enum {
+    typedef enum : uint8_t {
       k_error_none  = 0,
       k_error_minor = 1,
       k_error_major = 2
@@ -978,15 +919,6 @@ Bad Example:
       FAILURE
     } STATUS; /* INCORRECT: Not using snake_case, enum name not ending with _t */
 
-Good Example:
-
-.. code-block:: c
-
-    typedef enum {
-      k_status_success,
-      k_status_failure
-    } status_t; /* CORRECT: Using snake_case and _t suffix */
-
 Example 2:
 ----------
 
@@ -998,36 +930,6 @@ Bad Example:
       SUCCESS,
       FAILURE
     } result_t; /* INCORRECT: Enum members not following snake_case */
-
-Good Example:
-
-.. code-block:: c
-
-    typedef enum {
-      k_result_success,
-      k_result_failure
-    } result_t; /* CORRECT: Enum members following snake_case and starting with k_ */
-
-Example 3:
-----------
-
-Bad Example:
-
-.. code-block:: c
-
-    typedef enum {
-      OPEN,
-      CLOSED
-    } door_state_t; /* INCORRECT: Enum values not descriptive and not following snake_case */
-
-Good Example:
-
-.. code-block:: c
-
-    typedef enum {
-      k_door_open,
-      k_door_closed
-    } door_state_t; /* CORRECT: Enum members are descriptive, follow snake_case, and starting with k_ */
 
 General Guidelines
 ------------------
@@ -1058,7 +960,7 @@ General Guidelines for Error Handling
 
     #include <errno.h>
 
-    int process_data(void *data)
+    int process_data(void* data)
     {
       if (!data) {
         return -EINVAL; /* Invalid argument */
@@ -1149,10 +1051,10 @@ In C, the `goto` statement can be useful for simplifying error handling when dea
 
   .. code-block:: c
 
-    int read_file(const char *path)
+    int read_file(const char* path)
     {
-      FILE *file   = NULL;
-      char *buffer = NULL;
+      FILE* file   = NULL;
+      char* buffer = NULL;
 
       file = fopen(path, "r");
       if (!file) {
@@ -1242,7 +1144,7 @@ Example of `const` and Pass-by-Reference:
 
 .. code-block:: c
 
-    void process_data(const int *data)
+    void process_data(const int* data)
     {
       /* Function logic */
     }
@@ -1324,7 +1226,7 @@ Example of `const` and Passing by Reference:
 
 .. code-block:: c
 
-    void update_values(const int *values)
+    void update_values(const int* values)
     {
       /* Function logic */
     }
@@ -1337,70 +1239,21 @@ Example of `const` and Passing by Reference:
 
 - **Return NULL for Failed Pointer Functions**: For functions that return pointers, use `NULL` to indicate failure.
 
-Example:
-
-.. code-block:: c
-
-    void *get_buffer(void)
-    {
-      void *buffer = malloc(1024);
-      if (!buffer) {
-        return NULL; /* Return NULL on failure */
-      }
-      return buffer;
-    }
-
 - **Prefer Early Exits**: Use early `return` statements to handle errors and avoid deeply nested control structures.
-
-Example:
-
-.. code-block:: c
-
-    int process_input(int input_value)
-    {
-      if (input_value < 0) {
-        return -EINVAL; /* Early exit on invalid input */
-      }
-      /* Continue processing */
-      return 0;
-    }
 
 - **Always Use Braces for Functions on New Line**: For all function definitions, the opening brace must be on the next line.
 
-Bad Example:
+- **When you have multiple parameters, put each parameter on a new line and align parameter names**: This makes the function more readable and easier to understand.
+
+Example:
 
 .. code-block:: c
 
-    static void my_function(void) {
-      /* INCORRECT: Function braces on the same line */
-    }
-
-Good Example:
-
-.. code-block:: c
-
-    static void my_function(void)
+    int my_function(int*              param1, 
+                    const int** const param2, 
+                    int               param3)
     {
-      /* CORRECT: Function braces on the next line */
-    }
-
-- **Always Use Braces for Control Structures on Same Line**: For control structures like `if`, `for`, and `while`, the opening brace should be on the same line as the statement.
-
-Bad Example:
-
-.. code-block:: c
-
-    if (foo)
-    {
-      bar(); /* INCORRECT: Braces on the next line */
-    }
-
-Good Example:
-
-.. code-block:: c
-
-    if (foo) {
-      bar(); /* CORRECT: Braces on the same line */
+      /* Function logic */
     }
 
 **Exported Functions**
@@ -1552,7 +1405,7 @@ General Guidelines for Header Files
     /* Avoid including unnecessary headers */
     struct device_t; /* Forward declaration instead of including device.h */
 
-    void init_device(struct device_t *device);
+    void init_device(struct device_t* device);
 
 - **Self-Contained Headers**: Ensure that each header file is self-contained, meaning it can be included independently without relying on the inclusion of other headers beforehand. Always include the necessary headers for types and constants used within the file.
 
@@ -1768,13 +1621,13 @@ Good Example:
 
 .. code-block:: c
 
-    if (condition) {  /* correct */
+    if (condition) { /* correct */
       /* ... */
     }
 
     switch (n) {
-    case 0:
-      /* ... */
+      case 0:
+        /* ... */
     }
 
 - **Binary Operators**: Add a single space around binary operators like `+`, `-`, `=`, and `&&`. For multiplication (`*`) and division (`/`) operators, spaces should always be used for clarity.
@@ -1792,8 +1645,8 @@ Good Example:
 
 .. code-block:: c
 
-    const int y = y0 + (x - x0) * (y1 - y0) / (x1 - x0); /* correct */
-    int y_cur  = -y;                                     /* correct */
+    const int y     = y0 + (x - x0) * (y1 - y0) / (x1 - x0); /* correct */
+    int       y_cur = -y;                                    /* correct */
 
 - **Alignment of Variables, Assignments, and Comments**: Align the `=` signs when declaring multiple variables, and line up the comments for consistency.
 
@@ -2059,7 +1912,6 @@ This section covers the coding style for building the topographical robot.
    functions
    assertions
    macros
-   centralized_exiting
    globals
    register_transfer_level
    logging
@@ -2473,7 +2325,7 @@ General Guidelines
 
   .. code-block:: c
 
-    int *buffer = malloc(1024 * sizeof(int));
+    int* buffer = malloc(1024 * sizeof(int));
     if (!buffer) {
       /* Handle allocation failure */
     }
@@ -2489,7 +2341,7 @@ General Guidelines
 
   .. code-block:: c
 
-    int *buffer = malloc(1024 * sizeof(int));
+    int* buffer = malloc(1024 * sizeof(int));
     if (!buffer) {
       /* Handle allocation failure */
       return -ENOMEM;
@@ -2530,7 +2382,7 @@ In embedded systems, memory is divided into the **stack** and the **heap**. Unde
 
   .. code-block:: c
 
-    int *buffer = malloc(100 * sizeof(int));  /* Stored on the heap */
+    int* buffer = malloc(100 * sizeof(int));  /* Stored on the heap */
     if (buffer) {
       free(buffer);  /* Free the memory when no longer needed */
     }
@@ -2551,7 +2403,7 @@ FreeRTOS provides flexible memory management for tasks, queues, and semaphores. 
     static StackType_t  task_stack[1024];
     static StaticTask_t task_buffer;
 
-    void task1(void *pvParameters)
+    void task1(void* pvParameters)
     {
       while (1) {
         /* Task code */
@@ -2721,7 +2573,7 @@ Pointers are a powerful tool in C programming, but they can lead to bugs or unde
 Guidelines
 ----------
 
-- **Pointer Declaration and Placement**: Always place the asterisk (`*`) adjacent to the variable name, not the type. This improves readability and consistency in the code.
+- **Pointer Declaration and Placement**: Always place the asterisk (`*`) adjacent to the type, not the variable name. This improves readability and consistency in the code.
 
 Example 1:
 ----------
@@ -2730,15 +2582,15 @@ Bad Example:
 
 .. code-block:: c
 
-    int* ptr;  /* INCORRECT */
-    char* str;
+    int *ptr;  /* INCORRECT */
+    char *str;
 
 Good Example:
 
 .. code-block:: c
 
-    int  *ptr;  /* CORRECT */
-    char *str;
+    int*  ptr;  /* CORRECT */
+    char* str;
 
 - **Initialize Pointers**: Always initialize pointers, either to `NULL` or a valid memory location, to avoid using uninitialized pointers, which can lead to undefined behavior.
 
@@ -2756,7 +2608,7 @@ Good Example:
 
 .. code-block:: c
 
-    int *ptr = NULL;  /* Correct initialization */
+    int* ptr = NULL;  /* Correct initialization */
     ptr      = malloc(sizeof(int));  /* Or allocate memory */
 
 - **Avoid Dangling Pointers**: A dangling pointer refers to a pointer that continues to reference a memory location after that memory has been freed. Always set a pointer to `NULL` after freeing the allocated memory.
@@ -2776,7 +2628,7 @@ Good Example:
 
 .. code-block:: c
 
-    int *ptr = malloc(sizeof(int));
+    int* ptr = malloc(sizeof(int));
     free(ptr);
     ptr = NULL;  /* CORRECT: Pointer set to NULL after free */
 
@@ -2787,9 +2639,9 @@ Example 4:
 
 .. code-block:: c
 
-    const char *message = "Hello";  /* CORRECT: The pointer data can't be changed */
+    const char* message = "Hello";  /* CORRECT: The pointer data can't be changed */
 
-    char *const ptr = some_buffer;  /* The pointer can't be reassigned */
+    char* const ptr = some_buffer;  /* The pointer can't be reassigned */
 
 - **Pointer Arithmetic**: Be cautious with pointer arithmetic. It's only valid for pointers to elements in an array. Misuse of pointer arithmetic can lead to out-of-bounds access and undefined behavior.
 
@@ -2809,7 +2661,7 @@ Good Example:
 .. code-block:: c
 
     int  arr[5];
-    int *ptr = arr;
+    int* ptr = arr;
     ptr     += 2;  /* CORRECT: Pointer remains within bounds */
 
 - **Dereferencing Pointers**: Always ensure a pointer is non-NULL before dereferencing it to avoid segmentation faults or undefined behavior.
@@ -2870,13 +2722,13 @@ The following is an example of a modular ESP32 project structure:
 
     project_root/
     ├── components/
-    │   └── toporobo_hal/
+    │   └── pstar_hal/
     │       ├── bh1750/
     │       │   ├── include/          # Header files for bh1750 module
     │       │   │   └── bh1750.h
     │       │   ├── bh1750.c          # Source file for bh1750
     │       │   └── CMakeLists.txt    # CMake file for bh1750 module
-    │       └── CMakeLists.txt        # CMake file for toporobo_hal module
+    │       └── CMakeLists.txt        # CMake file for pstar_hal module
     ├── main/
     │   ├── main.c                    # Main entry point of the application
     │   └── CMakeLists.txt            # CMake file for main module
@@ -2900,10 +2752,10 @@ In your project, the top-level `CMakeLists.txt` includes the ESP-IDF's project d
     include($ENV{IDF_PATH}/tools/cmake/project.cmake)
     project(Topographic-Robot)
 
-`toporobo_hal` Module `CMakeLists.txt`
+`pstar_hal` Module `CMakeLists.txt`
 --------------------------------------
 
-The `toporobo_hal` module's `CMakeLists.txt` file registers the `bh1750` component within the `components/toporobo_hal/` directory. It includes the necessary source files and header directories for the build.
+The `pstar_hal` module's `CMakeLists.txt` file registers the `bh1750` component within the `components/pstar_hal/` directory. It includes the necessary source files and header directories for the build.
 
 .. code-block:: cmake
 
@@ -2923,13 +2775,13 @@ The `bh1750` module's `CMakeLists.txt` file directly registers the component usi
 Main Module `CMakeLists.txt` Example
 ------------------------------------
 
-The `main/` module should include the `toporobo_hal` module using the `REQUIRES` keyword to declare its dependency on it.
+The `main/` module should include the `pstar_hal` module using the `REQUIRES` keyword to declare its dependency on it.
 
 .. code-block:: cmake
 
     idf_component_register(SRCS "main.c"
                            INCLUDE_DIRS ""
-                           REQUIRES toporobo_hal)
+                           REQUIRES pstar_hal)
 
 Naming Conventions
 ------------------
@@ -3269,7 +3121,7 @@ General Guidelines for Structures
 
   .. code-block:: c
 
-    void move_point(point_t *p) {
+    void move_point(point_t* p) {
       p->x_position += 1;
       p->y_position += 1;
     }
@@ -3294,7 +3146,7 @@ General Guidelines for Structures
 
   .. code-block:: c
 
-    void print_point(const point_t *p) {
+    void print_point(const point_t* p) {
       printf("X: %d, Y: %d\n", p->x_position, p->y_position);
     }
 
@@ -3332,11 +3184,11 @@ Encapsulation and Struct Access
 
   .. code-block:: c
 
-    void set_point_x(point_t *p, int x) {
+    void set_point_x(point_t* p, int x) {
       p->x_position = x;
     }
 
-    int get_point_x(const point_t *p) {
+    int get_point_x(const point_t* p) {
       return p->x_position;
     }
 
@@ -3350,9 +3202,9 @@ Encapsulation and Struct Access
     typedef struct point_t point_t;
 
     /* Accessor functions */
-    point_t *create_point(int x, int y);
-    void destroy_point(point_t *p);
-    int get_point_x(const point_t *p);
+    point_t* create_point(int x, int y);
+    void destroy_point(point_t* p);
+    int get_point_x(const point_t* p);
 
 Naming Conventions
 ------------------
@@ -3521,7 +3373,7 @@ Bad Example:
 .. code-block:: c
 
     struct person {
-      char *name;
+      char* name;
       int   age;
     };
 
@@ -3532,7 +3384,7 @@ Good Example:
 .. code-block:: c
 
     typedef struct {
-      char *name;
+      char* name;
       int   age;
     } person_t;
 

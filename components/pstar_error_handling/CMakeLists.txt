@@ -1,0 +1,11 @@
+idf_component_register(
+  SRCS
+    "error_handler.c"
+  INCLUDE_DIRS
+    "include"
+  REQUIRES
+    pstar_logging
+    main
+  PRIV_REQUIRES
+    driver
+) 
