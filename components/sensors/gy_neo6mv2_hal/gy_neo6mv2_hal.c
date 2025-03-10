@@ -318,20 +318,52 @@ esp_err_t gy_neo6mv2_init(void* const sensor_data)
            "Init Started", 
            "Beginning GY-NEO6MV2 GPS module initialization");
 
-  /* TODO: Initialize error handler */
+  /* Initialize error handler */
+  gy_neo6mv2_data->error_handler = malloc(sizeof(error_handler_t));
+  if (gy_neo6mv2_data->error_handler == NULL) {
+    log_error(gy_neo6mv2_tag, "Memory Error", "Failed to allocate memory for error handler");
+    return ESP_ERR_NO_MEM;
+  }
+
+  error_handler_config_t error_config = {
+    .max_retries = gy_neo6mv2_max_retries,
+    .initial_retry_interval = gy_neo6mv2_initial_retry_interval,
+    .max_backoff_interval = gy_neo6mv2_max_backoff_interval,
+    .reset_func = NULL, /* No reset function for now */
+    .reset_arg = sensor_data
+  };
+  esp_err_t ret = error_handler_init(gy_neo6mv2_data->error_handler,
+                                    gy_neo6mv2_tag,
+                                    gy_neo6mv2_max_retries,
+                                    gy_neo6mv2_initial_retry_interval,
+                                    gy_neo6mv2_max_backoff_interval,
+                                    NULL, /* No reset function for now */
+                                    sensor_data,
+                                    gy_neo6mv2_initial_retry_interval,
+                                    gy_neo6mv2_max_backoff_interval);
+  if (ret != ESP_OK) {
+    log_error(gy_neo6mv2_tag, "Error Handler Init Failed", 
+              "Failed to initialize error handler: %s", esp_err_to_name(ret));
+    free(gy_neo6mv2_data->error_handler);
+    gy_neo6mv2_data->error_handler = NULL;
+    return ret;
+  }
 
   /* Initialize UART using the common UART function */
-  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, 
-                                 gy_neo6mv2_rx_io, 
-                                 gy_neo6mv2_uart_baudrate,
-                                 gy_neo6mv2_uart_num, 
-                                 gy_neo6mv2_rx_buffer_size, 
-                                 gy_neo6mv2_tx_buffer_size, 
-                                 gy_neo6mv2_tag);
+  ret = common_setup_uart(gy_neo6mv2_uart_num, 
+                         gy_neo6mv2_tx_io, 
+                         gy_neo6mv2_rx_io, 
+                         gy_neo6mv2_uart_baudrate,
+                         gy_neo6mv2_rx_buffer_size, 
+                         gy_neo6mv2_tx_buffer_size, 
+                         gy_neo6mv2_tag);
   if (ret != ESP_OK) {
     log_error(gy_neo6mv2_tag, 
               "UART Init Failed", 
               "Failed to initialize UART communication");
+    error_handler_cleanup(gy_neo6mv2_data->error_handler);
+    free(gy_neo6mv2_data->error_handler);
+    gy_neo6mv2_data->error_handler = NULL;
     return ret;
   }
 
@@ -349,11 +381,7 @@ esp_err_t gy_neo6mv2_init(void* const sensor_data)
   /* Send configuration commands */
   for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
     int32_t bytes_written = 0;
-    priv_uart_write((const uint8_t*)config_commands[i], 
-                    strlen(config_commands[i]), 
-                    &bytes_written, 
-                    gy_neo6mv2_uart_num, 
-                    gy_neo6mv2_tag);
+    uart_write_bytes(gy_neo6mv2_uart_num, config_commands[i], strlen(config_commands[i]));
     vTaskDelay(pdMS_TO_TICKS(100)); /* Wait for command processing */
   }
 
@@ -540,21 +568,51 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t* const sensor_data)
 
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data)
 {
-  if (sensor_data->state == k_gy_neo6mv2_error) {
-    /* TODO: Reset error handler */
+  if (sensor_data->error_handler) {
+    esp_err_t ret = error_handler_reset(sensor_data->error_handler);
+    if (ret == ESP_OK) {
+      log_info(gy_neo6mv2_tag, "Reset Success", "Successfully reset GY-NEO6MV2 GPS module");
+      sensor_data->state = k_gy_neo6mv2_ready;
+    } else {
+      log_error(gy_neo6mv2_tag, "Reset Failed", 
+                "Failed to reset GY-NEO6MV2 GPS module: %s", esp_err_to_name(ret));
+      sensor_data->state = k_gy_neo6mv2_error;
+    }
+  } else {
+    log_error(gy_neo6mv2_tag, "Error Handler Missing", 
+              "Cannot reset GY-NEO6MV2 GPS module: error handler not initialized");
+    sensor_data->state = k_gy_neo6mv2_error;
   }
 }
 
 void gy_neo6mv2_tasks(void* const sensor_data)
 {
   gy_neo6mv2_data_t* gy_neo6mv2_data = (gy_neo6mv2_data_t*)sensor_data;
+  if (!gy_neo6mv2_data) {
+    log_error(gy_neo6mv2_tag, "Task Error", "Invalid sensor data pointer provided");
+    vTaskDelete(NULL);
+    return;
+  }
+
   while (1) {
-    if (gy_neo6mv2_read(gy_neo6mv2_data) == ESP_OK) {
+    esp_err_t ret = gy_neo6mv2_read(gy_neo6mv2_data);
+    if (ret == ESP_OK) {
       char* json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
-      send_sensor_data_to_webserver(json);
-      file_write_enqueue("gy_neo6mv2.txt", json);
-      free(json);
+      if (json) {
+        send_sensor_data_to_webserver(json);
+        file_write_enqueue("gy_neo6mv2.txt", json);
+        free(json);
+      } else {
+        log_error(gy_neo6mv2_tag, 
+                  "JSON Error", 
+                  "Failed to convert GPS data to JSON format");
+      }
     } else {
+      /* Record error in error handler */
+      if (gy_neo6mv2_data->error_handler) {
+        ERROR_HARDWARE(gy_neo6mv2_data->error_handler, ret, k_error_severity_medium, 
+                      "Failed to read GY-NEO6MV2 GPS module data");
+      }
       gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
@@ -570,12 +628,7 @@ esp_err_t gy_neo6mv2_cleanup(void* const sensor_data)
 
   /* Put GPS module in power save mode */
   const char* power_save_cmd = "$PUBX,40,GLL,0,0,0,0*5C\r\n"; /* Disable all NMEA messages to reduce power */
-  int32_t bytes_written = 0;
-  esp_err_t temp_ret = priv_uart_write((const uint8_t*)power_save_cmd, 
-                                       strlen(power_save_cmd), 
-                                       &bytes_written,
-                                       gy_neo6mv2_uart_num, 
-                                       gy_neo6mv2_tag);
+  esp_err_t temp_ret = uart_write_bytes(gy_neo6mv2_uart_num, power_save_cmd, strlen(power_save_cmd));
   if (temp_ret != ESP_OK) {
     log_warn(gy_neo6mv2_tag, 
              "Power Save Warning", 
@@ -584,58 +637,33 @@ esp_err_t gy_neo6mv2_cleanup(void* const sensor_data)
     ret = temp_ret;
   }
 
-  /* Reset UART pins to input mode with no pull-up/down */
-  gpio_config_t io_conf = {
-    .pin_bit_mask = (1ULL << gy_neo6mv2_tx_io) | (1ULL << gy_neo6mv2_rx_io),
-    .mode         = GPIO_MODE_INPUT,
-    .pull_up_en   = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type    = GPIO_INTR_DISABLE
-  };
-
-  temp_ret = gpio_config(&io_conf);
+  /* Clean up UART using common cleanup */
+  temp_ret = common_cleanup_uart(gy_neo6mv2_uart_num, 
+                                gy_neo6mv2_tx_io, 
+                                gy_neo6mv2_rx_io, 
+                                gy_neo6mv2_tag);
   if (temp_ret != ESP_OK) {
     log_warn(gy_neo6mv2_tag, 
-             "GPIO Warning", 
-             "Failed to reset GPIO pin configuration: %s", 
+             "UART Cleanup Warning", 
+             "Failed to clean up UART: %s", 
              esp_err_to_name(temp_ret));
     ret = temp_ret;
   }
 
-  /* Reset sensor data structure */
-  if (gy_neo6mv2_data != NULL) {
-    gy_neo6mv2_data->latitude           = 0.0;
-    gy_neo6mv2_data->longitude          = 0.0;
-    gy_neo6mv2_data->speed              = 0.0;
-    gy_neo6mv2_data->fix_status         = 0;
-    gy_neo6mv2_data->satellite_count    = 0;
-    gy_neo6mv2_data->hdop               = 99.99;
-    gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;
-    gy_neo6mv2_data->retry_count        = 0;
-    gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval;
-    gy_neo6mv2_data->last_attempt_ticks = 0;
-    memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
+  /* Clean up error handler */
+  if (gy_neo6mv2_data->error_handler) {
+    temp_ret = error_handler_cleanup(gy_neo6mv2_data->error_handler);
+    if (temp_ret != ESP_OK) {
+      log_warn(gy_neo6mv2_tag, 
+               "Error Handler Warning", 
+               "Failed to clean up error handler: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+    free(gy_neo6mv2_data->error_handler);
+    gy_neo6mv2_data->error_handler = NULL;
   }
 
-  /* Clean up UART resources */
-  temp_ret = priv_uart_cleanup(gy_neo6mv2_uart_num, gy_neo6mv2_tag);
-  if (temp_ret != ESP_OK) {
-    log_warn(gy_neo6mv2_tag, 
-             "UART Warning", 
-             "Failed to clean up UART resources: %s", 
-             esp_err_to_name(temp_ret));
-    ret = temp_ret;
-  }
-
-  if (ret == ESP_OK) {
-    log_info(gy_neo6mv2_tag, 
-             "Cleanup Complete", 
-             "GPS module resources released successfully");
-  } else {
-    log_warn(gy_neo6mv2_tag, 
-             "Cleanup Warning", 
-             "GPS module cleanup completed with some warnings");
-  }
-
+  log_info(gy_neo6mv2_tag, "Cleanup Complete", "GPS module cleanup completed");
   return ret;
 }

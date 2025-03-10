@@ -8,6 +8,7 @@
 #include "error_handler.h"
 #include "log_handler.h"
 #include "common/common_cleanup.h"
+#include "common/common_setup.h"
 
 /* Constants ******************************************************************/
 
@@ -145,12 +146,12 @@ esp_err_t bh1750_init(void* const sensor_data)
   bh1750_data->lux         = -1.0f;
   bh1750_data->state       = k_bh1750_uninitialized;
 
-  /* Initialize the I2C bus */
-  esp_err_t ret = priv_i2c_init(bh1750_scl_io, 
-                                bh1750_sda_io, 
-                                bh1750_i2c_freq_hz,
-                                bh1750_i2c_bus, 
-                                bh1750_tag);
+  /* Initialize the I2C bus using common setup */
+  esp_err_t ret = common_setup_i2c(bh1750_i2c_bus, 
+                                  bh1750_scl_io, 
+                                  bh1750_sda_io, 
+                                  bh1750_i2c_freq_hz, 
+                                  bh1750_tag);
   if (ret != ESP_OK) {
     log_error(bh1750_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;

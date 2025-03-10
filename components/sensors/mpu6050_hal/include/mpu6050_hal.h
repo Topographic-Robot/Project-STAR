@@ -11,6 +11,7 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -24,6 +25,9 @@ extern const uint32_t    mpu6050_polling_rate_ticks; /**< Polling interval for M
 extern const uint8_t     mpu6050_sample_rate_div;    /**< Sample rate divider for MPU6050 (default divides gyro rate). */
 extern const uint8_t     mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
 extern const uint8_t     mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
+extern const uint8_t     mpu6050_max_retries;        /**< Maximum number of retries for error recovery. */
+extern const uint32_t    mpu6050_initial_retry_interval; /**< Initial retry interval in ticks. */
+extern const uint32_t    mpu6050_max_backoff_interval; /**< Maximum backoff interval in ticks. */
 
 /* Macros *********************************************************************/
 
@@ -225,6 +229,7 @@ typedef struct mpu6050_data {
   float             temperature;    /**< Measured temperature from the sensor in degrees Celsius. */
   uint8_t           state;          /**< Current operational state of the sensor (see `mpu6050_states_t`). */
   SemaphoreHandle_t data_ready_sem; /**< Semaphore to signal when new data is available. */
+  error_handler_t   error_handler;  /**< Error handler for managing sensor errors and recovery. */
 } mpu6050_data_t;
 
 /* Public Functions ***********************************************************/

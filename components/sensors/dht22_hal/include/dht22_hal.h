@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -50,14 +51,15 @@ typedef enum : uint8_t {
  * as well as state and retry management variables for error handling and reinitialization.
  */
 typedef struct dht22_data {
-  float      temperature_f;      /**< Latest temperature reading in Fahrenheit. */
-  float      temperature_c;      /**< Latest temperature reading in Celsius. */
-  float      humidity;           /**< Latest humidity reading as a percentage. */
-  uint8_t    state;              /**< Current operational state of the sensor (see dht22_states_t). */
-  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
-  uint8_t    fail_count;         /**< Number of current amount of fail reads */
+  float         temperature_f;      /**< Latest temperature reading in Fahrenheit. */
+  float         temperature_c;      /**< Latest temperature reading in Celsius. */
+  float         humidity;           /**< Latest humidity reading as a percentage. */
+  uint8_t       state;             /**< Current operational state of the sensor (see dht22_states_t). */
+  uint8_t       retry_count;       /**< Number of consecutive reinitialization attempts. */
+  uint32_t      retry_interval;    /**< Current interval between reinitialization attempts, in ticks. */
+  TickType_t    last_attempt_ticks;/**< Tick count of the last reinitialization attempt. */
+  uint8_t       fail_count;        /**< Number of current amount of fail reads */
+  error_handler_t* error_handler;  /**< Error handler for managing sensor errors and recovery */
 } dht22_data_t;
 
 /* Public Functions ***********************************************************/

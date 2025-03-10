@@ -99,12 +99,64 @@ esp_err_t mq135_init(void* const sensor_data)
   mq135_data->state              = k_mq135_warming_up;
   mq135_data->warmup_start_ticks = xTaskGetTickCount();
 
+  /* Initialize error handler */
+  mq135_data->error_handler = malloc(sizeof(error_handler_t));
+  if (mq135_data->error_handler == NULL) {
+    log_error(mq135_tag, "Memory Error", "Failed to allocate memory for error handler");
+    return ESP_ERR_NO_MEM;
+  }
+
+  error_handler_config_t error_config = {
+    .max_retries = mq135_max_retries,
+    .initial_retry_interval = mq135_initial_retry_interval,
+    .max_backoff_interval = mq135_max_backoff_interval,
+    .reset_func = NULL, /* No reset function for now */
+    .reset_arg = sensor_data
+  };
+  esp_err_t ret = error_handler_init(mq135_data->error_handler,
+                                    mq135_tag,
+                                    mq135_max_retries,
+                                    mq135_initial_retry_interval,
+                                    mq135_max_backoff_interval,
+                                    NULL, /* No reset function for now */
+                                    sensor_data,
+                                    mq135_initial_retry_interval,
+                                    mq135_max_backoff_interval);
+  if (ret != ESP_OK) {
+    log_error(mq135_tag, "Error Handler Init Failed", 
+              "Failed to initialize error handler: %s", esp_err_to_name(ret));
+    free(mq135_data->error_handler);
+    mq135_data->error_handler = NULL;
+    return ret;
+  }
+
+  /* Setup GPIO pins using common setup */
+  ret = common_setup_gpio((1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin),
+                         GPIO_MODE_INPUT,
+                         GPIO_PULLUP_DISABLE,
+                         GPIO_PULLDOWN_DISABLE,
+                         GPIO_INTR_DISABLE,
+                         mq135_tag);
+  if (ret != ESP_OK) {
+    log_error(mq135_tag, "GPIO Setup Failed", 
+              "Failed to configure GPIO pins: %s", esp_err_to_name(ret));
+    error_handler_cleanup(mq135_data->error_handler);
+    free(mq135_data->error_handler);
+    mq135_data->error_handler = NULL;
+    return ret;
+  }
+
+  /* Setup ADC */
   adc_oneshot_unit_init_cfg_t adc1_init_cfg = { .unit_id = ADC_UNIT_1 };
-  esp_err_t ret = adc_oneshot_new_unit(&adc1_init_cfg, &s_adc1_handle);
+  ret = adc_oneshot_new_unit(&adc1_init_cfg, &s_adc1_handle);
   if (ret != ESP_OK) {
     log_error(mq135_tag, 
               "ADC Error", 
               "Failed to initialize ADC unit for gas sensor");
+    common_cleanup_gpio((1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin), mq135_tag);
+    error_handler_cleanup(mq135_data->error_handler);
+    free(mq135_data->error_handler);
+    mq135_data->error_handler = NULL;
     return ret;
   }
 
@@ -117,6 +169,11 @@ esp_err_t mq135_init(void* const sensor_data)
     log_error(mq135_tag, 
               "ADC Error", 
               "Failed to configure ADC channel for gas sensor");
+    adc_oneshot_del_unit(s_adc1_handle);
+    common_cleanup_gpio((1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin), mq135_tag);
+    error_handler_cleanup(mq135_data->error_handler);
+    free(mq135_data->error_handler);
+    mq135_data->error_handler = NULL;
     return ret;
   }
 
@@ -160,31 +217,20 @@ esp_err_t mq135_read(mq135_data_t* const sensor_data)
 
 void mq135_reset_on_error(mq135_data_t* const sensor_data)
 {
-  if (sensor_data->state == k_mq135_read_error) {
-    TickType_t current_ticks = xTaskGetTickCount();
-    if ((current_ticks - sensor_data->warmup_start_ticks) > sensor_data->retry_interval) {
-      log_info(mq135_tag, "Reset Start", "Attempting to reset MQ135 gas sensor");
-
-      esp_err_t ret = mq135_init(sensor_data);
-      if (ret == ESP_OK) {
-        sensor_data->state          = k_mq135_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = mq135_initial_retry_interval;
-        log_info(mq135_tag, "Reset Complete", "Gas sensor reset successful");
-      } else {
-        sensor_data->retry_count++;
-        if (sensor_data->retry_count >= mq135_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > mq135_max_backoff_interval) ?
-                                        mq135_max_backoff_interval : sensor_data->retry_interval * 2;
-          log_warn(mq135_tag, 
-                   "Reset Backoff", 
-                   "Increasing retry interval after multiple failed attempts");
-        }
-      }
-
-      sensor_data->warmup_start_ticks = current_ticks;
+  if (sensor_data->error_handler) {
+    esp_err_t ret = error_handler_reset(sensor_data->error_handler);
+    if (ret == ESP_OK) {
+      log_info(mq135_tag, "Reset Success", "Successfully reset MQ135 gas sensor");
+      sensor_data->state = k_mq135_ready;
+    } else {
+      log_error(mq135_tag, "Reset Failed", 
+                "Failed to reset MQ135 gas sensor: %s", esp_err_to_name(ret));
+      sensor_data->state = k_mq135_error;
     }
+  } else {
+    log_error(mq135_tag, "Error Handler Missing", 
+              "Cannot reset MQ135 gas sensor: error handler not initialized");
+    sensor_data->state = k_mq135_error;
   }
 }
 
@@ -198,7 +244,8 @@ void mq135_tasks(void* const sensor_data)
   }
 
   while (1) {
-    if (mq135_read(mq135_data) == ESP_OK) {
+    esp_err_t ret = mq135_read(mq135_data);
+    if (ret == ESP_OK) {
       char* json = mq135_data_to_json(mq135_data);
       if (json) {
         send_sensor_data_to_webserver(json);
@@ -210,8 +257,14 @@ void mq135_tasks(void* const sensor_data)
                   "Failed to convert gas sensor data to JSON format");
       }
     } else {
+      /* Record error in error handler */
+      if (mq135_data->error_handler) {
+        ERROR_HARDWARE(mq135_data->error_handler, ret, k_error_severity_medium, 
+                      "Failed to read MQ135 gas sensor data");
+      }
       mq135_reset_on_error(mq135_data);
     }
+
     vTaskDelay(mq135_polling_rate_ticks);
   }
 }
@@ -223,16 +276,8 @@ esp_err_t mq135_cleanup(void* const sensor_data)
 
   esp_err_t ret = ESP_OK;
 
-  /* Reset GPIO pins to input mode with no pull-up/down */
-  gpio_config_t io_conf = {
-    .pin_bit_mask = (1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin),
-    .mode         = GPIO_MODE_INPUT,
-    .pull_up_en   = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type    = GPIO_INTR_DISABLE
-  };
-
-  esp_err_t temp_ret = gpio_config(&io_conf);
+  /* Clean up GPIO pins using common cleanup */
+  esp_err_t temp_ret = common_cleanup_gpio((1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin), mq135_tag);
   if (temp_ret != ESP_OK) {
     log_warn(mq135_tag, 
              "GPIO Warning", 
@@ -250,30 +295,24 @@ esp_err_t mq135_cleanup(void* const sensor_data)
                "Failed to delete ADC unit: %s", 
                esp_err_to_name(temp_ret));
       ret = temp_ret;
-    } else {
-      s_adc1_handle = NULL;
     }
   }
 
-  /* Reset sensor data structure */
-  if (mq135_data != NULL) {
-    mq135_data->raw_adc_value     = 0;
-    mq135_data->gas_concentration = 0.0;
-    mq135_data->state             = k_mq135_error;
-    mq135_data->retry_count       = 0;
-    mq135_data->retry_interval    = mq135_initial_retry_interval;
+  /* Clean up error handler */
+  if (mq135_data->error_handler) {
+    temp_ret = error_handler_cleanup(mq135_data->error_handler);
+    if (temp_ret != ESP_OK) {
+      log_warn(mq135_tag, 
+               "Error Handler Warning", 
+               "Failed to clean up error handler: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+    free(mq135_data->error_handler);
+    mq135_data->error_handler = NULL;
   }
 
-  if (ret == ESP_OK) {
-    log_info(mq135_tag, 
-             "Cleanup Complete", 
-             "MQ135 gas sensor resources released successfully");
-  } else {
-    log_warn(mq135_tag, 
-             "Cleanup Warning", 
-             "MQ135 cleanup completed with some warnings");
-  }
-
+  log_info(mq135_tag, "Cleanup Complete", "MQ135 gas sensor cleanup completed");
   return ret;
 }
 

@@ -1,6 +1,7 @@
 /* components/sensors/common_sensor_setup.c */
 
 #include "common/common_setup.h"
+#include "common/common_cleanup.h"
 #include "common/i2c.h"
 #include "log_handler.h"
 #include "driver/gpio.h"
@@ -8,6 +9,7 @@
 /* Constants ******************************************************************/
 
 static const char* const sensor_setup_tag = "Sensor Setup";
+static const char* const sensor_cleanup_tag = "Sensor Cleanup";
 
 /* I2C Bus Configuration for Sensors */
 #define SENSOR_I2C_BUS       I2C_NUM_0
@@ -23,6 +25,8 @@ static const char* const sensor_setup_tag = "Sensor Setup";
 
 static esp_err_t priv_setup_i2c_sensors(void);
 static esp_err_t priv_setup_gpio_sensors(void);
+static esp_err_t priv_cleanup_i2c_sensors(void);
+static esp_err_t priv_cleanup_gpio_sensors(void);
 
 /* Public Functions ***********************************************************/
 
@@ -52,6 +56,37 @@ esp_err_t common_sensor_setup(void)
     log_info(sensor_setup_tag, "Setup Complete", "Sensor hardware setup completed successfully");
   } else {
     log_warn(sensor_setup_tag, "Setup Warning", "Sensor hardware setup completed with some errors");
+  }
+  
+  return ret;
+}
+
+/**
+ * @brief Cleans up all sensors
+ * 
+ * This function releases all the hardware resources used by sensors,
+ * including I2C bus and GPIO pins.
+ * 
+ * @return ESP_OK if all cleanup operations succeeded, ESP_FAIL otherwise
+ */
+esp_err_t common_sensor_cleanup(void)
+{
+  log_info(sensor_cleanup_tag, "Cleanup Start", "Beginning sensor hardware cleanup");
+  
+  esp_err_t (*cleanup_funcs[])(void) = {
+    priv_cleanup_i2c_sensors,
+    priv_cleanup_gpio_sensors
+  };
+  
+  esp_err_t ret = common_cleanup_multiple(sensor_cleanup_tag, 
+                                         "sensor hardware", 
+                                         cleanup_funcs, 
+                                         sizeof(cleanup_funcs) / sizeof(cleanup_funcs[0]));
+  
+  if (ret == ESP_OK) {
+    log_info(sensor_cleanup_tag, "Cleanup Complete", "Sensor hardware cleanup completed successfully");
+  } else {
+    log_warn(sensor_cleanup_tag, "Cleanup Warning", "Sensor hardware cleanup completed with some errors");
   }
   
   return ret;
@@ -108,4 +143,38 @@ static esp_err_t priv_setup_gpio_sensors(void)
                          sensor_setup_tag);
   
   return ret;
+}
+
+/**
+ * @brief Cleans up I2C bus for sensors
+ * 
+ * This function releases the I2C bus used by sensors.
+ * 
+ * @return ESP_OK if cleanup succeeded, error code otherwise
+ */
+static esp_err_t priv_cleanup_i2c_sensors(void)
+{
+  log_info(sensor_cleanup_tag, "I2C Cleanup", "Cleaning up I2C bus for sensors");
+  
+  return common_cleanup_i2c(SENSOR_I2C_BUS, 
+                           SENSOR_I2C_SCL_PIN, 
+                           SENSOR_I2C_SDA_PIN, 
+                           sensor_cleanup_tag);
+}
+
+/**
+ * @brief Cleans up GPIO pins for sensors
+ * 
+ * This function releases the GPIO pins used by sensors.
+ * 
+ * @return ESP_OK if cleanup succeeded, error code otherwise
+ */
+static esp_err_t priv_cleanup_gpio_sensors(void)
+{
+  log_info(sensor_cleanup_tag, "GPIO Cleanup", "Cleaning up GPIO pins for sensors");
+  
+  /* Release sensor GPIO pins */
+  uint64_t pin_mask = (1ULL << DHT22_DATA_PIN) | (1ULL << MQ135_ANALOG_PIN);
+  
+  return common_cleanup_gpio(pin_mask, sensor_cleanup_tag);
 } 

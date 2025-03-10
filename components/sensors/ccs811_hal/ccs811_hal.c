@@ -7,6 +7,8 @@
 #include "common/i2c.h"
 #include "error_handler.h"
 #include "log_handler.h"
+#include "common/common_setup.h"
+#include "common/common_cleanup.h"
 
 /* Constants ******************************************************************/
 
@@ -138,12 +140,12 @@ esp_err_t ccs811_init(void* const sensor_data)
   ccs811_data->tvoc        = 0;
   ccs811_data->state       = k_ccs811_uninitialized;
 
-  /* Initialize the I2C bus */
-  esp_err_t ret = priv_i2c_init(ccs811_scl_io, 
-                                ccs811_sda_io, 
-                                ccs811_i2c_freq_hz,
-                                ccs811_i2c_bus, 
-                                ccs811_tag);
+  /* Initialize the I2C bus using common setup */
+  esp_err_t ret = common_setup_i2c(ccs811_i2c_bus, 
+                                  ccs811_scl_io, 
+                                  ccs811_sda_io, 
+                                  ccs811_i2c_freq_hz, 
+                                  ccs811_tag);
   if (ret != ESP_OK) {
     log_error(ccs811_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;
@@ -219,44 +221,21 @@ esp_err_t ccs811_cleanup(void* const sensor_data)
   log_info(ccs811_tag, "Cleanup Start", "Beginning CCS811 sensor cleanup");
 
   esp_err_t ret = ESP_OK;
+  esp_err_t temp_ret;
 
-  /* Put sensor in sleep mode by setting WAKE pin high */
-  esp_err_t temp_ret = gpio_set_level(ccs811_wake_io, k_ccs811_gpio_high);
+  /* Clean up GPIO pins */
+  uint64_t pin_mask = (1ULL << ccs811_wake_io) | (1ULL << ccs811_rst_io) | (1ULL << ccs811_int_io);
+  temp_ret = common_cleanup_gpio(pin_mask, ccs811_tag);
   if (temp_ret != ESP_OK) {
     log_warn(ccs811_tag, 
              "GPIO Warning", 
-             "Failed to set WAKE pin high: %s", 
+             "Failed to clean up GPIO pins: %s", 
              esp_err_to_name(temp_ret));
     ret = temp_ret;
-  }
-
-  /* Reset GPIO pins to input mode */
-  gpio_config_t io_conf = {
-    .pin_bit_mask = (1ULL << ccs811_wake_io) | (1ULL << ccs811_rst_io) | (1ULL << ccs811_int_io),
-    .mode         = GPIO_MODE_INPUT,
-    .pull_up_en   = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type    = GPIO_INTR_DISABLE
-  };
-
-  temp_ret = gpio_config(&io_conf);
-  if (temp_ret != ESP_OK) {
-    log_warn(ccs811_tag, 
-             "GPIO Warning", 
-             "Failed to reset GPIO pins to input mode: %s", 
-             esp_err_to_name(temp_ret));
-    ret = temp_ret;
-  }
-
-  /* Reset sensor data structure */
-  if (ccs811_data != NULL) {
-    ccs811_data->eco2  = 0;
-    ccs811_data->tvoc  = 0;
-    ccs811_data->state = k_ccs811_uninitialized;
   }
 
   /* Clean up I2C resources */
-  temp_ret = priv_i2c_cleanup(ccs811_i2c_bus, ccs811_tag);
+  temp_ret = common_cleanup_i2c(ccs811_i2c_bus, ccs811_scl_io, ccs811_sda_io, ccs811_tag);
   if (temp_ret != ESP_OK) {
     log_warn(ccs811_tag, 
              "I2C Warning", 
@@ -265,15 +244,27 @@ esp_err_t ccs811_cleanup(void* const sensor_data)
     ret = temp_ret;
   }
 
-  if (ret == ESP_OK) {
-    log_info(ccs811_tag, 
-             "Cleanup Complete", 
-             "CCS811 sensor resources released successfully");
-  } else {
-    log_warn(ccs811_tag, 
-             "Cleanup Warning", 
-             "CCS811 cleanup completed with some warnings");
+  /* Clean up error handler */
+  if (ccs811_data) {
+    temp_ret = error_handler_cleanup(&(ccs811_data->error_handler));
+    if (temp_ret != ESP_OK) {
+      log_warn(ccs811_tag, 
+               "Error Handler Warning", 
+               "Failed to clean up error handler: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+
+    /* Reset sensor data structure */
+    ccs811_data->eco2  = 0;
+    ccs811_data->tvoc  = 0;
+    ccs811_data->state = k_ccs811_uninitialized;
   }
+
+  log_info(ccs811_tag, 
+           "Cleanup Complete", 
+           "CCS811 sensor cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
 
   return ret;
 }

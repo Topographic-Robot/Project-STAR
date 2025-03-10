@@ -19,6 +19,16 @@ extern "C" {
  */
 esp_err_t common_motor_setup(void);
 
+/**
+ * @brief Cleans up all motor controllers
+ * 
+ * This function releases all the hardware resources used by motor controllers,
+ * including I2C bus for PCA9685 and GPIO pins for encoders.
+ * 
+ * @return ESP_OK if all cleanup operations succeeded, ESP_FAIL otherwise
+ */
+esp_err_t common_motor_cleanup(void);
+
 #ifdef __cplusplus
 }
 #endif

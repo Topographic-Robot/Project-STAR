@@ -11,6 +11,7 @@ extern "C" {
 #include "driver/spi_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 

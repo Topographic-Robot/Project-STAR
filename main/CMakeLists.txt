@@ -3,6 +3,8 @@ idf_component_register(
     "main.c"
     "hexapod_geometry.c"
     "gait_movement.c"
+    "system_error_handler.c"
+    "system_setup.c"
     "include/tasks/motor_tasks.c"
     "include/tasks/wifi_tasks.c"
     "include/tasks/webserver_tasks.c"

@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -47,12 +48,13 @@ typedef enum : uint8_t {
  * retry handling for error recovery.
  */
 typedef struct mq135_data {
-  uint16_t   raw_adc_value;      /**< Raw ADC value read from the analog output of the sensor. */
-  float      gas_concentration;  /**< Calculated gas concentration in parts per million (ppm). */
-  uint8_t    state;              /**< Current operational state of the sensor (see `mq135_states_t`). */
-  TickType_t warmup_start_ticks; /**< Tick count when the warm-up period started. */
-  uint8_t    retry_count;        /**< Counter for consecutive retries during error recovery. */
-  uint32_t   retry_interval;     /**< Current interval between retry attempts, in ticks. */
+  uint16_t        raw_adc_value;      /**< Raw ADC value read from the analog output of the sensor. */
+  float           gas_concentration;  /**< Calculated gas concentration in parts per million (ppm). */
+  uint8_t         state;              /**< Current operational state of the sensor (see `mq135_states_t`). */
+  TickType_t      warmup_start_ticks; /**< Tick count when the warm-up period started. */
+  uint8_t         retry_count;        /**< Counter for consecutive retries during error recovery. */
+  uint32_t        retry_interval;     /**< Current interval between retry attempts, in ticks. */
+  error_handler_t* error_handler;     /**< Error handler for managing error recovery. */
 } mq135_data_t;
 
 /* Public Functions ***********************************************************/

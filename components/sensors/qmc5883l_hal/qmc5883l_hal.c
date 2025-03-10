@@ -9,6 +9,8 @@
 #include "error_handler.h"
 #include "log_handler.h"
 #include "common/bus_manager.h"
+#include "common/common_setup.h"
+#include "common/common_cleanup.h"
 
 /* Constants ******************************************************************/
 
@@ -53,6 +55,32 @@ static esp_err_t priv_qmc5883l_configure_drdy_pin(void)
 static bool priv_qmc5883l_is_data_ready(void)
 {
   return gpio_get_level(qmc5883l_drdy_pin) == 1;
+}
+
+static esp_err_t priv_qmc5883l_reset(void* const context)
+{
+  qmc5883l_data_t* qmc5883l_data = (qmc5883l_data_t*)context;
+  esp_err_t ret;
+
+  /* Configure control registers */
+  uint8_t ctrl1 = k_qmc5883l_mode_continuous | 
+                  qmc5883l_odr_setting |
+                  qmc5883l_scale_configs[qmc5883l_scale_config_idx].range |
+                  k_qmc5883l_osr_512;
+
+  ret = priv_i2c_write_reg_byte(k_qmc5883l_ctrl1_cmd, 
+                                ctrl1,
+                                qmc5883l_i2c_bus, 
+                                qmc5883l_i2c_address,
+                                qmc5883l_tag);
+  if (ret != ESP_OK) {
+    qmc5883l_data->state = k_qmc5883l_error;
+    log_error(qmc5883l_tag, "Reset Error", "Failed to configure CTRL1 register");
+    return ret;
+  }
+
+  qmc5883l_data->state = k_qmc5883l_ready;
+  return ESP_OK;
 }
 
 /* Public Functions ***********************************************************/
@@ -123,64 +151,51 @@ char* qmc5883l_data_to_json(const qmc5883l_data_t* const data)
 esp_err_t qmc5883l_init(void* sensor_data)
 {
   qmc5883l_data_t* const qmc5883l_data = (qmc5883l_data_t* const)sensor_data;
-  log_info(qmc5883l_tag, 
-           "Init Started", 
-           "Beginning QMC5883L magnetometer initialization");
+  log_info(qmc5883l_tag, "Init Started", "Beginning QMC5883L magnetometer initialization");
 
-  qmc5883l_data->i2c_address        = qmc5883l_i2c_address;
-  qmc5883l_data->i2c_bus            = qmc5883l_i2c_bus;
-  qmc5883l_data->mag_x              = 0.0;
-  qmc5883l_data->mag_y              = 0.0;
-  qmc5883l_data->mag_z              = 0.0;
-  qmc5883l_data->state              = k_qmc5883l_uninitialized;
-  qmc5883l_data->retry_count        = 0;
-  qmc5883l_data->retry_interval     = qmc5883l_initial_retry_interval;
-  qmc5883l_data->last_attempt_ticks = 0;
+  /* Initialize error handler */
+  error_handler_init(&(qmc5883l_data->error_handler), 
+                     qmc5883l_tag,
+                     qmc5883l_max_retries, 
+                     qmc5883l_initial_retry_interval,
+                     qmc5883l_max_backoff_interval, 
+                     priv_qmc5883l_reset,
+                     qmc5883l_data, 
+                     qmc5883l_initial_retry_interval,
+                     qmc5883l_max_backoff_interval);
 
-  esp_err_t ret = bus_manager_i2c_init(qmc5883l_scl_io, 
-                                      qmc5883l_sda_io,
-                                      qmc5883l_i2c_freq_hz, 
-                                      qmc5883l_i2c_bus);
+  qmc5883l_data->i2c_address = qmc5883l_i2c_address;
+  qmc5883l_data->i2c_bus     = qmc5883l_i2c_bus;
+  qmc5883l_data->mag_x       = 0.0;
+  qmc5883l_data->mag_y       = 0.0;
+  qmc5883l_data->mag_z       = 0.0;
+  qmc5883l_data->state       = k_qmc5883l_uninitialized;
 
+  /* Initialize the I2C bus using common setup */
+  esp_err_t ret = common_setup_i2c(qmc5883l_i2c_bus, 
+                                  qmc5883l_scl_io, 
+                                  qmc5883l_sda_io, 
+                                  qmc5883l_i2c_freq_hz, 
+                                  qmc5883l_tag);
   if (ret != ESP_OK) {
-    log_error(qmc5883l_tag, 
-              "I2C Error", 
-              "Failed to install I2C driver: %s", 
-              esp_err_to_name(ret));
+    log_error(qmc5883l_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;
   }
 
   ret = priv_qmc5883l_configure_drdy_pin();
   if (ret != ESP_OK) {
-    log_error(qmc5883l_tag, 
-              "GPIO Error", 
-              "Failed to configure DRDY pin for QMC5883L");
+    log_error(qmc5883l_tag, "GPIO Error", "Failed to configure DRDY pin");
     qmc5883l_data->state = k_qmc5883l_power_on_error;
     return ret;
   }
 
-  uint8_t ctrl1 = k_qmc5883l_mode_continuous | 
-                  qmc5883l_odr_setting |
-                  qmc5883l_scale_configs[qmc5883l_scale_config_idx].range |
-                  k_qmc5883l_osr_512;
-
-  ret = priv_i2c_write_reg_byte(k_qmc5883l_ctrl1_cmd, 
-                                ctrl1,
-                                qmc5883l_i2c_bus, 
-                                qmc5883l_i2c_address,
-                                qmc5883l_tag);
+  /* Perform initial sensor setup */
+  ret = priv_qmc5883l_reset(qmc5883l_data);
   if (ret != ESP_OK) {
-    log_error(qmc5883l_tag, 
-              "Config Error", 
-              "Failed to configure CTRL1 register with measurement settings");
-    qmc5883l_data->state = k_qmc5883l_error;
     return ret;
   }
 
-  qmc5883l_data->state = k_qmc5883l_ready;
-  log_info(qmc5883l_tag, 
-           "Init Complete", 
-           "QMC5883L magnetometer initialization completed successfully");
+  log_info(qmc5883l_tag, "Init Complete", "QMC5883L magnetometer initialization completed successfully");
   return ESP_OK;
 }
 
@@ -295,56 +310,50 @@ void qmc5883l_tasks(void* const sensor_data)
 esp_err_t qmc5883l_cleanup(void* const sensor_data)
 {
   qmc5883l_data_t* const qmc5883l_data = (qmc5883l_data_t* const)sensor_data;
-  esp_err_t              ret           = ESP_OK;
-  
   log_info(qmc5883l_tag, "Cleanup Start", "Beginning QMC5883L magnetometer cleanup");
-  
-  if (qmc5883l_data == NULL) {
-    log_error(qmc5883l_tag, 
-              "Invalid Parameter", 
-              "Sensor data pointer is NULL, cannot proceed with cleanup");
-    return ESP_FAIL;
+
+  esp_err_t ret = ESP_OK;
+  esp_err_t temp_ret;
+
+  /* Clean up GPIO pins */
+  uint64_t pin_mask = (1ULL << qmc5883l_drdy_pin);
+  temp_ret = common_cleanup_gpio(pin_mask, qmc5883l_tag);
+  if (temp_ret != ESP_OK) {
+    ret = temp_ret;
   }
-  
-  /* Put the sensor in standby mode to reduce power consumption */
-  uint8_t ctrl1 = k_qmc5883l_mode_standby | 
-                  qmc5883l_odr_setting |
-                  qmc5883l_scale_configs[qmc5883l_scale_config_idx].range |
-                  k_qmc5883l_osr_512;
-  
-  esp_err_t write_ret = priv_i2c_write_reg_byte(k_qmc5883l_ctrl1_cmd, 
-                                                ctrl1,
-                                                qmc5883l_i2c_bus, 
-                                                qmc5883l_i2c_address,
-                                                qmc5883l_tag);
-  
-  if (write_ret != ESP_OK) {
+
+  /* Clean up I2C resources */
+  temp_ret = common_cleanup_i2c(qmc5883l_i2c_bus, qmc5883l_scl_io, qmc5883l_sda_io, qmc5883l_tag);
+  if (temp_ret != ESP_OK) {
     log_warn(qmc5883l_tag, 
-             "Standby Warning", 
-             "Failed to put QMC5883L in standby mode: %s", 
-             esp_err_to_name(write_ret));
-    ret = ESP_FAIL;
-    /* Continue with cleanup anyway */
+             "I2C Warning", 
+             "Failed to clean up I2C resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
   }
-  
-  /* Reset the sensor data structure */
-  qmc5883l_data->mag_x              = 0.0;
-  qmc5883l_data->mag_y              = 0.0;
-  qmc5883l_data->mag_z              = 0.0;
-  qmc5883l_data->heading            = 0.0;
-  qmc5883l_data->state              = k_qmc5883l_uninitialized;
-  qmc5883l_data->retry_count        = 0;
-  qmc5883l_data->retry_interval     = qmc5883l_initial_retry_interval;
-  qmc5883l_data->last_attempt_ticks = 0;
-  
-  /* Note: We don't deinitialize the I2C bus here as it might be shared with other devices.
-   * The I2C bus should be deinitialized at the system level if needed.
-   */
-  
+
+  /* Clean up error handler */
+  if (qmc5883l_data) {
+    temp_ret = error_handler_cleanup(&(qmc5883l_data->error_handler));
+    if (temp_ret != ESP_OK) {
+      log_warn(qmc5883l_tag, 
+               "Error Handler Warning", 
+               "Failed to clean up error handler: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+
+    /* Reset sensor data structure */
+    qmc5883l_data->mag_x = 0.0;
+    qmc5883l_data->mag_y = 0.0;
+    qmc5883l_data->mag_z = 0.0;
+    qmc5883l_data->state = k_qmc5883l_uninitialized;
+  }
+
   log_info(qmc5883l_tag, 
            "Cleanup Complete", 
            "QMC5883L magnetometer cleanup %s", 
            (ret == ESP_OK) ? "successful" : "completed with warnings");
-  
+
   return ret;
 }

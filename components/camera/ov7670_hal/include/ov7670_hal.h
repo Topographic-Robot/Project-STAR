@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 #ifdef __cplusplus
 extern "C" {

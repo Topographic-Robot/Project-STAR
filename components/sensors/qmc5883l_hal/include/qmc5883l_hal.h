@@ -12,6 +12,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/semphr.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -117,16 +118,13 @@ typedef struct qmc5883l_scale {
  * state management fields for error handling and retries.
  */
 typedef struct qmc5883l_data {
-  uint8_t    i2c_address;        /**< I2C address used for communication with the sensor. */
-  uint8_t    i2c_bus;            /**< I2C bus number used for communication. */
-  float      mag_x;              /**< Measured X-axis magnetic field strength in µT. */
-  float      mag_y;              /**< Measured Y-axis magnetic field strength in µT. */
-  float      mag_z;              /**< Measured Z-axis magnetic field strength in µT. */
-  float      heading;            /**< Calculated heading (yaw) in degrees. */
-  uint8_t    state;              /**< Current operational state of the sensor (see `qmc5883l_states_t`). */
-  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  uint8_t          i2c_address;   /**< I2C address for communication with the sensor. */
+  i2c_port_t       i2c_bus;       /**< I2C bus number the sensor is connected to. */
+  double           mag_x;         /**< Latest X-axis magnetic field reading. */
+  double           mag_y;         /**< Latest Y-axis magnetic field reading. */
+  double           mag_z;         /**< Latest Z-axis magnetic field reading. */
+  qmc5883l_states_t state;       /**< Current state of the sensor. */
+  error_handler_t  error_handler; /**< Error handler for the sensor. */
 } qmc5883l_data_t;
 
 /* Public Functions ***********************************************************/

@@ -19,6 +19,16 @@ extern "C" {
  */
 esp_err_t common_sensor_setup(void);
 
+/**
+ * @brief Cleans up all sensors
+ * 
+ * This function releases all the hardware resources used by sensors,
+ * including I2C bus and GPIO pins.
+ * 
+ * @return ESP_OK if all cleanup operations succeeded, ESP_FAIL otherwise
+ */
+esp_err_t common_sensor_cleanup(void);
+
 #ifdef __cplusplus
 }
 #endif

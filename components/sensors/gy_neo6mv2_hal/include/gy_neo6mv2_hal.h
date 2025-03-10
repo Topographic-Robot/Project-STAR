@@ -12,6 +12,7 @@ extern "C" {
 #include "freertos/semphr.h"
 #include "esp_err.h"
 #include "driver/uart.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -75,6 +76,7 @@ typedef struct gy_neo6mv2_data {
   uint8_t             retry_count;        /**< Number of consecutive reinitialization attempts. */
   uint32_t            retry_interval;     /**< Current interval between retry attempts, in ticks. */
   TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  error_handler_t*    error_handler;      /**< Error handler for managing error recovery. */
 } gy_neo6mv2_data_t;
 
 /**
@@ -154,11 +156,10 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t* const sensor_data);
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data);
 
 /**
- * @brief Periodically reads GPS data and manages errors for the GY-NEO6MV2 GPS module.
+ * @brief Executes periodic tasks for the GY-NEO6MV2 GPS module.
  *
- * Continuously reads GPS data at intervals defined by `gy_neo6mv2_polling_rate_ticks`. 
- * Handles errors using `gy_neo6mv2_reset_on_error` with exponential backoff. Designed 
- * to run as part of a FreeRTOS task.
+ * Periodically reads GPS data, parses NMEA sentences, and handles errors.
+ * Intended to run as part of a FreeRTOS task.
  *
  * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure for GPS 
  *                            data and error management.
@@ -172,9 +173,8 @@ void gy_neo6mv2_tasks(void* const sensor_data);
  *
  * Performs the following cleanup operations:
  * 1. Puts the GPS module in power save mode by disabling NMEA messages
- * 2. Clears internal sentence and satellite buffers
- * 3. Resets sensor data structure to initial values
- * 4. Cleans up UART resources
+ * 2. Cleans up UART resources
+ * 3. Cleans up error handler
  *
  * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure to clean up.
  *
@@ -193,4 +193,3 @@ esp_err_t gy_neo6mv2_cleanup(void* const sensor_data);
 #endif
 
 #endif /* TOPOROBO_GY_NEO6MV2_HAL_H */
-

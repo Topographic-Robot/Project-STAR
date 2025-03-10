@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "driver/i2c.h"
 #include "hexapod_geometry.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -95,6 +96,7 @@ typedef struct pca9685_board {
   uint8_t               num_boards;                       /**< Total number of PCA9685 boards in the system. */
   motor_t               motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
   struct pca9685_board* next;                             /**< Pointer to the next board in the singly linked list. */
+  error_handler_t       error_handler;                    /**< Error handler for the PCA9685 board. */
 } pca9685_board_t;
 
 /* Private Inline Functions ***************************************************/
