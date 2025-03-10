@@ -26,11 +26,11 @@ extern const int         zlib_mem_level;           /* Memory level for zlib comp
 
 /* Macros *********************************************************************/
 
-#define LOG_BUFFER_SIZE                        (10)                                     /* Size of the log buffer for temporary storage */
-#define LOG_STORAGE_MAX_MESSAGE_LENGTH         (256)                                    /* Maximum length of log messages */
-#define TIMESTAMP_BUFFER_SIZE                  (64)                                     /* Buffer size for formatted timestamp strings */
-#define DATE_STRING_BUFFER_SIZE                (32)                                     /* Buffer size for date strings */
-#define LOG_STORAGE_MAX_FORMATTED_ENTRY_LENGTH (LOG_STORAGE_MAX_MESSAGE_LENGTH * 2)     /* Formatted log entry buffer size */
+#define LOG_BUFFER_SIZE                        (10)                                 /* Size of the log buffer for temporary storage */
+#define LOG_STORAGE_MAX_MESSAGE_LENGTH         (256)                                /* Maximum length of log messages */
+#define TIMESTAMP_BUFFER_SIZE                  (64)                                 /* Buffer size for formatted timestamp strings */
+#define DATE_STRING_BUFFER_SIZE                (32)                                 /* Buffer size for date strings */
+#define LOG_STORAGE_MAX_FORMATTED_ENTRY_LENGTH (LOG_STORAGE_MAX_MESSAGE_LENGTH * 2) /* Formatted log entry buffer size */
 
 /* Structs ********************************************************************/
 
@@ -40,7 +40,7 @@ extern const int         zlib_mem_level;           /* Memory level for zlib comp
  * This structure contains all the information needed for a single log entry,
  * including the message text, log level, and timestamp when the log was created.
  */
-typedef struct {
+typedef struct log_entry {
   char            buffer[LOG_STORAGE_MAX_MESSAGE_LENGTH]; /**< Buffer for the log message text */
   esp_log_level_t level;                                  /**< Log level (error, warning, info, etc.) */
   uint64_t        timestamp;                              /**< Timestamp when the log was created */

@@ -35,13 +35,13 @@ const uint32_t          sd_card_debounce_ms          = 100;         /* Debounce 
 
 /* Private Variables **********************************************************/
 
-static sdmmc_card_t*      s_card                         = NULL;  /**< Pointer to hold SD card descriptor */
-static error_handler_t    s_sd_card_error_handler        = { 0 };
-static SemaphoreHandle_t  s_sd_mutex                     = NULL;  /**< Mutex for thread-safe access */
-static bool               s_sd_card_available            = false; /**< Flag to track SD card availability */
-static bool               s_sd_card_initialized          = false; /**< Flag to track initialization status */
-static void             (*s_availability_callback)(bool) = NULL;  /**< Callback for SD card availability changes */
-static TaskHandle_t       s_mount_task_handle            = NULL;  /**< Handle for the mount/unmount task */
+static sdmmc_card_t*                   s_card                  = NULL;  /**< Pointer to hold SD card descriptor */
+static error_handler_t                 s_sd_card_error_handler = { 0 };
+static SemaphoreHandle_t               s_sd_mutex              = NULL;  /**< Mutex for thread-safe access */
+static bool                            s_sd_card_available     = false; /**< Flag to track SD card availability */
+static bool                            s_sd_card_initialized   = false; /**< Flag to track initialization status */
+static sd_card_availability_callback_t s_availability_callback = NULL;  /**< Callback for SD card availability changes */
+static TaskHandle_t                    s_mount_task_handle     = NULL;  /**< Handle for the mount/unmount task */
 
 /* Private (Static) Functions *************************************************/
 
@@ -306,7 +306,7 @@ bool sd_card_is_available(void)
   return available;
 }
 
-esp_err_t sd_card_register_availability_callback(void (*callback)(bool available))
+esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t callback)
 {
   if (callback == NULL) {
     return ESP_FAIL;

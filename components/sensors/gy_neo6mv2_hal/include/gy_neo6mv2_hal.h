@@ -63,7 +63,7 @@ typedef enum : uint8_t {
  * diagnostic information like fix status, satellite count, horizontal dilution
  * of precision (HDOP), and retry management fields for error handling.
  */
-typedef struct {
+typedef struct gy_neo6mv2_data {
   float               latitude;           /**< Latitude in decimal degrees. Negative values indicate South. */
   float               longitude;          /**< Longitude in decimal degrees. Negative values indicate West. */
   float               speed;              /**< Speed over ground in meters per second. */
@@ -83,7 +83,7 @@ typedef struct {
  * Holds details about a satellite, including its identifier (PRN), elevation,
  * azimuth, and signal strength (SNR), as parsed from GPGSV NMEA sentences.
  */
-typedef struct {
+typedef struct satellite {
   uint8_t  prn;       /**< Satellite ID (PRN - Pseudo Random Noise code). */
   uint8_t  elevation; /**< Satellite elevation angle in degrees above the horizon. */
   uint16_t azimuth;   /**< Satellite azimuth angle in degrees from true north. */

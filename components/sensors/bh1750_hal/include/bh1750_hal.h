@@ -79,7 +79,7 @@ typedef enum : uint8_t {
  * communication details, light intensity readings, and retry management for
  * error handling and reinitialization.
  */
-typedef struct {
+typedef struct bh1750_data {
   uint8_t         i2c_address;   /**< I2C address for communication with the sensor. */
   i2c_port_t      i2c_bus;       /**< I2C bus number the sensor is connected to. */
   float           lux;           /**< Latest light intensity reading from the sensor, in lux. */

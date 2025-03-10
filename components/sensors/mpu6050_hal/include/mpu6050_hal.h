@@ -187,7 +187,7 @@ typedef enum : uint8_t {
  *   Scaling Factor = (Full-Scale Range) / (Maximum Raw Value)
  * where the Maximum Raw Value is 32768 for the MPU6050.
  */
-typedef struct {
+typedef struct mpu6050_accel_config {
   uint8_t accel_config; /**< Register value for setting the accelerometer full-scale range. */
   float   accel_scale;  /**< Scaling factor to convert raw data to acceleration in g. */
 } mpu6050_accel_config_t;
@@ -202,7 +202,7 @@ typedef struct {
  *   Scaling Factor = (Full-Scale Range) / (Maximum Raw Value)
  * where the Maximum Raw Value is 32768 for the MPU6050.
  */
-typedef struct {
+typedef struct mpu6050_gyro_config {
   uint8_t gyro_config; /**< Register value for setting the gyroscope full-scale range. */
   float   gyro_scale;  /**< Scaling factor to convert raw data to angular velocity in °/s. */
 } mpu6050_gyro_config_t;
@@ -213,7 +213,7 @@ typedef struct {
  * Contains accelerometer and gyroscope readings, temperature, operational state,
  * and semaphore for signaling data readiness. Also holds I2C communication details.
  */
-typedef struct {
+typedef struct mpu6050_data {
   uint8_t           i2c_address;    /**< I2C address used for communication with the sensor. */
   uint8_t           i2c_bus;        /**< I2C bus number used for communication. */
   float             accel_x;        /**< Measured X-axis acceleration in g. */

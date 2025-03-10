@@ -10,11 +10,11 @@ extern "C" {
 #include "esp_err.h"
 #include <stdbool.h>
 
-/* Globals (Constants) ********************************************************/
+/* Constants ******************************************************************/
 
-extern const char* const time_manager_tag; /**< For Logging */
+extern const char* const time_manager_tag; /**< For logging */
 
-/* Macro Definitions **********************************************************/
+/* Macros *********************************************************************/
 
 #define TIME_STRFTIME_BUFFER_SIZE (64) /**< Size of buffer for formatted time strings */
 

@@ -44,7 +44,7 @@ typedef enum : uint8_t {
  * Contains information about a motor's type, current position, and identification
  * on the PCA9685 servo controller boards.
  */
-typedef struct {
+typedef struct motor {
   joint_type_t joint_type; /**< Type of joint this motor controls (hip, knee, or tibia). */
   float        pos_deg;    /**< Current position of the motor in degrees (range: 0 to 180). */
   uint8_t      board_id;   /**< ID of the PCA9685 board (e.g., 0 or 1). */
@@ -58,7 +58,7 @@ typedef struct {
  * Contains the leg ID and pointers to the motor configurations for the hip,
  * knee, and tibia joints.
  */
-typedef struct {
+typedef struct leg {
   uint8_t  id;          /**< The unique ID of the leg (range: 0 to 5). */
   motor_t* hip_motor;   /**< Pointer to the hip motor configuration. */
   motor_t* knee_motor;  /**< Pointer to the knee motor configuration. */

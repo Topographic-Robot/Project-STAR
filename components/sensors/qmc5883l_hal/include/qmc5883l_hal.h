@@ -104,7 +104,7 @@ typedef enum : uint8_t {
  * Contains the register value for setting the full-scale range and the corresponding
  * scaling factor for converting raw magnetic field data to microteslas (µT).
  */
-typedef struct {
+typedef struct qmc5883l_scale {
   uint8_t range; /**< Register value for setting the full-scale range in the QMC5883L. */
   float   scale; /**< Scaling factor to convert raw data to magnetic field strength in µT. */
 } qmc5883l_scale_t;
@@ -116,7 +116,7 @@ typedef struct {
  * magnetic field measurements along the X, Y, and Z axes, the calculated heading (yaw), and 
  * state management fields for error handling and retries.
  */
-typedef struct {
+typedef struct qmc5883l_data {
   uint8_t    i2c_address;        /**< I2C address used for communication with the sensor. */
   uint8_t    i2c_bus;            /**< I2C bus number used for communication. */
   float      mag_x;              /**< Measured X-axis magnetic field strength in µT. */

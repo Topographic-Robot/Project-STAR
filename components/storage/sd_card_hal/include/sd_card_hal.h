@@ -29,6 +29,10 @@ extern const uint32_t          sd_card_max_transfer_sz;      /**< Maximum transf
 extern const uint8_t           sd_card_max_retries;          /**< Maxiumum retries after init fails */
 extern const uint32_t          sd_card_retry_delay_ms;       /**< The delay between retries */
 
+/* Typedefs *******************************************************************/
+
+typedef void (*sd_card_availability_callback_t)(bool available); /**< Function pointer to SD card availability callback */
+
 /* Public Functions ***********************************************************/
 
 /**
@@ -71,7 +75,7 @@ bool sd_card_is_available(void);
  * @param callback Function to call when SD card availability changes.
  * @return ESP_OK if successful, ESP_FAIL otherwise.
  */
-esp_err_t sd_card_register_availability_callback(void (*callback)(bool available));
+esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t callback);
 
 #ifdef __cplusplus
 }

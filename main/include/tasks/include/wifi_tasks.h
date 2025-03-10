@@ -16,18 +16,20 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
+extern const char* const wifi_tag;                /**< Tag for logging */
+extern const uint8_t     wifi_max_retry;          /**< The max number of times to try and connect to the station */
+extern const uint8_t     wifi_ssid_max_len;       /**< The max length for wifi's SSID defined by esp */
+extern const uint8_t     wifi_pass_max_len;       /**< The max length for wifi's password defined by esp */
+extern const uint32_t    wifi_connect_timeout_ms; /**< Timeout for WiFi connection in milliseconds */
+
+/* Macros *********************************************************************/
+
 /* The event group allows multiple bits for each event, but we only care about
  * two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
 #define WIFI_CONNECTED_BIT (BIT0) /**< Wifi is Connected */
 #define WIFI_FAIL_BIT      (BIT1) /**< Wifi failed to connect */
-
-extern const char* const wifi_tag;                /**< Tag for logging */
-extern const uint8_t     wifi_max_retry;          /**< The max number of times to try and connect to the station */
-extern const uint8_t     wifi_ssid_max_len;       /**< The max length for wifi's SSID defined by esp */
-extern const uint8_t     wifi_pass_max_len;       /**< The max length for wifi's password defined by esp */
-extern const uint32_t    wifi_connect_timeout_ms; /**< Timeout for WiFi connection in milliseconds */
 
 /* Structs ********************************************************************/
 
@@ -37,7 +39,7 @@ extern const uint32_t    wifi_connect_timeout_ms; /**< Timeout for WiFi connecti
  * Represents the WiFi task's configuration, including its priority,
  * stack size, and enablement flag.
  */
-typedef struct {
+typedef struct wifi_task_config {
   UBaseType_t priority;    /**< Priority of the WiFi task for scheduling purposes. */
   uint32_t    stack_depth; /**< Stack depth allocated for the WiFi task, in words. */
   bool        enabled;     /**< Flag indicating if the WiFi task is enabled (true) or disabled (false). */

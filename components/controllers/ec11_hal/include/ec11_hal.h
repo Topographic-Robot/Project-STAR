@@ -77,7 +77,7 @@ typedef enum : uint8_t {
  * Contains GPIO pin assignments, current state, position tracking,
  * and button state for a single EC11 encoder instance.
  */
-typedef struct {
+typedef struct ec11_data {
   gpio_num_t        pin_a;              /**< GPIO pin for encoder output A */
   gpio_num_t        pin_b;              /**< GPIO pin for encoder output B */
   gpio_num_t        pin_btn;            /**< GPIO pin for encoder push button */

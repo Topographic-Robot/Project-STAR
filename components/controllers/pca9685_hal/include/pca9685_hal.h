@@ -12,10 +12,6 @@ extern "C" {
 #include "driver/i2c.h"
 #include "hexapod_geometry.h"
 
-/* Macros *********************************************************************/
-
-#define PCA9685_MOTORS_PER_BOARD (16) /**< Number of motors per PCA9685 board */
-
 /* Constants ******************************************************************/
 
 extern const uint8_t     pca9685_scl_io;           /**< GPIO pin for I2C Serial Clock Line */
@@ -32,6 +28,10 @@ extern const char* const pca9685_tag;              /**< Tag for logs */
 extern const uint8_t     pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
 extern const uint32_t    pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
 extern const float       pca9685_default_angle;    /**< Default angle for motors */
+
+/* Macros *********************************************************************/
+
+#define PCA9685_MOTORS_PER_BOARD (16) /**< Number of motors per PCA9685 board */
 
 /* Enums **********************************************************************/
 
@@ -87,14 +87,14 @@ typedef enum : uint8_t {
  * communication bus, operational state, unique ID, and motors it controls.
  * It also supports a singly linked list structure for managing multiple boards.
  */
-typedef struct pca9685_board_t {
-  uint8_t                 i2c_address;                      /**< Base I2C address of the PCA9685 board. */
-  uint8_t                 i2c_bus;                          /**< I2C bus number used for communication. */
-  uint8_t                 state;                            /**< Current state of the PCA9685 (see pca9685_states_t). */
-  uint8_t                 board_id;                         /**< Unique ID for this board in multi-board setups. */
-  uint8_t                 num_boards;                       /**< Total number of PCA9685 boards in the system. */
-  motor_t                 motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
-  struct pca9685_board_t* next;                             /**< Pointer to the next board in the singly linked list. */
+typedef struct pca9685_board {
+  uint8_t               i2c_address;                      /**< Base I2C address of the PCA9685 board. */
+  uint8_t               i2c_bus;                          /**< I2C bus number used for communication. */
+  uint8_t               state;                            /**< Current state of the PCA9685 (see pca9685_states_t). */
+  uint8_t               board_id;                         /**< Unique ID for this board in multi-board setups. */
+  uint8_t               num_boards;                       /**< Total number of PCA9685 boards in the system. */
+  motor_t               motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
+  struct pca9685_board* next;                             /**< Pointer to the next board in the singly linked list. */
 } pca9685_board_t;
 
 /* Private Inline Functions ***************************************************/

@@ -49,7 +49,7 @@ typedef enum : uint8_t {
  * Contains the latest temperature and humidity readings from the DHT22 sensor,
  * as well as state and retry management variables for error handling and reinitialization.
  */
-typedef struct {
+typedef struct dht22_data {
   float      temperature_f;      /**< Latest temperature reading in Fahrenheit. */
   float      temperature_c;      /**< Latest temperature reading in Celsius. */
   float      humidity;           /**< Latest humidity reading as a percentage. */

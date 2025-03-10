@@ -16,7 +16,7 @@ extern const char* const gait_tag; /**< Tag for logs */
 
 /* Macros *********************************************************************/
 
-#define NUMBER_OF_LEGS (6)
+#define NUMBER_OF_LEGS (6) /**< Number of legs on the hexapod robot */
 
 /* Public Functions ***********************************************************/
 

@@ -46,7 +46,7 @@ typedef enum : uint8_t {
  * the raw ADC reading, calculated gas concentration in ppm, warm-up timing, and
  * retry handling for error recovery.
  */
-typedef struct {
+typedef struct mq135_data {
   uint16_t   raw_adc_value;      /**< Raw ADC value read from the analog output of the sensor. */
   float      gas_concentration;  /**< Calculated gas concentration in parts per million (ppm). */
   uint8_t    state;              /**< Current operational state of the sensor (see `mq135_states_t`). */

@@ -24,7 +24,7 @@ extern "C" {
  * temperature, humidity, gyroscope, accelerometer, magnetometer, air quality, and GPS.
  * Each field represents the data collected from a specific sensor type.
  */
-typedef struct {
+typedef struct sensor_data {
   bh1750_data_t     bh1750_data;     /**< Data from the BH1750 light intensity sensor. */
   dht22_data_t      dht22_data;      /**< Data from the DHT22 temperature and humidity sensor. */
   mpu6050_data_t    mpu6050_data;    /**< Data from the MPU6050 gyroscope and accelerometer sensor. */

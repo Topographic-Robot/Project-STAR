@@ -90,7 +90,7 @@ typedef enum : uint8_t {
  * Contains the resolution, output format, and clock divider settings
  * required to configure the OV7670 camera module.
  */
-typedef struct {
+typedef struct ov7670_config {
   ov7670_resolution_t    resolution;    /**< Desired resolution (e.g., QVGA, VGA). */
   ov7670_output_format_t output_format; /**< Desired output format (e.g., RGB, YUV). */
   ov7670_clock_divider_t clock_divider; /**< Clock divider for the internal pixel clock. */
@@ -102,7 +102,7 @@ typedef struct {
  * Tracks the current state of the camera, retries for configuration errors,
  * timing information for retry intervals, and the active configuration.
  */
-typedef struct {
+typedef struct ov7670_data {
   uint8_t         state;              /**< Current state of the camera module (see ov7670_states_t). */
   uint8_t         retries;            /**< Retry count for configuration attempts after errors. */
   uint32_t        retry_interval;     /**< Interval between retries in ticks. */

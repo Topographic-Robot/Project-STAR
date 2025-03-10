@@ -80,7 +80,7 @@ typedef enum : uint8_t {
  * Contains I2C communication details, the latest sensor measurements, and variables 
  * for handling error recovery and reinitialization.
  */
-typedef struct {
+typedef struct ccs811_data {
   uint8_t         i2c_address;   /**< I2C address used for communication with the sensor. */
   i2c_port_t      i2c_bus;       /**< I2C bus number the sensor is connected to. */
   uint16_t        eco2;          /**< Latest equivalent CO2 (eCO2) reading in parts per million (ppm). */
