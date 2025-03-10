@@ -348,29 +348,15 @@ esp_err_t dht22_init(void* const sensor_data)
     return ESP_ERR_NO_MEM;
   }
 
-  error_handler_config_t error_config = {
-    .max_retries = dht22_max_retries,
-    .initial_retry_interval = dht22_initial_retry_interval,
-    .max_backoff_interval = dht22_max_backoff_interval,
-    .reset_func = priv_dht22_reset,
-    .reset_arg = sensor_data
-  };
-  esp_err_t ret = error_handler_init(dht22_data->error_handler, 
-                                    dht22_tag,
-                                    dht22_max_retries,
-                                    dht22_initial_retry_interval,
-                                    dht22_max_backoff_interval,
-                                    priv_dht22_reset,
-                                    sensor_data,
-                                    dht22_initial_retry_interval,
-                                    dht22_max_backoff_interval);
-  if (ret != ESP_OK) {
-    log_error(dht22_tag, "Error Handler Init Failed", 
-              "Failed to initialize error handler: %s", esp_err_to_name(ret));
-    free(dht22_data->error_handler);
-    dht22_data->error_handler = NULL;
-    return ret;
-  }
+  error_handler_init(dht22_data->error_handler, 
+                    dht22_tag,
+                    dht22_max_retries,
+                    dht22_initial_retry_interval,
+                    dht22_max_backoff_interval,
+                    priv_dht22_reset,
+                    sensor_data,
+                    dht22_initial_retry_interval,
+                    dht22_max_backoff_interval);
 
   /* Initialize sensor data */
   dht22_data->humidity = -1.0;
@@ -383,12 +369,12 @@ esp_err_t dht22_init(void* const sensor_data)
   dht22_data->fail_count = 0;
 
   /* Setup GPIO using common setup */
-  ret = common_setup_gpio((1ULL << dht22_data_io), 
-                         GPIO_MODE_OUTPUT, 
-                         GPIO_PULLUP_ENABLE, 
-                         GPIO_PULLDOWN_DISABLE,
-                         GPIO_INTR_DISABLE,
-                         dht22_tag);
+  esp_err_t ret = common_setup_gpio((1ULL << dht22_data_io), 
+                                   GPIO_MODE_OUTPUT, 
+                                   GPIO_PULLUP_ENABLE, 
+                                   GPIO_PULLDOWN_DISABLE,
+                                   GPIO_INTR_DISABLE,
+                                   dht22_tag);
   if (ret != ESP_OK) {
     log_error(dht22_tag, "GPIO Config Failed", 
               "Failed to configure GPIO pin with error: %s", esp_err_to_name(ret));

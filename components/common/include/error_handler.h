@@ -24,7 +24,7 @@ extern const char* const error_handler_tag; /**< Tag for logging messages */
 #define MAX_RELATED_ERRORS (8)  /**< Maximum number of related errors per correlation */
 
 /**
- * @brief Records an error with file, line, and function information
+ * @brief Records an error with the specified handler.
  */
 #define ERROR_RECORD(handler, code, category, severity, desc) \
   do { \
@@ -32,19 +32,19 @@ extern const char* const error_handler_tag; /**< Tag for logging messages */
   } while (0)
 
 /**
- * @brief Records a hardware error
+ * @brief Records a hardware error with the specified handler.
  */
 #define ERROR_HARDWARE(handler, code, severity, desc) \
   do { \
-    ERROR_RECORD((handler), (code), ERROR_CATEGORY_HARDWARE, (severity), (desc)); \
+    ERROR_RECORD((handler), (code), k_error_category_hardware, (severity), (desc)); \
   } while (0)
 
 /**
- * @brief Records a communication error
+ * @brief Records a communication error with the specified handler.
  */
 #define ERROR_COMMUNICATION(handler, code, severity, desc) \
   do { \
-    ERROR_RECORD((handler), (code), ERROR_CATEGORY_COMMUNICATION, (severity), (desc)); \
+    ERROR_RECORD((handler), (code), k_error_category_communication, (severity), (desc)); \
   } while (0)
 
 /**
@@ -52,7 +52,7 @@ extern const char* const error_handler_tag; /**< Tag for logging messages */
  */
 #define ERROR_MEMORY(handler, code, severity, desc) \
   do { \
-    ERROR_RECORD((handler), (code), ERROR_CATEGORY_MEMORY, (severity), (desc)); \
+    ERROR_RECORD((handler), (code), k_error_category_memory, (severity), (desc)); \
   } while (0)
 
 /**
@@ -60,7 +60,7 @@ extern const char* const error_handler_tag; /**< Tag for logging messages */
  */
 #define ERROR_SYSTEM(handler, code, severity, desc) \
   do { \
-    ERROR_RECORD((handler), (code), ERROR_CATEGORY_SYSTEM, (severity), (desc)); \
+    ERROR_RECORD((handler), (code), k_error_category_system, (severity), (desc)); \
   } while (0)
 
 /**
@@ -68,39 +68,51 @@ extern const char* const error_handler_tag; /**< Tag for logging messages */
  */
 #define ERROR_APPLICATION(handler, code, severity, desc) \
   do { \
-    ERROR_RECORD((handler), (code), ERROR_CATEGORY_APPLICATION, (severity), (desc)); \
+    ERROR_RECORD((handler), (code), k_error_category_application, (severity), (desc)); \
   } while (0)
+
+/* Backward compatibility macros for error categories */
+#define ERROR_CATEGORY_NONE k_error_category_none
+#define ERROR_CATEGORY_HARDWARE k_error_category_hardware
+#define ERROR_CATEGORY_COMMUNICATION k_error_category_communication
+#define ERROR_CATEGORY_MEMORY k_error_category_memory
+#define ERROR_CATEGORY_SYSTEM k_error_category_system
+#define ERROR_CATEGORY_APPLICATION k_error_category_application
+#define ERROR_CATEGORY_COUNT k_error_category_count
+
+/* Backward compatibility macros for error severity levels */
+#define ERROR_SEVERITY_LOW k_error_severity_low
+#define ERROR_SEVERITY_MEDIUM k_error_severity_medium
+#define ERROR_SEVERITY_HIGH k_error_severity_high
+#define ERROR_SEVERITY_CRITICAL k_error_severity_critical
+#define ERROR_SEVERITY_FATAL k_error_severity_fatal
+#define ERROR_SEVERITY_COUNT k_error_severity_count
 
 /* Enums **********************************************************************/
 
 /**
- * @brief Error categories for classifying different types of errors
+ * @brief Error categories.
  */
-typedef enum : uint8_t {
-  k_error_category_none,          /**< No error or undefined category */
-  k_error_category_hardware,      /**< Hardware-related errors (sensors, actuators, etc.) */
-  k_error_category_communication, /**< Communication errors (I2C, SPI, UART, etc.) */
-  k_error_category_memory,        /**< Memory-related errors (allocation, access, etc.) */
-  k_error_category_system,        /**< System-level errors (task creation, queue, etc.) */
-  k_error_category_application,   /**< Application-specific errors */
-  k_error_category_security,      /**< Security-related errors */
-  k_error_category_power,         /**< Power-related errors */
-  k_error_category_timing,        /**< Timing-related errors */
-  k_error_category_configuration, /**< Configuration-related errors */
-  k_error_category_count,         /**< Number of error categories */
+typedef enum error_category {
+  k_error_category_none = 0,         /**< No category */
+  k_error_category_hardware,         /**< Hardware error */
+  k_error_category_communication,    /**< Communication error */
+  k_error_category_memory,           /**< Memory error */
+  k_error_category_system,           /**< System error */
+  k_error_category_application,      /**< Application error */
+  k_error_category_count,            /**< Number of categories */
 } error_category_t;
 
 /**
  * @brief Error severity levels
  */
-typedef enum : uint8_t {
-  k_error_severity_none,     /**< No error */
-  k_error_severity_info,     /**< Informational, not an error */
-  k_error_severity_low,      /**< Low severity, operation can continue */
-  k_error_severity_medium,   /**< Medium severity, functionality degraded */
-  k_error_severity_high,     /**< High severity, component cannot function */
-  k_error_severity_critical, /**< Critical severity, system cannot function */
-  k_error_severity_count,    /**< Number of severity levels */
+typedef enum error_severity {
+  k_error_severity_low = 0,      /**< Low severity error, can be ignored */
+  k_error_severity_medium,       /**< Medium severity error, should be addressed */
+  k_error_severity_high,         /**< High severity error, must be addressed */
+  k_error_severity_critical,     /**< Critical error, system may be unstable */
+  k_error_severity_fatal,        /**< Fatal error, system cannot continue */
+  k_error_severity_count,        /**< Number of severity levels */
 } error_severity_t;
 
 /**
@@ -279,20 +291,17 @@ struct component_info {
 esp_err_t error_handler_system_init(void);
 
 /**
- * @brief Initializes the state handler structure.
+ * @brief Initializes an error handler.
  *
- * Sets up initial values for retry management and state tracking. The reset_func
- * is initialized to NULL and can be set after initialization if needed.
- *
- * @param[out] handler                  Pointer to the error_handler_t structure to initialize
- * @param[in]  tag                      Tag to use for logging messages (usually component name)
- * @param[in]  max_retries              Maximum number of retry attempts
- * @param[in]  initial_interval         Initial retry interval in ticks
- * @param[in]  max_interval             Maximum backoff interval in ticks
- * @param[in]  reset_func               Pointer to the reset function to call when an error occurs
- * @param[in]  context                  Context pointer to pass to reset_func
- * @param[in]  initial_backoff_interval Initial backoff interval in ticks
- * @param[in]  max_backoff_interval     Maximum backoff interval in ticks
+ * @param handler Pointer to the error handler to initialize.
+ * @param tag Tag for log messages.
+ * @param max_retries Maximum number of retry attempts.
+ * @param initial_interval Initial retry interval in ticks.
+ * @param max_interval Maximum retry interval in ticks.
+ * @param reset_func Function to call during reset.
+ * @param context Context pointer for the reset function.
+ * @param initial_backoff_interval Initial backoff interval in ticks.
+ * @param max_backoff_interval Maximum backoff interval in ticks.
  */
 void error_handler_init(error_handler_t*  handler, 
                         const char* const tag,

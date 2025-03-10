@@ -1,14 +1,21 @@
 /* components/sensors/mq135_hal/mq135_hal.c */
 
 #include "mq135_hal.h"
+#include <stdlib.h>
 #include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "driver/adc.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_log.h"
+#include "log_handler.h"
+#include "error_handler.h"
+#include "common/common_setup.h"
+#include "common/common_cleanup.h"
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
-#include "esp_adc/adc_oneshot.h"
-#include "driver/gpio.h"
-#include "error_handler.h"
-#include "log_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -46,6 +53,30 @@ static float priv_mq135_calculate_ppm(int raw_adc_value)
   float resistance = (4095.0 / raw_adc_value - 1.0) * 10.0;              /* Assuming RL = 10k */
   float ppm        = 116.6020682 * pow(resistance / 10.0, -2.769034857); /* Example curve from datasheet */
   return ppm;
+}
+
+/**
+ * @brief Reset function for the MQ135 sensor
+ * 
+ * @param context Pointer to the sensor data
+ * @return esp_err_t ESP_OK on success, error code otherwise
+ */
+static esp_err_t priv_mq135_reset(void* context)
+{
+  if (context == NULL) {
+    log_error(mq135_tag, "Reset Error", "Invalid context pointer");
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  mq135_data_t* mq135_data = (mq135_data_t*)context;
+  
+  // Reset the sensor state
+  mq135_data->state = k_mq135_ready;
+  mq135_data->raw_adc_value = 0;
+  mq135_data->gas_concentration = 0.0f;
+  
+  log_info(mq135_tag, "Reset", "MQ135 sensor reset successfully");
+  return ESP_OK;
 }
 
 /* Public Functions ***********************************************************/
@@ -106,37 +137,23 @@ esp_err_t mq135_init(void* const sensor_data)
     return ESP_ERR_NO_MEM;
   }
 
-  error_handler_config_t error_config = {
-    .max_retries = mq135_max_retries,
-    .initial_retry_interval = mq135_initial_retry_interval,
-    .max_backoff_interval = mq135_max_backoff_interval,
-    .reset_func = NULL, /* No reset function for now */
-    .reset_arg = sensor_data
-  };
-  esp_err_t ret = error_handler_init(mq135_data->error_handler,
-                                    mq135_tag,
-                                    mq135_max_retries,
-                                    mq135_initial_retry_interval,
-                                    mq135_max_backoff_interval,
-                                    NULL, /* No reset function for now */
-                                    sensor_data,
-                                    mq135_initial_retry_interval,
-                                    mq135_max_backoff_interval);
-  if (ret != ESP_OK) {
-    log_error(mq135_tag, "Error Handler Init Failed", 
-              "Failed to initialize error handler: %s", esp_err_to_name(ret));
-    free(mq135_data->error_handler);
-    mq135_data->error_handler = NULL;
-    return ret;
-  }
+  error_handler_init(mq135_data->error_handler,
+                    mq135_tag,
+                    mq135_max_retries,
+                    mq135_initial_retry_interval,
+                    mq135_max_backoff_interval,
+                    priv_mq135_reset,
+                    sensor_data,
+                    mq135_initial_retry_interval,
+                    mq135_max_backoff_interval);
 
   /* Setup GPIO pins using common setup */
-  ret = common_setup_gpio((1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin),
-                         GPIO_MODE_INPUT,
-                         GPIO_PULLUP_DISABLE,
-                         GPIO_PULLDOWN_DISABLE,
-                         GPIO_INTR_DISABLE,
-                         mq135_tag);
+  esp_err_t ret = common_setup_gpio((1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin),
+                                     GPIO_MODE_INPUT,
+                                     GPIO_PULLUP_DISABLE,
+                                     GPIO_PULLDOWN_DISABLE,
+                                     GPIO_INTR_DISABLE,
+                                     mq135_tag);
   if (ret != ESP_OK) {
     log_error(mq135_tag, "GPIO Setup Failed", 
               "Failed to configure GPIO pins: %s", esp_err_to_name(ret));
@@ -259,8 +276,8 @@ void mq135_tasks(void* const sensor_data)
     } else {
       /* Record error in error handler */
       if (mq135_data->error_handler) {
-        ERROR_HARDWARE(mq135_data->error_handler, ret, k_error_severity_medium, 
-                      "Failed to read MQ135 gas sensor data");
+        ERROR_HARDWARE(mq135_data->error_handler, ret, k_error_severity_medium,
+                      "Failed to read MQ135 sensor data");
       }
       mq135_reset_on_error(mq135_data);
     }

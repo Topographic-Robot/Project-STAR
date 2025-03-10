@@ -31,20 +31,15 @@ static const char* const s_error_category_strings[k_error_category_count] = {
   "Communication",
   "Memory",
   "System",
-  "Application",
-  "Security",
-  "Power",
-  "Timing",
-  "Configuration"
+  "Application"
 };
 
 static const char* const s_error_severity_strings[k_error_severity_count] = {
-  "None",
-  "Info",
   "Low",
   "Medium",
   "High",
-  "Critical"
+  "Critical",
+  "Fatal"
 };
 
 static const char* const s_recovery_strategy_strings[k_recovery_strategy_count] = {
@@ -339,12 +334,6 @@ esp_err_t error_handler_record_error(error_handler_t* const handler,
 
   /* Log the error with appropriate level based on severity */
   switch (severity) {
-    case k_error_severity_info:
-      log_info(handler->tag, 
-               error_category_to_string(category), 
-               "%s [%s:%d in %s]", 
-               desc, file, line, func);
-      break;
     case k_error_severity_low:
       log_warn(handler->tag, 
                error_category_to_string(category), 
@@ -354,6 +343,7 @@ esp_err_t error_handler_record_error(error_handler_t* const handler,
     case k_error_severity_medium:
     case k_error_severity_high:
     case k_error_severity_critical:
+    case k_error_severity_fatal:
       log_error(handler->tag, 
                 error_category_to_string(category), 
                 "%s [%s:%d in %s]", 
@@ -375,12 +365,14 @@ esp_err_t error_handler_record_error(error_handler_t* const handler,
   /* Propagate error if enabled and severity is high enough */
   if (handler->propagate_errors && 
       (severity == k_error_severity_high || 
-      severity == k_error_severity_critical)) {
+       severity == k_error_severity_critical ||
+       severity == k_error_severity_fatal)) {
     priv_propagate_error(handler, &error_info);
   }
 
   /* For critical errors, always start recovery */
-  if (severity == k_error_severity_critical) {
+  if (severity == k_error_severity_critical || 
+      severity == k_error_severity_fatal) {
     esp_err_t ret = error_handler_start_recovery(handler);
     
     /* Release mutex */
@@ -1025,9 +1017,9 @@ esp_err_t error_handler_analyze_root_cause(error_handler_t* const handler,
       root_cause->confidence = 0.6f;
       break;
       
-    case k_error_category_power:
-      root_cause->diagnosis  = "Power-related issue detected";
-      root_cause->confidence = 0.85f;
+    case k_error_category_application:
+      root_cause->diagnosis  = "Application logic error detected";
+      root_cause->confidence = 0.75f;
       break;
       
     default:

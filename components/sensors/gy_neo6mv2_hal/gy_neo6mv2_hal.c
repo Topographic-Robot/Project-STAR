@@ -3,14 +3,20 @@
 #include "gy_neo6mv2_hal.h"
 #include <string.h>
 #include <stdlib.h>
-#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/uart.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "log_handler.h"
+#include "error_handler.h"
+#include "common/common_setup.h"
+#include "common/common_cleanup.h"
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/uart.h"
-#include "driver/gpio.h"
 #include "error_handler.h"
-#include "log_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -206,6 +212,37 @@ static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t* const satellites,
   return count;
 }
 
+/**
+ * @brief Reset function for the GY-NEO6MV2 GPS sensor
+ * 
+ * @param context Pointer to the sensor data
+ * @return esp_err_t ESP_OK on success, error code otherwise
+ */
+static esp_err_t priv_gy_neo6mv2_reset(void* context)
+{
+  if (context == NULL) {
+    log_error(gy_neo6mv2_tag, "Reset Error", "Invalid context pointer");
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  gy_neo6mv2_data_t* gy_neo6mv2_data = (gy_neo6mv2_data_t*)context;
+  
+  // Reset the sensor state
+  gy_neo6mv2_data->state = k_gy_neo6mv2_ready;
+  
+  // Reset GPS data fields
+  gy_neo6mv2_data->latitude = 0.0;
+  gy_neo6mv2_data->longitude = 0.0;
+  gy_neo6mv2_data->speed = 0.0;
+  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
+  gy_neo6mv2_data->fix_status = 0;
+  gy_neo6mv2_data->satellite_count = 0;
+  gy_neo6mv2_data->hdop = 0.0;
+  
+  log_info(gy_neo6mv2_tag, "Reset", "GY-NEO6MV2 GPS sensor reset successfully");
+  return ESP_OK;
+}
+
 /* Public Functions ***********************************************************/
 
 char* gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t* const gy_neo6mv2_data)
@@ -325,38 +362,24 @@ esp_err_t gy_neo6mv2_init(void* const sensor_data)
     return ESP_ERR_NO_MEM;
   }
 
-  error_handler_config_t error_config = {
-    .max_retries = gy_neo6mv2_max_retries,
-    .initial_retry_interval = gy_neo6mv2_initial_retry_interval,
-    .max_backoff_interval = gy_neo6mv2_max_backoff_interval,
-    .reset_func = NULL, /* No reset function for now */
-    .reset_arg = sensor_data
-  };
-  esp_err_t ret = error_handler_init(gy_neo6mv2_data->error_handler,
-                                    gy_neo6mv2_tag,
-                                    gy_neo6mv2_max_retries,
-                                    gy_neo6mv2_initial_retry_interval,
-                                    gy_neo6mv2_max_backoff_interval,
-                                    NULL, /* No reset function for now */
-                                    sensor_data,
-                                    gy_neo6mv2_initial_retry_interval,
-                                    gy_neo6mv2_max_backoff_interval);
-  if (ret != ESP_OK) {
-    log_error(gy_neo6mv2_tag, "Error Handler Init Failed", 
-              "Failed to initialize error handler: %s", esp_err_to_name(ret));
-    free(gy_neo6mv2_data->error_handler);
-    gy_neo6mv2_data->error_handler = NULL;
-    return ret;
-  }
+  error_handler_init(gy_neo6mv2_data->error_handler,
+                    gy_neo6mv2_tag,
+                    gy_neo6mv2_max_retries,
+                    gy_neo6mv2_initial_retry_interval,
+                    gy_neo6mv2_max_backoff_interval,
+                    priv_gy_neo6mv2_reset,
+                    sensor_data,
+                    gy_neo6mv2_initial_retry_interval,
+                    gy_neo6mv2_max_backoff_interval);
 
   /* Initialize UART using the common UART function */
-  ret = common_setup_uart(gy_neo6mv2_uart_num, 
-                         gy_neo6mv2_tx_io, 
-                         gy_neo6mv2_rx_io, 
-                         gy_neo6mv2_uart_baudrate,
-                         gy_neo6mv2_rx_buffer_size, 
-                         gy_neo6mv2_tx_buffer_size, 
-                         gy_neo6mv2_tag);
+  esp_err_t ret = common_setup_uart(gy_neo6mv2_uart_num, 
+                                     gy_neo6mv2_tx_io, 
+                                     gy_neo6mv2_rx_io, 
+                                     gy_neo6mv2_uart_baudrate,
+                                     gy_neo6mv2_rx_buffer_size, 
+                                     gy_neo6mv2_tx_buffer_size, 
+                                     gy_neo6mv2_tag);
   if (ret != ESP_OK) {
     log_error(gy_neo6mv2_tag, 
               "UART Init Failed", 
@@ -374,15 +397,16 @@ esp_err_t gy_neo6mv2_init(void* const sensor_data)
     "$PUBX,40,GSA,0,0,0,0*4E\r\n",        /* Disable GSA messages */
     "$PUBX,40,GSV,0,0,0,0*59\r\n",        /* Disable GSV messages */
     "$PUBX,40,VTG,0,0,0,0*5E\r\n",        /* Disable VTG messages */
-    "$PUBX,40,RMC,1,0,0,0*46\r\n",        /* Enable RMC messages */
-    "$PUBX,40,GGA,1,0,0,0*5B\r\n"         /* Enable GGA messages */
+    "$PUBX,40,RMC,1,0,0,0*47\r\n",        /* Enable RMC messages */
+    "$PUBX,40,GGA,1,0,0,0*5B\r\n",        /* Enable GGA messages */
   };
 
-  /* Send configuration commands */
+  /* Send configuration commands to the GPS module */
   for (size_t i = 0; i < sizeof(config_commands) / sizeof(config_commands[0]); i++) {
-    int32_t bytes_written = 0;
-    uart_write_bytes(gy_neo6mv2_uart_num, config_commands[i], strlen(config_commands[i]));
-    vTaskDelay(pdMS_TO_TICKS(100)); /* Wait for command processing */
+    uart_write_bytes(gy_neo6mv2_uart_num, 
+                     config_commands[i], 
+                     strlen(config_commands[i]));
+    vTaskDelay(pdMS_TO_TICKS(100)); /* Allow time for the command to be processed */
   }
 
   /* Allow time for the GPS module to warm up and apply settings */
@@ -610,8 +634,8 @@ void gy_neo6mv2_tasks(void* const sensor_data)
     } else {
       /* Record error in error handler */
       if (gy_neo6mv2_data->error_handler) {
-        ERROR_HARDWARE(gy_neo6mv2_data->error_handler, ret, k_error_severity_medium, 
-                      "Failed to read GY-NEO6MV2 GPS module data");
+        ERROR_HARDWARE(gy_neo6mv2_data->error_handler, ret, k_error_severity_medium,
+                      "Failed to read GPS data");
       }
       gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
     }

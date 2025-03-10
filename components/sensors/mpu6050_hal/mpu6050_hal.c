@@ -497,7 +497,7 @@ esp_err_t mpu6050_read(mpu6050_data_t* const sensor_data)
               "Failed to read accelerometer data: %s", 
               esp_err_to_name(ret));
     sensor_data->state = k_mpu6050_error;
-    ERROR_COMMUNICATION(&(sensor_data->error_handler), ret, ERROR_SEVERITY_MEDIUM, 
+    ERROR_COMMUNICATION(&(sensor_data->error_handler), ret, k_error_severity_medium, 
                         "Failed to read accelerometer data");
     return ret;
   }
@@ -516,7 +516,7 @@ esp_err_t mpu6050_read(mpu6050_data_t* const sensor_data)
               "Failed to read gyroscope data: %s", 
               esp_err_to_name(ret));
     sensor_data->state = k_mpu6050_error;
-    ERROR_COMMUNICATION(&(sensor_data->error_handler), ret, ERROR_SEVERITY_MEDIUM, 
+    ERROR_COMMUNICATION(&(sensor_data->error_handler), ret, k_error_severity_medium, 
                         "Failed to read gyroscope data");
     return ret;
   }

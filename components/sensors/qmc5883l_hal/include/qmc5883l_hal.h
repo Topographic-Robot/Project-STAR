@@ -118,13 +118,17 @@ typedef struct qmc5883l_scale {
  * state management fields for error handling and retries.
  */
 typedef struct qmc5883l_data {
-  uint8_t          i2c_address;   /**< I2C address for communication with the sensor. */
-  i2c_port_t       i2c_bus;       /**< I2C bus number the sensor is connected to. */
-  double           mag_x;         /**< Latest X-axis magnetic field reading. */
-  double           mag_y;         /**< Latest Y-axis magnetic field reading. */
-  double           mag_z;         /**< Latest Z-axis magnetic field reading. */
-  qmc5883l_states_t state;       /**< Current state of the sensor. */
-  error_handler_t  error_handler; /**< Error handler for the sensor. */
+  uint8_t          i2c_address;        /**< I2C address for communication with the sensor. */
+  i2c_port_t       i2c_bus;            /**< I2C bus number the sensor is connected to. */
+  double           mag_x;              /**< Latest X-axis magnetic field reading. */
+  double           mag_y;              /**< Latest Y-axis magnetic field reading. */
+  double           mag_z;              /**< Latest Z-axis magnetic field reading. */
+  double           heading;            /**< Calculated heading (yaw) in degrees. */
+  qmc5883l_states_t state;             /**< Current state of the sensor. */
+  error_handler_t  error_handler;      /**< Error handler for the sensor. */
+  uint8_t          retry_count;        /**< Counter for consecutive retry attempts. */
+  uint32_t         retry_interval;     /**< Current interval between retry attempts. */
+  TickType_t       last_attempt_ticks; /**< Tick count of the last retry attempt. */
 } qmc5883l_data_t;
 
 /* Public Functions ***********************************************************/

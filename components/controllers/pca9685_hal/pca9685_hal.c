@@ -4,6 +4,7 @@
 #include "common/i2c.h"
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "esp_err.h"
 #include "log_handler.h"
 #include "error_handler.h"
@@ -233,6 +234,38 @@ static esp_err_t priv_pca9685_reset(void* const context)
 
   board->state = k_pca9685_ready;
   return ESP_OK;
+}
+
+/**
+ * @brief Move a servo gradually from current angle to target angle
+ * 
+ * @param board The PCA9685 board
+ * @param motor_id The motor ID
+ * @param current_angle Current angle in degrees
+ * @param target_angle Target angle in degrees
+ * @return esp_err_t ESP_OK on success, error code otherwise
+ */
+static esp_err_t pca9685_move_gradually(const pca9685_board_t* const board, 
+                                        uint8_t motor_id, 
+                                        float current_angle, 
+                                        float target_angle) {
+    esp_err_t ret = ESP_OK;
+    float step = (target_angle > current_angle) ? pca9685_step_size_deg : -pca9685_step_size_deg;
+    float angle = current_angle;
+    
+    while (fabs(angle - target_angle) > pca9685_step_size_deg) {
+        angle += step;
+        uint16_t pwm_value = angle_to_pwm(angle);
+        ret = pca9685_set_pwm(board->i2c_address, motor_id, 0, pwm_value);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+        vTaskDelay(pdMS_TO_TICKS(pca9685_step_delay_ms));
+    }
+    
+    // Set final position
+    uint16_t target_pwm = angle_to_pwm(target_angle);
+    return pca9685_set_pwm(board->i2c_address, motor_id, 0, target_pwm);
 }
 
 /* Public Function Implementations *******************************************/

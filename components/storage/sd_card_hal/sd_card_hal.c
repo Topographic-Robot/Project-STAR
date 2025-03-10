@@ -56,7 +56,7 @@ static void priv_sd_card_cleanup(void)
   if (s_card != NULL) {
     esp_err_t ret = esp_vfs_fat_sdcard_unmount(sd_card_mount_path, s_card);
     if (ret != ESP_OK) {
-      ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_MEDIUM, 
+      ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_medium, 
                     "Failed to unmount SD card");
       log_error(sd_card_tag, "Unmount Error", "Failed to unmount SD card: %s", esp_err_to_name(ret));
     } else {
@@ -66,9 +66,9 @@ static void priv_sd_card_cleanup(void)
   }
   
   /* Deinitialize SPI bus */
-  esp_err_t ret = bus_manager_spi_deinit(sd_card_spi_host);
+  esp_err_t ret = bus_manager_spi_cleanup(sd_card_spi_host);
   if (ret != ESP_OK) {
-    ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_LOW, 
+    ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_low, 
                   "Failed to deinitialize SPI bus");
     log_warn(sd_card_tag, "SPI Warning", "Failed to deinitialize SPI bus: %s", esp_err_to_name(ret));
   }
@@ -105,7 +105,7 @@ static void priv_sd_card_mount_task(void* arg)
             s_sd_card_available = true;
             log_info(sd_card_tag, "Mount Success", "SD card mounted successfully");
           } else {
-            ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_MEDIUM, 
+            ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_medium, 
                           "Failed to mount SD card after insertion");
             log_error(sd_card_tag, "Mount Error", "Failed to mount SD card: %s", esp_err_to_name(ret));
           }
@@ -170,7 +170,7 @@ static esp_err_t priv_sd_card_init_cd_pin(void)
                                    sd_card_tag);
   
   if (ret != ESP_OK) {
-    ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_HIGH, 
+    ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_high, 
                   "Failed to configure CD pin");
     return ESP_FAIL;
   }
@@ -179,7 +179,7 @@ static esp_err_t priv_sd_card_init_cd_pin(void)
   ret = gpio_install_isr_service(0);
   if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
     /* ESP_ERR_INVALID_STATE means the service is already installed, which is fine */
-    ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_HIGH, 
+    ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_high, 
                   "Failed to install GPIO ISR service");
     return ESP_FAIL;
   }
@@ -187,7 +187,7 @@ static esp_err_t priv_sd_card_init_cd_pin(void)
   /* Add ISR handler for CD pin */
   ret = gpio_isr_handler_add(sd_card_cd, priv_sd_card_isr_handler, NULL);
   if (ret != ESP_OK) {
-    ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_HIGH, 
+    ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_high, 
                   "Failed to add ISR handler for CD pin");
     return ESP_FAIL;
   }
@@ -201,7 +201,7 @@ static esp_err_t priv_sd_card_init_cd_pin(void)
                                         &s_mount_task_handle);
   
   if (task_created != pdPASS) {
-    ERROR_HARDWARE(&s_sd_error_handler, ESP_FAIL, ERROR_SEVERITY_HIGH, 
+    ERROR_HARDWARE(&s_sd_error_handler, ESP_FAIL, k_error_severity_high, 
                   "Failed to create SD card mount task");
     gpio_isr_handler_remove(sd_card_cd);
     return ESP_FAIL;
@@ -239,7 +239,7 @@ esp_err_t sd_card_init(void)
                               sd_card_spi_host, 
                               SDSPI_DEFAULT_DMA);
     if (ret != ESP_OK) {
-      ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_MEDIUM, 
+      ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_medium, 
                     "Failed to initialize SPI bus");
       log_error(sd_card_tag, "SPI Error", "Failed to initialize SPI bus: %s", esp_err_to_name(ret));
       vTaskDelay(pdMS_TO_TICKS(sd_card_retry_delay_ms));
@@ -271,7 +271,7 @@ esp_err_t sd_card_init(void)
       
       return ESP_OK;
     } else {
-      ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_MEDIUM, 
+      ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_medium, 
                     "Failed to mount filesystem");
       log_error(sd_card_tag, "Mount Error", "Failed to mount filesystem: %s", esp_err_to_name(ret));
       priv_sd_card_cleanup();
@@ -280,7 +280,7 @@ esp_err_t sd_card_init(void)
     }
   }
 
-  ERROR_HARDWARE(&s_sd_error_handler, ESP_FAIL, ERROR_SEVERITY_HIGH, 
+  ERROR_HARDWARE(&s_sd_error_handler, ESP_FAIL, k_error_severity_high, 
                 "SD card initialization failed after maximum retries");
   log_error(sd_card_tag, "Init Error", "SD card initialization failed after %u retries", sd_card_max_retries);
   return ESP_FAIL;
@@ -320,7 +320,7 @@ esp_err_t sd_card_detection_init(void)
   /* Create mutex using common_setup */
   ret = common_setup_mutex(&s_sd_mutex, sd_card_tag);
   if (ret != ESP_OK) {
-    ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_HIGH, 
+    ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_high, 
                   "Failed to create SD card mutex");
     error_handler_unregister_component("sd_card");
     return ESP_FAIL;
@@ -329,7 +329,7 @@ esp_err_t sd_card_detection_init(void)
   /* Initialize CD pin and interrupt */
   ret = priv_sd_card_init_cd_pin();
   if (ret != ESP_OK) {
-    ERROR_HARDWARE(&s_sd_error_handler, ret, ERROR_SEVERITY_HIGH, 
+    ERROR_HARDWARE(&s_sd_error_handler, ret, k_error_severity_high, 
                   "Failed to initialize card detect pin");
     common_cleanup_mutex(&s_sd_mutex, sd_card_tag);
     error_handler_unregister_component("sd_card");
@@ -357,7 +357,7 @@ bool sd_card_is_available(void)
 esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t callback)
 {
   if (callback == NULL) {
-    ERROR_HARDWARE(&s_sd_error_handler, ESP_ERR_INVALID_ARG, ERROR_SEVERITY_LOW, 
+    ERROR_HARDWARE(&s_sd_error_handler, ESP_ERR_INVALID_ARG, k_error_severity_low, 
                   "NULL callback provided");
     return ESP_ERR_INVALID_ARG;
   }
@@ -372,7 +372,7 @@ esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t
     return ESP_OK;
   }
   
-  ERROR_HARDWARE(&s_sd_error_handler, ESP_ERR_TIMEOUT, ERROR_SEVERITY_LOW, 
+  ERROR_HARDWARE(&s_sd_error_handler, ESP_ERR_TIMEOUT, k_error_severity_low, 
                 "Failed to acquire mutex for registering callback");
   return ESP_ERR_TIMEOUT;
 }
@@ -386,7 +386,7 @@ esp_err_t sd_card_cleanup(void)
   /* Take the mutex to ensure exclusive access */
   if (s_sd_mutex != NULL) {
     if (xSemaphoreTake(s_sd_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
-      ERROR_HARDWARE(&s_sd_error_handler, ESP_ERR_TIMEOUT, ERROR_SEVERITY_LOW, 
+      ERROR_HARDWARE(&s_sd_error_handler, ESP_ERR_TIMEOUT, k_error_severity_low, 
                     "Could not acquire mutex for SD card cleanup");
       log_warn(sd_card_tag, "Mutex Warning", "Could not acquire mutex for SD card cleanup");
       ret = ESP_ERR_TIMEOUT;
@@ -398,7 +398,7 @@ esp_err_t sd_card_cleanup(void)
   if (s_sd_card_initialized) {
     esp_err_t isr_ret = gpio_isr_handler_remove(sd_card_cd);
     if (isr_ret != ESP_OK) {
-      ERROR_HARDWARE(&s_sd_error_handler, isr_ret, ERROR_SEVERITY_LOW, 
+      ERROR_HARDWARE(&s_sd_error_handler, isr_ret, k_error_severity_low, 
                     "Failed to remove ISR handler");
       log_warn(sd_card_tag, 
                "ISR Warning", 
@@ -465,7 +465,7 @@ esp_err_t sd_card_detection_cleanup(void)
   /* Remove the ISR handler for the CD pin */
   esp_err_t temp_ret = gpio_isr_handler_remove(sd_card_cd);
   if (temp_ret != ESP_OK) {
-    ERROR_HARDWARE(&s_sd_error_handler, temp_ret, ERROR_SEVERITY_LOW, 
+    ERROR_HARDWARE(&s_sd_error_handler, temp_ret, k_error_severity_low, 
                   "Failed to remove ISR handler");
     log_warn(sd_card_tag, 
              "ISR Warning", 
