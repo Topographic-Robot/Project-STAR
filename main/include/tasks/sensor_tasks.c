@@ -5,6 +5,7 @@
 #include "sensor_tasks.h"
 #include "system_tasks.h"
 #include "log_handler.h"
+#include "private/wrapper_cleanup.h"
 
 /* Globals (Static) ***********************************************************/
 
@@ -124,83 +125,8 @@ esp_err_t sensor_tasks(sensor_data_t* sensor_data)
 
 esp_err_t sensors_cleanup(sensor_data_t* sensor_data)
 {
-  esp_err_t overall_status = ESP_OK;
-  esp_err_t status;
-
-  log_info(system_tag, 
-           "Cleanup Start", 
-           "Beginning cleanup of all enabled sensors");
-
-  /* Clean up QMC5883L magnetometer */
-  log_info(system_tag, 
-           "Sensor Cleanup", 
-           "Cleaning up QMC5883L magnetometer");
-  status = qmc5883l_cleanup(&(sensor_data->qmc5883l_data));
-  if (status != ESP_OK) {
-    log_warn(system_tag, 
-             "Cleanup Warning", 
-             "QMC5883L magnetometer cleanup failed: %s", 
-             esp_err_to_name(status));
-    overall_status = ESP_FAIL;
-  } else {
-    log_info(system_tag, 
-             "Cleanup Success", 
-             "QMC5883L magnetometer cleaned up successfully");
-  }
-
-  /* Clean up MQ135 gas sensor */
-  log_info(system_tag, 
-           "Sensor Cleanup", 
-           "Cleaning up MQ135 gas sensor");
-  status = mq135_cleanup(&(sensor_data->mq135_data));
-  if (status != ESP_OK) {
-    log_warn(system_tag, 
-             "Cleanup Warning", 
-             "MQ135 gas sensor cleanup failed: %s", 
-             esp_err_to_name(status));
-    overall_status = ESP_FAIL;
-  } else {
-    log_info(system_tag, 
-             "Cleanup Success", 
-             "MQ135 gas sensor cleaned up successfully");
-  }
-
-  /* Clean up MPU6050 motion sensor */
-  log_info(system_tag, 
-           "Sensor Cleanup", 
-           "Cleaning up MPU6050 motion sensor");
-  status = mpu6050_cleanup(&(sensor_data->mpu6050_data));
-  if (status != ESP_OK) {
-    log_warn(system_tag, 
-             "Cleanup Warning", 
-             "MPU6050 motion sensor cleanup failed: %s", 
-             esp_err_to_name(status));
-    overall_status = ESP_FAIL;
-  } else {
-    log_info(system_tag, 
-             "Cleanup Success", 
-             "MPU6050 motion sensor cleaned up successfully");
-  }
-
-  /* Add cleanup for other sensors as they are implemented */
-  /* For example:
-  status = bh1750_cleanup(&(sensor_data->bh1750_data));
-  status = dht22_cleanup(&(sensor_data->dht22_data));
-  status = gy_neo6mv2_cleanup(&(sensor_data->gy_neo6mv2_data));
-  status = ccs811_cleanup(&(sensor_data->ccs811_data));
-  */
-
-  if (overall_status == ESP_OK) {
-    log_info(system_tag, 
-             "Cleanup Complete", 
-             "All enabled sensors cleaned up successfully");
-  } else {
-    log_warn(system_tag, 
-             "Cleanup Warning", 
-             "Sensor cleanup partially complete, some sensors failed");
-  }
-
-  return overall_status;
+  /* Use the wrapper function to clean up all sensors */
+  return wrapper_cleanup_all_sensors();
 }
 
 esp_err_t sensor_tasks_stop(sensor_data_t* sensor_data)

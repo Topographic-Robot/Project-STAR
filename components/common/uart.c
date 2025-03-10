@@ -55,24 +55,25 @@ esp_err_t priv_uart_init(uint8_t           tx_io,
  * - `ESP_OK` on successful deinitialization.
  * - Error codes from `esp_err_t` on failure.
  */
-esp_err_t priv_uart_deinit(uart_port_t uart_num, const char* const tag)
+esp_err_t priv_uart_cleanup(uart_port_t uart_num, const char* const tag)
 {
-  esp_err_t ret = bus_manager_uart_deinit(uart_num);
+  esp_err_t ret = bus_manager_uart_cleanup(uart_num);
   
   if (ret != ESP_OK) {
     log_error(tag, 
-              "Deinit Error", 
-              "Failed to deinitialize UART port %d: %s", 
-              uart_num,
+              "Cleanup Error", 
+              "Failed to clean up UART port %d: %s", 
+              uart_num, 
               esp_err_to_name(ret));
-  } else {
-    log_info(tag,
-             "Deinit Success",
-             "UART port %d deinitialized successfully",
-             uart_num);
+    return ret;
   }
   
-  return ret;
+  log_info(tag, 
+           "Cleanup Success", 
+           "UART port %d cleaned up successfully", 
+           uart_num);
+  
+  return ESP_OK;
 }
 
 esp_err_t priv_uart_read(uint8_t*          data, 

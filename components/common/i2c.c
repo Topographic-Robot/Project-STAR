@@ -2,6 +2,7 @@
 
 #include "common/i2c.h"
 #include "common/bus_manager.h"
+#include "common/common_cleanup.h"
 #include "driver/i2c.h"
 #include "log_handler.h"
 
@@ -215,23 +216,11 @@ esp_err_t priv_i2c_read_reg_bytes(uint8_t           reg_addr,
  * - `ESP_OK` on successful deinitialization.
  * - Error codes from `esp_err_t` on failure.
  */
-esp_err_t priv_i2c_deinit(i2c_port_t i2c_bus, const char* const tag)
+esp_err_t priv_i2c_cleanup(i2c_port_t i2c_bus, const char* const tag)
 {
-  esp_err_t err = bus_manager_i2c_deinit(i2c_bus);
-  
-  if (err != ESP_OK) {
-    log_error(tag, 
-              "Deinit Error", 
-              "Failed to deinitialize I2C bus %d: %s", 
-              i2c_bus,
-              esp_err_to_name(err));
-  } else {
-    log_info(tag,
-             "Deinit Success",
-             "I2C bus %d deinitialized successfully",
-             i2c_bus);
-  }
-  
-  return err;
+  /* Use the common cleanup function for I2C */
+  /* Note: We pass -1 for GPIO pins since we don't have access to them here */
+  /* The bus manager will handle the GPIO cleanup */
+  return common_cleanup_i2c(i2c_bus, -1, -1, tag);
 }
 

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
+#include "common/common_cleanup.h"
 
 /* Forward Declarations for Private Functions *********************************/
 
@@ -1464,8 +1465,11 @@ esp_err_t error_handler_cleanup(error_handler_t* const handler)
   /* Release mutex before deleting it */
   if (handler->mutex) {
     xSemaphoreGive(handler->mutex);
-    vSemaphoreDelete(handler->mutex);
+    
+    /* Use common cleanup function to delete the mutex */
+    SemaphoreHandle_t temp_mutex = handler->mutex;
     handler->mutex = NULL;
+    common_cleanup_mutex(&temp_mutex, handler->tag);
   }
   
   log_info(handler->tag, "Cleanup Complete", "Error handler resources freed");

@@ -256,7 +256,7 @@ esp_err_t ccs811_cleanup(void* const sensor_data)
   }
 
   /* Clean up I2C resources */
-  temp_ret = priv_i2c_deinit(ccs811_i2c_bus, ccs811_tag);
+  temp_ret = priv_i2c_cleanup(ccs811_i2c_bus, ccs811_tag);
   if (temp_ret != ESP_OK) {
     log_warn(ccs811_tag, 
              "I2C Warning", 

@@ -7,6 +7,7 @@
 #include "common/i2c.h"
 #include "error_handler.h"
 #include "log_handler.h"
+#include "common/common_cleanup.h"
 
 /* Constants ******************************************************************/
 
@@ -244,21 +245,10 @@ esp_err_t bh1750_cleanup(void* const sensor_data)
     ret = temp_ret;
   }
 
-  /* Reset GPIO pins to input mode with no pull-up/down */
-  gpio_config_t io_conf = {
-    .pin_bit_mask = (1ULL << bh1750_scl_io) | (1ULL << bh1750_sda_io),
-    .mode         = GPIO_MODE_INPUT,
-    .pull_up_en   = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type    = GPIO_INTR_DISABLE
-  };
-
-  temp_ret = gpio_config(&io_conf);
+  /* Reset GPIO pins using common cleanup function */
+  uint64_t pin_mask = (1ULL << bh1750_scl_io) | (1ULL << bh1750_sda_io);
+  temp_ret = common_cleanup_gpio(pin_mask, bh1750_tag);
   if (temp_ret != ESP_OK) {
-    log_warn(bh1750_tag, 
-             "GPIO Warning", 
-             "Failed to reset GPIO pin configuration: %s", 
-             esp_err_to_name(temp_ret));
     ret = temp_ret;
   }
 
@@ -269,7 +259,7 @@ esp_err_t bh1750_cleanup(void* const sensor_data)
   }
 
   /* Clean up I2C resources */
-  temp_ret = priv_i2c_deinit(bh1750_i2c_bus, bh1750_tag);
+  temp_ret = common_cleanup_i2c(bh1750_i2c_bus, bh1750_scl_io, bh1750_sda_io, bh1750_tag);
   if (temp_ret != ESP_OK) {
     log_warn(bh1750_tag, 
              "I2C Warning", 
@@ -278,15 +268,10 @@ esp_err_t bh1750_cleanup(void* const sensor_data)
     ret = temp_ret;
   }
 
-  if (ret == ESP_OK) {
-    log_info(bh1750_tag, 
-             "Cleanup Complete", 
-             "BH1750 sensor resources released successfully");
-  } else {
-    log_warn(bh1750_tag, 
-             "Cleanup Warning", 
-             "BH1750 cleanup completed with some warnings");
-  }
+  log_info(bh1750_tag, 
+           "Cleanup Complete", 
+           "BH1750 sensor cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
 
   return ret;
 }

@@ -94,7 +94,7 @@ This document outlines the specific improvements that should be implemented for 
 
 1. **Consistent API**: Maintain a consistent API across all communication interfaces:
    - `xxx_init()` - Initialize the interface (xxx = i2c, uart, spi)
-   - `xxx_deinit()` - Deinitialize the interface
+   - `xxx_cleanup()` - Clean up the interface
    - `xxx_read()` - Read data from the interface
    - `xxx_write()` - Write data to the interface
    - `xxx_transfer()` - Combined read/write operation

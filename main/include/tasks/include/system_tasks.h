@@ -26,6 +26,27 @@ extern pca9685_board_t* g_pwm_controller; /**< Global variable that holds the PW
 /* TODO: Make this support all 6 cameras */
 extern ov7670_data_t    g_camera_data;    /**< Global variable that holds the camera data */
 
+/* Structs ********************************************************************/
+
+/**
+ * @brief Configuration structure for system components
+ * 
+ * This structure defines the interface for system components that can be
+ * initialized, started, stopped, and cleaned up. Each component has a name,
+ * function pointers for lifecycle operations, and an enabled flag.
+ * 
+ * All function pointers must have a void parameter signature. For functions
+ * that require parameters, wrapper functions must be created.
+ */
+typedef struct system_component_config {
+  const char* component_name;          /**< Name of the component for logging */
+  esp_err_t (*init_function)(void);    /**< Function to initialize the component */
+  esp_err_t (*start_function)(void);   /**< Function to start the component */
+  esp_err_t (*stop_function)(void);    /**< Function to stop the component */
+  esp_err_t (*cleanup_function)(void); /**< Function to clean up the component */
+  bool        enabled;                 /**< Whether the component is enabled */
+} system_component_config_t;
+
 /* Public Functions ***********************************************************/
 
 /**

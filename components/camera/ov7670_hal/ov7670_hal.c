@@ -360,7 +360,7 @@ esp_err_t ov7670_cleanup(void* const camera_data)
   }
 
   /* Clean up I2C resources */
-  temp_ret = priv_i2c_deinit(ov7670_i2c_bus, ov7670_tag);
+  temp_ret = priv_i2c_cleanup(ov7670_i2c_bus, ov7670_tag);
   if (temp_ret != ESP_OK) {
     log_warn(ov7670_tag, 
              "I2C Warning", 

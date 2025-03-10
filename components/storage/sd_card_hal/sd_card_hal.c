@@ -312,11 +312,11 @@ esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t
   return ESP_FAIL;
 }
 
-esp_err_t sd_card_deinit(void)
+esp_err_t sd_card_cleanup(void)
 {
   esp_err_t ret = ESP_OK;
   
-  log_info(sd_card_tag, "Deinit Start", "Beginning SD card system shutdown");
+  log_info(sd_card_tag, "Cleanup Start", "Beginning SD card system shutdown");
   
   /* Take the mutex to ensure exclusive access */
   if (s_sd_mutex != NULL) {
@@ -367,7 +367,7 @@ esp_err_t sd_card_deinit(void)
   
   s_sd_card_initialized = false;
   
-  log_info(sd_card_tag, "Deinit Complete", "SD card system shutdown %s", 
+  log_info(sd_card_tag, "Cleanup Complete", "SD card system shutdown %s", 
            (ret == ESP_OK) ? "successful" : "completed with warnings");
   
   return ret;

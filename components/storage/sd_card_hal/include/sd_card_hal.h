@@ -90,15 +90,13 @@ bool sd_card_is_available(void);
 esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t callback);
 
 /**
- * @brief Deinitializes the SD card system and releases all resources.
+ * @brief Cleans up the SD card system and releases all resources.
  *
- * This function should be called during system shutdown to properly clean up
- * all SD card related resources, including unmounting the filesystem,
- * stopping the detection task, and freeing the SPI bus.
- *
- * @return ESP_OK if successful, ESP_FAIL if any part of the cleanup fails.
+ * @return
+ *     - ESP_OK on success
+ *     - ESP_FAIL on failure
  */
-esp_err_t sd_card_deinit(void);
+esp_err_t sd_card_cleanup(void);
 
 #ifdef __cplusplus
 }

@@ -81,39 +81,44 @@ esp_err_t bus_manager_i2c_init(uint8_t    scl_io,
   return ESP_OK;
 }
 
-esp_err_t bus_manager_i2c_deinit(i2c_port_t i2c_bus)
+esp_err_t bus_manager_i2c_cleanup(i2c_port_t i2c_bus)
 {
-  if (i2c_bus >= I2C_NUM_MAX) {
+  esp_err_t ret = ESP_OK;
+  
+  /* Check if the I2C bus is valid */
+  if (i2c_bus < 0 || i2c_bus >= I2C_NUM_MAX) {
     log_error(bus_manager_tag, 
-              "I2C Error", 
+              "I2C Parameter Error", 
               "Invalid I2C bus number: %d", 
               i2c_bus);
     return ESP_ERR_INVALID_ARG;
   }
-
+  
+  /* Check if the I2C bus is initialized */
   if (!s_i2c_initialized[i2c_bus]) {
-    log_warn(bus_manager_tag, 
-             "I2C Warning", 
-             "I2C bus %d is not initialized", 
-             i2c_bus);
+    /* Bus not initialized, nothing to do */
     return ESP_OK;
   }
-
-  esp_err_t err = i2c_driver_delete(i2c_bus);
-  if (err != ESP_OK) {
+  
+  /* Driver deinitialize */
+  ret = i2c_driver_delete(i2c_bus);
+  if (ret != ESP_OK) {
     log_error(bus_manager_tag, 
-              "I2C Deinit Error", 
-              "Failed to delete I2C driver: %s", 
-              esp_err_to_name(err));
-    return err;
+              "I2C Cleanup Error", 
+              "Failed to delete I2C driver for bus %d: %s", 
+              i2c_bus, 
+              esp_err_to_name(ret));
+    return ret;
   }
-
+  
+  /* Mark the bus as uninitialized */
   s_i2c_initialized[i2c_bus] = false;
+  
   log_info(bus_manager_tag, 
-           "I2C Deinit", 
-           "I2C bus %d deinitialized successfully", 
+           "I2C Cleanup", 
+           "I2C bus %d cleaned up successfully", 
            i2c_bus);
-
+  
   return ESP_OK;
 }
 
@@ -166,39 +171,44 @@ esp_err_t bus_manager_spi_init(int mosi_io, int miso_io, int sclk_io, spi_host_d
   return ESP_OK;
 }
 
-esp_err_t bus_manager_spi_deinit(spi_host_device_t host)
+esp_err_t bus_manager_spi_cleanup(spi_host_device_t host)
 {
-  if (host >= SPI_HOST_MAX) {
+  esp_err_t ret = ESP_OK;
+  
+  /* Check if the SPI host is valid */
+  if (host < 0 || host >= SPI_HOST_MAX) {
     log_error(bus_manager_tag, 
-              "SPI Error", 
-              "Invalid SPI host: %d", 
+              "SPI Parameter Error", 
+              "Invalid SPI host number: %d", 
               host);
     return ESP_ERR_INVALID_ARG;
   }
-
+  
+  /* Check if the SPI host is initialized */
   if (!s_spi_initialized[host]) {
-    log_warn(bus_manager_tag, 
-             "SPI Warning", 
-             "SPI host %d is not initialized", 
-             host);
+    /* Host not initialized, nothing to do */
     return ESP_OK;
   }
-
-  esp_err_t err = spi_bus_free(host);
-  if (err != ESP_OK) {
+  
+  /* Driver deinitialize */
+  ret = spi_bus_free(host);
+  if (ret != ESP_OK) {
     log_error(bus_manager_tag, 
-              "SPI Deinit Error", 
-              "Failed to free SPI bus: %s", 
-              esp_err_to_name(err));
-    return err;
+              "SPI Cleanup Error", 
+              "Failed to free SPI bus for host %d: %s", 
+              host, 
+              esp_err_to_name(ret));
+    return ret;
   }
-
+  
+  /* Mark the host as uninitialized */
   s_spi_initialized[host] = false;
+  
   log_info(bus_manager_tag, 
-           "SPI Deinit", 
-           "SPI host %d deinitialized successfully", 
+           "SPI Cleanup", 
+           "SPI host %d cleaned up successfully", 
            host);
-
+  
   return ESP_OK;
 }
 
@@ -277,90 +287,95 @@ esp_err_t bus_manager_uart_init(uint8_t     tx_io,
   return ESP_OK;
 }
 
-esp_err_t bus_manager_uart_deinit(uart_port_t uart_num)
+esp_err_t bus_manager_uart_cleanup(uart_port_t uart_num)
 {
-  if (uart_num >= UART_NUM_MAX) {
+  esp_err_t ret = ESP_OK;
+  
+  /* Check if the UART port is valid */
+  if (uart_num < 0 || uart_num >= UART_NUM_MAX) {
     log_error(bus_manager_tag, 
-              "UART Error", 
+              "UART Parameter Error", 
               "Invalid UART port number: %d", 
               uart_num);
     return ESP_ERR_INVALID_ARG;
   }
-
+  
+  /* Check if the UART port is initialized */
   if (!s_uart_initialized[uart_num]) {
-    log_warn(bus_manager_tag, 
-             "UART Warning", 
-             "UART port %d is not initialized", 
-             uart_num);
+    /* Port not initialized, nothing to do */
     return ESP_OK;
   }
-
-  esp_err_t err = uart_driver_delete(uart_num);
-  if (err != ESP_OK) {
+  
+  /* Driver deinitialize */
+  ret = uart_driver_delete(uart_num);
+  if (ret != ESP_OK) {
     log_error(bus_manager_tag, 
-              "UART Deinit Error", 
-              "Failed to delete UART driver: %s", 
-              esp_err_to_name(err));
-    return err;
+              "UART Cleanup Error", 
+              "Failed to delete UART driver for port %d: %s", 
+              uart_num, 
+              esp_err_to_name(ret));
+    return ret;
   }
-
+  
+  /* Mark the port as uninitialized */
   s_uart_initialized[uart_num] = false;
+  
   log_info(bus_manager_tag, 
-           "UART Deinit", 
-           "UART port %d deinitialized successfully", 
+           "UART Cleanup", 
+           "UART port %d cleaned up successfully", 
            uart_num);
-
+  
   return ESP_OK;
 }
 
-esp_err_t bus_manager_deinit_all(void)
+esp_err_t bus_manager_cleanup_all(void)
 {
   esp_err_t ret = ESP_OK;
-  esp_err_t temp_ret;
-
+  esp_err_t temp_ret = ESP_OK;
+  
   log_info(bus_manager_tag, 
-           "Deinit Start", 
-           "Beginning deinitialization of all communication buses");
-
-  /* Deinitialize all I2C buses */
-  for (i2c_port_t i = 0; i < I2C_NUM_MAX; i++) {
+           "Cleanup Start", 
+           "Beginning cleanup of all communication buses");
+  
+  /* Clean up all I2C buses */
+  for (int i = 0; i < I2C_NUM_MAX; i++) {
     if (s_i2c_initialized[i]) {
-      temp_ret = bus_manager_i2c_deinit(i);
-      if (temp_ret != ESP_OK) {
-        ret = ESP_FAIL;
-      }
-    }
-  }
-
-  /* Deinitialize all SPI buses */
-  for (spi_host_device_t i = 0; i < SPI_HOST_MAX; i++) {
-    if (s_spi_initialized[i]) {
-      temp_ret = bus_manager_spi_deinit(i);
+      temp_ret = bus_manager_i2c_cleanup(i);
       if (temp_ret != ESP_OK) {
         ret = ESP_FAIL;
       }
     }
   }
   
-  /* Deinitialize all UART ports */
-  for (uart_port_t i = 0; i < UART_NUM_MAX; i++) {
-    if (s_uart_initialized[i]) {
-      temp_ret = bus_manager_uart_deinit(i);
+  /* Clean up all SPI buses */
+  for (int i = 0; i < SPI_HOST_MAX; i++) {
+    if (s_spi_initialized[i]) {
+      temp_ret = bus_manager_spi_cleanup(i);
       if (temp_ret != ESP_OK) {
         ret = ESP_FAIL;
       }
     }
   }
-
+  
+  /* Clean up all UART ports */
+  for (int i = 0; i < UART_NUM_MAX; i++) {
+    if (s_uart_initialized[i]) {
+      temp_ret = bus_manager_uart_cleanup(i);
+      if (temp_ret != ESP_OK) {
+        ret = ESP_FAIL;
+      }
+    }
+  }
+  
   if (ret == ESP_OK) {
     log_info(bus_manager_tag, 
-             "Deinit Complete", 
-             "All communication buses deinitialized successfully");
+             "Cleanup Complete", 
+             "All communication buses cleaned up successfully");
   } else {
     log_warn(bus_manager_tag, 
-             "Deinit Warning", 
-             "Some communication buses failed to deinitialize");
+             "Cleanup Warning", 
+             "Some communication buses failed to clean up");
   }
-
+  
   return ret;
 } 

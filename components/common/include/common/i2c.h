@@ -43,18 +43,18 @@ esp_err_t priv_i2c_init(uint8_t           scl_io,
                         const char* const tag);
 
 /**
- * @brief Deinitializes the I2C interface.
+ * @brief Cleans up the I2C interface.
  *
- * Uses the bus manager to deinitialize the specified I2C bus.
+ * Uses the bus manager to clean up the specified I2C bus.
  *
- * @param[in] i2c_bus I2C bus number to deinitialize.
- * @param[in] tag     Logging tag for error messages.
+ * @param[in] i2c_bus I2C bus number to clean up.
+ * @param[in] tag     Tag to use for logging.
  *
  * @return
- * - `ESP_OK` on successful deinitialization.
- * - Error codes from `esp_err_t` on failure.
+ * - `ESP_OK` on successful cleanup.
+ * - Other error codes on failure.
  */
-esp_err_t priv_i2c_deinit(i2c_port_t i2c_bus, const char* const tag);
+esp_err_t priv_i2c_cleanup(i2c_port_t i2c_bus, const char* const tag);
 
 /**
  * @brief Writes a single byte to a specific I2C device.

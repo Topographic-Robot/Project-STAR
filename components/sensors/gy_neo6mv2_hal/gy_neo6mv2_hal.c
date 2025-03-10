@@ -618,7 +618,7 @@ esp_err_t gy_neo6mv2_cleanup(void* const sensor_data)
   }
 
   /* Clean up UART resources */
-  temp_ret = priv_uart_deinit(gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  temp_ret = priv_uart_cleanup(gy_neo6mv2_uart_num, gy_neo6mv2_tag);
   if (temp_ret != ESP_OK) {
     log_warn(gy_neo6mv2_tag, 
              "UART Warning", 

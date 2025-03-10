@@ -440,10 +440,10 @@ esp_err_t wifi_task_stop(void)
   esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, NULL);
   esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, NULL);
 
-  /* Deinitialize WiFi driver */
+  /* Clean up WiFi driver */
   ret = esp_wifi_deinit();
   if (ret != ESP_OK) {
-    log_warn(wifi_tag, "Deinit Warning", "Failed to deinitialize WiFi: %d", ret);
+    log_warn(wifi_tag, "Cleanup Warning", "Failed to clean up WiFi: %d", ret);
   }
 
   /* Delete the connection timer if it exists */

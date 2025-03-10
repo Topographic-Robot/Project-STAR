@@ -39,18 +39,18 @@ esp_err_t bus_manager_i2c_init(uint8_t    scl_io,
                                i2c_port_t i2c_bus);
 
 /**
- * @brief Deinitializes the specified I2C bus.
+ * @brief Cleans up the specified I2C bus.
  *
- * Releases resources associated with the I2C bus. This function should be called
- * during system shutdown after all I2C devices have been deinitialized.
+ * This function releases all resources associated with the I2C bus.
+ * It should be called during system shutdown after all I2C devices have been cleaned up.
  *
- * @param[in] i2c_bus I2C port number to deinitialize.
+ * @param[in] i2c_bus I2C port number to clean up.
  *
- * @return 
- * - ESP_OK if the I2C bus was deinitialized successfully.
- * - ESP_FAIL or other error code if deinitialization failed.
+ * @return
+ * - ESP_OK if the I2C bus was cleaned up successfully.
+ * - ESP_FAIL or other error code if cleanup failed.
  */
-esp_err_t bus_manager_i2c_deinit(i2c_port_t i2c_bus);
+esp_err_t bus_manager_i2c_cleanup(i2c_port_t i2c_bus);
 
 /**
  * @brief Initializes the SPI bus with the specified parameters.
@@ -75,18 +75,18 @@ esp_err_t bus_manager_spi_init(int               mosi_io,
                                int               dma_chan);
 
 /**
- * @brief Deinitializes the specified SPI bus.
+ * @brief Cleans up the specified SPI bus.
  *
- * Releases resources associated with the SPI bus. This function should be called
- * during system shutdown after all SPI devices have been deinitialized.
+ * This function releases all resources associated with the SPI bus.
+ * It should be called during system shutdown after all SPI devices have been cleaned up.
  *
- * @param[in] host SPI host to deinitialize.
+ * @param[in] host SPI host to clean up.
  *
- * @return 
- * - ESP_OK if the SPI bus was deinitialized successfully.
- * - ESP_FAIL or other error code if deinitialization failed.
+ * @return
+ * - ESP_OK if the SPI bus was cleaned up successfully.
+ * - ESP_FAIL or other error code if cleanup failed.
  */
-esp_err_t bus_manager_spi_deinit(spi_host_device_t host);
+esp_err_t bus_manager_spi_cleanup(spi_host_device_t host);
 
 /**
  * @brief Initializes the UART interface with specified parameters.
@@ -113,30 +113,30 @@ esp_err_t bus_manager_uart_init(uint8_t     tx_io,
                                 size_t      tx_buffer_size);
 
 /**
- * @brief Deinitializes the specified UART port.
+ * @brief Cleans up the specified UART port.
  *
- * Releases resources associated with the UART port. This function should be called
- * during system shutdown after all UART communication has completed.
+ * This function releases all resources associated with the UART port.
+ * It should be called during system shutdown after all UART devices have been cleaned up.
  *
- * @param[in] uart_num UART port number to deinitialize.
+ * @param[in] uart_num UART port number to clean up.
  *
- * @return 
- * - ESP_OK if the UART port was deinitialized successfully.
- * - ESP_FAIL or other error code if deinitialization failed.
+ * @return
+ * - ESP_OK if the UART port was cleaned up successfully.
+ * - ESP_FAIL or other error code if cleanup failed.
  */
-esp_err_t bus_manager_uart_deinit(uart_port_t uart_num);
+esp_err_t bus_manager_uart_cleanup(uart_port_t uart_num);
 
 /**
- * @brief Deinitializes all communication buses.
+ * @brief Cleans up all communication buses.
  *
- * Releases resources associated with all I2C, SPI, and UART buses. This function should
- * be called during system shutdown after all devices have been deinitialized.
+ * This function releases all resources associated with all communication buses.
+ * It should be called during system shutdown after all devices have been cleaned up.
  *
- * @return 
- * - ESP_OK if all buses were deinitialized successfully.
- * - ESP_FAIL if any bus failed to deinitialize.
+ * @return
+ * - ESP_OK if all buses were cleaned up successfully.
+ * - ESP_FAIL if any bus failed to clean up.
  */
-esp_err_t bus_manager_deinit_all(void);
+esp_err_t bus_manager_cleanup_all(void);
 
 #ifdef __cplusplus
 }
