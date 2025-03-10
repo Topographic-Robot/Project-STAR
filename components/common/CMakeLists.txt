@@ -5,6 +5,7 @@ idf_component_register(
     "error_handler.c"
     "log_handler.c"
     "log_storage.c"
+    "bus_manager.c"
   INCLUDE_DIRS
     "include"
   PRIV_REQUIRES

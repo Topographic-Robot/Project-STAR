@@ -391,3 +391,98 @@ esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data,
 
   return ESP_OK;
 }
+
+esp_err_t pca9685_cleanup(pca9685_board_t** const controller_data)
+{
+  if (controller_data == NULL || *controller_data == NULL) {
+    log_error(pca9685_tag, 
+              "Cleanup Error", 
+              "Invalid controller data pointer");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  log_info(pca9685_tag, "Cleanup Start", "Beginning PCA9685 controller cleanup");
+  esp_err_t ret = ESP_OK;
+
+  /* Put all boards in sleep mode and reset outputs */
+  pca9685_board_t* current = *controller_data;
+  while (current != NULL) {
+    /* Put board in sleep mode */
+    esp_err_t temp_ret = pca9685_write_register(current->i2c_address, 
+                                                k_pca9685_mode1_cmd, 
+                                                k_pca9685_sleep_cmd);
+    if (temp_ret != ESP_OK) {
+      log_warn(pca9685_tag, 
+               "Sleep Warning", 
+               "Failed to put board %u in sleep mode: %s", 
+               current->board_id, 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+
+    /* Reset all outputs to 0 */
+    for (int i = 0; i < PCA9685_MOTORS_PER_BOARD; i++) {
+      temp_ret = pca9685_set_pwm(current->i2c_address, i, 0, 0);
+      if (temp_ret != ESP_OK) {
+        log_warn(pca9685_tag, 
+                 "Reset Warning", 
+                 "Failed to reset output %d on board %u: %s", 
+                 i, 
+                 current->board_id, 
+                 esp_err_to_name(temp_ret));
+        ret = temp_ret;
+      }
+    }
+
+    current = current->next;
+  }
+
+  /* Reset GPIO pins to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << pca9685_scl_io) | (1ULL << pca9685_sda_io),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  esp_err_t temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(pca9685_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Clean up I2C resources */
+  temp_ret = i2c_driver_delete(pca9685_i2c_bus);
+  if (temp_ret != ESP_OK) {
+    log_warn(pca9685_tag, 
+             "I2C Warning", 
+             "Failed to delete I2C driver: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Free allocated memory and reset pointer */
+  current = *controller_data;
+  while (current != NULL) {
+    pca9685_board_t* next = current->next;
+    free(current);
+    current = next;
+  }
+  *controller_data = NULL;
+
+  if (ret == ESP_OK) {
+    log_info(pca9685_tag, 
+             "Cleanup Complete", 
+             "PCA9685 controller resources released successfully");
+  } else {
+    log_warn(pca9685_tag, 
+             "Cleanup Warning", 
+             "PCA9685 cleanup completed with some warnings");
+  }
+
+  return ret;
+}

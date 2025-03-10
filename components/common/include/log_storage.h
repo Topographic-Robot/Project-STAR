@@ -1,3 +1,5 @@
+/* components/common/include/log_storage.h */
+
 #ifndef TOPOROBO_LOG_STORAGE_H
 #define TOPOROBO_LOG_STORAGE_H
 
@@ -95,6 +97,19 @@ esp_err_t log_storage_set_compression(bool enabled);
  * @return true if compression is enabled, false otherwise
  */
 bool log_storage_is_compression_enabled(void);
+
+/**
+ * @brief Cleans up the log storage system
+ * 
+ * Performs cleanup of resources allocated during log storage initialization.
+ * This includes:
+ * 1. Flushing any buffered logs
+ * 2. Closing open files
+ * 3. Freeing allocated memory
+ * 
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ */
+esp_err_t log_storage_cleanup(void);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,7 @@
 /* components/common/i2c.c */
 
 #include "common/i2c.h"
+#include "common/bus_manager.h"
 #include "driver/i2c.h"
 #include "log_handler.h"
 
@@ -16,28 +17,18 @@ esp_err_t priv_i2c_init(uint8_t           scl_io,
                         i2c_port_t        i2c_bus, 
                         const char* const tag)
 {
-  /* The I2C configuration structure */
-  i2c_config_t conf = {
-    .mode             = I2C_MODE_MASTER,    /* Set the I2C mode to controller */
-    .sda_io_num       = sda_io,             /* Set the GPIO number for SDA (data line) */
-    .sda_pullup_en    = GPIO_PULLUP_ENABLE, /* Enable internal pull-up for SDA line */
-    .scl_io_num       = scl_io,             /* Set the GPIO number for SCL (clock line) */
-    .scl_pullup_en    = GPIO_PULLUP_ENABLE, /* Enable internal pull-up for SCL line */
-    .master.clk_speed = freq_hz,            /* Set the I2C controller clock frequency */
-  };
-
-  /* Configure the I2C bus with the settings specified in 'conf' */
-  esp_err_t err = i2c_param_config(i2c_bus, &conf);
+  /* Use the bus manager to initialize the I2C bus */
+  esp_err_t err = bus_manager_i2c_init(scl_io, sda_io, freq_hz, i2c_bus);
+  
   if (err != ESP_OK) {
     log_error(tag, 
-              "Config Error", 
-              "Failed to configure I2C parameters: %s", 
+              "Init Error", 
+              "Failed to initialize I2C bus %d: %s", 
+              i2c_bus,
               esp_err_to_name(err));
-    return err;  /* Return the error code if configuration fails */
   }
-
-  /* Install the I2C driver for the controller mode; no RX/TX buffers are required */
-  return i2c_driver_install(i2c_bus, conf.mode, 0, 0, 0);
+  
+  return err;
 }
 
 esp_err_t priv_i2c_write_byte(uint8_t           data, 
@@ -210,5 +201,37 @@ esp_err_t priv_i2c_read_reg_bytes(uint8_t           reg_addr,
   }
 
   return ret; /* Return the error status or ESP_OK */
+}
+
+/**
+ * @brief Deinitializes the I2C interface.
+ *
+ * Uses the bus manager to deinitialize the specified I2C bus.
+ *
+ * @param[in] i2c_bus I2C bus number to deinitialize.
+ * @param[in] tag     Logging tag for error messages.
+ *
+ * @return
+ * - `ESP_OK` on successful deinitialization.
+ * - Error codes from `esp_err_t` on failure.
+ */
+esp_err_t priv_i2c_deinit(i2c_port_t i2c_bus, const char* const tag)
+{
+  esp_err_t err = bus_manager_i2c_deinit(i2c_bus);
+  
+  if (err != ESP_OK) {
+    log_error(tag, 
+              "Deinit Error", 
+              "Failed to deinitialize I2C bus %d: %s", 
+              i2c_bus,
+              esp_err_to_name(err));
+  } else {
+    log_info(tag,
+             "Deinit Success",
+             "I2C bus %d deinitialized successfully",
+             i2c_bus);
+  }
+  
+  return err;
 }
 

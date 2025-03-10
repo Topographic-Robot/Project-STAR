@@ -86,6 +86,45 @@ esp_err_t sensors_init(sensor_data_t* sensor_data);
  */
 esp_err_t sensor_tasks(sensor_data_t* sensor_data);
 
+/**
+ * @brief Stops all sensor monitoring tasks.
+ *
+ * Stops all running sensor tasks and performs cleanup of task resources.
+ * This function should be called during system shutdown to ensure proper
+ * cleanup of the sensor monitoring subsystem.
+ *
+ * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct containing
+ *                            the sensor data to be cleaned up.
+ *
+ * @return 
+ * - ESP_OK   if all sensor tasks are successfully stopped.
+ * - ESP_FAIL if any sensor task fails to stop properly.
+ *
+ * @note This function should be called before sensors_cleanup() to ensure
+ *       tasks are stopped before hardware resources are released.
+ */
+esp_err_t sensor_tasks_stop(sensor_data_t* sensor_data);
+
+/**
+ * @brief Cleans up resources used by the sensor tasks module.
+ *
+ * Stops all sensor monitoring tasks and performs cleanup of resources allocated
+ * during sensor initialization. This function should be called during system
+ * shutdown to ensure proper cleanup of the sensor subsystem.
+ *
+ * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct containing
+ *                            the sensor data to be cleaned up.
+ *
+ * @return 
+ * - ESP_OK   if all sensor tasks are successfully stopped and resources cleaned up.
+ * - ESP_FAIL if any sensor task fails to stop or cleanup properly.
+ *
+ * @note This function should be called after all other components that depend on
+ *       sensor data have been stopped, but before the underlying communication
+ *       protocols (e.g., I2C and UART) are deinitialized.
+ */
+esp_err_t sensors_cleanup(sensor_data_t* sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

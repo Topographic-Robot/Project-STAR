@@ -212,6 +212,24 @@ void qmc5883l_reset_on_error(qmc5883l_data_t* const sensor_data);
  */
 void qmc5883l_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the QMC5883L sensor.
+ *
+ * Puts the sensor in standby mode to reduce power consumption and releases
+ * any resources allocated during initialization. Should be called during
+ * system shutdown or when the sensor is no longer needed.
+ *
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_FAIL` if cleanup fails.
+ *
+ * @note 
+ * - Call this function during system shutdown or when switching off the sensor.
+ */
+esp_err_t qmc5883l_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

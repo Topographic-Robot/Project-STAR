@@ -312,6 +312,28 @@ void mpu6050_reset_on_error(mpu6050_data_t* const sensor_data);
  */
 void mpu6050_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the MPU6050 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Disables data ready interrupt on the MPU6050
+ * 2. Removes GPIO interrupt handler
+ * 3. Puts the sensor in sleep mode
+ * 4. Deletes the data ready semaphore
+ * 5. Resets sensor data structure
+ * 6. Cleans up I2C resources
+ *
+ * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t mpu6050_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

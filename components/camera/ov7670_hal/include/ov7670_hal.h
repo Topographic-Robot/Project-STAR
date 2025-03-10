@@ -173,6 +173,27 @@ void ov7670_reset_on_error(ov7670_data_t* const sensor_data);
  */
 void ov7670_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the OV7670 camera.
+ *
+ * Performs the following cleanup operations:
+ * 1. Stops XCLK generation (if USE_OV7670_XCLK_GPIO_27 is defined)
+ * 2. Resets all GPIO pins (XCLK, SCL, SDA) to input mode with no pull-up/down
+ * 3. Cleans up I2C resources
+ * 4. Resets camera data structure to initial values
+ *
+ * @param[in,out] camera_data Pointer to the `ov7670_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_ERR_INVALID_ARG` if camera_data is NULL.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the camera
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t ov7670_cleanup(void* const camera_data);
+
 #ifdef __cplusplus
 }
 #endif

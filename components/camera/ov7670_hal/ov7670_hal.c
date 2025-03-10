@@ -298,3 +298,95 @@ void ov7670_tasks(void* const camera_data_)
   }
 }
 
+esp_err_t ov7670_cleanup(void* const camera_data)
+{
+  ov7670_data_t* const ov7670_data = (ov7670_data_t*)camera_data;
+  if (!ov7670_data) {
+    log_error(ov7670_tag, 
+              "Cleanup Error", 
+              "Camera data pointer is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  log_info(ov7670_tag, "Cleanup Start", "Beginning OV7670 camera cleanup");
+  esp_err_t ret = ESP_OK;
+
+#ifdef USE_OV7670_XCLK_GPIO_27
+  /* Stop LEDC output for XCLK */
+  esp_err_t temp_ret = ledc_stop(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 0);
+  if (temp_ret != ESP_OK) {
+    log_warn(ov7670_tag, 
+             "XCLK Warning", 
+             "Failed to stop LEDC output: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset XCLK GPIO to input mode */
+  gpio_config_t xclk_conf = {
+    .pin_bit_mask = (1ULL << ov7670_xclk_gpio),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  temp_ret = gpio_config(&xclk_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(ov7670_tag, 
+             "GPIO Warning", 
+             "Failed to reset XCLK pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+#endif
+
+  /* Reset I2C pins to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << ov7670_scl_io) | (1ULL << ov7670_sda_io),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  esp_err_t temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(ov7670_tag, 
+             "GPIO Warning", 
+             "Failed to reset I2C pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Clean up I2C resources */
+  temp_ret = priv_i2c_deinit(ov7670_i2c_bus, ov7670_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(ov7670_tag, 
+             "I2C Warning", 
+             "Failed to clean up I2C resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset camera data structure */
+  if (ov7670_data != NULL) {
+    ov7670_data->state              = k_ov7670_uninitialized;
+    ov7670_data->retries            = 0;
+    ov7670_data->retry_interval     = pdMS_TO_TICKS(15000);
+    ov7670_data->last_attempt_ticks = 0;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(ov7670_tag, 
+             "Cleanup Complete", 
+             "OV7670 camera resources released successfully");
+  } else {
+    log_warn(ov7670_tag, 
+             "Cleanup Warning", 
+             "OV7670 cleanup completed with some warnings");
+  }
+
+  return ret;
+}
+

@@ -100,6 +100,20 @@ esp_err_t wifi_init_sta(void);
  */
 esp_err_t wifi_task_start(void);
 
+/**
+ * @brief Stops the WiFi task and cleans up all associated resources
+ * 
+ * This function performs a graceful shutdown of the WiFi subsystem:
+ * 1. Stops the WiFi task if running
+ * 2. Disconnects from WiFi and stops the ESP WiFi driver
+ * 3. Unregisters event handlers
+ * 4. Deletes timers, event groups, and other resources
+ * 5. Cleans up the error handler
+ * 
+ * @return ESP_OK on success, or an error code on failure
+ */
+esp_err_t wifi_task_stop(void);
+
 #ifdef __cplusplus
 }
 #endif

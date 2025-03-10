@@ -148,6 +148,26 @@ void dht22_reset_on_error(dht22_data_t* const sensor_data);
  */
 void dht22_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the DHT22 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Resets GPIO pin to input mode to avoid residual signals
+ * 2. Disables GPIO pull-up/pull-down resistors
+ * 3. Resets sensor data structure to initial values
+ * 4. Resets error handling and retry counters
+ *
+ * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t dht22_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,6 +2,7 @@
 
 #include "gait_movement.h"
 #include <math.h>
+#include <string.h>
 #include "hexapod_geometry.h"
 #include "pca9685_hal.h"
 #include "freertos/FreeRTOS.h"
@@ -102,7 +103,8 @@ esp_err_t priv_set_relative_angle(const pca9685_board_t* const pwm_controller,
  * @param[in,out] board_id    Pointer to the current PCA9685 board ID.
  *
  * @note 
- * - Updates `motor_index` and `board_id` when indices exceed the board's capacity (16 motors).
+ * - Updates `motor_index` and `board_id` when indices exceed the board's 
+ *   capacity (16 motors).
  * - Returns an error if a new board is required but unavailable.
  *
  * @return 
@@ -468,4 +470,75 @@ esp_err_t gait_init(pca9685_board_t* const pwm_controller)
            "Init Complete", 
            "Gait initialization successful, all legs configured");
   return ESP_OK;
+}
+
+esp_err_t gait_cleanup(pca9685_board_t* const pwm_controller)
+{
+  if (pwm_controller == NULL) {
+    log_error(gait_tag, "Cleanup Error", "PWM controller pointer is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  esp_err_t ret = ESP_OK;
+  esp_err_t temp_ret;
+
+  log_info(gait_tag, "Cleanup Start", "Beginning gait system cleanup");
+
+  /* Clean up each leg */
+  for (uint8_t leg_id = 0; leg_id < NUMBER_OF_LEGS; leg_id++) {
+    /* Clean up hip motor */
+    if (s_legs[leg_id].hip_motor) {
+      temp_ret = pca9685_set_angle(pwm_controller, 
+                                  (1 << s_legs[leg_id].hip_motor->motor_id),
+                                  s_legs[leg_id].hip_motor->board_id,
+                                  90.0f); /* Return to neutral position */
+      if (temp_ret != ESP_OK) {
+        log_warn(gait_tag, 
+                "Motor Warning", 
+                "Failed to reset hip motor for leg %u", 
+                leg_id);
+        ret = ESP_FAIL;
+      }
+    }
+
+    /* Clean up knee motor */
+    if (s_legs[leg_id].knee_motor) {
+      temp_ret = pca9685_set_angle(pwm_controller, 
+                                  (1 << s_legs[leg_id].knee_motor->motor_id),
+                                  s_legs[leg_id].knee_motor->board_id,
+                                  90.0f); /* Return to neutral position */
+      if (temp_ret != ESP_OK) {
+        log_warn(gait_tag, 
+                "Motor Warning", 
+                "Failed to reset knee motor for leg %u", 
+                leg_id);
+        ret = ESP_FAIL;
+      }
+    }
+
+    /* Clean up tibia motor */
+    if (s_legs[leg_id].tibia_motor) {
+      temp_ret = pca9685_set_angle(pwm_controller, 
+                                  (1 << s_legs[leg_id].tibia_motor->motor_id),
+                                  s_legs[leg_id].tibia_motor->board_id,
+                                  90.0f); /* Return to neutral position */
+      if (temp_ret != ESP_OK) {
+        log_warn(gait_tag, 
+                "Motor Warning", 
+                "Failed to reset tibia motor for leg %u", 
+                leg_id);
+        ret = ESP_FAIL;
+      }
+    }
+  }
+
+  /* Reset leg data */
+  memset(s_legs, 0, sizeof(s_legs));
+
+  log_info(gait_tag, 
+           "Cleanup Complete", 
+           "Gait system cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
+
+  return ret;
 }

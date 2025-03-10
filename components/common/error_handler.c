@@ -6,18 +6,23 @@
 #include <time.h>
 #include <stdlib.h>
 
+/* Forward Declarations for Private Functions *********************************/
+
+static uint64_t priv_get_timestamp(void);
+static TickType_t priv_safe_tick_diff(TickType_t current_ticks, TickType_t previous_ticks);
+static esp_err_t priv_propagate_error(const error_handler_t* handler, const error_info_t* error_info);
+static esp_err_t priv_execute_recovery_strategy(error_handler_t* handler);
+
 /* Constants ******************************************************************/
 
 const char* const error_handler_tag = "Error Handler";
-#define MAX_CORRELATIONS 32  /**< Maximum number of error correlations to track */
-#define MAX_ROOT_CAUSES  16  /**< Maximum number of root causes to track */
-#define MAX_RELATED_ERRORS 8 /**< Maximum number of related errors per correlation */
 
 /* Static Variables ***********************************************************/
 
-static component_info_t s_registered_components[MAX_COMPONENTS] = {0};   /**< Registered components */
-static uint32_t         s_component_count                       = 0;     /**< Number of registered components */
-static bool             s_system_initialized                    = false; /**< System initialized flag */
+static component_info_t  s_registered_components[MAX_COMPONENTS] = {0};   /**< Registered components */
+static uint32_t          s_component_count                       = 0;     /**< Number of registered components */
+static bool              s_system_initialized                    = false; /**< System initialized flag */
+static SemaphoreHandle_t s_error_handler_mutex                   = NULL;   /**< Mutex for thread safety */
 
 static const char* const s_error_category_strings[k_error_category_count] = {
   "None",
@@ -51,47 +56,34 @@ static const char* const s_recovery_strategy_strings[k_recovery_strategy_count] 
   "Custom"
 };
 
-/* Private Function Prototypes ************************************************/
-
-/**
- * @brief Propagates an error to the parent component
- * 
- * @param[in] handler    Pointer to the error handler
- * @param[in] error_info Error information to propagate
- * @return ESP_OK if successful, error code otherwise
- */
-static esp_err_t priv_propagate_error(const error_handler_t* handler, const error_info_t* error_info);
-
-/**
- * @brief Executes the recovery strategy for a component
- * 
- * @param[in,out] handler Pointer to the error handler
- * @return ESP_OK if successful, error code otherwise
- */
-static esp_err_t priv_execute_recovery_strategy(error_handler_t* handler);
-
-/**
- * @brief Gets the current timestamp in milliseconds
- * 
- * @return Current timestamp in milliseconds
- */
-static uint64_t priv_get_timestamp(void);
-
 /* Public Functions ***********************************************************/
 
 esp_err_t error_handler_system_init(void)
 {
   if (s_system_initialized) {
-    log_warn(error_handler_tag, "Init Warning", "Error handling system already initialized");
+    log_warn(error_handler_tag, 
+             "Init Warning", 
+             "Error handling system already initialized");
     return ESP_OK;
+  }
+
+  /* Create mutex for thread safety */
+  s_error_handler_mutex = xSemaphoreCreateMutex();
+  if (s_error_handler_mutex == NULL) {
+    log_error(error_handler_tag, 
+              "Init Error", 
+              "Failed to create error handler mutex");
+    return ESP_ERR_NO_MEM;
   }
 
   /* Initialize component registry */
   memset(s_registered_components, 0, sizeof(s_registered_components));
-  s_component_count = 0;
+  s_component_count    = 0;
   s_system_initialized = true;
 
-  log_info(error_handler_tag, "Init Complete", "Error handling system initialized");
+  log_info(error_handler_tag, 
+           "Init Complete", 
+           "Error handling system initialized");
   return ESP_OK;
 }
 
@@ -130,6 +122,7 @@ void error_handler_init(error_handler_t* const handler,
   handler->reset_func               = reset_func;
   handler->context                  = context;
   handler->propagate_errors         = true;
+  handler->mutex                    = xSemaphoreCreateMutex(); /* Create per-handler mutex */
 
   /* Initialize enhanced fields */
   memset(&handler->last_error, 0, sizeof(error_info_t));
@@ -167,6 +160,10 @@ void error_handler_init(error_handler_t* const handler,
     handler->max_backoff_interval = max_interval;
   }
 
+  if (handler->mutex == NULL) {
+    log_error(tag, "Init Error", "Failed to create handler mutex");
+  }
+  
   log_info(tag, "Init Complete", "Error handler initialized successfully");
 }
 
@@ -175,6 +172,12 @@ esp_err_t error_handler_record_status(error_handler_t* const handler,
 {
   if (!handler) {
     return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Record Status Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
   }
 
   handler->last_status = status;
@@ -188,6 +191,10 @@ esp_err_t error_handler_record_status(error_handler_t* const handler,
     handler->in_error_state = false;
     handler->retry_count    = 0;
     handler->retry_interval = handler->initial_interval;
+    
+    if (handler->mutex) {
+      xSemaphoreGive(handler->mutex);
+    }
     return ESP_OK;
   }
 
@@ -197,15 +204,15 @@ esp_err_t error_handler_record_status(error_handler_t* const handler,
 
   /* Create basic error info for backward compatibility */
   error_info_t error_info = {
-    .code = status,
-    .category = k_error_category_none,
-    .severity = k_error_severity_medium, /* Default to medium severity */
-    .file = NULL,
-    .line = 0,
-    .func = NULL,
+    .code        = status,
+    .category    = k_error_category_none,
+    .severity    = k_error_severity_medium, /* Default to medium severity */
+    .file        = NULL,
+    .line        = 0,
+    .func        = NULL,
     .description = "Error status recorded",
-    .timestamp = priv_get_timestamp(),
-    .count = 1
+    .timestamp   = priv_get_timestamp(),
+    .count       = 1
   };
 
   /* Store as last error */
@@ -221,8 +228,10 @@ esp_err_t error_handler_record_status(error_handler_t* const handler,
     priv_propagate_error(handler, &error_info);
   }
 
-  TickType_t now_ticks = xTaskGetTickCount();
-  if (now_ticks - handler->last_attempt_ticks >= handler->retry_interval) {
+  TickType_t now_ticks     = xTaskGetTickCount();
+  TickType_t elapsed_ticks = priv_safe_tick_diff(now_ticks, handler->last_attempt_ticks);
+  
+  if (elapsed_ticks >= handler->retry_interval) {
     handler->last_attempt_ticks = now_ticks;
     handler->retry_count++;
 
@@ -238,16 +247,32 @@ esp_err_t error_handler_record_status(error_handler_t* const handler,
                                 handler->retry_interval * 2 :
                                 handler->max_interval;
       handler->retry_count    = 0;
+      
+      /* Release mutex */
+      if (handler->mutex) {
+        xSemaphoreGive(handler->mutex);
+      }
       return ESP_ERR_INVALID_STATE;
     }
 
     /* Execute recovery based on strategy */
-    return priv_execute_recovery_strategy(handler);
+    esp_err_t ret = priv_execute_recovery_strategy(handler);
+    
+    /* Release mutex */
+    if (handler->mutex) {
+      xSemaphoreGive(handler->mutex);
+    }
+    return ret;
   } else {
     log_warn(handler->tag, 
              "Retry Delay", 
-             "Next retry available in %u ticks",
-             (unsigned int)(handler->retry_interval - (now_ticks - handler->last_attempt_ticks)));
+             "Next retry available in %lu ticks",
+             (uint32_t)(handler->retry_interval - elapsed_ticks));
+    
+    /* Release mutex */
+    if (handler->mutex) {
+      xSemaphoreGive(handler->mutex);
+    }
     return ESP_ERR_INVALID_STATE;
   }
 }
@@ -269,19 +294,37 @@ esp_err_t error_handler_record_error(error_handler_t* const handler,
   if (category >= k_error_category_count || severity >= k_error_severity_count) {
     return ESP_ERR_INVALID_ARG;
   }
+  
+  /* Check if this error should be filtered out */
+  if (severity < handler->min_severity_to_handle) {
+    /* Error is below minimum severity threshold, silently ignore */
+    return code;
+  }
+  
+  /* Check if this error category is filtered */
+  if ((1 << category) & handler->categories_to_filter) {
+    /* Error category is filtered, silently ignore */
+    return code;
+  }
 
   /* Create detailed error info */
   error_info_t error_info = {
-    .code = code,
-    .category = category,
-    .severity = severity,
-    .file = file,
-    .line = line,
-    .func = func,
+    .code        = code,
+    .category    = category,
+    .severity    = severity,
+    .file        = file,
+    .line        = line,
+    .func        = func,
     .description = desc,
-    .timestamp = priv_get_timestamp(),
-    .count = 1
+    .timestamp   = priv_get_timestamp(),
+    .count       = 1
   };
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Record Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
 
   /* Check if this is the same error as last time */
   if (handler->last_error.code == code && 
@@ -330,19 +373,31 @@ esp_err_t error_handler_record_error(error_handler_t* const handler,
 
   /* Propagate error if enabled and severity is high enough */
   if (handler->propagate_errors && 
-      (severity == k_error_severity_high || severity == k_error_severity_critical)) {
+      (severity == k_error_severity_high || 
+      severity == k_error_severity_critical)) {
     priv_propagate_error(handler, &error_info);
   }
 
   /* For critical errors, always start recovery */
   if (severity == k_error_severity_critical) {
-    return error_handler_start_recovery(handler);
+    esp_err_t ret = error_handler_start_recovery(handler);
+    
+    /* Release mutex */
+    if (handler->mutex) {
+      xSemaphoreGive(handler->mutex);
+    }
+    return ret;
   }
 
   /* For non-critical errors, just record the status */
-  handler->last_status = code;
+  handler->last_status    = code;
   handler->in_error_state = (code != ESP_OK);
   handler->error_count++;
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
 
   return code;
 }
@@ -388,13 +443,24 @@ esp_err_t error_handler_register_component(const component_info_t* component_inf
     return ESP_ERR_INVALID_ARG;
   }
 
+  esp_err_t ret = ESP_OK;
+  
+  /* Take mutex for thread safety */
+  if (xSemaphoreTake(s_error_handler_mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(error_handler_tag, "Register Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+  
+  /* Critical section starts */
+  
   /* Check if we've reached the maximum number of components */
   if (s_component_count >= MAX_COMPONENTS) {
     log_error(error_handler_tag, 
               "Register Error", 
               "Maximum number of components (%d) reached", 
               MAX_COMPONENTS);
-    return ESP_ERR_NO_MEM;
+    ret = ESP_ERR_NO_MEM;
+    goto exit;
   }
 
   /* Check if component is already registered */
@@ -407,7 +473,8 @@ esp_err_t error_handler_register_component(const component_info_t* component_inf
       
       /* Update existing registration */
       s_registered_components[i] = *component_info;
-      return ESP_OK;
+      ret = ESP_OK;
+      goto exit;
     }
   }
 
@@ -417,28 +484,42 @@ esp_err_t error_handler_register_component(const component_info_t* component_inf
 
   log_info(error_handler_tag, 
            "Register Complete", 
-           "Component '%s' registered successfully (total: %u)", 
+           "Component '%s' registered successfully (total: %lu)", 
            component_info->component_id, 
-           (unsigned int)s_component_count);
+           (uint32_t)s_component_count);
 
-  return ESP_OK;
+exit:
+  /* Release mutex */
+  xSemaphoreGive(s_error_handler_mutex);
+  return ret;
 }
 
 esp_err_t error_handler_set_callback(error_handler_t* const handler,
-                                     error_handler_func_t    callback,
-                                     void*                   context)
+                                     error_handler_func_t   callback,
+                                     void*                  context)
 {
   if (!handler) {
     return ESP_ERR_INVALID_ARG;
   }
 
-  handler->error_callback = callback;
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Set Callback Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  handler->error_callback   = callback;
   handler->callback_context = context;
 
   log_info(handler->tag, 
            "Callback Set", 
            "Error callback %s", 
            callback ? "registered" : "cleared");
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
 
   return ESP_OK;
 }
@@ -465,18 +546,29 @@ esp_err_t error_handler_set_recovery(error_handler_t* const handler,
     return ESP_ERR_INVALID_ARG;
   }
 
-  handler->recovery_strategy = strategy;
-  handler->recovery_func = func;
-  handler->recovery_context.context = context;
-  handler->recovery_context.strategy = strategy;
-  handler->recovery_context.attempt = 0;
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Set Recovery Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  handler->recovery_strategy             = strategy;
+  handler->recovery_func                 = func;
+  handler->recovery_context.context      = context;
+  handler->recovery_context.strategy     = strategy;
+  handler->recovery_context.attempt      = 0;
   handler->recovery_context.max_attempts = handler->max_retries;
-  handler->recovery_context.in_progress = false;
+  handler->recovery_context.in_progress  = false;
 
   log_info(handler->tag, 
            "Recovery Set", 
            "Recovery strategy set to %s", 
            recovery_strategy_to_string(strategy));
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
 
   return ESP_OK;
 }
@@ -497,11 +589,17 @@ esp_err_t error_handler_start_recovery(error_handler_t* const handler)
     return ESP_ERR_INVALID_STATE;
   }
 
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Start Recovery Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
   /* Initialize recovery context */
-  handler->recovery_context.attempt = 0;
+  handler->recovery_context.attempt      = 0;
   handler->recovery_context.max_attempts = handler->max_retries;
-  handler->recovery_context.timeout = xTaskGetTickCount() + pdMS_TO_TICKS(5000); /* 5 second timeout */
-  handler->recovery_context.in_progress = true;
+  handler->recovery_context.timeout      = xTaskGetTickCount() + pdMS_TO_TICKS(5000); /* 5 second timeout */
+  handler->recovery_context.in_progress  = true;
 
   log_info(handler->tag, 
            "Recovery Start", 
@@ -509,7 +607,14 @@ esp_err_t error_handler_start_recovery(error_handler_t* const handler)
            recovery_strategy_to_string(handler->recovery_strategy));
 
   /* Execute recovery strategy */
-  return priv_execute_recovery_strategy(handler);
+  esp_err_t ret = priv_execute_recovery_strategy(handler);
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
+
+  return ret;
 }
 
 esp_err_t error_handler_get_status(const error_handler_t* const handler,
@@ -519,8 +624,19 @@ esp_err_t error_handler_get_status(const error_handler_t* const handler,
     return ESP_ERR_INVALID_ARG;
   }
 
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Get Status Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
   /* Copy last error information */
   memcpy(info, &handler->last_error, sizeof(error_info_t));
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
 
   return ESP_OK;
 }
@@ -532,6 +648,12 @@ esp_err_t error_handler_process(void)
   }
 
   esp_err_t result = ESP_OK;
+
+  /* Take mutex for thread safety */
+  if (xSemaphoreTake(s_error_handler_mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(error_handler_tag, "Process Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
 
   /* Process all registered components */
   for (uint32_t i = 0; i < s_component_count; i++) {
@@ -563,6 +685,9 @@ esp_err_t error_handler_process(void)
     }
   }
 
+  /* Release mutex */
+  xSemaphoreGive(s_error_handler_mutex);
+
   return result;
 }
 
@@ -593,31 +718,48 @@ const char* recovery_strategy_to_string(recovery_strategy_t strategy)
 /* New Functions for Error Filtering, Correlation, and Root Cause Analysis */
 
 esp_err_t error_handler_set_filtering(error_handler_t* const handler,
-                                     error_severity_t       min_severity,
-                                     uint32_t               categories)
+                                      error_severity_t       min_severity,
+                                      uint32_t               categories)
 {
   if (!handler) {
     return ESP_ERR_INVALID_ARG;
   }
 
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Set Filtering Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
   handler->min_severity_to_handle = min_severity;
-  handler->categories_to_filter = categories;
+  handler->categories_to_filter   = categories;
 
   log_info(handler->tag, 
            "Filtering Setup", 
-           "Set minimum severity to %s, filtered categories: 0x%08x", 
+           "Set minimum severity to %s, filtered categories: 0x%08lx", 
            error_severity_to_string(min_severity), 
-           (unsigned int)categories);
+           (uint32_t)categories);
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
 
   return ESP_OK;
 }
 
 esp_err_t error_handler_correlate_errors(error_handler_t* const handler,
-                                        error_info_t*          error_info,
-                                        error_info_t*          related_error)
+                                         error_info_t*          error_info,
+                                         error_info_t*          related_error)
 {
   if (!handler || !error_info || !related_error) {
     return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Correlation Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
   }
 
   /* Check if we need to allocate correlation array */
@@ -627,6 +769,9 @@ esp_err_t error_handler_correlate_errors(error_handler_t* const handler,
       log_error(handler->tag, 
                 "Correlation Error", 
                 "Failed to allocate memory for correlations");
+      if (handler->mutex) {
+        xSemaphoreGive(handler->mutex);
+      }
       return ESP_ERR_NO_MEM;
     }
   }
@@ -656,25 +801,37 @@ esp_err_t error_handler_correlate_errors(error_handler_t* const handler,
   if (!correlation) {
     /* Create new correlation if we have space */
     if (handler->correlation_count >= handler->max_correlations) {
-      log_error(handler->tag, 
-                "Correlation Error", 
-                "Maximum number of correlations reached");
-      return ESP_ERR_NO_MEM;
+      /* Try to purge old correlations first */
+      error_handler_purge_old_correlations(handler, 3600000); /* 1 hour old */
+      
+      /* Check if we have space now */
+      if (handler->correlation_count >= handler->max_correlations) {
+        log_error(handler->tag, 
+                  "Correlation Error", 
+                  "Maximum number of correlations reached");
+        if (handler->mutex) {
+          xSemaphoreGive(handler->mutex);
+        }
+        return ESP_ERR_NO_MEM;
+      }
     }
 
-    correlation = &handler->correlations[handler->correlation_count++];
-    correlation->correlation_id = correlation_id;
-    correlation->related_count = 0;
-    correlation->related_errors = calloc(MAX_RELATED_ERRORS, sizeof(error_info_t));
+    correlation                   = &handler->correlations[handler->correlation_count++];
+    correlation->correlation_id   = correlation_id;
+    correlation->related_count    = 0;
+    correlation->related_errors   = calloc(MAX_RELATED_ERRORS, sizeof(error_info_t));
     correlation->first_occurrence = error_info->timestamp;
-    correlation->last_occurrence = error_info->timestamp;
-    correlation->is_root_cause = false;
+    correlation->last_occurrence  = error_info->timestamp;
+    correlation->is_root_cause    = false;
     
     if (!correlation->related_errors) {
       log_error(handler->tag, 
                 "Correlation Error", 
                 "Failed to allocate memory for related errors");
       handler->correlation_count--;
+      if (handler->mutex) {
+        xSemaphoreGive(handler->mutex);
+      }
       return ESP_ERR_NO_MEM;
     }
   }
@@ -687,27 +844,51 @@ esp_err_t error_handler_correlate_errors(error_handler_t* const handler,
     correlation->last_occurrence = error_info->timestamp;
   }
 
-  /* Add errors to correlation if not already present */
+  /* Improved similarity check for errors */
   bool error_info_added = false;
   bool related_error_added = false;
   
   for (uint32_t i = 0; i < correlation->related_count; i++) {
-    if (correlation->related_errors[i].code == error_info->code &&
-        correlation->related_errors[i].category == error_info->category &&
-        correlation->related_errors[i].line == error_info->line &&
-        strcmp(correlation->related_errors[i].file, error_info->file) == 0) {
-      error_info_added = true;
+    /* Check if errors are similar enough to be considered the same */
+    bool error_info_similar = (correlation->related_errors[i].code == error_info->code &&
+                              correlation->related_errors[i].category == error_info->category);
+                              
+    bool related_error_similar = (correlation->related_errors[i].code == related_error->code &&
+                                 correlation->related_errors[i].category == related_error->category);
+    
+    /* If file paths are available, check if they're from the same file */
+    if (error_info_similar && correlation->related_errors[i].file && error_info->file) {
+      /* Extract just the filename without path for comparison */
+      const char* existing_filename = strrchr(correlation->related_errors[i].file, '/');
+      const char* new_filename      = strrchr(error_info->file, '/');
+      
+      existing_filename = existing_filename ? existing_filename + 1 : correlation->related_errors[i].file;
+      new_filename = new_filename ? new_filename + 1 : error_info->file;
+      
+      /* If filenames match, consider it the same error */
+      if (strcmp(existing_filename, new_filename) == 0) {
+        error_info_added = true;
+        /* Update count for this error */
+        correlation->related_errors[i].count++;
+      }
     }
     
-    if (correlation->related_errors[i].code == related_error->code &&
-        correlation->related_errors[i].category == related_error->category &&
-        correlation->related_errors[i].line == related_error->line &&
-        strcmp(correlation->related_errors[i].file, related_error->file) == 0) {
-      related_error_added = true;
+    /* Same check for related error */
+    if (related_error_similar && correlation->related_errors[i].file && related_error->file) {
+      const char* existing_filename = strrchr(correlation->related_errors[i].file, '/');
+      const char* new_filename      = strrchr(related_error->file, '/');
+      
+      existing_filename = existing_filename ? existing_filename + 1 : correlation->related_errors[i].file;
+      new_filename = new_filename ? new_filename + 1 : related_error->file;
+      
+      if (strcmp(existing_filename, new_filename) == 0) {
+        related_error_added = true;
+        correlation->related_errors[i].count++;
+      }
     }
   }
 
-  /* Add error_info if not already in correlation */
+  /* Add errors to correlation if not already present */
   if (!error_info_added && correlation->related_count < MAX_RELATED_ERRORS) {
     memcpy(&correlation->related_errors[correlation->related_count++], 
            error_info, 
@@ -717,7 +898,6 @@ esp_err_t error_handler_correlate_errors(error_handler_t* const handler,
     error_info->correlation_id = correlation_id;
   }
 
-  /* Add related_error if not already in correlation */
   if (!related_error_added && correlation->related_count < MAX_RELATED_ERRORS) {
     memcpy(&correlation->related_errors[correlation->related_count++], 
            related_error, 
@@ -729,16 +909,21 @@ esp_err_t error_handler_correlate_errors(error_handler_t* const handler,
 
   log_info(handler->tag, 
            "Error Correlation", 
-           "Correlated errors with ID %u, total related: %u", 
-           (unsigned int)correlation_id, 
-           (unsigned int)correlation->related_count);
+           "Correlated errors with ID %lu, total related: %lu", 
+           (uint32_t)correlation_id, 
+           (uint32_t)correlation->related_count);
 
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
+  
   return ESP_OK;
 }
 
 esp_err_t error_handler_get_correlation(const error_handler_t* const handler,
-                                       uint32_t                    correlation_id,
-                                       error_correlation_t*        correlation)
+                                        uint32_t                     correlation_id,
+                                        error_correlation_t*         correlation)
 {
   if (!handler || !correlation || correlation_id == 0) {
     return ESP_ERR_INVALID_ARG;
@@ -746,6 +931,12 @@ esp_err_t error_handler_get_correlation(const error_handler_t* const handler,
 
   if (!handler->correlations) {
     return ESP_ERR_NOT_FOUND;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Get Correlation Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
   }
 
   /* Find correlation by ID */
@@ -757,19 +948,35 @@ esp_err_t error_handler_get_correlation(const error_handler_t* const handler,
       /* Don't copy the pointer, as it might be freed later */
       correlation->related_errors = NULL;
       
+      /* Release mutex */
+      if (handler->mutex) {
+        xSemaphoreGive(handler->mutex);
+      }
+      
       return ESP_OK;
     }
+  }
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
   }
 
   return ESP_ERR_NOT_FOUND;
 }
 
 esp_err_t error_handler_analyze_root_cause(error_handler_t* const handler,
-                                          error_info_t*          error_info,
-                                          root_cause_info_t*     root_cause)
+                                           error_info_t*          error_info,
+                                           root_cause_info_t*     root_cause)
 {
   if (!handler || !error_info || !root_cause) {
     return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Analyze Root Cause Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
   }
 
   /* Check if we need to allocate root causes array */
@@ -779,6 +986,9 @@ esp_err_t error_handler_analyze_root_cause(error_handler_t* const handler,
       log_error(handler->tag, 
                 "Root Cause Analysis Error", 
                 "Failed to allocate memory for root causes");
+      if (handler->mutex) {
+        xSemaphoreGive(handler->mutex);
+      }
       return ESP_ERR_NO_MEM;
     }
   }
@@ -788,39 +998,39 @@ esp_err_t error_handler_analyze_root_cause(error_handler_t* const handler,
   
   /* Copy the current error as potential root cause */
   memcpy(&root_cause->root_error, error_info, sizeof(error_info_t));
-  root_cause->dependent_count = 0;
+  root_cause->dependent_count  = 0;
   root_cause->dependent_errors = NULL;
-  root_cause->confidence = 0.5f; /* Default confidence */
+  root_cause->confidence       = 0.5f; /* Default confidence */
 
   /* Analyze based on error category and severity */
   switch (error_info->category) {
     case k_error_category_hardware:
-      root_cause->diagnosis = "Hardware failure detected";
+      root_cause->diagnosis  = "Hardware failure detected";
       root_cause->confidence = 0.8f;
       break;
       
     case k_error_category_communication:
-      root_cause->diagnosis = "Communication failure, check connections";
+      root_cause->diagnosis  = "Communication failure, check connections";
       root_cause->confidence = 0.7f;
       break;
       
     case k_error_category_memory:
-      root_cause->diagnosis = "Memory allocation or access issue";
+      root_cause->diagnosis  = "Memory allocation or access issue";
       root_cause->confidence = 0.9f;
       break;
       
     case k_error_category_system:
-      root_cause->diagnosis = "System-level failure";
+      root_cause->diagnosis  = "System-level failure";
       root_cause->confidence = 0.6f;
       break;
       
     case k_error_category_power:
-      root_cause->diagnosis = "Power-related issue detected";
+      root_cause->diagnosis  = "Power-related issue detected";
       root_cause->confidence = 0.85f;
       break;
       
     default:
-      root_cause->diagnosis = "Unknown root cause";
+      root_cause->diagnosis  = "Unknown root cause";
       root_cause->confidence = 0.4f;
       break;
   }
@@ -867,12 +1077,17 @@ esp_err_t error_handler_analyze_root_cause(error_handler_t* const handler,
     }
   }
 
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
+
   return ESP_OK;
 }
 
 esp_err_t error_handler_get_root_cause(const error_handler_t* const handler,
-                                      const error_info_t*          error_info,
-                                      root_cause_info_t*           root_cause)
+                                       const error_info_t*          error_info,
+                                       root_cause_info_t*           root_cause)
 {
   if (!handler || !error_info || !root_cause) {
     return ESP_ERR_INVALID_ARG;
@@ -880,6 +1095,12 @@ esp_err_t error_handler_get_root_cause(const error_handler_t* const handler,
 
   if (!handler->root_causes) {
     return ESP_ERR_NOT_FOUND;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Get Root Cause Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
   }
 
   /* First check if this error is itself a root cause */
@@ -894,6 +1115,11 @@ esp_err_t error_handler_get_root_cause(const error_handler_t* const handler,
       
       /* Don't copy the pointer, as it might be freed later */
       root_cause->dependent_errors = NULL;
+      
+      /* Release mutex */
+      if (handler->mutex) {
+        xSemaphoreGive(handler->mutex);
+      }
       
       return ESP_OK;
     }
@@ -912,10 +1138,20 @@ esp_err_t error_handler_get_root_cause(const error_handler_t* const handler,
           /* Don't copy the pointer, as it might be freed later */
           root_cause->dependent_errors = NULL;
           
+          /* Release mutex */
+          if (handler->mutex) {
+            xSemaphoreGive(handler->mutex);
+          }
+          
           return ESP_OK;
         }
       }
     }
+  }
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
   }
 
   return ESP_ERR_NOT_FOUND;
@@ -923,53 +1159,92 @@ esp_err_t error_handler_get_root_cause(const error_handler_t* const handler,
 
 /* Private Functions **********************************************************/
 
-static esp_err_t priv_propagate_error(const error_handler_t* handler, const error_info_t* error_info)
+static esp_err_t priv_propagate_error(const error_handler_t* handler, 
+                                      const error_info_t*    error_info)
 {
   if (!s_system_initialized || !handler || !error_info) {
     return ESP_ERR_INVALID_ARG;
   }
 
+  /* Take mutex for thread safety */
+  if (xSemaphoreTake(s_error_handler_mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(error_handler_tag, "Propagation Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+  
   /* Find the component in the registry */
-  const char* component_id = NULL;
-  const char* parent_id = NULL;
+  const char*    component_id          = NULL;
+  const char*    parent_id             = NULL;
+  uint32_t       propagation_depth     = 0;
+  const uint32_t max_propagation_depth = 5; /* Prevent infinite loops */
 
   for (uint32_t i = 0; i < s_component_count; i++) {
     if (s_registered_components[i].handler == handler) {
       component_id = s_registered_components[i].component_id;
-      parent_id = s_registered_components[i].parent_id;
+      parent_id    = s_registered_components[i].parent_id;
       break;
     }
   }
 
   if (!component_id || !parent_id) {
     /* Component not found or no parent */
+    xSemaphoreGive(s_error_handler_mutex);
     return ESP_OK;
   }
 
-  /* Find the parent component */
-  for (uint32_t i = 0; i < s_component_count; i++) {
-    if (strcmp(s_registered_components[i].component_id, parent_id) == 0) {
-      /* Propagate error to parent */
-      error_handler_t* parent_handler = s_registered_components[i].handler;
-      
-      log_info(error_handler_tag, 
-               "Error Propagation", 
-               "Propagating error from '%s' to parent '%s'", 
-               component_id, 
-               parent_id);
-      
-      /* Record the error in the parent */
-      return error_handler_record_error(parent_handler,
-                                        error_info->code,
-                                        error_info->category,
-                                        error_info->severity,
-                                        error_info->file,
-                                        error_info->line,
-                                        error_info->func,
-                                        error_info->description);
+  /* Propagate up the chain until we reach the top or max depth */
+  while (parent_id && propagation_depth < max_propagation_depth) {
+    bool parent_found = false;
+    
+    for (uint32_t i = 0; i < s_component_count; i++) {
+      if (strcmp(s_registered_components[i].component_id, parent_id) == 0) {
+        /* Found parent component */
+        error_handler_t* parent_handler    = s_registered_components[i].handler;
+        const char*      current_component = component_id;
+        
+        /* Update for next iteration */
+        component_id = parent_id;
+        parent_id    = s_registered_components[i].parent_id;
+        parent_found = true;
+        
+        log_info(error_handler_tag, 
+                 "Error Propagation", 
+                 "Propagating error from '%s' to parent '%s'", 
+                 current_component, 
+                 component_id);
+        
+        /* Release mutex before calling into another handler */
+        xSemaphoreGive(s_error_handler_mutex);
+        
+        /* Record the error in the parent */
+        esp_err_t ret = error_handler_record_error(parent_handler,
+                                                  error_info->code,
+                                                  error_info->category,
+                                                  error_info->severity,
+                                                  error_info->file,
+                                                  error_info->line,
+                                                  error_info->func,
+                                                  error_info->description);
+        
+        /* Take mutex again for next iteration */
+        if (xSemaphoreTake(s_error_handler_mutex, portMAX_DELAY) != pdTRUE) {
+          log_error(error_handler_tag, "Propagation Error", "Failed to retake mutex");
+          return ret;
+        }
+        
+        break;
+      }
     }
+    
+    if (!parent_found) {
+      /* Parent not found, stop propagation */
+      break;
+    }
+    
+    propagation_depth++;
   }
-
+  
+  xSemaphoreGive(s_error_handler_mutex);
   return ESP_OK;
 }
 
@@ -983,9 +1258,9 @@ static esp_err_t priv_execute_recovery_strategy(error_handler_t* handler)
 
   /* Initialize recovery context if not already done */
   if (!handler->recovery_context.in_progress) {
-    handler->recovery_context.attempt = 0;
+    handler->recovery_context.attempt      = 0;
     handler->recovery_context.max_attempts = handler->max_retries;
-    handler->recovery_context.in_progress = true;
+    handler->recovery_context.in_progress  = true;
   }
 
   /* Increment attempt counter */
@@ -1003,13 +1278,76 @@ static esp_err_t priv_execute_recovery_strategy(error_handler_t* handler)
         ret = handler->reset_func(handler->context);
         if (ret == ESP_OK) {
           handler->recovery_count++;
-          handler->in_error_state = false;
-          handler->retry_count = 0;
-          handler->retry_interval = handler->initial_interval;
+          handler->in_error_state               = false;
+          handler->retry_count                  = 0;
+          handler->retry_interval               = handler->initial_interval;
           handler->recovery_context.in_progress = false;
+        } else {
+          /* Reset failed, escalate to more severe strategy if critical */
+          if (handler->last_error.severity >= k_error_severity_high) {
+            log_error(handler->tag, 
+                      "Recovery Error", 
+                      "Reset failed with error 0x%lx, escalating to shutdown strategy", 
+                      (uint32_t)ret);
+            
+            /* Escalate to shutdown strategy */
+            handler->recovery_strategy = k_recovery_strategy_shutdown;
+            
+            /* Try the new strategy immediately */
+            return priv_execute_recovery_strategy(handler);
+          }
         }
       } else {
         ret = ESP_ERR_NOT_SUPPORTED;
+      }
+      break;
+
+    case k_recovery_strategy_alternate:
+      /* Implement basic alternate strategy */
+      log_info(handler->tag, 
+               "Recovery Strategy", 
+               "Attempting alternate path recovery");
+      
+      /* If custom recovery function exists, use it */
+      if (handler->recovery_func) {
+        ret = handler->recovery_func(&handler->recovery_context);
+      } else {
+        /* Basic implementation: just try to reset */
+        if (handler->reset_func) {
+          ret = handler->reset_func(handler->context);
+        } else {
+          ret = ESP_ERR_NOT_SUPPORTED;
+        }
+      }
+      break;
+
+    case k_recovery_strategy_degrade:
+      /* Implement basic degraded mode */
+      log_info(handler->tag, 
+               "Recovery Strategy", 
+               "Entering degraded operation mode");
+      
+      /* Mark as recovered but in degraded mode */
+      handler->recovery_context.in_degraded_mode = true;
+      handler->in_error_state                    = false;
+      handler->recovery_count++;
+      ret = ESP_OK;
+      break;
+
+    case k_recovery_strategy_shutdown:
+      /* Implement safe shutdown */
+      log_warn(handler->tag, 
+               "Recovery Strategy", 
+               "Performing safe component shutdown");
+      
+      /* If custom shutdown function exists, use it */
+      if (handler->shutdown_func) {
+        ret = handler->shutdown_func(handler->context);
+      } else {
+        /* Mark as permanently failed */
+        handler->permanently_failed = true;
+        handler->in_error_state     = true;
+        ret = ESP_OK; /* Shutdown itself succeeded */
       }
       break;
 
@@ -1020,24 +1358,13 @@ static esp_err_t priv_execute_recovery_strategy(error_handler_t* handler)
         if (ret == ESP_OK) {
           handler->recovery_count++;
           handler->recovery_context.in_progress = false;
-          handler->in_error_state = false;
-          handler->retry_count = 0;
-          handler->retry_interval = handler->initial_interval;
+          handler->in_error_state               = false;
+          handler->retry_count                  = 0;
+          handler->retry_interval               = handler->initial_interval;
         }
       } else {
         ret = ESP_ERR_NOT_SUPPORTED;
       }
-      break;
-
-    case k_recovery_strategy_alternate:
-    case k_recovery_strategy_degrade:
-    case k_recovery_strategy_shutdown:
-      /* These strategies require custom implementation */
-      log_warn(handler->tag, 
-               "Recovery Warning", 
-               "Strategy %s not implemented, falling back to retry", 
-               recovery_strategy_to_string(handler->recovery_strategy));
-      ret = ESP_ERR_NOT_SUPPORTED;
       break;
 
     default:
@@ -1049,11 +1376,18 @@ static esp_err_t priv_execute_recovery_strategy(error_handler_t* handler)
   if (handler->recovery_context.attempt >= handler->recovery_context.max_attempts) {
     log_error(handler->tag, 
               "Recovery Error", 
-              "Maximum recovery attempts (%u) exceeded", 
-              (unsigned int)handler->recovery_context.max_attempts);
+              "Maximum recovery attempts (%lu) exceeded", 
+              (uint32_t)handler->recovery_context.max_attempts);
     
+    /* Mark as permanently failed */
+    handler->permanently_failed           = true;
     handler->recovery_context.in_progress = false;
-    ret = ESP_ERR_INVALID_STATE;
+    ret                                   = ESP_ERR_INVALID_STATE;
+    
+    /* Call failure callback if registered */
+    if (handler->permanent_failure_callback) {
+      handler->permanent_failure_callback(&handler->last_error, handler->callback_context);
+    }
   }
 
   return ret;
@@ -1065,4 +1399,308 @@ static uint64_t priv_get_timestamp(void)
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+
+/**
+ * @brief Safely computes time difference accounting for wraparound
+ * 
+ * @param[in] current_ticks Current tick count
+ * @param[in] previous_ticks Previous tick count
+ * @return Time difference in ticks, handling wraparound
+ */
+static TickType_t priv_safe_tick_diff(TickType_t current_ticks, TickType_t previous_ticks)
+{
+  /* Handle potential wraparound of tick counter */
+  if (current_ticks >= previous_ticks) {
+    return current_ticks - previous_ticks;
+  } else {
+    /* Wraparound occurred */
+    return (portMAX_DELAY - previous_ticks) + current_ticks + 1;
+  }
+}
+
+/**
+ * @brief Cleans up resources used by the error handler
+ * 
+ * @param[in,out] handler Pointer to the error_handler_t structure
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_cleanup(error_handler_t* const handler)
+{
+  if (!handler) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Cleanup Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+  
+  /* Free correlation data */
+  if (handler->correlations) {
+    for (uint32_t i = 0; i < handler->correlation_count; i++) {
+      if (handler->correlations[i].related_errors) {
+        free(handler->correlations[i].related_errors);
+      }
+    }
+    free(handler->correlations);
+    handler->correlations      = NULL;
+    handler->correlation_count = 0;
+  }
+  
+  /* Free root cause data */
+  if (handler->root_causes) {
+    for (uint32_t i = 0; i < handler->root_cause_count; i++) {
+      if (handler->root_causes[i].dependent_errors) {
+        free(handler->root_causes[i].dependent_errors);
+      }
+    }
+    free(handler->root_causes);
+    handler->root_causes      = NULL;
+    handler->root_cause_count = 0;
+  }
+  
+  /* Release mutex before deleting it */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+    vSemaphoreDelete(handler->mutex);
+    handler->mutex = NULL;
+  }
+  
+  log_info(handler->tag, "Cleanup Complete", "Error handler resources freed");
+  return ESP_OK;
+}
+
+/**
+ * @brief Purges old correlations to free memory
+ * 
+ * @param[in,out] handler Pointer to the error_handler_t structure
+ * @param[in]     age_ms  Maximum age in milliseconds to keep
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_purge_old_correlations(error_handler_t* const handler, uint64_t age_ms)
+{
+  if (!handler) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  if (!handler->correlations || handler->correlation_count == 0) {
+    return ESP_OK;  /* Nothing to purge */
+  }
+  
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Purge Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+  
+  uint64_t now          = priv_get_timestamp();
+  uint32_t purged_count = 0;
+  
+  for (uint32_t i = 0; i < handler->correlation_count; i++) {
+    if ((now - handler->correlations[i].last_occurrence) > age_ms) {
+      /* Free related errors array */
+      if (handler->correlations[i].related_errors) {
+        free(handler->correlations[i].related_errors);
+      }
+      
+      /* Shift remaining correlations down */
+      if (i < handler->correlation_count - 1) {
+        memmove(&handler->correlations[i], 
+                &handler->correlations[i + 1], 
+                (handler->correlation_count - i - 1) * sizeof(error_correlation_t));
+      }
+      
+      handler->correlation_count--;
+      i--;  /* Recheck this index since we moved an element here */
+      purged_count++;
+    }
+  }
+  
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
+  
+  if (purged_count > 0) {
+    log_info(handler->tag, 
+             "Purge Complete", 
+             "Purged %lu old correlations", 
+             (uint32_t)purged_count);
+  }
+  
+  return ESP_OK;
+}
+
+/**
+ * @brief Sets a callback for permanent failure notification
+ * 
+ * @param[in,out] handler  Pointer to the error_handler_t structure
+ * @param[in]     callback Callback function for permanent failures
+ * @param[in]     context  Context for callback function
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_set_failure_callback(error_handler_t* const handler,
+                                            error_handler_func_t   callback,
+                                            void*                  context)
+{
+  if (!handler) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Set Failure Callback Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  handler->permanent_failure_callback = callback;
+  handler->callback_context           = context;
+
+  log_info(handler->tag, 
+           "Failure Callback Set", 
+           "Permanent failure callback %s", 
+           callback ? "registered" : "cleared");
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
+
+  return ESP_OK;
+}
+
+/**
+ * @brief Cleans up the error handling system
+ * 
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_system_cleanup(void)
+{
+  if (!s_system_initialized) {
+    return ESP_OK;  /* Nothing to clean up */
+  }
+
+  /* Take mutex for thread safety */
+  if (xSemaphoreTake(s_error_handler_mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(error_handler_tag, "System Cleanup Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  /* Clean up all registered components */
+  for (uint32_t i = 0; i < s_component_count; i++) {
+    if (s_registered_components[i].handler) {
+      /* Clean up this component's error handler */
+      error_handler_cleanup(s_registered_components[i].handler);
+    }
+  }
+
+  /* Reset component registry */
+  memset(s_registered_components, 0, sizeof(s_registered_components));
+  s_component_count = 0;
+
+  /* Release and delete mutex */
+  xSemaphoreGive(s_error_handler_mutex);
+  vSemaphoreDelete(s_error_handler_mutex);
+  s_error_handler_mutex = NULL;
+
+  s_system_initialized = false;
+
+  log_info(error_handler_tag, 
+           "System Cleanup Complete", 
+           "Error handling system cleaned up");
+
+  return ESP_OK;
+}
+
+/**
+ * @brief Checks if a component has permanently failed
+ * 
+ * @param[in] handler Pointer to the error_handler_t structure
+ * @return true if permanently failed, false otherwise
+ */
+bool error_handler_is_permanently_failed(const error_handler_t* const handler)
+{
+  if (!handler) {
+    return false;
+  }
+
+  /* Take mutex for thread safety */
+  if (handler->mutex && xSemaphoreTake(handler->mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(handler->tag, "Check Failed Error", "Failed to take mutex");
+    return false;
+  }
+
+  bool failed = handler->permanently_failed;
+
+  /* Release mutex */
+  if (handler->mutex) {
+    xSemaphoreGive(handler->mutex);
+  }
+
+  return failed;
+}
+
+/**
+ * @brief Unregisters a component from the error handling system
+ * 
+ * @param[in] component_id Component ID to unregister
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_unregister_component(const char* component_id)
+{
+  if (!s_system_initialized) {
+    log_error(error_handler_tag, "Unregister Error", "Error handling system not initialized");
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  if (!component_id) {
+    log_error(error_handler_tag, "Unregister Error", "Invalid component ID");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Take mutex for thread safety */
+  if (xSemaphoreTake(s_error_handler_mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(error_handler_tag, "Unregister Error", "Failed to take mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  /* Find the component */
+  bool found = false;
+  for (uint32_t i = 0; i < s_component_count; i++) {
+    if (strcmp(s_registered_components[i].component_id, component_id) == 0) {
+      found = true;
+      
+      /* Shift remaining components down */
+      if (i < s_component_count - 1) {
+        memmove(&s_registered_components[i], 
+                &s_registered_components[i + 1], 
+                (s_component_count - i - 1) * sizeof(component_info_t));
+      }
+      
+      s_component_count--;
+      
+      log_info(error_handler_tag, 
+               "Unregister Complete", 
+               "Component '%s' unregistered successfully (remaining: %lu)", 
+               component_id, 
+               (uint32_t)s_component_count);
+      
+      break;
+    }
+  }
+
+  /* Release mutex */
+  xSemaphoreGive(s_error_handler_mutex);
+
+  if (!found) {
+    log_warn(error_handler_tag, 
+             "Unregister Warning", 
+             "Component '%s' not found", 
+             component_id);
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  return ESP_OK;
 }

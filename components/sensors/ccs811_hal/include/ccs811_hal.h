@@ -146,6 +146,26 @@ esp_err_t ccs811_read(ccs811_data_t* const sensor_data);
  */
 void ccs811_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the CCS811 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts sensor in sleep mode by setting WAKE pin high
+ * 2. Resets all GPIO pins (WAKE, RST, INT) to input mode
+ * 3. Resets sensor data structure to initial values
+ * 4. Cleans up I2C resources
+ *
+ * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t ccs811_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

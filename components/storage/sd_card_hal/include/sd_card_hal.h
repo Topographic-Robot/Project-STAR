@@ -63,6 +63,18 @@ esp_err_t sd_card_init(void);
 esp_err_t sd_card_detection_init(void);
 
 /**
+ * @brief Cleans up the SD card detection system.
+ *
+ * Removes the interrupt handler for the CD pin and cleans up any resources
+ * allocated by sd_card_detection_init.
+ *
+ * @return
+ * - ESP_OK if cleanup is successful.
+ * - ESP_FAIL if cleanup fails.
+ */
+esp_err_t sd_card_detection_cleanup(void);
+
+/**
  * @brief Checks if the SD card is currently available.
  *
  * @return true if the SD card is available, false otherwise.
@@ -76,6 +88,17 @@ bool sd_card_is_available(void);
  * @return ESP_OK if successful, ESP_FAIL otherwise.
  */
 esp_err_t sd_card_register_availability_callback(sd_card_availability_callback_t callback);
+
+/**
+ * @brief Deinitializes the SD card system and releases all resources.
+ *
+ * This function should be called during system shutdown to properly clean up
+ * all SD card related resources, including unmounting the filesystem,
+ * stopping the detection task, and freeing the SPI bus.
+ *
+ * @return ESP_OK if successful, ESP_FAIL if any part of the cleanup fails.
+ */
+esp_err_t sd_card_deinit(void);
 
 #ifdef __cplusplus
 }

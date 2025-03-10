@@ -38,7 +38,6 @@ static char            s_gy_neo6mv2_sentence_buffer[GY_NEO6MV2_SENTENCE_BUFFER_S
 static satellite_t     s_gy_neo6mv2_satellites[GY_NEO6MV2_MAX_SATELLITES];            /**< Buffer to store parsed satellite information from GPGSV sentences. */
 static uint32_t        s_gy_neo6mv2_sentence_index  = 0;                              /**< Index tracking the current position in the sentence buffer. */
 static uint8_t         s_gy_neo6mv2_satellite_count = 0;                              /**< Counter for the number of satellites currently stored in the buffer. */
-static error_handler_t s_gy_neo6mv2_error_handler   = { 0 };
 
 /* Static (Private) Functions *************************************************/
 
@@ -560,4 +559,83 @@ void gy_neo6mv2_tasks(void* const sensor_data)
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }
+}
+
+esp_err_t gy_neo6mv2_cleanup(void* const sensor_data)
+{
+  gy_neo6mv2_data_t* const gy_neo6mv2_data = (gy_neo6mv2_data_t*)sensor_data;
+  log_info(gy_neo6mv2_tag, "Cleanup Start", "Beginning GY-NEO6MV2 GPS module cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Put GPS module in power save mode */
+  const char* power_save_cmd = "$PUBX,40,GLL,0,0,0,0*5C\r\n"; /* Disable all NMEA messages to reduce power */
+  int32_t bytes_written = 0;
+  esp_err_t temp_ret = priv_uart_write((const uint8_t*)power_save_cmd, 
+                                       strlen(power_save_cmd), 
+                                       &bytes_written,
+                                       gy_neo6mv2_uart_num, 
+                                       gy_neo6mv2_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(gy_neo6mv2_tag, 
+             "Power Save Warning", 
+             "Failed to put GPS module in power save mode: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset UART pins to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << gy_neo6mv2_tx_io) | (1ULL << gy_neo6mv2_rx_io),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(gy_neo6mv2_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset sensor data structure */
+  if (gy_neo6mv2_data != NULL) {
+    gy_neo6mv2_data->latitude           = 0.0;
+    gy_neo6mv2_data->longitude          = 0.0;
+    gy_neo6mv2_data->speed              = 0.0;
+    gy_neo6mv2_data->fix_status         = 0;
+    gy_neo6mv2_data->satellite_count    = 0;
+    gy_neo6mv2_data->hdop               = 99.99;
+    gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;
+    gy_neo6mv2_data->retry_count        = 0;
+    gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval;
+    gy_neo6mv2_data->last_attempt_ticks = 0;
+    memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
+  }
+
+  /* Clean up UART resources */
+  temp_ret = priv_uart_deinit(gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(gy_neo6mv2_tag, 
+             "UART Warning", 
+             "Failed to clean up UART resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(gy_neo6mv2_tag, 
+             "Cleanup Complete", 
+             "GPS module resources released successfully");
+  } else {
+    log_warn(gy_neo6mv2_tag, 
+             "Cleanup Warning", 
+             "GPS module cleanup completed with some warnings");
+  }
+
+  return ret;
 }

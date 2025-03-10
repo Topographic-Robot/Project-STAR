@@ -51,6 +51,20 @@ esp_err_t priv_uart_init(uint8_t           tx_io,
                          const char* const tag);
 
 /**
+ * @brief Deinitializes the UART interface.
+ *
+ * Uses the bus manager to deinitialize the specified UART port.
+ *
+ * @param[in] uart_num UART port number to deinitialize.
+ * @param[in] tag      Logging tag for error messages.
+ *
+ * @return 
+ * - `ESP_OK` on successful deinitialization.
+ * - Error codes from `esp_err_t` on failure.
+ */
+esp_err_t priv_uart_deinit(uart_port_t uart_num, const char* const tag);
+
+/**
  * @brief Reads data from the UART interface and returns the length of data read.
  *
  * Reads up to `len` bytes from the specified UART interface. Uses a timeout

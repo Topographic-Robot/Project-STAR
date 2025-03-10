@@ -532,3 +532,106 @@ void mpu6050_tasks(void* const sensor_data)
     vTaskDelay(mpu6050_polling_rate_ticks);
   }
 }
+
+esp_err_t mpu6050_cleanup(void* const sensor_data)
+{
+  mpu6050_data_t* const mpu6050_data = (mpu6050_data_t*)sensor_data;
+  log_info(mpu6050_tag, "Cleanup Start", "Beginning MPU6050 sensor cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Disable data ready interrupt on MPU6050 */
+  esp_err_t temp_ret = priv_i2c_write_reg_byte(k_mpu6050_int_enable_cmd, 
+                                               0x00, /* Disable all interrupts */
+                                               mpu6050_i2c_bus, 
+                                               mpu6050_i2c_address, 
+                                               mpu6050_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(mpu6050_tag, 
+             "Interrupt Warning", 
+             "Failed to disable MPU6050 interrupts: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset GPIO interrupt pin to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << mpu6050_int_io),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(mpu6050_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Remove GPIO interrupt handler */
+  temp_ret = gpio_isr_handler_remove(mpu6050_int_io);
+  if (temp_ret != ESP_OK) {
+    log_warn(mpu6050_tag, 
+             "ISR Warning", 
+             "Failed to remove GPIO interrupt handler: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Put MPU6050 in sleep mode to save power */
+  temp_ret = priv_i2c_write_reg_byte(k_mpu6050_pwr_mgmt_1_cmd, 
+                                     k_mpu6050_power_down_cmd,
+                                     mpu6050_i2c_bus, 
+                                     mpu6050_i2c_address, 
+                                     mpu6050_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(mpu6050_tag, 
+             "Power Warning", 
+             "Failed to put MPU6050 in sleep mode: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Delete the data ready semaphore if it exists */
+  if (mpu6050_data && mpu6050_data->data_ready_sem) {
+    vSemaphoreDelete(mpu6050_data->data_ready_sem);
+    mpu6050_data->data_ready_sem = NULL;
+  }
+
+  /* Reset sensor data structure */
+  if (mpu6050_data) {
+    mpu6050_data->accel_x = 0.0f;
+    mpu6050_data->accel_y = 0.0f;
+    mpu6050_data->accel_z = 0.0f;
+    mpu6050_data->gyro_x  = 0.0f;
+    mpu6050_data->gyro_y  = 0.0f;
+    mpu6050_data->gyro_z  = 0.0f;
+    mpu6050_data->state   = k_mpu6050_uninitialized;
+  }
+
+  /* Clean up I2C resources */
+  temp_ret = priv_i2c_deinit(mpu6050_i2c_bus, mpu6050_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(mpu6050_tag, 
+             "I2C Warning", 
+             "Failed to clean up I2C resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(mpu6050_tag, 
+             "Cleanup Complete", 
+             "MPU6050 sensor resources released successfully");
+  } else {
+    log_warn(mpu6050_tag, 
+             "Cleanup Warning", 
+             "MPU6050 cleanup completed with some warnings");
+  }
+
+  return ret;
+}

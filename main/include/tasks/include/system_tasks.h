@@ -69,6 +69,27 @@ esp_err_t system_tasks_init(void);
  */
 esp_err_t system_tasks_start(void);
 
+/**
+ * @brief Stops all system-level tasks and cleans up associated resources
+ * 
+ * Performs a graceful shutdown of all system components in the reverse order
+ * they were initialized:
+ * 1. Stops motor control tasks
+ * 2. Stops sensor monitoring tasks
+ * 3. Stops camera monitoring tasks (if enabled)
+ * 4. Stops WiFi tasks
+ * 5. Cleans up file write manager
+ * 6. Cleans up gait system
+ * 7. Cleans up motor controllers
+ * 8. Cleans up camera subsystem
+ * 9. Cleans up sensor subsystem
+ * 10. Finalizes logging system
+ * 
+ * @return ESP_OK if all components shut down successfully, or ESP_FAIL if any component
+ *         failed to shut down properly
+ */
+esp_err_t system_tasks_stop(void);
+
 #ifdef __cplusplus
 }
 #endif

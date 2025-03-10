@@ -120,6 +120,27 @@ void ec11_register_callback(ec11_data_t* const encoder,
                             void* const        board_ptr, 
                             uint16_t           motor_mask);
 
+/**
+ * @brief Cleans up resources used by the EC11 rotary encoder.
+ *
+ * Performs the following cleanup operations:
+ * 1. Removes GPIO interrupt handlers for all pins (A, B, and button)
+ * 2. Resets GPIO pins to input mode with no pull-up/down
+ * 3. Deletes the mutex used for thread safety
+ * 4. Resets all encoder data and callback information
+ *
+ * @param[in,out] encoder Pointer to the `ec11_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_ERR_INVALID_ARG` if encoder is NULL.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the encoder
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t ec11_cleanup(ec11_data_t* const encoder);
+
 #ifdef __cplusplus
 }
 #endif

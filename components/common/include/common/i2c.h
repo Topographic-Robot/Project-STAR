@@ -21,7 +21,7 @@ extern const uint32_t i2c_timeout_ticks; /**< Timeout for I2C commands in ticks 
  * @brief Initializes the I2C interface with specified parameters.
  *
  * Configures the I2C interface with given SCL and SDA pins, frequency, and bus number.
- * Initializes the driver in controller mode without allocating buffers.
+ * Uses the bus manager to initialize the I2C bus in controller mode.
  *
  * @param[in] scl_io  I2C clock line (SCL) pin number.
  * @param[in] sda_io  I2C data line (SDA) pin number.
@@ -41,6 +41,20 @@ esp_err_t priv_i2c_init(uint8_t           scl_io,
                         uint32_t          freq_hz,
                         i2c_port_t        i2c_bus, 
                         const char* const tag);
+
+/**
+ * @brief Deinitializes the I2C interface.
+ *
+ * Uses the bus manager to deinitialize the specified I2C bus.
+ *
+ * @param[in] i2c_bus I2C bus number to deinitialize.
+ * @param[in] tag     Logging tag for error messages.
+ *
+ * @return
+ * - `ESP_OK` on successful deinitialization.
+ * - Error codes from `esp_err_t` on failure.
+ */
+esp_err_t priv_i2c_deinit(i2c_port_t i2c_bus, const char* const tag);
 
 /**
  * @brief Writes a single byte to a specific I2C device.

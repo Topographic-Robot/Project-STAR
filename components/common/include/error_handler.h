@@ -18,43 +18,58 @@ extern const char* const error_handler_tag; /**< Tag for logging messages */
 
 /* Macros *********************************************************************/
 
-#define MAX_COMPONENTS (32) /**< Maximum number of registered components */
+#define MAX_COMPONENTS     (32) /**< Maximum number of registered components */
+#define MAX_CORRELATIONS   (32) /**< Maximum number of error correlations to track */
+#define MAX_ROOT_CAUSES    (16) /**< Maximum number of root causes to track */
+#define MAX_RELATED_ERRORS (8)  /**< Maximum number of related errors per correlation */
 
 /**
  * @brief Records an error with file, line, and function information
  */
 #define ERROR_RECORD(handler, code, category, severity, desc) \
-  error_handler_record_error((handler), (code), (category), (severity), __FILE__, __LINE__, __func__, (desc))
+  do { \
+    error_handler_record_error((handler), (code), (category), (severity), __FILE__, __LINE__, __func__, (desc)); \
+  } while (0)
 
 /**
  * @brief Records a hardware error
  */
 #define ERROR_HARDWARE(handler, code, severity, desc) \
-  ERROR_RECORD((handler), (code), ERROR_CATEGORY_HARDWARE, (severity), (desc))
+  do { \
+    ERROR_RECORD((handler), (code), ERROR_CATEGORY_HARDWARE, (severity), (desc)); \
+  } while (0)
 
 /**
  * @brief Records a communication error
  */
 #define ERROR_COMMUNICATION(handler, code, severity, desc) \
-  ERROR_RECORD((handler), (code), ERROR_CATEGORY_COMMUNICATION, (severity), (desc))
+  do { \
+    ERROR_RECORD((handler), (code), ERROR_CATEGORY_COMMUNICATION, (severity), (desc)); \
+  } while (0)
 
 /**
  * @brief Records a memory error
  */
 #define ERROR_MEMORY(handler, code, severity, desc) \
-  ERROR_RECORD((handler), (code), ERROR_CATEGORY_MEMORY, (severity), (desc))
+  do { \
+    ERROR_RECORD((handler), (code), ERROR_CATEGORY_MEMORY, (severity), (desc)); \
+  } while (0)
 
 /**
  * @brief Records a system error
  */
 #define ERROR_SYSTEM(handler, code, severity, desc) \
-  ERROR_RECORD((handler), (code), ERROR_CATEGORY_SYSTEM, (severity), (desc))
+  do { \
+    ERROR_RECORD((handler), (code), ERROR_CATEGORY_SYSTEM, (severity), (desc)); \
+  } while (0)
 
 /**
  * @brief Records an application error
  */
 #define ERROR_APPLICATION(handler, code, severity, desc) \
-  ERROR_RECORD((handler), (code), ERROR_CATEGORY_APPLICATION, (severity), (desc))
+  do { \
+    ERROR_RECORD((handler), (code), ERROR_CATEGORY_APPLICATION, (severity), (desc)); \
+  } while (0)
 
 /* Enums **********************************************************************/
 
@@ -123,6 +138,7 @@ typedef struct component_info component_info_t;
 typedef esp_err_t (*error_handler_func_t)(error_info_t* error_info, void* context); /**< Function type for custom error handlers */
 typedef esp_err_t (*recovery_func_t)(recovery_context_t* context);                  /**< Function type for custom recovery functions */
 typedef esp_err_t (*reset_func_t)(void* context);                                   /**< Function type for component reset */
+typedef esp_err_t (*shutdown_func_t)(void* context);                                /**< Function type for component shutdown */
 
 /* Structs ********************************************************************/
 
@@ -130,15 +146,15 @@ typedef esp_err_t (*reset_func_t)(void* context);                               
  * @brief Extended error information structure
  */
 struct error_info {
-  esp_err_t        code;        /**< Error code */
-  error_category_t category;    /**< Error category */
-  error_severity_t severity;    /**< Error severity */
-  const char*      file;        /**< Source file where error occurred */
-  int              line;        /**< Line number where error occurred */
-  const char*      func;        /**< Function where error occurred */
-  const char*      description; /**< Human-readable error description */
-  uint64_t         timestamp;   /**< Timestamp when error occurred */
-  uint32_t         count;       /**< Number of times this error has occurred */
+  esp_err_t        code;           /**< Error code */
+  error_category_t category;       /**< Error category */
+  error_severity_t severity;       /**< Error severity */
+  const char*      file;           /**< Source file where error occurred */
+  int              line;           /**< Line number where error occurred */
+  const char*      func;           /**< Function where error occurred */
+  const char*      description;    /**< Human-readable error description */
+  uint64_t         timestamp;      /**< Timestamp when error occurred */
+  uint32_t         count;          /**< Number of times this error has occurred */
   uint32_t         correlation_id; /**< Correlation ID for related errors */
   const char*      component_id;   /**< Component ID where error occurred */
   bool             is_filtered;    /**< Whether this error is filtered */
@@ -155,6 +171,9 @@ struct recovery_context {
   uint32_t            max_attempts; /**< Maximum recovery attempts */
   TickType_t          timeout;      /**< Timeout for recovery attempt */
   bool                in_progress;  /**< Whether recovery is in progress */
+  bool                in_degraded_mode; /**< Whether operating in degraded mode */
+  uint32_t            retry_count;  /**< Number of retries attempted */
+  esp_err_t           last_error;   /**< Last error encountered during recovery */
 };
 
 /**
@@ -205,9 +224,12 @@ struct error_handler {
   TickType_t           last_attempt_ticks;       /**< Tick count of the last retry attempt */
   esp_err_t            last_status;              /**< Last status code encountered */
   bool                 in_error_state;           /**< Whether the component is in an error state */
+  bool                 permanently_failed;       /**< Whether the component has permanently failed */
   const char*          tag;                      /**< Tag for log_handler messages */
   void*                context;                  /**< Context pointer for the reset function */
   reset_func_t         reset_func;               /**< Function to call during reset, returns ESP_OK on success */
+  shutdown_func_t      shutdown_func;            /**< Function to call during shutdown */
+  SemaphoreHandle_t    mutex;                    /**< Mutex for thread safety */
   error_info_t         last_error;               /**< Detailed information about the last error */
   uint32_t             error_count;              /**< Total number of errors encountered */
   uint32_t             recovery_count;           /**< Total number of successful recoveries */
@@ -218,6 +240,7 @@ struct error_handler {
   recovery_func_t      recovery_func;            /**< Custom recovery function */
   recovery_context_t   recovery_context;         /**< Recovery context */
   error_handler_func_t error_callback;           /**< Callback for error notifications */
+  error_handler_func_t permanent_failure_callback; /**< Callback for permanent failure notifications */
   void*                callback_context;         /**< Context for error callback */
   
   /* Error filtering and correlation */
@@ -483,6 +506,84 @@ esp_err_t error_handler_analyze_root_cause(error_handler_t* const handler,
 esp_err_t error_handler_get_root_cause(const error_handler_t* const handler,
                                        const error_info_t*          error_info,
                                        root_cause_info_t*           root_cause);
+
+/**
+ * @brief Sets a shutdown function for the component
+ * 
+ * @param[in,out] handler  Pointer to the error_handler_t structure
+ * @param[in]     shutdown_func Shutdown function
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_set_shutdown_func(error_handler_t* const handler,
+                                          shutdown_func_t        shutdown_func);
+
+/**
+ * @brief Cleans up resources used by the error handler
+ * 
+ * @param[in,out] handler Pointer to the error_handler_t structure
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_cleanup(error_handler_t* const handler);
+
+/**
+ * @brief Cleans up the error handling system
+ * 
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_system_cleanup(void);
+
+/**
+ * @brief Purges old correlations to free memory
+ * 
+ * @param[in,out] handler Pointer to the error_handler_t structure
+ * @param[in]     age_ms  Maximum age in milliseconds to keep
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_purge_old_correlations(error_handler_t* const handler, uint64_t age_ms);
+
+/**
+ * @brief Sets a callback for permanent failure notification
+ * 
+ * @param[in,out] handler  Pointer to the error_handler_t structure
+ * @param[in]     callback Callback function for permanent failures
+ * @param[in]     context  Context for callback function
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_set_failure_callback(error_handler_t* const handler,
+                                             error_handler_func_t   callback,
+                                             void*                  context);
+
+/**
+ * @brief Checks if a component has permanently failed
+ * 
+ * @param[in] handler Pointer to the error_handler_t structure
+ * @return true if permanently failed, false otherwise
+ */
+bool error_handler_is_permanently_failed(const error_handler_t* const handler);
+
+/**
+ * @brief Unregisters a component from the error handling system
+ * 
+ * @param[in] component_id Component ID to unregister
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_unregister_component(const char* component_id);
+
+/**
+ * @brief Gets statistics for a component's error handler
+ * 
+ * @param[in]  handler    Pointer to the error_handler_t structure
+ * @param[out] error_count Pointer to store error count
+ * @param[out] recovery_count Pointer to store recovery count
+ * @param[out] in_error_state Pointer to store error state
+ * @param[out] permanently_failed Pointer to store permanent failure state
+ * @return ESP_OK if successful, error code otherwise
+ */
+esp_err_t error_handler_get_stats(const error_handler_t* const handler,
+                                  uint32_t*                    error_count,
+                                  uint32_t*                    recovery_count,
+                                  bool*                        in_error_state,
+                                  bool*                        permanently_failed);
 
 #ifdef __cplusplus
 }

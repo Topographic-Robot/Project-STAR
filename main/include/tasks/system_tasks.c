@@ -15,6 +15,8 @@
 #include "webserver_tasks.h"
 #include "time_manager.h"
 #include "file_write_manager.h"
+#include "sd_card_hal.h"
+#include "common/bus_manager.h"
 
 /* Defines ********************************************************************/
 
@@ -199,6 +201,161 @@ esp_err_t system_tasks_start(void)
   } else {
     log_warn(system_tag, "Task Warning", "Some system tasks failed to start");
   }
+  return ret;
+}
+
+esp_err_t system_tasks_stop(void)
+{
+  esp_err_t ret      = ESP_OK;
+  esp_err_t temp_ret = ESP_OK;
+
+  log_info(system_tag, "Shutdown Start", "Beginning system shutdown sequence");
+
+  /* Stop motor control tasks */
+  log_info(system_tag, "Motor Stop", "Stopping motor control system");
+  temp_ret = motor_tasks_stop(g_pwm_controller);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Motor Warning", 
+             "Failed to stop motor tasks cleanly: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Stop sensor tasks */
+  log_info(system_tag, "Sensor Stop", "Stopping sensor monitoring system");
+  temp_ret = sensor_tasks_stop(&g_sensor_data);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Sensor Warning", 
+             "Failed to stop sensor tasks cleanly: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Stop camera monitoring task (if it was started) */
+  /* Commented out to match the commented section in system_tasks_start
+  log_info(system_tag, "Camera Stop", "Stopping camera monitoring system");
+  temp_ret = ov7670_task_stop(&g_camera_data);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Camera Warning", 
+             "Failed to stop camera tasks cleanly: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+  */
+
+  /* Stop WiFi task */
+  log_info(system_tag, "WiFi Stop", "Stopping WiFi subsystem");
+  temp_ret = wifi_task_stop();
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "WiFi Warning", 
+             "Failed to stop WiFi task cleanly: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Stop webserver tasks */
+  log_info(system_tag, "Webserver Stop", "Stopping webserver subsystem");
+  temp_ret = webserver_task_stop();
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Webserver Warning", 
+             "Failed to stop webserver cleanly: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up file write manager */
+  log_info(system_tag, "Storage Stop", "Cleaning up storage system");
+  temp_ret = file_write_manager_cleanup();
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Storage Warning", 
+             "Failed to clean up storage system: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up gait system */
+  log_info(system_tag, "Gait Stop", "Cleaning up gait system");
+  temp_ret = gait_cleanup(g_pwm_controller);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Gait Warning", 
+             "Failed to clean up gait system: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up motor controllers */
+  log_info(system_tag, "Motor Cleanup", "Cleaning up motor controllers");
+  temp_ret = motors_cleanup(&g_pwm_controller);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Motor Warning", 
+             "Failed to clean up motor controllers: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up camera subsystem */
+  log_info(system_tag, "Camera Cleanup", "Cleaning up camera subsystem");
+  temp_ret = ov7670_cleanup(&g_camera_data);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Camera Warning", 
+             "Failed to clean up camera subsystem: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up sensor subsystem */
+  log_info(system_tag, "Sensor Cleanup", "Cleaning up sensor subsystem");
+  temp_ret = sensors_cleanup(&g_sensor_data);
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Sensor Warning", 
+             "Failed to clean up sensor subsystem: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up SD card subsystem */
+  log_info(system_tag, "SD Card Cleanup", "Cleaning up SD card subsystem");
+  temp_ret = sd_card_deinit();
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "SD Card Warning", 
+             "Failed to clean up SD card subsystem: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Clean up bus manager */
+  log_info(system_tag, "Bus Manager Cleanup", "Cleaning up bus manager");
+  temp_ret = bus_manager_deinit_all();
+  if (temp_ret != ESP_OK) {
+    log_warn(system_tag, 
+             "Bus Manager Warning", 
+             "Failed to clean up bus manager: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
+  /* Finalize logging system (do this last) */
+  log_info(system_tag, "Log Finalize", "Finalizing logging system");
+  temp_ret = log_cleanup();
+  if (temp_ret != ESP_OK) {
+    /* Can't log this error since logging is being shut down */
+    ESP_LOGW(system_tag, 
+             "Log Cleanup Error: %s", 
+             esp_err_to_name(temp_ret));
+    ret = ESP_FAIL;
+  }
+
   return ret;
 }
 

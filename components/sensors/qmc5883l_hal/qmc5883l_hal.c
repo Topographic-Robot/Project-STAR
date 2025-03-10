@@ -8,6 +8,7 @@
 #include "common/i2c.h"
 #include "error_handler.h"
 #include "log_handler.h"
+#include "common/bus_manager.h"
 
 /* Constants ******************************************************************/
 
@@ -136,18 +137,16 @@ esp_err_t qmc5883l_init(void* sensor_data)
   qmc5883l_data->retry_interval     = qmc5883l_initial_retry_interval;
   qmc5883l_data->last_attempt_ticks = 0;
 
-  esp_err_t ret = priv_i2c_init(qmc5883l_scl_io, 
-                                qmc5883l_sda_io,
-                                qmc5883l_i2c_freq_hz, 
-                                qmc5883l_i2c_bus,
-                                qmc5883l_tag);
+  esp_err_t ret = bus_manager_i2c_init(qmc5883l_scl_io, 
+                                      qmc5883l_sda_io,
+                                      qmc5883l_i2c_freq_hz, 
+                                      qmc5883l_i2c_bus);
 
   if (ret != ESP_OK) {
     log_error(qmc5883l_tag, 
               "I2C Error", 
               "Failed to install I2C driver: %s", 
               esp_err_to_name(ret));
-    qmc5883l_data->state = k_qmc5883l_power_on_error;
     return ret;
   }
 
@@ -291,4 +290,61 @@ void qmc5883l_tasks(void* const sensor_data)
     }
     vTaskDelay(qmc5883l_polling_rate_ticks);
   }
+}
+
+esp_err_t qmc5883l_cleanup(void* const sensor_data)
+{
+  qmc5883l_data_t* const qmc5883l_data = (qmc5883l_data_t* const)sensor_data;
+  esp_err_t              ret           = ESP_OK;
+  
+  log_info(qmc5883l_tag, "Cleanup Start", "Beginning QMC5883L magnetometer cleanup");
+  
+  if (qmc5883l_data == NULL) {
+    log_error(qmc5883l_tag, 
+              "Invalid Parameter", 
+              "Sensor data pointer is NULL, cannot proceed with cleanup");
+    return ESP_FAIL;
+  }
+  
+  /* Put the sensor in standby mode to reduce power consumption */
+  uint8_t ctrl1 = k_qmc5883l_mode_standby | 
+                  qmc5883l_odr_setting |
+                  qmc5883l_scale_configs[qmc5883l_scale_config_idx].range |
+                  k_qmc5883l_osr_512;
+  
+  esp_err_t write_ret = priv_i2c_write_reg_byte(k_qmc5883l_ctrl1_cmd, 
+                                                ctrl1,
+                                                qmc5883l_i2c_bus, 
+                                                qmc5883l_i2c_address,
+                                                qmc5883l_tag);
+  
+  if (write_ret != ESP_OK) {
+    log_warn(qmc5883l_tag, 
+             "Standby Warning", 
+             "Failed to put QMC5883L in standby mode: %s", 
+             esp_err_to_name(write_ret));
+    ret = ESP_FAIL;
+    /* Continue with cleanup anyway */
+  }
+  
+  /* Reset the sensor data structure */
+  qmc5883l_data->mag_x              = 0.0;
+  qmc5883l_data->mag_y              = 0.0;
+  qmc5883l_data->mag_z              = 0.0;
+  qmc5883l_data->heading            = 0.0;
+  qmc5883l_data->state              = k_qmc5883l_uninitialized;
+  qmc5883l_data->retry_count        = 0;
+  qmc5883l_data->retry_interval     = qmc5883l_initial_retry_interval;
+  qmc5883l_data->last_attempt_ticks = 0;
+  
+  /* Note: We don't deinitialize the I2C bus here as it might be shared with other devices.
+   * The I2C bus should be deinitialized at the system level if needed.
+   */
+  
+  log_info(qmc5883l_tag, 
+           "Cleanup Complete", 
+           "QMC5883L magnetometer cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
+  
+  return ret;
 }

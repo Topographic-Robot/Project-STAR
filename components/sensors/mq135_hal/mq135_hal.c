@@ -216,3 +216,64 @@ void mq135_tasks(void* const sensor_data)
   }
 }
 
+esp_err_t mq135_cleanup(void* const sensor_data)
+{
+  mq135_data_t* const mq135_data = (mq135_data_t*)sensor_data;
+  log_info(mq135_tag, "Cleanup Start", "Beginning MQ135 gas sensor cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Reset GPIO pins to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << mq135_aout_pin) | (1ULL << mq135_dout_pin),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  esp_err_t temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(mq135_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Delete ADC unit */
+  if (s_adc1_handle) {
+    temp_ret = adc_oneshot_del_unit(s_adc1_handle);
+    if (temp_ret != ESP_OK) {
+      log_warn(mq135_tag, 
+               "ADC Warning", 
+               "Failed to delete ADC unit: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    } else {
+      s_adc1_handle = NULL;
+    }
+  }
+
+  /* Reset sensor data structure */
+  if (mq135_data != NULL) {
+    mq135_data->raw_adc_value     = 0;
+    mq135_data->gas_concentration = 0.0;
+    mq135_data->state             = k_mq135_error;
+    mq135_data->retry_count       = 0;
+    mq135_data->retry_interval    = mq135_initial_retry_interval;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(mq135_tag, 
+             "Cleanup Complete", 
+             "MQ135 gas sensor resources released successfully");
+  } else {
+    log_warn(mq135_tag, 
+             "Cleanup Warning", 
+             "MQ135 cleanup completed with some warnings");
+  }
+
+  return ret;
+}
+

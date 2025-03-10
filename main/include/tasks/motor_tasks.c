@@ -126,3 +126,76 @@ esp_err_t motor_tasks_start(pca9685_board_t* pwm_controller)
 
   return ESP_OK;
 }
+
+esp_err_t motor_tasks_stop(pca9685_board_t* pwm_controller)
+{
+  if (pwm_controller == NULL) {
+    log_error(motor_tag, "Stop Error", "PWM controller pointer is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  log_info(motor_tag, "Stop Start", "Beginning motor tasks shutdown");
+
+  /* Stop all motors */
+  pca9685_board_t* current = pwm_controller;
+  while (current != NULL) {
+    for (uint8_t i = 0; i < PCA9685_MOTORS_PER_BOARD; i++) {
+      /* Set all motors to neutral position */
+      esp_err_t ret = pca9685_set_angle(current, 
+                                       (1 << i), 
+                                       current->board_id, 
+                                       90.0f); /* Return to neutral position */
+      if (ret != ESP_OK) {
+        log_warn(motor_tag, 
+                 "Motor Warning", 
+                 "Failed to stop motor %u on board %u", 
+                 i, 
+                 current->board_id);
+      }
+    }
+    current = current->next;
+  }
+
+  log_info(motor_tag, "Stop Complete", "Motor tasks shutdown successful");
+  return ESP_OK;
+}
+
+esp_err_t motors_cleanup(pca9685_board_t** pwm_controller)
+{
+  if (pwm_controller == NULL || *pwm_controller == NULL) {
+    log_error(motor_tag, "Cleanup Error", "PWM controller pointer is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  log_info(motor_tag, "Cleanup Start", "Beginning motor controllers cleanup");
+
+  /* First stop all motors */
+  esp_err_t ret = motor_tasks_stop(*pwm_controller);
+  if (ret != ESP_OK) {
+    log_warn(motor_tag, 
+             "Stop Warning", 
+             "Failed to stop all motors cleanly: %s", 
+             esp_err_to_name(ret));
+  }
+
+  /* Clean up each board in the linked list */
+  pca9685_board_t* current = *pwm_controller;
+  while (current != NULL) {
+    pca9685_board_t* next = current->next;
+    
+    /* Reset all motors on this board */
+    for (uint8_t i = 0; i < PCA9685_MOTORS_PER_BOARD; i++) {
+      current->motors[i].pos_deg = 0.0f;
+    }
+
+    /* Free the board structure */
+    free(current);
+    current = next;
+  }
+
+  /* Set the pointer to NULL to prevent use after free */
+  *pwm_controller = NULL;
+
+  log_info(motor_tag, "Cleanup Complete", "Motor controllers cleanup successful");
+  return ESP_OK;
+}

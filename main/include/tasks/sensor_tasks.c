@@ -122,3 +122,136 @@ esp_err_t sensor_tasks(sensor_data_t* sensor_data)
   return overall_status;
 }
 
+esp_err_t sensors_cleanup(sensor_data_t* sensor_data)
+{
+  esp_err_t overall_status = ESP_OK;
+  esp_err_t status;
+
+  log_info(system_tag, 
+           "Cleanup Start", 
+           "Beginning cleanup of all enabled sensors");
+
+  /* Clean up QMC5883L magnetometer */
+  log_info(system_tag, 
+           "Sensor Cleanup", 
+           "Cleaning up QMC5883L magnetometer");
+  status = qmc5883l_cleanup(&(sensor_data->qmc5883l_data));
+  if (status != ESP_OK) {
+    log_warn(system_tag, 
+             "Cleanup Warning", 
+             "QMC5883L magnetometer cleanup failed: %s", 
+             esp_err_to_name(status));
+    overall_status = ESP_FAIL;
+  } else {
+    log_info(system_tag, 
+             "Cleanup Success", 
+             "QMC5883L magnetometer cleaned up successfully");
+  }
+
+  /* Clean up MQ135 gas sensor */
+  log_info(system_tag, 
+           "Sensor Cleanup", 
+           "Cleaning up MQ135 gas sensor");
+  status = mq135_cleanup(&(sensor_data->mq135_data));
+  if (status != ESP_OK) {
+    log_warn(system_tag, 
+             "Cleanup Warning", 
+             "MQ135 gas sensor cleanup failed: %s", 
+             esp_err_to_name(status));
+    overall_status = ESP_FAIL;
+  } else {
+    log_info(system_tag, 
+             "Cleanup Success", 
+             "MQ135 gas sensor cleaned up successfully");
+  }
+
+  /* Clean up MPU6050 motion sensor */
+  log_info(system_tag, 
+           "Sensor Cleanup", 
+           "Cleaning up MPU6050 motion sensor");
+  status = mpu6050_cleanup(&(sensor_data->mpu6050_data));
+  if (status != ESP_OK) {
+    log_warn(system_tag, 
+             "Cleanup Warning", 
+             "MPU6050 motion sensor cleanup failed: %s", 
+             esp_err_to_name(status));
+    overall_status = ESP_FAIL;
+  } else {
+    log_info(system_tag, 
+             "Cleanup Success", 
+             "MPU6050 motion sensor cleaned up successfully");
+  }
+
+  /* Add cleanup for other sensors as they are implemented */
+  /* For example:
+  status = bh1750_cleanup(&(sensor_data->bh1750_data));
+  status = dht22_cleanup(&(sensor_data->dht22_data));
+  status = gy_neo6mv2_cleanup(&(sensor_data->gy_neo6mv2_data));
+  status = ccs811_cleanup(&(sensor_data->ccs811_data));
+  */
+
+  if (overall_status == ESP_OK) {
+    log_info(system_tag, 
+             "Cleanup Complete", 
+             "All enabled sensors cleaned up successfully");
+  } else {
+    log_warn(system_tag, 
+             "Cleanup Warning", 
+             "Sensor cleanup partially complete, some sensors failed");
+  }
+
+  return overall_status;
+}
+
+esp_err_t sensor_tasks_stop(sensor_data_t* sensor_data)
+{
+  esp_err_t ret = ESP_OK;
+
+  log_info(system_tag, "Sensor Stop", "Beginning sensor task shutdown");
+
+  if (sensor_data == NULL) {
+    log_error(system_tag, 
+              "Invalid Parameter", 
+              "Sensor data pointer is NULL, cannot proceed with task stop");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Stop all sensor tasks by iterating through the sensor configurations */
+  for (uint8_t i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
+    if (s_sensors[i].enabled) {
+      log_info(system_tag, 
+               "Task Stop", 
+               "Stopping %s sensor task", 
+               s_sensors[i].sensor_name);
+
+      /* Find the task handle for this sensor (if it exists) */
+      TaskHandle_t task_handle = NULL;
+      if (xTaskGetHandle(s_sensors[i].sensor_name) != NULL) {
+        task_handle = xTaskGetHandle(s_sensors[i].sensor_name);
+        vTaskDelete(task_handle);
+        log_info(system_tag, 
+                 "Task Deleted", 
+                 "%s sensor task deleted successfully", 
+                 s_sensors[i].sensor_name);
+      } else {
+        log_warn(system_tag, 
+                 "Task Warning", 
+                 "%s sensor task not found, may have already been stopped", 
+                 s_sensors[i].sensor_name);
+        ret = ESP_FAIL;
+      }
+    }
+  }
+
+  if (ret == ESP_OK) {
+    log_info(system_tag, 
+             "Stop Complete", 
+             "All sensor tasks stopped successfully");
+  } else {
+    log_warn(system_tag, 
+             "Stop Warning", 
+             "Some sensor tasks could not be stopped");
+  }
+
+  return ret;
+}

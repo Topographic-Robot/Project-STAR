@@ -685,3 +685,51 @@ bool log_storage_is_compression_enabled(void)
 {
   return s_compression_enabled;
 }
+
+esp_err_t log_storage_cleanup(void)
+{
+  log_info(log_storage_tag, "Cleanup Start", "Beginning log storage cleanup");
+  esp_err_t ret = ESP_OK;
+
+  /* Take mutex to ensure thread safety */
+  if (xSemaphoreTake(s_log_mutex, portMAX_DELAY) != pdTRUE) {
+    log_error(log_storage_tag, "Mutex Error", "Failed to take mutex during cleanup");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  /* Flush any remaining logs */
+  esp_err_t temp_ret = log_storage_flush();
+  if (temp_ret != ESP_OK) {
+    log_warn(log_storage_tag, 
+             "Flush Warning", 
+             "Failed to flush logs during cleanup: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset current log file path */
+  memset(s_current_log_file, 0, sizeof(s_current_log_file));
+
+  /* Reset buffer state */
+  s_log_buffer_index = 0;
+  memset(s_log_buffer, 0, sizeof(s_log_buffer));
+
+  /* Give mutex back before deleting it */
+  xSemaphoreGive(s_log_mutex);
+
+  /* Delete mutex */
+  if (s_log_mutex != NULL) {
+    vSemaphoreDelete(s_log_mutex);
+    s_log_mutex = NULL;
+  }
+
+  /* Reset initialization flag */
+  s_log_storage_initialized = false;
+
+  log_info(log_storage_tag, 
+           "Cleanup Complete", 
+           "Log storage cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
+
+  return ret;
+}

@@ -136,6 +136,20 @@ void mq135_reset_on_error(mq135_data_t* const sensor_data);
  */
 void mq135_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the MQ135 sensor.
+ *
+ * Releases hardware resources (ADC) and resets the sensor state.
+ * Should be called during system shutdown.
+ *
+ * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes on failure.
+ */
+esp_err_t mq135_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

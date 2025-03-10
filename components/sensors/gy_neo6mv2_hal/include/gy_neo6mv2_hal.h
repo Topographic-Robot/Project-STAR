@@ -167,6 +167,27 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data);
  */
 void gy_neo6mv2_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the GY-NEO6MV2 GPS module.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts the GPS module in power save mode by disabling NMEA messages
+ * 2. Clears internal sentence and satellite buffers
+ * 3. Resets sensor data structure to initial values
+ * 4. Cleans up UART resources
+ *
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the GPS
+ *       module is no longer needed. It ensures proper release of all allocated
+ *       resources and puts the module in a low-power state.
+ */
+esp_err_t gy_neo6mv2_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif

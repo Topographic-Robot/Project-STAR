@@ -38,6 +38,23 @@ extern "C" {
  */
 esp_err_t send_sensor_data_to_webserver(const char* const json_string);
 
+/**
+ * @brief Stops the webserver task and cleans up resources.
+ *
+ * Stops the webserver task and performs cleanup of resources allocated
+ * during webserver initialization. This function should be called during
+ * system shutdown to ensure proper cleanup of the webserver subsystem.
+ *
+ * @return 
+ * - ESP_OK   if the webserver task is successfully stopped and resources cleaned up.
+ * - ESP_FAIL if the task fails to stop or cleanup properly.
+ *
+ * @note This function should be called after all other components that depend on
+ *       the webserver have been stopped, but before the underlying network
+ *       interfaces are deinitialized.
+ */
+esp_err_t webserver_task_stop(void);
+
 #ifdef __cplusplus
 }
 #endif

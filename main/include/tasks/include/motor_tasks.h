@@ -58,6 +58,50 @@ esp_err_t motors_init(pca9685_board_t** pwm_controller);
  */
 esp_err_t motor_tasks_start(pca9685_board_t* pwm_controller);
 
+/**
+ * @brief Stops the motor tasks and cleans up resources.
+ *
+ * Stops all motor control tasks and performs cleanup of resources allocated
+ * during motor initialization. This function should be called during system
+ * shutdown to ensure proper cleanup of the motor subsystem.
+ *
+ * @param[in] pwm_controller Pointer to the PCA9685 board controller used to
+ *                           manage the motors.
+ *
+ * @return 
+ * - ESP_OK              on successful stop of motor tasks and cleanup.
+ * - ESP_ERR_INVALID_ARG if the `pwm_controller` is NULL.
+ * - ESP_FAIL            for other cleanup errors.
+ *
+ * @note This function should be called after all other components that depend on
+ *       motor control have been stopped, but before the underlying hardware
+ *       interfaces are deinitialized.
+ */
+esp_err_t motor_tasks_stop(pca9685_board_t* pwm_controller); /* TODO: Implement this function */
+
+/**
+ * @brief Cleans up resources used by the motor controllers.
+ *
+ * Performs cleanup of resources allocated during motor controller initialization.
+ * This includes:
+ * 1. Stopping all motors
+ * 2. Releasing PWM channels
+ * 3. Cleaning up I2C resources
+ * 4. Freeing memory allocated for motor data structures
+ *
+ * @param[in,out] pwm_controller Pointer to pointer to the PCA9685 board controller.
+ *                              The pointer will be set to NULL after cleanup.
+ *
+ * @return 
+ * - ESP_OK              on successful cleanup.
+ * - ESP_ERR_INVALID_ARG if pwm_controller is NULL.
+ * - ESP_FAIL            for other cleanup errors.
+ *
+ * @note This function should be called after motor_tasks_stop() to ensure
+ *       tasks are stopped before hardware resources are released.
+ */
+esp_err_t motors_cleanup(pca9685_board_t** pwm_controller);
+
 #ifdef __cplusplus
 }
 #endif

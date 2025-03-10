@@ -172,6 +172,29 @@ esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data,
                             uint8_t                      board_id, 
                             float                        target_angle);
 
+/**
+ * @brief Cleans up resources used by the PCA9685 PWM controller.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts all boards in sleep mode to minimize power consumption
+ * 2. Resets all PWM outputs to 0
+ * 3. Resets GPIO pins (SCL, SDA) to input mode with no pull-up/down
+ * 4. Cleans up I2C resources
+ * 5. Frees allocated memory for all board structures
+ *
+ * @param[in,out] controller_data Pointer to pointer to the first board in the linked list.
+ *                               Will be set to NULL after cleanup.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_ERR_INVALID_ARG` if controller_data is NULL or points to NULL.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the controller
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t pca9685_cleanup(pca9685_board_t** const controller_data);
+
 #ifdef __cplusplus
 }
 #endif

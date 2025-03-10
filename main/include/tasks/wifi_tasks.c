@@ -413,3 +413,57 @@ esp_err_t wifi_task_start(void)
   log_info(wifi_tag, "Task Success", "WiFi monitoring task created successfully");
   return ESP_OK;
 }
+
+esp_err_t wifi_task_stop(void)
+{
+  log_info(wifi_tag, "Shutdown Start", "Beginning WiFi subsystem shutdown");
+
+  /* Stop the WiFi task if it's running */
+  if (s_wifi_task_handle != NULL) {
+    log_info(wifi_tag, "Task Stop", "Stopping WiFi monitoring task");
+    vTaskDelete(s_wifi_task_handle);
+    s_wifi_task_handle = NULL;
+  }
+
+  /* Stop WiFi connection and driver */
+  esp_err_t ret = esp_wifi_disconnect();
+  if (ret != ESP_OK) {
+    log_warn(wifi_tag, "Disconnect Warning", "Failed to disconnect WiFi: %d", ret);
+  }
+  
+  ret = esp_wifi_stop();
+  if (ret != ESP_OK) {
+    log_warn(wifi_tag, "Stop Warning", "Failed to stop WiFi: %d", ret);
+  }
+
+  /* Unregister event handlers */
+  esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, NULL);
+  esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, NULL);
+
+  /* Deinitialize WiFi driver */
+  ret = esp_wifi_deinit();
+  if (ret != ESP_OK) {
+    log_warn(wifi_tag, "Deinit Warning", "Failed to deinitialize WiFi: %d", ret);
+  }
+
+  /* Delete the connection timer if it exists */
+  if (s_wifi_connect_timer != NULL) {
+    if (xTimerIsTimerActive(s_wifi_connect_timer) == pdTRUE) {
+      xTimerStop(s_wifi_connect_timer, 0);
+    }
+    xTimerDelete(s_wifi_connect_timer, 0);
+    s_wifi_connect_timer = NULL;
+  }
+
+  /* Delete the event group if it exists */
+  if (s_wifi_event_group != NULL) {
+    vEventGroupDelete(s_wifi_event_group);
+    s_wifi_event_group = NULL;
+  }
+
+  /* Clean up the error handler */
+  error_handler_cleanup(&s_wifi_error_handler);
+
+  log_info(wifi_tag, "Shutdown Complete", "WiFi subsystem shutdown successful");
+  return ESP_OK;
+}

@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# This script finds all .c, .h, and .v files, excluding the 'build' directory,
+# This script finds all .c, .h, and .v files, excluding the 'build' and 'managed_components' directories,
 # and adds a comment at the top with the file's relative path.
 
-# Find all .c, .h, and .v files starting from the current directory, excluding 'build' directory
-find . -path ./build -prune -o -type f \( -name "*.c" -o -name "*.h" -o -name "*.v" \) -print | while IFS= read -r file; do
+# Find all .c, .h, and .v files starting from the current directory, excluding 'build' and 'managed_components' directories
+find . -path ./build -prune -o -path ./managed_components -prune -o -type f \( -name "*.c" -o -name "*.h" -o -name "*.v" \) -print | while IFS= read -r file; do
     # Get the relative path by removing the leading './'
     filepath="${file#./}"
     # Escape slashes and special characters for sed
@@ -18,4 +18,3 @@ find . -path ./build -prune -o -type f \( -name "*.c" -o -name "*.h" -o -name "*
         echo "Header already exists in $filepath"
     fi
 done
-

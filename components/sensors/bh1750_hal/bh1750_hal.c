@@ -223,3 +223,70 @@ void bh1750_tasks(void* const sensor_data)
     vTaskDelay(bh1750_polling_rate_ticks);
   }
 }
+
+esp_err_t bh1750_cleanup(void* const sensor_data)
+{
+  bh1750_data_t* const bh1750_data = (bh1750_data_t*)sensor_data;
+  log_info(bh1750_tag, "Cleanup Start", "Beginning BH1750 sensor cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Put sensor in power down mode */
+  esp_err_t temp_ret = priv_i2c_write_byte(k_bh1750_power_down_cmd, 
+                                           bh1750_i2c_bus,
+                                           bh1750_i2c_address, 
+                                           bh1750_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(bh1750_tag, 
+             "Power Warning", 
+             "Failed to put BH1750 in power down mode: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset GPIO pins to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << bh1750_scl_io) | (1ULL << bh1750_sda_io),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(bh1750_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset sensor data structure */
+  if (bh1750_data != NULL) {
+    bh1750_data->lux   = -1.0f;
+    bh1750_data->state = k_bh1750_uninitialized;
+  }
+
+  /* Clean up I2C resources */
+  temp_ret = priv_i2c_deinit(bh1750_i2c_bus, bh1750_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(bh1750_tag, 
+             "I2C Warning", 
+             "Failed to clean up I2C resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(bh1750_tag, 
+             "Cleanup Complete", 
+             "BH1750 sensor resources released successfully");
+  } else {
+    log_warn(bh1750_tag, 
+             "Cleanup Warning", 
+             "BH1750 cleanup completed with some warnings");
+  }
+
+  return ret;
+}

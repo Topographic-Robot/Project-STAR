@@ -435,3 +435,53 @@ void dht22_tasks(void* const sensor_data)
     vTaskDelay(dht22_polling_rate_ticks);
   }
 }
+
+esp_err_t dht22_cleanup(void* const sensor_data)
+{
+  dht22_data_t* const dht22_data = (dht22_data_t*)sensor_data;
+  log_info(dht22_tag, "Cleanup Start", "Beginning DHT22 sensor cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Reset GPIO pin to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = (1ULL << dht22_data_io),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  esp_err_t temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(dht22_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset sensor data structure */
+  if (dht22_data != NULL) {
+    dht22_data->humidity           = -1.0;
+    dht22_data->temperature_c      = -1.0;
+    dht22_data->temperature_f      = -1.0;
+    dht22_data->state              = k_dht22_uninitialized;
+    dht22_data->retry_count        = 0;
+    dht22_data->retry_interval     = dht22_initial_retry_interval;
+    dht22_data->last_attempt_ticks = 0;
+    dht22_data->fail_count         = 0;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(dht22_tag, 
+             "Cleanup Complete", 
+             "DHT22 sensor resources released successfully");
+  } else {
+    log_warn(dht22_tag, 
+             "Cleanup Warning", 
+             "DHT22 cleanup completed with some warnings");
+  }
+
+  return ret;
+}
