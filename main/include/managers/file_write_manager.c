@@ -18,37 +18,9 @@
 #include "log_handler.h"
 #include "time_manager.h"
 
-/* TODO: Implement a graceful shutdown mechanism for the file writer
- *
- * When power management is implemented, add a function to:
- * - Process any remaining items in the write queue
- * - Close any open files properly
- * - Free allocated resources
- * - Signal completion to allow safe power down
- *
- * This is important because sudden power loss (like unplugging the USB)
- * could lead to data corruption or loss, even with fsync() in place.
- */
-
-/* TODO: Enhance error handling mechanisms
- *
- * Current error handling primarily logs errors but doesn't provide
- * recovery mechanisms. Consider implementing:
- *
- * 1. Retry mechanism: Attempt to retry failed operations with
- *    exponential backoff to handle transient failures
- * 2. Fallback storage options: If SD card fails, try to use flash
- *    memory or other storage options
- * 3. Error statistics: Track error rates and types for diagnostics
- * 4. Watchdog integration: Reset the system if file operations
- *    consistently fail
- * 5. Critical data prioritization: Ensure critical data is written
- *    first and with higher reliability guarantees
- */
-
 /* Constants ******************************************************************/
 
-const char* const file_manager_tag = "File Manager";
+const char* const file_manager_tag   = "File Manager";
 const uint32_t    max_pending_writes = 20;
 
 /* Globals (Static) ***********************************************************/
@@ -318,6 +290,14 @@ static void priv_file_write_task(void* param)
     file_write_request_t request;
     
     if (xQueueReceive(s_file_write_queue, &request, portMAX_DELAY) == pdTRUE) {
+      /* Check if this is a termination request */
+      if (strcmp(request.file_path, "TERMINATE") == 0) {
+        log_info(file_manager_tag, 
+                 "Task Terminate", 
+                 "Received termination request, exiting task");
+        break; /* Exit the task loop */
+      }
+      
       /* Check if this is a binary request */
       if (request.is_binary) {
         /* Process binary write request */
@@ -342,6 +322,14 @@ static void priv_file_write_task(void* param)
       }
     }
   }
+  
+  /* Task cleanup before exit */
+  log_info(file_manager_tag, 
+           "Task Exit", 
+           "File write task exiting");
+  
+  /* The task will be deleted by the cleanup function */
+  vTaskDelete(NULL);
 }
 
 /* Public Functions ***********************************************************/
@@ -501,6 +489,77 @@ esp_err_t file_write_binary_enqueue(const char* const file_path,
             "Binary Enqueue Success", 
             "Enqueued binary write request for file: %s (%lu bytes)", 
             file_path, (unsigned long)data_length);
+  return ESP_OK;
+}
+
+esp_err_t file_write_manager_cleanup(void)
+{
+  if (!s_initialized) {
+    log_warn(file_manager_tag, 
+             "Cleanup Skip", 
+             "File write manager not initialized, nothing to clean up");
+    return ESP_OK;
+  }
+
+  log_info(file_manager_tag, 
+           "Cleanup Start", 
+           "Beginning file write manager cleanup");
+
+  /* Process any remaining items in the queue */
+  log_info(file_manager_tag, 
+           "Queue Drain", 
+           "Processing remaining items in the write queue");
+
+  /* Create a special termination request to signal the task to exit */
+  file_write_request_t termination_request;
+  memset(&termination_request, 0, sizeof(file_write_request_t));
+  strncpy(termination_request.file_path, "TERMINATE", MAX_FILE_PATH_LENGTH - 1);
+  termination_request.data        = NULL;
+  termination_request.data_length = 0;
+  termination_request.is_binary   = false;
+
+  /* Send the termination request to the queue */
+  if (xQueueSend(s_file_write_queue, &termination_request, pdMS_TO_TICKS(100)) != pdTRUE) {
+    log_error(file_manager_tag, 
+              "Termination Error", 
+              "Failed to enqueue termination request: queue full");
+    /* Continue with cleanup anyway */
+  }
+
+  /* Wait for the task to process the termination request and exit */
+  vTaskDelay(pdMS_TO_TICKS(500)); /* Give the task some time to process the request */
+
+  /* Delete the task */
+  if (s_file_write_task != NULL) {
+    log_info(file_manager_tag, 
+             "Task Delete", 
+             "Deleting file write task");
+    vTaskDelete(s_file_write_task);
+    s_file_write_task = NULL;
+  }
+
+  /* Delete the queue */
+  if (s_file_write_queue != NULL) {
+    log_info(file_manager_tag, 
+             "Queue Delete", 
+             "Deleting file write queue");
+    vQueueDelete(s_file_write_queue);
+    s_file_write_queue = NULL;
+  }
+
+  /* Clean up SD card detection system */
+  esp_err_t ret = sd_card_detection_cleanup();
+  if (ret != ESP_OK) {
+    log_warn(file_manager_tag, 
+             "SD Card Warning", 
+             "SD card detection system cleanup failed");
+  }
+
+  s_initialized = false;
+  log_info(file_manager_tag, 
+           "Cleanup Complete", 
+           "File write manager cleanup completed successfully");
+  
   return ESP_OK;
 }
 

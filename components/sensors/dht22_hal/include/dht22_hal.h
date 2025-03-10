@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -49,15 +50,16 @@ typedef enum : uint8_t {
  * Contains the latest temperature and humidity readings from the DHT22 sensor,
  * as well as state and retry management variables for error handling and reinitialization.
  */
-typedef struct {
-  float      temperature_f;      /**< Latest temperature reading in Fahrenheit. */
-  float      temperature_c;      /**< Latest temperature reading in Celsius. */
-  float      humidity;           /**< Latest humidity reading as a percentage. */
-  uint8_t    state;              /**< Current operational state of the sensor (see dht22_states_t). */
-  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
-  uint8_t    fail_count;         /**< Number of current amount of fail reads */
+typedef struct dht22_data {
+  float         temperature_f;      /**< Latest temperature reading in Fahrenheit. */
+  float         temperature_c;      /**< Latest temperature reading in Celsius. */
+  float         humidity;           /**< Latest humidity reading as a percentage. */
+  uint8_t       state;             /**< Current operational state of the sensor (see dht22_states_t). */
+  uint8_t       retry_count;       /**< Number of consecutive reinitialization attempts. */
+  uint32_t      retry_interval;    /**< Current interval between reinitialization attempts, in ticks. */
+  TickType_t    last_attempt_ticks;/**< Tick count of the last reinitialization attempt. */
+  uint8_t       fail_count;        /**< Number of current amount of fail reads */
+  error_handler_t* error_handler;  /**< Error handler for managing sensor errors and recovery */
 } dht22_data_t;
 
 /* Public Functions ***********************************************************/
@@ -147,6 +149,26 @@ void dht22_reset_on_error(dht22_data_t* const sensor_data);
  * - Includes error handling to ensure reliable data acquisition.
  */
 void dht22_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the DHT22 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Resets GPIO pin to input mode to avoid residual signals
+ * 2. Disables GPIO pull-up/pull-down resistors
+ * 3. Resets sensor data structure to initial values
+ * 4. Resets error handling and retry counters
+ *
+ * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t dht22_cleanup(void* const sensor_data);
 
 #ifdef __cplusplus
 }

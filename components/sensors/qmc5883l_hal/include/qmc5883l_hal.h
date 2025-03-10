@@ -12,6 +12,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/semphr.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -104,7 +105,7 @@ typedef enum : uint8_t {
  * Contains the register value for setting the full-scale range and the corresponding
  * scaling factor for converting raw magnetic field data to microteslas (µT).
  */
-typedef struct {
+typedef struct qmc5883l_scale {
   uint8_t range; /**< Register value for setting the full-scale range in the QMC5883L. */
   float   scale; /**< Scaling factor to convert raw data to magnetic field strength in µT. */
 } qmc5883l_scale_t;
@@ -116,17 +117,18 @@ typedef struct {
  * magnetic field measurements along the X, Y, and Z axes, the calculated heading (yaw), and 
  * state management fields for error handling and retries.
  */
-typedef struct {
-  uint8_t    i2c_address;        /**< I2C address used for communication with the sensor. */
-  uint8_t    i2c_bus;            /**< I2C bus number used for communication. */
-  float      mag_x;              /**< Measured X-axis magnetic field strength in µT. */
-  float      mag_y;              /**< Measured Y-axis magnetic field strength in µT. */
-  float      mag_z;              /**< Measured Z-axis magnetic field strength in µT. */
-  float      heading;            /**< Calculated heading (yaw) in degrees. */
-  uint8_t    state;              /**< Current operational state of the sensor (see `qmc5883l_states_t`). */
-  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+typedef struct qmc5883l_data {
+  uint8_t          i2c_address;        /**< I2C address for communication with the sensor. */
+  i2c_port_t       i2c_bus;            /**< I2C bus number the sensor is connected to. */
+  double           mag_x;              /**< Latest X-axis magnetic field reading. */
+  double           mag_y;              /**< Latest Y-axis magnetic field reading. */
+  double           mag_z;              /**< Latest Z-axis magnetic field reading. */
+  double           heading;            /**< Calculated heading (yaw) in degrees. */
+  qmc5883l_states_t state;             /**< Current state of the sensor. */
+  error_handler_t  error_handler;      /**< Error handler for the sensor. */
+  uint8_t          retry_count;        /**< Counter for consecutive retry attempts. */
+  uint32_t         retry_interval;     /**< Current interval between retry attempts. */
+  TickType_t       last_attempt_ticks; /**< Tick count of the last retry attempt. */
 } qmc5883l_data_t;
 
 /* Public Functions ***********************************************************/
@@ -211,6 +213,24 @@ void qmc5883l_reset_on_error(qmc5883l_data_t* const sensor_data);
  * - Handles error recovery internally to maintain stable operation.
  */
 void qmc5883l_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the QMC5883L sensor.
+ *
+ * Puts the sensor in standby mode to reduce power consumption and releases
+ * any resources allocated during initialization. Should be called during
+ * system shutdown or when the sensor is no longer needed.
+ *
+ * @param[in,out] sensor_data Pointer to the `qmc5883l_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_FAIL` if cleanup fails.
+ *
+ * @note 
+ * - Call this function during system shutdown or when switching off the sensor.
+ */
+esp_err_t qmc5883l_cleanup(void* const sensor_data);
 
 #ifdef __cplusplus
 }

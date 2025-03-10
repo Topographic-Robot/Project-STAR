@@ -70,3 +70,19 @@ esp_err_t send_sensor_data_to_webserver(const char* const json_string)
   return err;
 }
 
+esp_err_t webserver_task_stop(void)
+{
+  log_info(system_tag, "Webserver Stop", "Beginning webserver task shutdown");
+
+  /* Stop any ongoing HTTP client operations */
+  esp_http_client_cleanup(NULL); /* Clean up any remaining HTTP client resources */
+
+  /* Note: Since we're not maintaining any persistent tasks or resources in the
+   * webserver module, we just need to ensure any ongoing operations are stopped
+   * and resources are freed.
+   */
+
+  log_info(system_tag, "Webserver Stop", "Webserver task shutdown complete");
+  return ESP_OK;
+}
+

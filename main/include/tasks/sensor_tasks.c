@@ -5,6 +5,7 @@
 #include "sensor_tasks.h"
 #include "system_tasks.h"
 #include "log_handler.h"
+#include "private/wrapper_cleanup.h"
 
 /* Globals (Static) ***********************************************************/
 
@@ -122,3 +123,61 @@ esp_err_t sensor_tasks(sensor_data_t* sensor_data)
   return overall_status;
 }
 
+esp_err_t sensors_cleanup(sensor_data_t* sensor_data)
+{
+  /* Use the wrapper function to clean up all sensors */
+  return wrapper_cleanup_all_sensors();
+}
+
+esp_err_t sensor_tasks_stop(sensor_data_t* sensor_data)
+{
+  esp_err_t ret = ESP_OK;
+
+  log_info(system_tag, "Sensor Stop", "Beginning sensor task shutdown");
+
+  if (sensor_data == NULL) {
+    log_error(system_tag, 
+              "Invalid Parameter", 
+              "Sensor data pointer is NULL, cannot proceed with task stop");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Stop all sensor tasks by iterating through the sensor configurations */
+  for (uint8_t i = 0; i < sizeof(s_sensors) / sizeof(sensor_config_t); i++) {
+    if (s_sensors[i].enabled) {
+      log_info(system_tag, 
+               "Task Stop", 
+               "Stopping %s sensor task", 
+               s_sensors[i].sensor_name);
+
+      /* Find the task handle for this sensor (if it exists) */
+      TaskHandle_t task_handle = NULL;
+      if (xTaskGetHandle(s_sensors[i].sensor_name) != NULL) {
+        task_handle = xTaskGetHandle(s_sensors[i].sensor_name);
+        vTaskDelete(task_handle);
+        log_info(system_tag, 
+                 "Task Deleted", 
+                 "%s sensor task deleted successfully", 
+                 s_sensors[i].sensor_name);
+      } else {
+        log_warn(system_tag, 
+                 "Task Warning", 
+                 "%s sensor task not found, may have already been stopped", 
+                 s_sensors[i].sensor_name);
+        ret = ESP_FAIL;
+      }
+    }
+  }
+
+  if (ret == ESP_OK) {
+    log_info(system_tag, 
+             "Stop Complete", 
+             "All sensor tasks stopped successfully");
+  } else {
+    log_warn(system_tag, 
+             "Stop Warning", 
+             "Some sensor tasks could not be stopped");
+  }
+
+  return ret;
+}

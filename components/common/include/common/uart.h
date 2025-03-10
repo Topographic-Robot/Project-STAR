@@ -51,6 +51,20 @@ esp_err_t priv_uart_init(uint8_t           tx_io,
                          const char* const tag);
 
 /**
+ * @brief Cleans up the UART interface.
+ *
+ * Uses the bus manager to clean up the specified UART port.
+ *
+ * @param[in] uart_num UART port number to clean up.
+ * @param[in] tag      Tag to use for logging.
+ *
+ * @return
+ * - `ESP_OK` on successful cleanup.
+ * - Other error codes on failure.
+ */
+esp_err_t priv_uart_cleanup(uart_port_t uart_num, const char* const tag);
+
+/**
  * @brief Reads data from the UART interface and returns the length of data read.
  *
  * Reads up to `len` bytes from the specified UART interface. Uses a timeout

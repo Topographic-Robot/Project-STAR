@@ -16,7 +16,7 @@ extern const char* const gait_tag; /**< Tag for logs */
 
 /* Macros *********************************************************************/
 
-#define NUMBER_OF_LEGS (6)
+#define NUMBER_OF_LEGS (6) /**< Number of legs on the hexapod robot */
 
 /* Public Functions ***********************************************************/
 
@@ -38,6 +38,26 @@ extern const char* const gait_tag; /**< Tag for logs */
  *       initialization phase of the robot's setup.
  */
 esp_err_t gait_init(pca9685_board_t* pwm_controller);
+
+/**
+ * @brief Cleans up resources used by the gait movement module.
+ *
+ * Resets all leg configurations and releases any resources allocated during
+ * gait initialization. This function should be called during system shutdown
+ * to ensure proper cleanup of the gait movement subsystem.
+ *
+ * @param[in] pwm_controller Pointer to the PCA9685 board controller used to
+ *                          manage the motors.
+ *
+ * @return 
+ * - ESP_OK              on successful cleanup.
+ * - ESP_ERR_INVALID_ARG if pwm_controller is NULL.
+ * - ESP_FAIL           if cleanup fails.
+ *
+ * @note This function is not thread-safe and should be called during the
+ *       shutdown phase of the robot's operation, after all movement has stopped.
+ */
+esp_err_t gait_cleanup(pca9685_board_t* const pwm_controller);
 
 /**
  * @brief Executes a tripod gait motion for the hexapod robot.

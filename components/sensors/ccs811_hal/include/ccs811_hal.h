@@ -80,7 +80,7 @@ typedef enum : uint8_t {
  * Contains I2C communication details, the latest sensor measurements, and variables 
  * for handling error recovery and reinitialization.
  */
-typedef struct {
+typedef struct ccs811_data {
   uint8_t         i2c_address;   /**< I2C address used for communication with the sensor. */
   i2c_port_t      i2c_bus;       /**< I2C bus number the sensor is connected to. */
   uint16_t        eco2;          /**< Latest equivalent CO2 (eCO2) reading in parts per million (ppm). */
@@ -145,6 +145,26 @@ esp_err_t ccs811_read(ccs811_data_t* const sensor_data);
  *                            sensor data and state.
  */
 void ccs811_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the CCS811 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts sensor in sleep mode by setting WAKE pin high
+ * 2. Resets all GPIO pins (WAKE, RST, INT) to input mode
+ * 3. Resets sensor data structure to initial values
+ * 4. Cleans up I2C resources
+ *
+ * @param[in,out] sensor_data Pointer to the `ccs811_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t ccs811_cleanup(void* const sensor_data);
 
 #ifdef __cplusplus
 }

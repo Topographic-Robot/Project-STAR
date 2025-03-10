@@ -12,6 +12,8 @@
 #include "freertos/task.h"
 #include "error_handler.h"
 #include "log_handler.h"
+#include "common/common_setup.h"
+#include "common/common_cleanup.h"
 
 /* Constants *******************************************************************/
 
@@ -26,10 +28,6 @@ const uint32_t    dht22_start_delay_ms         = 20;
 const uint32_t    dht22_response_timeout_us    = 80;
 const uint32_t    dht22_bit_threshold_us       = 40;
 const uint8_t     dht22_allowed_fail_attempts  = 3;
-
-/* Globals (Static) ***********************************************************/
-
-static error_handler_t s_dht22_error_handler = { 0 };
 
 /* Static (Private) Functions **************************************************/
 
@@ -251,6 +249,36 @@ static esp_err_t priv_dht22_verify_checksum(uint8_t* const data_buffer)
   return ESP_OK;
 }
 
+static esp_err_t priv_dht22_reset(void* const sensor_data)
+{
+  dht22_data_t* dht22_data = (dht22_data_t*)sensor_data;
+  log_info(dht22_tag, "Reset", "Resetting DHT22 sensor");
+
+  /* Reset GPIO pin */
+  esp_err_t ret = common_setup_gpio((1ULL << dht22_data_io), 
+                                   GPIO_MODE_OUTPUT, 
+                                   GPIO_PULLUP_ENABLE, 
+                                   GPIO_PULLDOWN_DISABLE,
+                                   GPIO_INTR_DISABLE,
+                                   dht22_tag);
+  if (ret != ESP_OK) {
+    log_error(dht22_tag, "Reset Failed", "Failed to reset GPIO pin");
+    return ret;
+  }
+
+  /* Reset sensor data */
+  dht22_data->humidity = -1.0;
+  dht22_data->temperature_c = -1.0;
+  dht22_data->temperature_f = -1.0;
+  dht22_data->state = k_dht22_ready;
+  dht22_data->retry_count = 0;
+  dht22_data->retry_interval = dht22_initial_retry_interval;
+  dht22_data->last_attempt_ticks = 0;
+  dht22_data->fail_count = 0;
+
+  return ESP_OK;
+}
+
 /* Public Functions ************************************************************/
 
 char* dht22_data_to_json(const dht22_data_t* const data)
@@ -311,34 +339,54 @@ char* dht22_data_to_json(const dht22_data_t* const data)
 esp_err_t dht22_init(void* const sensor_data)
 {
   dht22_data_t* dht22_data = (dht22_data_t*)sensor_data;
-  log_info(dht22_tag, 
-           "Init Started", 
-           "Beginning DHT22 sensor initialization sequence");
+  log_info(dht22_tag, "Init Started", "Beginning DHT22 sensor initialization sequence");
 
-  /* TODO: Initialize error handler */
+  /* Initialize error handler */
+  dht22_data->error_handler = malloc(sizeof(error_handler_t));
+  if (dht22_data->error_handler == NULL) {
+    log_error(dht22_tag, "Memory Error", "Failed to allocate memory for error handler");
+    return ESP_ERR_NO_MEM;
+  }
 
-  dht22_data->humidity           = -1.0;
-  dht22_data->temperature_f      = -1.0;
-  dht22_data->temperature_c      = -1.0;
-  dht22_data->state              = k_dht22_uninitialized; /* Start uninitialized */
-  dht22_data->retry_count        = 0;
-  dht22_data->retry_interval     = dht22_initial_retry_interval;
+  error_handler_init(dht22_data->error_handler, 
+                    dht22_tag,
+                    dht22_max_retries,
+                    dht22_initial_retry_interval,
+                    dht22_max_backoff_interval,
+                    priv_dht22_reset,
+                    sensor_data,
+                    dht22_initial_retry_interval,
+                    dht22_max_backoff_interval);
+
+  /* Initialize sensor data */
+  dht22_data->humidity = -1.0;
+  dht22_data->temperature_f = -1.0;
+  dht22_data->temperature_c = -1.0;
+  dht22_data->state = k_dht22_uninitialized;
+  dht22_data->retry_count = 0;
+  dht22_data->retry_interval = dht22_initial_retry_interval;
   dht22_data->last_attempt_ticks = 0;
-  dht22_data->fail_count         = 0;
+  dht22_data->fail_count = 0;
 
-  esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
+  /* Setup GPIO using common setup */
+  esp_err_t ret = common_setup_gpio((1ULL << dht22_data_io), 
+                                   GPIO_MODE_OUTPUT, 
+                                   GPIO_PULLUP_ENABLE, 
+                                   GPIO_PULLDOWN_DISABLE,
+                                   GPIO_INTR_DISABLE,
+                                   dht22_tag);
   if (ret != ESP_OK) {
-    log_error(dht22_tag, 
-              "GPIO Config Failed", 
+    log_error(dht22_tag, "GPIO Config Failed", 
               "Failed to configure GPIO pin with error: %s", esp_err_to_name(ret));
+    error_handler_cleanup(dht22_data->error_handler);
+    free(dht22_data->error_handler);
+    dht22_data->error_handler = NULL;
     return ret;
   }
 
   gpio_set_level(dht22_data_io, 1);
   dht22_data->state = k_dht22_ready;
-  log_info(dht22_tag, 
-           "Init Complete", 
-           "DHT22 sensor initialization completed successfully");
+  log_info(dht22_tag, "Init Complete", "DHT22 sensor initialization completed successfully");
   return ESP_OK;
 }
 
@@ -415,8 +463,8 @@ esp_err_t dht22_read(dht22_data_t* const sensor_data)
 
 void dht22_reset_on_error(dht22_data_t* const sensor_data)
 {
-  if (sensor_data->fail_count >= dht22_allowed_fail_attempts) {
-    /* TODO: Reset error handler */
+  if (sensor_data->fail_count >= dht22_allowed_fail_attempts && sensor_data->error_handler != NULL) {
+    error_handler_reset(sensor_data->error_handler);
   }
 }
 
@@ -434,4 +482,54 @@ void dht22_tasks(void* const sensor_data)
     }
     vTaskDelay(dht22_polling_rate_ticks);
   }
+}
+
+esp_err_t dht22_cleanup(void* const sensor_data)
+{
+  dht22_data_t* const dht22_data = (dht22_data_t*)sensor_data;
+  log_info(dht22_tag, "Cleanup Start", "Beginning DHT22 sensor cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Cleanup GPIO using common cleanup */
+  esp_err_t temp_ret = common_cleanup_gpio((1ULL << dht22_data_io), dht22_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(dht22_tag, "GPIO Warning", 
+             "Failed to cleanup GPIO pin: %s", esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Cleanup error handler */
+  if (dht22_data != NULL && dht22_data->error_handler != NULL) {
+    temp_ret = error_handler_cleanup(dht22_data->error_handler);
+    if (temp_ret != ESP_OK) {
+      log_warn(dht22_tag, "Error Handler Warning", 
+               "Failed to cleanup error handler: %s", esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+    free(dht22_data->error_handler);
+    dht22_data->error_handler = NULL;
+  }
+
+  /* Reset sensor data structure */
+  if (dht22_data != NULL) {
+    dht22_data->humidity = -1.0;
+    dht22_data->temperature_c = -1.0;
+    dht22_data->temperature_f = -1.0;
+    dht22_data->state = k_dht22_uninitialized;
+    dht22_data->retry_count = 0;
+    dht22_data->retry_interval = dht22_initial_retry_interval;
+    dht22_data->last_attempt_ticks = 0;
+    dht22_data->fail_count = 0;
+  }
+
+  if (ret == ESP_OK) {
+    log_info(dht22_tag, "Cleanup Complete", 
+             "DHT22 sensor resources released successfully");
+  } else {
+    log_warn(dht22_tag, "Cleanup Warning", 
+             "DHT22 cleanup completed with some warnings");
+  }
+
+  return ret;
 }

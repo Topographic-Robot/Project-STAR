@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,7 +91,7 @@ typedef enum : uint8_t {
  * Contains the resolution, output format, and clock divider settings
  * required to configure the OV7670 camera module.
  */
-typedef struct {
+typedef struct ov7670_config {
   ov7670_resolution_t    resolution;    /**< Desired resolution (e.g., QVGA, VGA). */
   ov7670_output_format_t output_format; /**< Desired output format (e.g., RGB, YUV). */
   ov7670_clock_divider_t clock_divider; /**< Clock divider for the internal pixel clock. */
@@ -102,7 +103,7 @@ typedef struct {
  * Tracks the current state of the camera, retries for configuration errors,
  * timing information for retry intervals, and the active configuration.
  */
-typedef struct {
+typedef struct ov7670_data {
   uint8_t         state;              /**< Current state of the camera module (see ov7670_states_t). */
   uint8_t         retries;            /**< Retry count for configuration attempts after errors. */
   uint32_t        retry_interval;     /**< Interval between retries in ticks. */
@@ -172,6 +173,27 @@ void ov7670_reset_on_error(ov7670_data_t* const sensor_data);
  * - Includes all necessary logic for error recovery and maintenance.
  */
 void ov7670_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the OV7670 camera.
+ *
+ * Performs the following cleanup operations:
+ * 1. Stops XCLK generation (if USE_OV7670_XCLK_GPIO_27 is defined)
+ * 2. Resets all GPIO pins (XCLK, SCL, SDA) to input mode with no pull-up/down
+ * 3. Cleans up I2C resources
+ * 4. Resets camera data structure to initial values
+ *
+ * @param[in,out] camera_data Pointer to the `ov7670_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_ERR_INVALID_ARG` if camera_data is NULL.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the camera
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t ov7670_cleanup(void* const camera_data);
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,8 @@
 #include "common/i2c.h"
 #include "error_handler.h"
 #include "log_handler.h"
+#include "common/common_cleanup.h"
+#include "common/common_setup.h"
 
 /* Constants ******************************************************************/
 
@@ -144,12 +146,12 @@ esp_err_t bh1750_init(void* const sensor_data)
   bh1750_data->lux         = -1.0f;
   bh1750_data->state       = k_bh1750_uninitialized;
 
-  /* Initialize the I2C bus */
-  esp_err_t ret = priv_i2c_init(bh1750_scl_io, 
-                                bh1750_sda_io, 
-                                bh1750_i2c_freq_hz,
-                                bh1750_i2c_bus, 
-                                bh1750_tag);
+  /* Initialize the I2C bus using common setup */
+  esp_err_t ret = common_setup_i2c(bh1750_i2c_bus, 
+                                  bh1750_scl_io, 
+                                  bh1750_sda_io, 
+                                  bh1750_i2c_freq_hz, 
+                                  bh1750_tag);
   if (ret != ESP_OK) {
     log_error(bh1750_tag, "I2C Error", "Failed to initialize I2C driver");
     return ret;
@@ -222,4 +224,55 @@ void bh1750_tasks(void* const sensor_data)
     }
     vTaskDelay(bh1750_polling_rate_ticks);
   }
+}
+
+esp_err_t bh1750_cleanup(void* const sensor_data)
+{
+  bh1750_data_t* const bh1750_data = (bh1750_data_t*)sensor_data;
+  log_info(bh1750_tag, "Cleanup Start", "Beginning BH1750 sensor cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Put sensor in power down mode */
+  esp_err_t temp_ret = priv_i2c_write_byte(k_bh1750_power_down_cmd, 
+                                           bh1750_i2c_bus,
+                                           bh1750_i2c_address, 
+                                           bh1750_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(bh1750_tag, 
+             "Power Warning", 
+             "Failed to put BH1750 in power down mode: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset GPIO pins using common cleanup function */
+  uint64_t pin_mask = (1ULL << bh1750_scl_io) | (1ULL << bh1750_sda_io);
+  temp_ret = common_cleanup_gpio(pin_mask, bh1750_tag);
+  if (temp_ret != ESP_OK) {
+    ret = temp_ret;
+  }
+
+  /* Reset sensor data structure */
+  if (bh1750_data != NULL) {
+    bh1750_data->lux   = -1.0f;
+    bh1750_data->state = k_bh1750_uninitialized;
+  }
+
+  /* Clean up I2C resources */
+  temp_ret = common_cleanup_i2c(bh1750_i2c_bus, bh1750_scl_io, bh1750_sda_io, bh1750_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(bh1750_tag, 
+             "I2C Warning", 
+             "Failed to clean up I2C resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  log_info(bh1750_tag, 
+           "Cleanup Complete", 
+           "BH1750 sensor cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
+
+  return ret;
 }

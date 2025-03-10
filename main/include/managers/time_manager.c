@@ -165,3 +165,33 @@ esp_err_t time_manager_init(void)
   return ESP_OK;
 }
 
+esp_err_t time_manager_cleanup(void)
+{
+  log_info(time_manager_tag, 
+           "Cleanup Start", 
+           "Beginning time manager cleanup");
+
+  /* Stop the SNTP service if it was initialized */
+  if (s_time_initialized) {
+    /* Stop the SNTP service */
+    esp_sntp_stop();
+    
+    log_info(time_manager_tag, 
+             "SNTP Stop", 
+             "SNTP service stopped successfully");
+    
+    /* Reset the initialization flag */
+    s_time_initialized = false;
+  } else {
+    log_info(time_manager_tag, 
+             "Cleanup Skip", 
+             "Time manager was not initialized, nothing to clean up");
+  }
+
+  log_info(time_manager_tag, 
+           "Cleanup Complete", 
+           "Time manager cleanup completed successfully");
+  
+  return ESP_OK;
+}
+

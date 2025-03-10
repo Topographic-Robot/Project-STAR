@@ -11,6 +11,7 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -24,6 +25,9 @@ extern const uint32_t    mpu6050_polling_rate_ticks; /**< Polling interval for M
 extern const uint8_t     mpu6050_sample_rate_div;    /**< Sample rate divider for MPU6050 (default divides gyro rate). */
 extern const uint8_t     mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
 extern const uint8_t     mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
+extern const uint8_t     mpu6050_max_retries;        /**< Maximum number of retries for error recovery. */
+extern const uint32_t    mpu6050_initial_retry_interval; /**< Initial retry interval in ticks. */
+extern const uint32_t    mpu6050_max_backoff_interval; /**< Maximum backoff interval in ticks. */
 
 /* Macros *********************************************************************/
 
@@ -187,7 +191,7 @@ typedef enum : uint8_t {
  *   Scaling Factor = (Full-Scale Range) / (Maximum Raw Value)
  * where the Maximum Raw Value is 32768 for the MPU6050.
  */
-typedef struct {
+typedef struct mpu6050_accel_config {
   uint8_t accel_config; /**< Register value for setting the accelerometer full-scale range. */
   float   accel_scale;  /**< Scaling factor to convert raw data to acceleration in g. */
 } mpu6050_accel_config_t;
@@ -202,7 +206,7 @@ typedef struct {
  *   Scaling Factor = (Full-Scale Range) / (Maximum Raw Value)
  * where the Maximum Raw Value is 32768 for the MPU6050.
  */
-typedef struct {
+typedef struct mpu6050_gyro_config {
   uint8_t gyro_config; /**< Register value for setting the gyroscope full-scale range. */
   float   gyro_scale;  /**< Scaling factor to convert raw data to angular velocity in °/s. */
 } mpu6050_gyro_config_t;
@@ -213,7 +217,7 @@ typedef struct {
  * Contains accelerometer and gyroscope readings, temperature, operational state,
  * and semaphore for signaling data readiness. Also holds I2C communication details.
  */
-typedef struct {
+typedef struct mpu6050_data {
   uint8_t           i2c_address;    /**< I2C address used for communication with the sensor. */
   uint8_t           i2c_bus;        /**< I2C bus number used for communication. */
   float             accel_x;        /**< Measured X-axis acceleration in g. */
@@ -225,6 +229,7 @@ typedef struct {
   float             temperature;    /**< Measured temperature from the sensor in degrees Celsius. */
   uint8_t           state;          /**< Current operational state of the sensor (see `mpu6050_states_t`). */
   SemaphoreHandle_t data_ready_sem; /**< Semaphore to signal when new data is available. */
+  error_handler_t   error_handler;  /**< Error handler for managing sensor errors and recovery. */
 } mpu6050_data_t;
 
 /* Public Functions ***********************************************************/
@@ -311,6 +316,28 @@ void mpu6050_reset_on_error(mpu6050_data_t* const sensor_data);
  * - Handles error recovery internally to maintain stable operation.
  */
 void mpu6050_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the MPU6050 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Disables data ready interrupt on the MPU6050
+ * 2. Removes GPIO interrupt handler
+ * 3. Puts the sensor in sleep mode
+ * 4. Deletes the data ready semaphore
+ * 5. Resets sensor data structure
+ * 6. Cleans up I2C resources
+ *
+ * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t mpu6050_cleanup(void* const sensor_data);
 
 #ifdef __cplusplus
 }

@@ -15,16 +15,11 @@
 #include "webserver_tasks.h"
 #include "time_manager.h"
 #include "file_write_manager.h"
-
-/* Defines ********************************************************************/
-
-#ifndef ENABLE_SD_CARD_LOGGING
-#define ENABLE_SD_CARD_LOGGING true
-#endif
-
-#ifndef ENABLE_LOG_COMPRESSION
-#define ENABLE_LOG_COMPRESSION true
-#endif
+#include "sd_card_hal.h"
+#include "common/bus_manager.h"
+#include "common/common_cleanup.h"
+#include "private/wrapper_functions.h"
+#include "private/wrapper_cleanup.h"
 
 /* Constants ******************************************************************/
 
@@ -36,17 +31,34 @@ sensor_data_t    g_sensor_data    = {};
 pca9685_board_t* g_pwm_controller = {};
 ov7670_data_t    g_camera_data    = {}; /* TODO: Make this support all 6 cameras */
 
+/* Globals (Static) ***********************************************************/
+
+static esp_err_t priv_clear_nvs_flash(void); /* Forward Declaration */
+
+static system_component_config_t s_system_components[] = {
+  { "NVS Flash",       priv_clear_nvs_flash,           NULL,                     NULL,                    NULL,                       true },
+  { "Logging",         wrapper_log_init,               NULL,                     NULL,                    log_cleanup,                true },
+  { "Log Compression", wrapper_log_storage_set_compression, NULL,                NULL,                    NULL,                       true },
+  { "Storage",         file_write_manager_init,        NULL,                     NULL,                    file_write_manager_cleanup, true },
+  { "WiFi",            NULL,                           wifi_task_start,          wifi_task_stop,          NULL,                       true },
+  { "Webserver",       NULL,                           NULL,                     NULL,                    webserver_task_stop,        true },
+  { "Sensors",         wrapper_sensors_init,           wrapper_sensor_tasks,     wrapper_sensor_tasks_stop, wrapper_sensors_cleanup,  true },
+  { "Camera",          wrapper_ov7670_init,            NULL,                     NULL,                    wrapper_ov7670_cleanup,     true },
+  { "Motors",          wrapper_motors_init,            wrapper_motor_tasks_start, wrapper_motor_tasks_stop, wrapper_motors_cleanup,   true },
+  { "Gait",            wrapper_gait_init,              NULL,                     NULL,                    wrapper_gait_cleanup,       true },
+};
+
 /* Private (Static) Functions *************************************************/
 
 /**
  * @brief Initializes and resets the ESP32's Non-Volatile Storage (NVS) flash if needed.
  *
  * Initializes the NVS flash. If no free pages are available or a version mismatch is detected, 
- * the flash is erased and reinitialized.
+ * the function will erase the NVS partition and reinitialize it.
  *
  * @return 
- * - `ESP_OK` on successful initialization.
- * - Relevant error code if the operation fails.
+ * - ESP_OK if NVS flash was initialized successfully.
+ * - Other error codes from the ESP-IDF NVS functions if initialization fails.
  */
 static esp_err_t priv_clear_nvs_flash(void)
 {
@@ -77,73 +89,35 @@ static esp_err_t priv_clear_nvs_flash(void)
 
 esp_err_t system_tasks_init(void)
 {
-  esp_err_t ret = ESP_OK;
+  esp_err_t overall_status = ESP_OK;
 
-  /* Initialize logging system */
-  log_info(system_tag, "Log Start", "Beginning log system initialization");
-  if (log_init(ENABLE_SD_CARD_LOGGING) != ESP_OK) {
-    ESP_LOGE(system_tag, "Failed to initialize log system");
-    ret = ESP_FAIL;
-  }
-  
-  /* Enable log compression for storage efficiency */
-  log_storage_set_compression(ENABLE_LOG_COMPRESSION);
-  log_info(system_tag, 
-           "Log Compression", 
-           "Enabled log compression for storage efficiency");
+  log_info(system_tag, "Init Start", "Beginning initialization of system components");
 
-  /* Initialize NVS storage */
-  if (priv_clear_nvs_flash() != ESP_OK) {
-    log_error(system_tag, "NVS Error", "Storage system initialization failed");
-    ret = ESP_FAIL;
-  }
+  for (uint8_t i = 0; i < sizeof(s_system_components) / sizeof(system_component_config_t); i++) {
+    if (s_system_components[i].enabled && s_system_components[i].init_function) {
+      log_info(system_tag, 
+               "Component Init", 
+               "Initializing %s component", 
+               s_system_components[i].component_name);
+      
+      esp_err_t status = s_system_components[i].init_function();
 
-  /* Initialize sensor communication */
-  log_info(system_tag, "Sensor Start", "Beginning sensor subsystem initialization");
-  if (sensors_init(&g_sensor_data) != ESP_OK) {
-    log_error(system_tag, 
-              "Sensor Error", 
-              "Failed to initialize sensors: communication errors detected");
-    ret = ESP_FAIL;
+      if (status == ESP_OK) {
+        log_info(system_tag, 
+                 "Init Success", 
+                 "%s component initialized successfully", 
+                 s_system_components[i].component_name);
+      } else {
+        log_error(system_tag, 
+                  "Init Error", 
+                  "%s component initialization failed", 
+                  s_system_components[i].component_name);
+        overall_status = ESP_FAIL;
+      }
+    }
   }
 
-  /* Initialize cameras */
-  log_info(system_tag, "Camera Start", "Beginning camera subsystem initialization");
-  if (ov7670_init(&g_camera_data) != ESP_OK) {
-    log_error(system_tag, 
-              "Camera Error", 
-              "Failed to initialize camera: hardware communication error");
-    ret = ESP_FAIL;
-  }
-  
-  /* Initialize motor controllers */
-  log_info(system_tag, "Motor Start", "Beginning motor controller initialization");
-  if (motors_init(&g_pwm_controller) != ESP_OK) {
-    log_error(system_tag, 
-              "Motor Error", 
-              "Failed to initialize motor controllers: PWM system error");
-    ret = ESP_FAIL;
-  }
-
-  /* Initialize gait array (Must be done after initializing motor controllers */
-  log_info(system_tag, "Gait Start", "Beginning gait system initialization");
-  if (gait_init(g_pwm_controller) != ESP_OK) {
-    log_error(system_tag, 
-              "Gait Error", 
-              "Failed to initialize gait system: motor mapping error");
-    ret = ESP_FAIL;
-  }
-  
-  /* Initialize storage (e.g., SD card or SPIFFS) */
-  log_info(system_tag, "Storage Start", "Beginning storage system initialization");
-  if (file_write_manager_init() != ESP_OK) {
-    log_error(system_tag, 
-              "Storage Error", 
-              "Failed to initialize storage: file system error");
-    ret = ESP_FAIL;
-  }
-
-  if (ret == ESP_OK) {
+  if (overall_status == ESP_OK) {
     log_info(system_tag, 
              "Init Complete", 
              "All system components initialized successfully");
@@ -152,53 +126,108 @@ esp_err_t system_tasks_init(void)
              "Init Warning", 
              "System initialization incomplete: some components failed");
   }
-  return ret;
+
+  return overall_status;
 }
 
 esp_err_t system_tasks_start(void)
 {
-  esp_err_t ret = ESP_OK;
+  esp_err_t overall_status = ESP_OK;
 
-  /* Start WiFi task */
-  log_info(system_tag, "WiFi Start", "Beginning WiFi subsystem initialization");
-  if (wifi_task_start() != ESP_OK) {
-    log_error(system_tag, 
-              "WiFi Error", 
-              "Failed to start WiFi task: network functionality limited");
-    ret = ESP_FAIL;
+  log_info(system_tag, "Task Start", "Beginning startup of system tasks");
+
+  for (uint8_t i = 0; i < sizeof(s_system_components) / sizeof(system_component_config_t); i++) {
+    if (s_system_components[i].enabled && s_system_components[i].start_function) {
+      log_info(system_tag, 
+               "Task Create", 
+               "Starting %s task", 
+               s_system_components[i].component_name);
+      
+      esp_err_t status = s_system_components[i].start_function();
+
+      if (status == ESP_OK) {
+        log_info(system_tag, 
+                 "Task Success", 
+                 "%s task started successfully", 
+                 s_system_components[i].component_name);
+      } else {
+        log_error(system_tag, 
+                  "Task Error", 
+                  "%s task failed to start", 
+                  s_system_components[i].component_name);
+        overall_status = ESP_FAIL;
+      }
+    }
   }
 
-  /* Start camera monitoring task 
-  log_info(system_tag, "Camera Start", "Beginning camera monitoring system");
-  if (ov7670_task_start(&g_camera_data) != ESP_OK) {
-    log_error(system_tag, "Camera Error", "Failed to start camera monitoring: vision system offline");
-    ret = ESP_FAIL;
-  } 
-  TODO: Add this back in/make this work */
-
-  /* Start sensor tasks */
-  log_info(system_tag, "Sensor Start", "Beginning sensor monitoring system");
-  if (sensor_tasks(&g_sensor_data) != ESP_OK) {
-    log_error(system_tag, 
-              "Sensor Error", 
-              "Failed to start sensor tasks: environmental monitoring limited");
-    ret = ESP_FAIL;
-  }
-
-  /* Start motor control tasks */
-  log_info(system_tag, "Motor Start", "Beginning motor control system");
-  if (motor_tasks_start(g_pwm_controller) != ESP_OK) {
-    log_error(system_tag, 
-              "Motor Error", 
-              "Failed to start motor tasks: movement system offline");
-    ret = ESP_FAIL;
-  }
-
-  if (ret == ESP_OK) {
-    log_info(system_tag, "Task Complete", "All system tasks started successfully");
+  if (overall_status == ESP_OK) {
+    log_info(system_tag, 
+             "Task Complete", 
+             "All system tasks started successfully");
   } else {
-    log_warn(system_tag, "Task Warning", "Some system tasks failed to start");
+    log_warn(system_tag, 
+             "Task Warning", 
+             "Some system tasks failed to start");
   }
-  return ret;
+
+  return overall_status;
+}
+
+esp_err_t system_tasks_stop(void)
+{
+  esp_err_t overall_status = ESP_OK;
+
+  log_info(system_tag, "Shutdown Start", "Beginning system shutdown sequence");
+
+  /* Iterate in reverse order to ensure proper cleanup */
+  for (int8_t i = sizeof(s_system_components) / sizeof(system_component_config_t) - 1; i >= 0; i--) {
+    if (s_system_components[i].enabled) {
+      /* First try to stop tasks */
+      if (s_system_components[i].stop_function) {
+        log_info(system_tag, 
+                 "Task Stop", 
+                 "Stopping %s task", 
+                 s_system_components[i].component_name);
+        
+        esp_err_t status = s_system_components[i].stop_function();
+
+        if (status != ESP_OK) {
+          log_warn(system_tag, 
+                   "Task Warning", 
+                   "Failed to stop %s task cleanly", 
+                   s_system_components[i].component_name);
+          overall_status = ESP_FAIL;
+        }
+      }
+    }
+  }
+
+  /* Group cleanup operations by subsystem */
+  esp_err_t (*cleanup_funcs[])(void) = {
+    wrapper_cleanup_all_motors,
+    wrapper_cleanup_all_sensors,
+    wrapper_cleanup_all_system
+  };
+  
+  esp_err_t cleanup_status = common_cleanup_multiple(system_tag, 
+                                                    "System", 
+                                                    cleanup_funcs, 
+                                                    sizeof(cleanup_funcs) / sizeof(cleanup_funcs[0]));
+  
+  if (cleanup_status != ESP_OK) {
+    overall_status = ESP_FAIL;
+  }
+
+  if (overall_status == ESP_OK) {
+    log_info(system_tag, 
+             "Shutdown Complete", 
+             "System shutdown completed successfully");
+  } else {
+    log_warn(system_tag, 
+             "Shutdown Warning", 
+             "System shutdown partially complete, some components failed");
+  }
+
+  return overall_status;
 }
 

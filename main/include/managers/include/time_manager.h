@@ -10,11 +10,11 @@ extern "C" {
 #include "esp_err.h"
 #include <stdbool.h>
 
-/* Globals (Constants) ********************************************************/
+/* Constants ******************************************************************/
 
-extern const char* const time_manager_tag; /**< For Logging */
+extern const char* const time_manager_tag; /**< For logging */
 
-/* Macro Definitions **********************************************************/
+/* Macros *********************************************************************/
 
 #define TIME_STRFTIME_BUFFER_SIZE (64) /**< Size of buffer for formatted time strings */
 
@@ -68,6 +68,24 @@ char *time_manager_get_timestamp(void);
  *   for successful NTP synchronization.
  */
 esp_err_t time_manager_init(void);
+
+/**
+ * @brief Cleans up resources used by the time manager module.
+ *
+ * Stops the SNTP service and performs cleanup of resources allocated during
+ * time manager initialization. This function should be called during system
+ * shutdown to ensure proper cleanup of the time synchronization subsystem.
+ *
+ * @return
+ * - ESP_OK   if all resources are successfully cleaned up.
+ * - ESP_FAIL if any cleanup operation fails.
+ *
+ * @note
+ * - Call this function during the system shutdown phase.
+ * - This function should be called after all other components that depend on
+ *   time services have been stopped.
+ */
+esp_err_t time_manager_cleanup(void);
 
 #ifdef __cplusplus
 }

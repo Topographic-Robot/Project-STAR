@@ -3,16 +3,21 @@ idf_component_register(
     "main.c"
     "hexapod_geometry.c"
     "gait_movement.c"
+    "system_error_handler.c"
+    "system_setup.c"
     "include/tasks/motor_tasks.c"
     "include/tasks/wifi_tasks.c"
     "include/tasks/webserver_tasks.c"
     "include/tasks/sensor_tasks.c"
     "include/tasks/system_tasks.c"
+    "include/tasks/private/wrapper_functions.c"
+    "include/tasks/private/wrapper_cleanup.c"
     "include/managers/time_manager.c"
     "include/managers/file_write_manager.c"
   INCLUDE_DIRS
     "include"
     "include/tasks/include"
+    "include/tasks/include/private"
     "include/managers/include"
 )
 

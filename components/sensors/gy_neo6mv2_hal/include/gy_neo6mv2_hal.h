@@ -12,6 +12,7 @@ extern "C" {
 #include "freertos/semphr.h"
 #include "esp_err.h"
 #include "driver/uart.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -63,7 +64,7 @@ typedef enum : uint8_t {
  * diagnostic information like fix status, satellite count, horizontal dilution
  * of precision (HDOP), and retry management fields for error handling.
  */
-typedef struct {
+typedef struct gy_neo6mv2_data {
   float               latitude;           /**< Latitude in decimal degrees. Negative values indicate South. */
   float               longitude;          /**< Longitude in decimal degrees. Negative values indicate West. */
   float               speed;              /**< Speed over ground in meters per second. */
@@ -75,6 +76,7 @@ typedef struct {
   uint8_t             retry_count;        /**< Number of consecutive reinitialization attempts. */
   uint32_t            retry_interval;     /**< Current interval between retry attempts, in ticks. */
   TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  error_handler_t*    error_handler;      /**< Error handler for managing error recovery. */
 } gy_neo6mv2_data_t;
 
 /**
@@ -83,7 +85,7 @@ typedef struct {
  * Holds details about a satellite, including its identifier (PRN), elevation,
  * azimuth, and signal strength (SNR), as parsed from GPGSV NMEA sentences.
  */
-typedef struct {
+typedef struct satellite {
   uint8_t  prn;       /**< Satellite ID (PRN - Pseudo Random Noise code). */
   uint8_t  elevation; /**< Satellite elevation angle in degrees above the horizon. */
   uint16_t azimuth;   /**< Satellite azimuth angle in degrees from true north. */
@@ -154,11 +156,10 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t* const sensor_data);
 void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data);
 
 /**
- * @brief Periodically reads GPS data and manages errors for the GY-NEO6MV2 GPS module.
+ * @brief Executes periodic tasks for the GY-NEO6MV2 GPS module.
  *
- * Continuously reads GPS data at intervals defined by `gy_neo6mv2_polling_rate_ticks`. 
- * Handles errors using `gy_neo6mv2_reset_on_error` with exponential backoff. Designed 
- * to run as part of a FreeRTOS task.
+ * Periodically reads GPS data, parses NMEA sentences, and handles errors.
+ * Intended to run as part of a FreeRTOS task.
  *
  * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure for GPS 
  *                            data and error management.
@@ -167,9 +168,28 @@ void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t* const sensor_data);
  */
 void gy_neo6mv2_tasks(void* const sensor_data);
 
+/**
+ * @brief Cleans up resources used by the GY-NEO6MV2 GPS module.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts the GPS module in power save mode by disabling NMEA messages
+ * 2. Cleans up UART resources
+ * 3. Cleans up error handler
+ *
+ * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the GPS
+ *       module is no longer needed. It ensures proper release of all allocated
+ *       resources and puts the module in a low-power state.
+ */
+esp_err_t gy_neo6mv2_cleanup(void* const sensor_data);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* TOPOROBO_GY_NEO6MV2_HAL_H */
-

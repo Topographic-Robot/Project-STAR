@@ -223,3 +223,91 @@ void ec11_register_callback(ec11_data_t* const encoder,
   xSemaphoreGive(encoder->mutex);
 }
 
+esp_err_t ec11_cleanup(ec11_data_t* const encoder)
+{
+  if (!encoder) {
+    log_error(ec11_tag, "Cleanup Error", "Encoder pointer is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  log_info(ec11_tag, "Cleanup Start", "Beginning EC11 rotary encoder cleanup");
+  esp_err_t ret = ESP_OK;
+
+  /* Remove ISR handlers */
+  esp_err_t temp_ret = gpio_isr_handler_remove(encoder->pin_a);
+  if (temp_ret != ESP_OK) {
+    log_warn(ec11_tag, 
+             "ISR Warning", 
+             "Failed to remove ISR handler for pin A: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  temp_ret = gpio_isr_handler_remove(encoder->pin_b);
+  if (temp_ret != ESP_OK) {
+    log_warn(ec11_tag, 
+             "ISR Warning", 
+             "Failed to remove ISR handler for pin B: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  temp_ret = gpio_isr_handler_remove(encoder->pin_btn);
+  if (temp_ret != ESP_OK) {
+    log_warn(ec11_tag, 
+             "ISR Warning", 
+             "Failed to remove ISR handler for button pin: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Reset GPIO pins to input mode with no pull-up/down */
+  gpio_config_t io_conf = {
+    .pin_bit_mask = ((uint64_t)1 << encoder->pin_a) |
+                    ((uint64_t)1 << encoder->pin_b) |
+                    ((uint64_t)1 << encoder->pin_btn),
+    .mode         = GPIO_MODE_INPUT,
+    .pull_up_en   = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type    = GPIO_INTR_DISABLE
+  };
+
+  temp_ret = gpio_config(&io_conf);
+  if (temp_ret != ESP_OK) {
+    log_warn(ec11_tag, 
+             "GPIO Warning", 
+             "Failed to reset GPIO pin configuration: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Delete mutex if it exists */
+  if (encoder->mutex) {
+    vSemaphoreDelete(encoder->mutex);
+    encoder->mutex = NULL;
+  }
+
+  /* Reset encoder data structure */
+  encoder->position           = 0;
+  encoder->button_pressed     = false;
+  encoder->prev_state         = 0;
+  encoder->state              = k_ec11_uninitialized;
+  encoder->last_button_time   = 0;
+  encoder->last_rotation_time = 0;
+  encoder->callback           = NULL;
+  encoder->board_ptr          = NULL;
+  encoder->motor_mask         = 0;
+
+  if (ret == ESP_OK) {
+    log_info(ec11_tag, 
+             "Cleanup Complete", 
+             "EC11 encoder resources released successfully");
+  } else {
+    log_warn(ec11_tag, 
+             "Cleanup Warning", 
+             "EC11 cleanup completed with some warnings");
+  }
+
+  return ret;
+}
+

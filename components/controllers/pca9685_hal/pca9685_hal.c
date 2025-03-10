@@ -4,7 +4,12 @@
 #include "common/i2c.h"
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include "esp_err.h"
 #include "log_handler.h"
+#include "error_handler.h"
+#include "common/common_cleanup.h"
+#include "common/common_setup.h"
 
 /* Constants ******************************************************************/
 
@@ -22,6 +27,13 @@ const char* const pca9685_tag              = "PCA9685";
 const uint8_t     pca9685_step_size_deg    = 5;
 const uint32_t    pca9685_step_delay_ms    = 20;
 const float       pca9685_default_angle    = 90.0f;
+const uint8_t     pca9685_max_retries      = 3;
+const uint32_t    pca9685_retry_interval   = pdMS_TO_TICKS(100);
+const uint32_t    pca9685_max_backoff      = pdMS_TO_TICKS(5 * 60 * 1000); /* 5 minutes */
+
+/* Private Function Prototypes ************************************************/
+
+static esp_err_t priv_pca9685_reset(void* const context);
 
 /* Private Function Implementations *******************************************/
 
@@ -182,6 +194,80 @@ static uint16_t angle_to_pwm(float angle)
   return pwm;
 }
 
+/**
+ * @brief Reset function for the PCA9685 controller
+ * 
+ * This function is called by the error handler when a reset is needed.
+ * It performs a full reinitialization of the controller.
+ * 
+ * @param context Pointer to the pca9685_board_t structure
+ * @return ESP_OK on success, error code otherwise
+ */
+static esp_err_t priv_pca9685_reset(void* const context)
+{
+  pca9685_board_t* board = (pca9685_board_t*)context;
+  esp_err_t ret;
+
+  if (!board) {
+    log_error(pca9685_tag, "Reset Error", "Invalid board context");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Reset the PCA9685 by writing to the MODE1 register */
+  ret = pca9685_write_register(board->i2c_address, 
+                              k_pca9685_mode1_cmd, 
+                              k_pca9685_restart_cmd);
+  if (ret != ESP_OK) {
+    board->state = k_pca9685_reset_error;
+    log_error(pca9685_tag, "Reset Error", "Failed to reset PCA9685 controller");
+    return ret;
+  }
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  /* Set the PWM frequency */
+  ret = pca9685_set_pwm_freq(board->i2c_address, pca9685_default_pwm_freq);
+  if (ret != ESP_OK) {
+    board->state = k_pca9685_communication_error;
+    log_error(pca9685_tag, "Frequency Error", "Failed to set PWM frequency");
+    return ret;
+  }
+
+  board->state = k_pca9685_ready;
+  return ESP_OK;
+}
+
+/**
+ * @brief Move a servo gradually from current angle to target angle
+ * 
+ * @param board The PCA9685 board
+ * @param motor_id The motor ID
+ * @param current_angle Current angle in degrees
+ * @param target_angle Target angle in degrees
+ * @return esp_err_t ESP_OK on success, error code otherwise
+ */
+static esp_err_t pca9685_move_gradually(const pca9685_board_t* const board, 
+                                        uint8_t motor_id, 
+                                        float current_angle, 
+                                        float target_angle) {
+    esp_err_t ret = ESP_OK;
+    float step = (target_angle > current_angle) ? pca9685_step_size_deg : -pca9685_step_size_deg;
+    float angle = current_angle;
+    
+    while (fabs(angle - target_angle) > pca9685_step_size_deg) {
+        angle += step;
+        uint16_t pwm_value = angle_to_pwm(angle);
+        ret = pca9685_set_pwm(board->i2c_address, motor_id, 0, pwm_value);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+        vTaskDelay(pdMS_TO_TICKS(pca9685_step_delay_ms));
+    }
+    
+    // Set final position
+    uint16_t target_pwm = angle_to_pwm(target_angle);
+    return pca9685_set_pwm(board->i2c_address, motor_id, 0, target_pwm);
+}
+
 /* Public Function Implementations *******************************************/
 
 esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boards) 
@@ -195,25 +281,14 @@ esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boar
     return ESP_ERR_INVALID_ARG;
   }
 
-  /* Initialize I2C if not already initialized */
-  i2c_config_t conf = {
-    .mode             = I2C_MODE_MASTER,
-    .sda_io_num       = pca9685_sda_io,
-    .scl_io_num       = pca9685_scl_io,
-    .sda_pullup_en    = GPIO_PULLUP_ENABLE,
-    .scl_pullup_en    = GPIO_PULLUP_ENABLE,
-    .master.clk_speed = pca9685_i2c_freq_hz
-  };
-
-  esp_err_t ret = i2c_param_config(pca9685_i2c_bus, &conf);
+  /* Initialize I2C using common setup function */
+  esp_err_t ret = common_setup_i2c(pca9685_i2c_bus,
+                                  pca9685_scl_io,
+                                  pca9685_sda_io,
+                                  pca9685_i2c_freq_hz,
+                                  pca9685_tag);
   if (ret != ESP_OK) {
-    log_error(pca9685_tag, "I2C Error", "Failed to configure I2C parameters");
-    return ret;
-  }
-
-  ret = i2c_driver_install(pca9685_i2c_bus, I2C_MODE_MASTER, 0, 0, 0);
-  if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-    log_error(pca9685_tag, "I2C Error", "Failed to install I2C driver");
+    log_error(pca9685_tag, "I2C Error", "Failed to set up I2C bus: %s", esp_err_to_name(ret));
     return ret;
   }
 
@@ -245,6 +320,19 @@ esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boar
     board->state       = k_pca9685_uninitialized;
     board->next        = NULL;
 
+    /* Initialize error handler */
+    char tag_with_id[32];
+    snprintf(tag_with_id, sizeof(tag_with_id), "%s Board %u", pca9685_tag, i);
+    error_handler_init(&(board->error_handler),
+                      tag_with_id,
+                      pca9685_max_retries,
+                      pca9685_retry_interval,
+                      pca9685_max_backoff,
+                      priv_pca9685_reset,
+                      board,
+                      pca9685_retry_interval,
+                      pca9685_max_backoff);
+
     /* Initialize motors array */
     for (int j = 0; j < PCA9685_MOTORS_PER_BOARD; j++) {
       board->motors[j].pos_deg  = pca9685_default_angle;
@@ -268,6 +356,8 @@ esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boar
                                  k_pca9685_restart_cmd);
     if (ret != ESP_OK) {
       log_error(pca9685_tag, "Reset Error", "Failed to reset board %u", i);
+      board->state = k_pca9685_reset_error;
+      error_handler_record_status(&(board->error_handler), ret);
       continue;
     }
 
@@ -278,6 +368,8 @@ esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boar
                 "Freq Error", 
                 "Failed to set PWM frequency for board %u", 
                 i);
+      board->state = k_pca9685_communication_error;
+      error_handler_record_status(&(board->error_handler), ret);
       continue;
     }
 
@@ -290,6 +382,8 @@ esp_err_t pca9685_init(pca9685_board_t** const controller_data, uint8_t num_boar
                 "Config Error", 
                 "Failed to configure output mode for board %u", 
                 i);
+      board->state = k_pca9685_communication_error;
+      error_handler_record_status(&(board->error_handler), ret);
       continue;
     }
 
@@ -334,7 +428,7 @@ esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data,
   }
 
   /* Find the target board */
-  pca9685_board_t* board = controller_data;
+  pca9685_board_t* board = (pca9685_board_t*)controller_data;
   while (board != NULL && board->board_id != board_id) {
     board = board->next;
   }
@@ -349,45 +443,135 @@ esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data,
   }
 
   /* Convert angle to PWM value */
-  uint16_t pwm_value = angle_to_pwm(target_angle);
-  log_info(pca9685_tag, 
-           "Angle Set", 
-           "Setting board %u to angle %.2f° (PWM: %u)", 
-           board_id, 
-           target_angle, 
-           pwm_value);
-
-  /* Update each motor specified in the mask */
+  uint16_t target_pwm = angle_to_pwm(target_angle);
   esp_err_t ret = ESP_OK;
-  for (uint8_t channel = 0; channel < PCA9685_MOTORS_PER_BOARD; channel++) {
-    if (motor_mask & (1 << channel)) {
-      log_info(pca9685_tag, 
-               "Motor Update", 
-               "Setting channel %u on board %u", 
-               channel, 
-               board_id);
+
+  /* Set the angle for each motor in the mask */
+  for (int i = 0; i < PCA9685_MOTORS_PER_BOARD; i++) {
+    if (motor_mask & (1 << i)) {
+      float current_angle = board->motors[i].pos_deg;
       
-      /* Set PWM values (ON time = 0, OFF time = calculated value) */
-      ret = pca9685_set_pwm(board->i2c_address, channel, 0, pwm_value);
+      /* If the angle change is large, move gradually to avoid jerky motion */
+      if (fabs(target_angle - current_angle) > pca9685_step_size_deg) {
+        ret = pca9685_move_gradually(board, i, current_angle, target_angle);
+      } else {
+        ret = pca9685_set_pwm(board->i2c_address, i, 0, target_pwm);
+      }
+      
       if (ret != ESP_OK) {
         log_error(pca9685_tag, 
-                  "PWM Error", 
-                  "Failed to set PWM for channel %u on board %u", 
-                  channel, 
+                  "Motor Error", 
+                  "Failed to set angle for motor %d on board %u", 
+                  i, 
                   board_id);
+        board->state = k_pca9685_communication_error;
+        error_handler_record_status(&(board->error_handler), ret);
         return ret;
       }
       
-      /* Update motor state */
-      board->motors[channel].pos_deg = target_angle;
-      log_info(pca9685_tag, 
-               "Motor Set", 
-               "Channel %u on board %u set to %.2f°", 
-               channel, 
-               board_id, 
-               target_angle);
+      /* Update the stored position */
+      board->motors[i].pos_deg = target_angle;
     }
   }
 
   return ESP_OK;
+}
+
+esp_err_t pca9685_cleanup(pca9685_board_t** const controller_data)
+{
+  if (controller_data == NULL || *controller_data == NULL) {
+    log_error(pca9685_tag, 
+              "Cleanup Error", 
+              "Invalid controller data pointer");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  log_info(pca9685_tag, "Cleanup Start", "Beginning PCA9685 controller cleanup");
+  esp_err_t ret = ESP_OK;
+
+  /* Put all boards in sleep mode and reset outputs */
+  pca9685_board_t* current = *controller_data;
+  while (current != NULL) {
+    /* Put board in sleep mode */
+    esp_err_t temp_ret = pca9685_write_register(current->i2c_address, 
+                                                k_pca9685_mode1_cmd, 
+                                                k_pca9685_sleep_cmd);
+    if (temp_ret != ESP_OK) {
+      log_warn(pca9685_tag, 
+               "Sleep Warning", 
+               "Failed to put board %u in sleep mode: %s", 
+               current->board_id, 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+
+    /* Reset all outputs to 0 */
+    for (int i = 0; i < PCA9685_MOTORS_PER_BOARD; i++) {
+      temp_ret = pca9685_set_pwm(current->i2c_address, i, 0, 0);
+      if (temp_ret != ESP_OK) {
+        log_warn(pca9685_tag, 
+                 "Reset Warning", 
+                 "Failed to reset output %d on board %u: %s", 
+                 i, 
+                 current->board_id, 
+                 esp_err_to_name(temp_ret));
+        ret = temp_ret;
+      }
+    }
+
+    /* Clean up error handler */
+    temp_ret = error_handler_cleanup(&(current->error_handler));
+    if (temp_ret != ESP_OK) {
+      log_warn(pca9685_tag,
+               "Error Handler Warning",
+               "Failed to clean up error handler for board %u: %s",
+               current->board_id,
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+
+    current = current->next;
+  }
+
+  /* Clean up GPIO pins using common cleanup */
+  uint64_t pin_mask = (1ULL << pca9685_scl_io) | (1ULL << pca9685_sda_io);
+  esp_err_t temp_ret = common_cleanup_gpio(pin_mask, pca9685_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(pca9685_tag, 
+             "GPIO Warning", 
+             "Failed to clean up GPIO pins: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Clean up I2C resources using common cleanup */
+  temp_ret = common_cleanup_i2c(pca9685_i2c_bus, pca9685_scl_io, pca9685_sda_io, pca9685_tag);
+  if (temp_ret != ESP_OK) {
+    log_warn(pca9685_tag, 
+             "I2C Warning", 
+             "Failed to clean up I2C resources: %s", 
+             esp_err_to_name(temp_ret));
+    ret = temp_ret;
+  }
+
+  /* Free allocated memory and reset pointer */
+  current = *controller_data;
+  while (current != NULL) {
+    pca9685_board_t* next = current->next;
+    free(current);
+    current = next;
+  }
+  *controller_data = NULL;
+
+  if (ret == ESP_OK) {
+    log_info(pca9685_tag, 
+             "Cleanup Complete", 
+             "PCA9685 controller resources released successfully");
+  } else {
+    log_warn(pca9685_tag, 
+             "Cleanup Warning", 
+             "PCA9685 cleanup completed with some warnings");
+  }
+
+  return ret;
 }

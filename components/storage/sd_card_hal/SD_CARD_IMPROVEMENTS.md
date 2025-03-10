@@ -87,7 +87,7 @@ This document outlines the specific improvements that should be implemented for 
 
 1. **Consistent API**: Maintain a consistent API:
    - `sd_card_init()` - Initialize the SD card
-   - `sd_card_deinit()` - Deinitialize the SD card
+   - `sd_card_cleanup()` - Clean up the SD card
    - `sd_card_read()` - Read data from the card
    - `sd_card_write()` - Write data to the card
    - `sd_card_erase()` - Erase sectors on the card

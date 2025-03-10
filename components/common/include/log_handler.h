@@ -43,6 +43,22 @@ extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequenc
 esp_err_t log_init(bool log_to_sd);
 
 /**
+ * @brief Cleans up the log handler resources
+ * 
+ * Performs cleanup of resources allocated during log system initialization.
+ * This includes:
+ * 1. Flushing any buffered logs
+ * 2. Closing open log files
+ * 3. Freeing allocated memory
+ * 
+ * @return ESP_OK if successful, ESP_FAIL otherwise
+ * 
+ * @note This function should be called during system shutdown after all
+ *       other components have finished logging.
+ */
+esp_err_t log_cleanup(void);
+
+/**
  * @brief Enables or disables logging to SD card
  * 
  * @param[in] enabled Whether to enable logging to SD card

@@ -193,3 +193,45 @@ esp_err_t log_flush(void)
   
   return ret;
 }
+
+esp_err_t log_cleanup(void)
+{
+  log_info(log_tag, "Cleanup Start", "Beginning log handler cleanup");
+
+  esp_err_t ret = ESP_OK;
+
+  /* Flush any remaining logs */
+  if (s_log_to_sd_enabled) {
+    esp_err_t temp_ret = log_flush();
+    if (temp_ret != ESP_OK) {
+      log_warn(log_tag, 
+               "Flush Warning", 
+               "Failed to flush logs during cleanup: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+
+    /* Clean up log storage */
+    temp_ret = log_storage_cleanup();
+    if (temp_ret != ESP_OK) {
+      log_warn(log_tag, 
+               "Storage Warning", 
+               "Failed to clean up log storage: %s", 
+               esp_err_to_name(temp_ret));
+      ret = temp_ret;
+    }
+  }
+
+  /* Reset sequence number */
+  atomic_store(&g_log_sequence_number, 0);
+
+  /* Disable SD card logging */
+  s_log_to_sd_enabled = false;
+
+  log_info(log_tag, 
+           "Cleanup Complete", 
+           "Log handler cleanup %s", 
+           (ret == ESP_OK) ? "successful" : "completed with warnings");
+
+  return ret;
+}

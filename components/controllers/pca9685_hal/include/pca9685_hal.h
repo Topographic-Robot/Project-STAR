@@ -11,10 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "driver/i2c.h"
 #include "hexapod_geometry.h"
-
-/* Macros *********************************************************************/
-
-#define PCA9685_MOTORS_PER_BOARD (16) /**< Number of motors per PCA9685 board */
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -32,6 +29,10 @@ extern const char* const pca9685_tag;              /**< Tag for logs */
 extern const uint8_t     pca9685_step_size_deg;    /**< Step size in degrees for gradual movement */
 extern const uint32_t    pca9685_step_delay_ms;    /**< Delay in milliseconds between steps */
 extern const float       pca9685_default_angle;    /**< Default angle for motors */
+
+/* Macros *********************************************************************/
+
+#define PCA9685_MOTORS_PER_BOARD (16) /**< Number of motors per PCA9685 board */
 
 /* Enums **********************************************************************/
 
@@ -87,14 +88,15 @@ typedef enum : uint8_t {
  * communication bus, operational state, unique ID, and motors it controls.
  * It also supports a singly linked list structure for managing multiple boards.
  */
-typedef struct pca9685_board_t {
-  uint8_t                 i2c_address;                      /**< Base I2C address of the PCA9685 board. */
-  uint8_t                 i2c_bus;                          /**< I2C bus number used for communication. */
-  uint8_t                 state;                            /**< Current state of the PCA9685 (see pca9685_states_t). */
-  uint8_t                 board_id;                         /**< Unique ID for this board in multi-board setups. */
-  uint8_t                 num_boards;                       /**< Total number of PCA9685 boards in the system. */
-  motor_t                 motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
-  struct pca9685_board_t* next;                             /**< Pointer to the next board in the singly linked list. */
+typedef struct pca9685_board {
+  uint8_t               i2c_address;                      /**< Base I2C address of the PCA9685 board. */
+  uint8_t               i2c_bus;                          /**< I2C bus number used for communication. */
+  uint8_t               state;                            /**< Current state of the PCA9685 (see pca9685_states_t). */
+  uint8_t               board_id;                         /**< Unique ID for this board in multi-board setups. */
+  uint8_t               num_boards;                       /**< Total number of PCA9685 boards in the system. */
+  motor_t               motors[PCA9685_MOTORS_PER_BOARD]; /**< Array representing the motors controlled by this board. */
+  struct pca9685_board* next;                             /**< Pointer to the next board in the singly linked list. */
+  error_handler_t       error_handler;                    /**< Error handler for the PCA9685 board. */
 } pca9685_board_t;
 
 /* Private Inline Functions ***************************************************/
@@ -171,6 +173,29 @@ esp_err_t pca9685_set_angle(const pca9685_board_t* const controller_data,
                             uint16_t                     motor_mask,
                             uint8_t                      board_id, 
                             float                        target_angle);
+
+/**
+ * @brief Cleans up resources used by the PCA9685 PWM controller.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts all boards in sleep mode to minimize power consumption
+ * 2. Resets all PWM outputs to 0
+ * 3. Resets GPIO pins (SCL, SDA) to input mode with no pull-up/down
+ * 4. Cleans up I2C resources
+ * 5. Frees allocated memory for all board structures
+ *
+ * @param[in,out] controller_data Pointer to pointer to the first board in the linked list.
+ *                               Will be set to NULL after cleanup.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - `ESP_ERR_INVALID_ARG` if controller_data is NULL or points to NULL.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the controller
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t pca9685_cleanup(pca9685_board_t** const controller_data);
 
 #ifdef __cplusplus
 }

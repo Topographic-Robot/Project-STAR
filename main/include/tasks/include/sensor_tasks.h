@@ -11,6 +11,11 @@ extern "C" {
 #include "esp_err.h"
 #include "portmacro.h"
 
+/* Typedefs *******************************************************************/
+
+typedef esp_err_t (*sensor_init_fn_t)(void* data); /**< Function pointer to sensor initialization function */
+typedef void (*sensor_task_fn_t)(void* data);      /**< Function pointer to sensor task function */
+
 /* Structs ********************************************************************/
 
 /**
@@ -19,14 +24,14 @@ extern "C" {
  * Represents a sensor's configuration, including its metadata, initialization 
  * and task functions, data pointer, and an enablement flag.
  */
-typedef struct {
-  const char* const sensor_name;           /**< Sensor name used for identification in logs and debugging. */
-  esp_err_t       (*init_function)(void*); /**< Pointer to the function that initializes the sensor. */
-  void            (*task_function)(void*); /**< Pointer to the function that handles the sensor's tasks. */
-  void*             data_ptr;              /**< Pointer to the structure holding sensor-specific data. */
-  UBaseType_t       priority;              /**< Priority of the sensor's task for scheduling purposes. */
-  uint32_t          stack_depth;           /**< Stack depth allocated for the sensor task, in words. */
-  bool              enabled;               /**< Flag indicating if the sensor is enabled (true) or disabled (false). */
+typedef struct sensor_config {
+  const char* const sensor_name;   /**< Sensor name used for identification in logs and debugging. */
+  sensor_init_fn_t  init_function; /**< Pointer to the function that initializes the sensor. */
+  sensor_task_fn_t  task_function; /**< Pointer to the function that handles the sensor's tasks. */
+  void*             data_ptr;      /**< Pointer to the structure holding sensor-specific data. */
+  UBaseType_t       priority;      /**< Priority of the sensor's task for scheduling purposes. */
+  uint32_t          stack_depth;   /**< Stack depth allocated for the sensor task, in words. */
+  bool              enabled;       /**< Flag indicating if the sensor is enabled (true) or disabled (false). */
 } sensor_config_t;
 
 /* Public Functions ***********************************************************/
@@ -81,9 +86,47 @@ esp_err_t sensors_init(sensor_data_t* sensor_data);
  */
 esp_err_t sensor_tasks(sensor_data_t* sensor_data);
 
+/**
+ * @brief Stops all sensor monitoring tasks.
+ *
+ * Stops all running sensor tasks and performs cleanup of task resources.
+ * This function should be called during system shutdown to ensure proper
+ * cleanup of the sensor monitoring subsystem.
+ *
+ * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct containing
+ *                            the sensor data to be cleaned up.
+ *
+ * @return 
+ * - ESP_OK   if all sensor tasks are successfully stopped.
+ * - ESP_FAIL if any sensor task fails to stop properly.
+ *
+ * @note This function should be called before sensors_cleanup() to ensure
+ *       tasks are stopped before hardware resources are released.
+ */
+esp_err_t sensor_tasks_stop(sensor_data_t* sensor_data);
+
+/**
+ * @brief Cleans up resources used by the sensor tasks module.
+ *
+ * Stops all sensor monitoring tasks and performs cleanup of resources allocated
+ * during sensor initialization. This function should be called during system
+ * shutdown to ensure proper cleanup of the sensor subsystem.
+ *
+ * @param[in,out] sensor_data Pointer to the `sensor_data_t` struct containing
+ *                            the sensor data to be cleaned up.
+ *
+ * @return 
+ * - ESP_OK   if all sensor tasks are successfully stopped and resources cleaned up.
+ * - ESP_FAIL if any sensor task fails to stop or cleanup properly.
+ *
+ * @note This function should be called after all other components that depend on
+ *       sensor data have been stopped, but before the underlying communication
+ *       protocols (e.g., I2C and UART) are deinitialized.
+ */
+esp_err_t sensors_cleanup(sensor_data_t* sensor_data);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* TOPOROBO_SENSOR_TASKS_H */
-

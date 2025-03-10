@@ -16,18 +16,20 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
+extern const char* const wifi_tag;                /**< Tag for logging */
+extern const uint8_t     wifi_max_retry;          /**< The max number of times to try and connect to the station */
+extern const uint8_t     wifi_ssid_max_len;       /**< The max length for wifi's SSID defined by esp */
+extern const uint8_t     wifi_pass_max_len;       /**< The max length for wifi's password defined by esp */
+extern const uint32_t    wifi_connect_timeout_ms; /**< Timeout for WiFi connection in milliseconds */
+
+/* Macros *********************************************************************/
+
 /* The event group allows multiple bits for each event, but we only care about
  * two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
 #define WIFI_CONNECTED_BIT (BIT0) /**< Wifi is Connected */
 #define WIFI_FAIL_BIT      (BIT1) /**< Wifi failed to connect */
-
-extern const char* const wifi_tag;                /**< Tag for logging */
-extern const uint8_t     wifi_max_retry;          /**< The max number of times to try and connect to the station */
-extern const uint8_t     wifi_ssid_max_len;       /**< The max length for wifi's SSID defined by esp */
-extern const uint8_t     wifi_pass_max_len;       /**< The max length for wifi's password defined by esp */
-extern const uint32_t    wifi_connect_timeout_ms; /**< Timeout for WiFi connection in milliseconds */
 
 /* Structs ********************************************************************/
 
@@ -37,7 +39,7 @@ extern const uint32_t    wifi_connect_timeout_ms; /**< Timeout for WiFi connecti
  * Represents the WiFi task's configuration, including its priority,
  * stack size, and enablement flag.
  */
-typedef struct {
+typedef struct wifi_task_config {
   UBaseType_t priority;    /**< Priority of the WiFi task for scheduling purposes. */
   uint32_t    stack_depth; /**< Stack depth allocated for the WiFi task, in words. */
   bool        enabled;     /**< Flag indicating if the WiFi task is enabled (true) or disabled (false). */
@@ -97,6 +99,20 @@ esp_err_t wifi_init_sta(void);
  * - ESP_FAIL if task creation failed
  */
 esp_err_t wifi_task_start(void);
+
+/**
+ * @brief Stops the WiFi task and cleans up all associated resources
+ * 
+ * This function performs a graceful shutdown of the WiFi subsystem:
+ * 1. Stops the WiFi task if running
+ * 2. Disconnects from WiFi and stops the ESP WiFi driver
+ * 3. Unregisters event handlers
+ * 4. Deletes timers, event groups, and other resources
+ * 5. Cleans up the error handler
+ * 
+ * @return ESP_OK on success, or an error code on failure
+ */
+esp_err_t wifi_task_stop(void);
 
 #ifdef __cplusplus
 }

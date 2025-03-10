@@ -14,7 +14,7 @@
 
 /* Constants ******************************************************************/
 
-const char* const   WIFI_TAG                    = "WiFi";
+const char* const   wifi_tag                    = "WiFi";
 const uint8_t       wifi_max_retry              = 10;
 const uint8_t       wifi_ssid_max_len           = 32;
 const uint8_t       wifi_pass_max_len           = 32;
@@ -26,11 +26,11 @@ const uint32_t      wifi_max_backoff_interval   = pdMS_TO_TICKS(300000); /* 5 mi
 
 /* Globals (Static) ***********************************************************/
 
-static EventGroupHandle_t s_wifi_event_group   = NULL;
-static TimerHandle_t      s_wifi_connect_timer = NULL;
-static error_handler_t    s_wifi_error_handler = {};
-static TaskHandle_t       s_wifi_task_handle   = NULL;
-static wifi_task_config_t s_wifi_config        = { 5, 4096, false };
+static EventGroupHandle_t       s_wifi_event_group   = NULL;
+static TimerHandle_t            s_wifi_connect_timer = NULL;
+static error_handler_t          s_wifi_error_handler = {};
+static TaskHandle_t             s_wifi_task_handle   = NULL;
+static const wifi_task_config_t s_wifi_config        = { 5, 4096, false };
 
 /* Private (Static) Functions *************************************************/
 
@@ -43,7 +43,7 @@ static wifi_task_config_t s_wifi_config        = { 5, 4096, false };
  */
 static void priv_wifi_connect_timeout_cb(TimerHandle_t xTimer)
 {
-  log_warn(WIFI_TAG, 
+  log_warn(wifi_tag, 
            "Timeout", 
            "Connection attempt timed out, stopping connection process");
   esp_wifi_stop();
@@ -79,14 +79,14 @@ static void priv_event_handler(void*            arg,
       if (!connecting && esp_wifi_get_mode(&mode) == ESP_OK && mode == WIFI_MODE_STA) {
         connecting = true;
         esp_wifi_connect();
-        log_info(WIFI_TAG, 
+        log_info(wifi_tag, 
                  "Connect Start", 
                  "Beginning connection attempt to access point");
       }
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
       if (connecting) {
         connecting = false;
-        log_warn(WIFI_TAG, "Disconnect", "Connection lost, attempting reconnection");
+        log_warn(wifi_tag, "Disconnect", "Connection lost, attempting reconnection");
         error_handler_record_status(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_CONNECT);
       }
     }
@@ -95,7 +95,7 @@ static void priv_event_handler(void*            arg,
   if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
     connecting               = false;
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-    log_info(WIFI_TAG, 
+    log_info(wifi_tag, 
              "Connect Success", 
              "Connection established, IP address: " 
              IPSTR, IP2STR(&event->ip_info.ip));
@@ -111,14 +111,14 @@ static esp_err_t priv_wifi_reset(void* context)
   static bool reset_in_progress = false;
   
   if (reset_in_progress) {
-    log_warn(WIFI_TAG, 
+    log_warn(wifi_tag, 
              "Reset Skip", 
              "Reset already in progress, skipping new request");
     return ESP_ERR_INVALID_STATE;
   }
   
   reset_in_progress = true;
-  log_info(WIFI_TAG, "Reset Start", "Beginning WiFi reset procedure");
+  log_info(wifi_tag, "Reset Start", "Beginning WiFi reset procedure");
   
   /* Stop WiFi */
   esp_wifi_stop();
@@ -133,7 +133,7 @@ static esp_err_t priv_wifi_reset(void* context)
   /* Restart WiFi */
   esp_err_t ret = esp_wifi_start();
   if (ret != ESP_OK) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "Reset Error", 
               "Failed to restart WiFi: %s", 
               esp_err_to_name(ret));
@@ -144,12 +144,12 @@ static esp_err_t priv_wifi_reset(void* context)
   /* Explicitly initiate connection after reset */
   ret = esp_wifi_connect();
   if (ret != ESP_OK) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "Connect Error", 
               "Failed to initiate connection after reset: %s", 
               esp_err_to_name(ret));
   } else {
-    log_info(WIFI_TAG, 
+    log_info(wifi_tag, 
              "Reset Complete", 
              "WiFi reset successful, connection attempt initiated");
   }
@@ -163,14 +163,14 @@ static esp_err_t priv_wifi_initialize_netif(void)
   static bool netif_initialized = false;
 
   if (!netif_initialized) {
-    log_info(WIFI_TAG, 
+    log_info(wifi_tag, 
              "NetIF Start", 
              "Beginning network interface initialization");
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
     netif_initialized = true;
-    log_info(WIFI_TAG, 
+    log_info(wifi_tag, 
              "NetIF Complete", 
              "Network interface initialization successful");
   }
@@ -182,7 +182,7 @@ static esp_err_t priv_wifi_initialize_netif(void)
 esp_err_t wifi_check_connection(void)
 {
   if (s_wifi_event_group == NULL) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "Check Error", 
               "Connection check failed: WiFi not initialized");
     return ESP_ERR_INVALID_STATE;
@@ -190,32 +190,32 @@ esp_err_t wifi_check_connection(void)
 
   wifi_mode_t mode;
   if (esp_wifi_get_mode(&mode) != ESP_OK) {
-    log_error(WIFI_TAG, "Mode Error", "Failed to get WiFi mode");
+    log_error(wifi_tag, "Mode Error", "Failed to get WiFi mode");
     return ESP_FAIL;
   }
 
   if (mode != WIFI_MODE_STA) {
-    log_error(WIFI_TAG, "Mode Error", "WiFi not in station mode");
+    log_error(wifi_tag, "Mode Error", "WiFi not in station mode");
     return ESP_FAIL;
   }
 
   wifi_ap_record_t ap_info;
   if (esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
-    log_warn(WIFI_TAG, "AP Error", "Not connected to access point");
+    log_warn(wifi_tag, "AP Error", "Not connected to access point");
     return ESP_FAIL;
   }
 
-  log_info(WIFI_TAG, "Check Success", "Connected to access point");
+  log_info(wifi_tag, "Check Success", "Connected to access point");
   return ESP_OK;
 }
 
 esp_err_t wifi_init_sta(void)
 {
-  log_info(WIFI_TAG, "Init Start", "Beginning WiFi station initialization");
+  log_info(wifi_tag, "Init Start", "Beginning WiFi station initialization");
 
   /* Initialize error handler */
   error_handler_init(&s_wifi_error_handler,
-                     WIFI_TAG,
+                     wifi_tag,
                      wifi_max_retry,
                      wifi_initial_retry_interval,
                      wifi_max_retry_interval,
@@ -226,7 +226,7 @@ esp_err_t wifi_init_sta(void)
 
   s_wifi_event_group = xEventGroupCreate();
   if (!s_wifi_event_group) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "Event Error", 
               "Failed to create event group: insufficient memory");
     error_handler_record_status(&s_wifi_error_handler, ESP_ERR_NO_MEM);
@@ -235,7 +235,7 @@ esp_err_t wifi_init_sta(void)
 
   /* Initialize network interface if not already done */
   if (priv_wifi_initialize_netif() != ESP_OK) {
-    log_error(WIFI_TAG, "NetIF Error", "Network interface initialization failed");
+    log_error(wifi_tag, "NetIF Error", "Network interface initialization failed");
     return ESP_FAIL;
   }
 
@@ -256,18 +256,18 @@ esp_err_t wifi_init_sta(void)
   strncpy((char*)wifi_config.sta.password, WIFI_PASS, wifi_pass_max_len - 1);
   if (esp_wifi_set_mode(WIFI_MODE_STA) != ESP_OK || 
       esp_wifi_set_config(WIFI_IF_STA, &wifi_config) != ESP_OK) {
-    log_error(WIFI_TAG, "Config Error", "Failed to configure WiFi settings");
+    log_error(wifi_tag, "Config Error", "Failed to configure WiFi settings");
     error_handler_record_status(&s_wifi_error_handler, ESP_ERR_WIFI_NOT_INIT);
     return ESP_FAIL;
   }
 
-  log_info(WIFI_TAG, 
+  log_info(wifi_tag, 
            "Connect Start", 
            "Starting connection to SSID: %s", 
            WIFI_SSID);
   esp_wifi_start();
 
-  log_info(WIFI_TAG, 
+  log_info(wifi_tag, 
            "Timer Start", 
            "Starting connection timeout timer (%lu ms)", 
            wifi_connect_timeout_ms);
@@ -277,7 +277,7 @@ esp_err_t wifi_init_sta(void)
                                       NULL,
                                       priv_wifi_connect_timeout_cb);
   if (!s_wifi_connect_timer) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "Timer Error", 
               "Failed to create connection timer: insufficient memory");
     if (s_wifi_event_group) {
@@ -294,24 +294,24 @@ esp_err_t wifi_init_sta(void)
                                          pdFALSE, pdFALSE, portMAX_DELAY);
 
   if (bits & WIFI_CONNECTED_BIT) {
-    log_info(WIFI_TAG, "Init Success", "WiFi connection established successfully");
+    log_info(wifi_tag, "Init Success", "WiFi connection established successfully");
     return ESP_OK;
   } else if (bits & WIFI_FAIL_BIT) {
-    log_warn(WIFI_TAG, "Init Warning", "WiFi connection failed: timeout reached");
+    log_warn(wifi_tag, "Init Warning", "WiFi connection failed: timeout reached");
     return ESP_FAIL;
   } else {
-    log_error(WIFI_TAG, "Init Error", "WiFi connection failed: unexpected error");
+    log_error(wifi_tag, "Init Error", "WiFi connection failed: unexpected error");
     return ESP_FAIL;
   }
 }
 
 static void wifi_task(void* pvParameters) 
 {
-  log_info(WIFI_TAG, "Task Start", "WiFi monitoring task started");
+  log_info(wifi_tag, "Task Start", "WiFi monitoring task started");
 
   /* Initialize network interface first */
   if (priv_wifi_initialize_netif() != ESP_OK) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "NetIF Error", 
               "Network interface initialization failed, terminating task");
     vTaskDelete(NULL);
@@ -320,15 +320,15 @@ static void wifi_task(void* pvParameters)
     
   while (1) {
     if (wifi_init_sta() == ESP_OK) {
-      log_info(WIFI_TAG, "Time Start", "Beginning time synchronization");
+      log_info(wifi_tag, "Time Start", "Beginning time synchronization");
             
       /* Now that WiFi is connected, re-initialize time to get actual time from NTP */
       if (time_manager_init() != ESP_OK) {
-        log_warn(WIFI_TAG, 
+        log_warn(wifi_tag, 
                  "Time Error", 
                  "Time synchronization failed, will retry after reconnection");
       } else {
-        log_info(WIFI_TAG, "Time Success", "Time synchronized successfully");
+        log_info(wifi_tag, "Time Success", "Time synchronized successfully");
       }
             
       /* Monitor connection */
@@ -338,13 +338,13 @@ static void wifi_task(void* pvParameters)
           esp_err_t error = error_handler_record_status(&s_wifi_error_handler, 
                                                         ESP_ERR_WIFI_NOT_CONNECT);
           if (error == ESP_OK) {
-            log_warn(WIFI_TAG, 
+            log_warn(wifi_tag, 
                      "Connect Lost", 
                      "Connection lost, attempting immediate reconnection");
             /* Try to reconnect directly first */
             esp_err_t connect_err = esp_wifi_connect();
             if (connect_err != ESP_OK) {
-              log_warn(WIFI_TAG, 
+              log_warn(wifi_tag, 
                        "Reconnect Error", 
                        "Direct reconnection failed, initiating reset: %s", 
                        esp_err_to_name(connect_err));
@@ -363,17 +363,17 @@ static void wifi_task(void* pvParameters)
       error = error_handler_record_status(&s_wifi_error_handler, 
                                           ESP_ERR_WIFI_NOT_CONNECT);
       if (error != ESP_OK) {
-        log_warn(WIFI_TAG, 
+        log_warn(wifi_tag, 
                  "Retry Delay", 
                  "Reconnection delayed by error handler backoff");
         vTaskDelay(pdMS_TO_TICKS(5000)); /* 5 seconds */
       } else {
-        log_info(WIFI_TAG, 
+        log_info(wifi_tag, 
                  "Retry Start", 
                  "Error handler permits retry, attempting reconnection");
         esp_err_t connect_err = esp_wifi_connect();
         if (connect_err != ESP_OK) {
-          log_warn(WIFI_TAG, "Retry Error", "Reconnection attempt failed: %s", 
+          log_warn(wifi_tag, "Retry Error", "Reconnection attempt failed: %s", 
                    esp_err_to_name(connect_err));
         }
       }
@@ -385,31 +385,85 @@ esp_err_t wifi_task_start(void)
 {
   /* Initialize time with default values first */
   if (time_manager_init() != ESP_OK) {
-    log_warn(WIFI_TAG, 
+    log_warn(wifi_tag, 
              "Time Warning", 
              "Initial time sync failed, will retry after WiFi connection");
   }
 
   if (!s_wifi_config.enabled) {
-    log_info(WIFI_TAG, "Task Skip", "WiFi task disabled in configuration");
+    log_info(wifi_tag, "Task Skip", "WiFi task disabled in configuration");
     return ESP_OK;
   }
 
-  log_info(WIFI_TAG, "Task Create", "Creating WiFi monitoring task");
+  log_info(wifi_tag, "Task Create", "Creating WiFi monitoring task");
   BaseType_t ret = xTaskCreate(wifi_task,
-                               WIFI_TAG,
+                               wifi_tag,
                                s_wifi_config.stack_depth,
                                NULL,
                                s_wifi_config.priority,
                                &s_wifi_task_handle);
     
   if (ret != pdPASS) {
-    log_error(WIFI_TAG, 
+    log_error(wifi_tag, 
               "Task Error", 
               "Failed to create WiFi task: insufficient resources");
     return ESP_FAIL;
   }
     
-  log_info(WIFI_TAG, "Task Success", "WiFi monitoring task created successfully");
+  log_info(wifi_tag, "Task Success", "WiFi monitoring task created successfully");
+  return ESP_OK;
+}
+
+esp_err_t wifi_task_stop(void)
+{
+  log_info(wifi_tag, "Shutdown Start", "Beginning WiFi subsystem shutdown");
+
+  /* Stop the WiFi task if it's running */
+  if (s_wifi_task_handle != NULL) {
+    log_info(wifi_tag, "Task Stop", "Stopping WiFi monitoring task");
+    vTaskDelete(s_wifi_task_handle);
+    s_wifi_task_handle = NULL;
+  }
+
+  /* Stop WiFi connection and driver */
+  esp_err_t ret = esp_wifi_disconnect();
+  if (ret != ESP_OK) {
+    log_warn(wifi_tag, "Disconnect Warning", "Failed to disconnect WiFi: %d", ret);
+  }
+  
+  ret = esp_wifi_stop();
+  if (ret != ESP_OK) {
+    log_warn(wifi_tag, "Stop Warning", "Failed to stop WiFi: %d", ret);
+  }
+
+  /* Unregister event handlers */
+  esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, NULL);
+  esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, NULL);
+
+  /* Clean up WiFi driver */
+  ret = esp_wifi_deinit();
+  if (ret != ESP_OK) {
+    log_warn(wifi_tag, "Cleanup Warning", "Failed to clean up WiFi: %d", ret);
+  }
+
+  /* Delete the connection timer if it exists */
+  if (s_wifi_connect_timer != NULL) {
+    if (xTimerIsTimerActive(s_wifi_connect_timer) == pdTRUE) {
+      xTimerStop(s_wifi_connect_timer, 0);
+    }
+    xTimerDelete(s_wifi_connect_timer, 0);
+    s_wifi_connect_timer = NULL;
+  }
+
+  /* Delete the event group if it exists */
+  if (s_wifi_event_group != NULL) {
+    vEventGroupDelete(s_wifi_event_group);
+    s_wifi_event_group = NULL;
+  }
+
+  /* Clean up the error handler */
+  error_handler_cleanup(&s_wifi_error_handler);
+
+  log_info(wifi_tag, "Shutdown Complete", "WiFi subsystem shutdown successful");
   return ESP_OK;
 }

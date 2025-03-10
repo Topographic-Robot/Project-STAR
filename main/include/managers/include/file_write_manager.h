@@ -12,8 +12,8 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-extern const char* const   file_manager_tag;   /**< Logging tag for log_handler messages related to the file write manager. */
-extern const uint32_t      max_pending_writes; /**< Maximum number of queued file write requests to prevent overflow. */
+extern const char* const file_manager_tag;   /**< Logging tag for log_handler messages related to the file write manager. */
+extern const uint32_t    max_pending_writes; /**< Maximum number of queued file write requests to prevent overflow. */
 
 /* Macros *********************************************************************/
 
@@ -29,7 +29,7 @@ extern const uint32_t      max_pending_writes; /**< Maximum number of queued fil
  * Contains settings for the file write manager task including its name,
  * priority, stack size, and enablement flag.
  */
-typedef struct {
+typedef struct file_writer_config {
   UBaseType_t priority;    /**< Priority of the file writer task for scheduling purposes. */
   uint32_t    stack_depth; /**< Stack depth allocated for the file writer task, in words. */
   bool        enabled;     /**< Flag indicating if the file writer is enabled (true) or disabled (false). */
@@ -47,7 +47,7 @@ typedef struct {
  * - For text data (is_binary = false), the data field contains the null-terminated string.
  * - For binary data (is_binary = true), the data field contains a pointer to the binary data.
  */
-typedef struct {
+typedef struct file_write_request {
   char     file_path[MAX_FILE_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
   void*    data;                            /**< Pointer to the data to write. For text, this is a null-terminated string. */
   uint32_t data_length;                     /**< Length of the data in bytes. For text, this can be 0 (will use strlen). */
@@ -130,6 +130,27 @@ esp_err_t file_write_enqueue(const char* const file_path,
 esp_err_t file_write_binary_enqueue(const char* const file_path, 
                                     const void* const data, 
                                     uint32_t          data_length);
+
+/**
+ * @brief Cleans up resources used by the file write manager.
+ *
+ * Stops the file write task, processes any remaining items in the queue,
+ * and frees all allocated resources. This function should be called during
+ * system shutdown to ensure proper cleanup of the file write subsystem and
+ * prevent data loss.
+ *
+ * @return
+ * - ESP_OK   if all resources are successfully cleaned up.
+ * - ESP_FAIL if any cleanup operation fails.
+ *
+ * @note
+ * - Call this function during the system shutdown phase.
+ * - This function will attempt to process any pending write requests in the
+ *   queue before shutting down to prevent data loss.
+ * - Ensure all components that use the file write manager have stopped
+ *   enqueueing new requests before calling this function.
+ */
+esp_err_t file_write_manager_cleanup(void);
 
 #ifdef __cplusplus
 }

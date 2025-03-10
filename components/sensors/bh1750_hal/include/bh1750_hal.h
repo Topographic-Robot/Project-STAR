@@ -79,7 +79,7 @@ typedef enum : uint8_t {
  * communication details, light intensity readings, and retry management for
  * error handling and reinitialization.
  */
-typedef struct {
+typedef struct bh1750_data {
   uint8_t         i2c_address;   /**< I2C address for communication with the sensor. */
   i2c_port_t      i2c_bus;       /**< I2C bus number the sensor is connected to. */
   float           lux;           /**< Latest light intensity reading from the sensor, in lux. */
@@ -153,6 +153,26 @@ esp_err_t bh1750_read(bh1750_data_t* const sensor_data);
  * - Handles error recovery internally to maintain stable operation.
  */
 void bh1750_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the BH1750 sensor.
+ *
+ * Performs the following cleanup operations:
+ * 1. Puts sensor in power down mode to minimize power consumption
+ * 2. Resets GPIO pins (SCL, SDA) to input mode with no pull-up/down
+ * 3. Resets sensor data structure to initial values
+ * 4. Cleans up I2C resources
+ *
+ * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes if any cleanup operation fails.
+ *
+ * @note This function should be called during system shutdown or when the sensor
+ *       is no longer needed. It ensures proper release of all allocated resources.
+ */
+esp_err_t bh1750_cleanup(void* const sensor_data);
 
 #ifdef __cplusplus
 }

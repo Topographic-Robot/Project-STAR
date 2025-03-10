@@ -1,6 +1,7 @@
 /* components/common/uart.c */
 
 #include "common/uart.h"
+#include "common/bus_manager.h"
 #include "driver/uart.h"
 #include "log_handler.h"
 
@@ -18,46 +19,61 @@ esp_err_t priv_uart_init(uint8_t           tx_io,
                          size_t            tx_buffer_size,
                          const char* const tag)
 {
-  uart_config_t uart_config = {
-    .baud_rate = baud_rate,                /* Set the baud rate (communication speed) */
-    .data_bits = UART_DATA_8_BITS,         /* Set data bits (8 bits per word) */
-    .parity    = UART_PARITY_DISABLE,      /* No parity check */
-    .stop_bits = UART_STOP_BITS_1,         /* Set 1 stop bit */
-    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE, /* Disable hardware flow control */
-  };
-
-  /* Configure the UART driver with the specified settings */
-  esp_err_t ret = uart_param_config(uart_num, &uart_config);
+  /* Use the bus manager to initialize the UART port */
+  esp_err_t ret = bus_manager_uart_init(tx_io, 
+                                        rx_io, 
+                                        baud_rate, 
+                                        uart_num, 
+                                        rx_buffer_size, 
+                                        tx_buffer_size);
+  
   if (ret != ESP_OK) {
     log_error(tag, 
-              "Config Error", 
-              "Failed to configure UART parameters: %s", 
+              "Init Error", 
+              "Failed to initialize UART port %d: %s", 
+              uart_num,
+              esp_err_to_name(ret));
+  } else {
+    log_info(tag,
+             "Init Success",
+             "UART port %d initialized successfully",
+             uart_num);
+  }
+  
+  return ret;
+}
+
+/**
+ * @brief Deinitializes the UART interface.
+ *
+ * Uses the bus manager to deinitialize the specified UART port.
+ *
+ * @param[in] uart_num UART port number to deinitialize.
+ * @param[in] tag      Logging tag for error messages.
+ *
+ * @return 
+ * - `ESP_OK` on successful deinitialization.
+ * - Error codes from `esp_err_t` on failure.
+ */
+esp_err_t priv_uart_cleanup(uart_port_t uart_num, const char* const tag)
+{
+  esp_err_t ret = bus_manager_uart_cleanup(uart_num);
+  
+  if (ret != ESP_OK) {
+    log_error(tag, 
+              "Cleanup Error", 
+              "Failed to clean up UART port %d: %s", 
+              uart_num, 
               esp_err_to_name(ret));
     return ret;
   }
-
-  /* Set the TX and RX pin numbers for the UART interface */
-  ret = uart_set_pin(uart_num, tx_io, rx_io, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-  if (ret != ESP_OK) {
-    log_error(tag, 
-              "Pin Error", 
-              "Failed to configure UART pins TX:%u RX:%u: %s", 
-              tx_io, 
-              rx_io, 
-              esp_err_to_name(ret));
-    return ret;
-  }
-
-  /* Install the UART driver with RX and TX buffers */
-  ret = uart_driver_install(uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
-  if (ret != ESP_OK) {
-    log_error(tag, 
-              "Driver Error", 
-              "Failed to install UART driver: %s", 
-              esp_err_to_name(ret));
-  }
-
-  return ret; /* Return the error status or ESP_OK */
+  
+  log_info(tag, 
+           "Cleanup Success", 
+           "UART port %d cleaned up successfully", 
+           uart_num);
+  
+  return ESP_OK;
 }
 
 esp_err_t priv_uart_read(uint8_t*          data, 

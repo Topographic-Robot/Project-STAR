@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -46,13 +47,14 @@ typedef enum : uint8_t {
  * the raw ADC reading, calculated gas concentration in ppm, warm-up timing, and
  * retry handling for error recovery.
  */
-typedef struct {
-  uint16_t   raw_adc_value;      /**< Raw ADC value read from the analog output of the sensor. */
-  float      gas_concentration;  /**< Calculated gas concentration in parts per million (ppm). */
-  uint8_t    state;              /**< Current operational state of the sensor (see `mq135_states_t`). */
-  TickType_t warmup_start_ticks; /**< Tick count when the warm-up period started. */
-  uint8_t    retry_count;        /**< Counter for consecutive retries during error recovery. */
-  uint32_t   retry_interval;     /**< Current interval between retry attempts, in ticks. */
+typedef struct mq135_data {
+  uint16_t        raw_adc_value;      /**< Raw ADC value read from the analog output of the sensor. */
+  float           gas_concentration;  /**< Calculated gas concentration in parts per million (ppm). */
+  uint8_t         state;              /**< Current operational state of the sensor (see `mq135_states_t`). */
+  TickType_t      warmup_start_ticks; /**< Tick count when the warm-up period started. */
+  uint8_t         retry_count;        /**< Counter for consecutive retries during error recovery. */
+  uint32_t        retry_interval;     /**< Current interval between retry attempts, in ticks. */
+  error_handler_t* error_handler;     /**< Error handler for managing error recovery. */
 } mq135_data_t;
 
 /* Public Functions ***********************************************************/
@@ -135,6 +137,20 @@ void mq135_reset_on_error(mq135_data_t* const sensor_data);
  * - Handles error recovery internally to maintain stable operation.
  */
 void mq135_tasks(void* const sensor_data);
+
+/**
+ * @brief Cleans up resources used by the MQ135 sensor.
+ *
+ * Releases hardware resources (ADC) and resets the sensor state.
+ * Should be called during system shutdown.
+ *
+ * @param[in,out] sensor_data Pointer to the `mq135_data_t` structure to clean up.
+ *
+ * @return 
+ * - `ESP_OK` on successful cleanup.
+ * - Relevant `esp_err_t` codes on failure.
+ */
+esp_err_t mq135_cleanup(void* const sensor_data);
 
 #ifdef __cplusplus
 }
