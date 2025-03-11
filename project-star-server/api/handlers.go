@@ -1,113 +1,127 @@
-package api
+package device
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
-
-	"github.com/Topographic-Robot/Project-STAR/server/device"
-	"github.com/Topographic-Robot/Project-STAR/server/models"
 )
 
-// Handler manages API endpoints
-type Handler struct {
-	connector *device.Connector
+// Command represents a command to be sent to the ESP32 device
+type Command struct {
+	Type       string      `json:"type"`
+	Action     string      `json:"action"`
+	Parameters interface{} `json:"parameters,omitempty"`
+	Timestamp  int64       `json:"timestamp"`
 }
 
-// New creates a new API handler
-func New(connector *device.Connector) *Handler {
-	return &Handler{
-		connector: connector,
-	}
+// Connector manages communication with ESP32 devices
+type Connector struct {
+	client       *http.Client
+	deviceAddr   string
+	commandQueue []Command
+	mutex        sync.Mutex
 }
 
-// genericCommandHandler handles commands of various types
-func (h *Handler) genericCommandHandler(w http.ResponseWriter, r *http.Request, commandType string) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var cmd models.CommandRequest
-	err := json.NewDecoder(r.Body).Decode(&cmd)
-	if err != nil {
-		log.Printf("Error decoding request body: %v", err)
-		http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Check for empty command
-	if cmd.Command == "" {
-		http.Error(w, "Missing required field: command", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("Received %s command: %s", commandType, cmd.Command)
-
-	err = h.connector.SendCommand(commandType, cmd.Command, cmd.Parameters)
-	if err != nil {
-		log.Printf("Error sending command: %v", err)
-	}
-
-	response := models.CommandResponse{
-		Status:    "success",
-		Message:   fmt.Sprintf("%s command processed", commandType),
-		Timestamp: time.Now().Unix(),
-	}
-
-	if err != nil {
-		response.Status = "queued"
-		response.Message = "Command queued for later delivery"
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-}
-
-// MovementHandler handles movement commands
-func (h *Handler) MovementHandler(w http.ResponseWriter, r *http.Request) {
-	h.genericCommandHandler(w, r, "movement")
-}
-
-// SensorsHandler handles sensor commands
-func (h *Handler) SensorsHandler(w http.ResponseWriter, r *http.Request) {
-	h.genericCommandHandler(w, r, "sensor")
-}
-
-// ExpansionsHandler handles expansion commands
-func (h *Handler) ExpansionsHandler(w http.ResponseWriter, r *http.Request) {
-	h.genericCommandHandler(w, r, "expansion")
-}
-
-// StatusHandler handles status requests
-func (h *Handler) StatusHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	queueLength := h.connector.GetQueueLength()
-
-	response := models.CommandResponse{
-		Status:  "success",
-		Message: "System operational",
-		Data: map[string]interface{}{
-			"queued_commands": queueLength,
-			"server_time":     time.Now().Format(time.RFC3339),
+// New creates a new device connector
+func New(deviceAddr string) *Connector {
+	connector := &Connector{
+		client: &http.Client{
+			Timeout: 5 * time.Second,
 		},
-		Timestamp: time.Now().Unix(),
+		deviceAddr:   deviceAddr,
+		commandQueue: make([]Command, 0),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+	// Start a goroutine to process the command queue periodically
+	// TODO: Research a better approach to this, probably once we have ESP32 communication
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := connector.ProcessCommandQueue(); err != nil {
+				log.Printf("Error processing command queue: %v", err)
+			}
+		}
+	}()
+
+	return connector
+}
+
+// SendCommand sends a command to the device
+func (c *Connector) SendCommand(cmdType, action string, params interface{}) error {
+	cmd := Command{
+		Type:       cmdType,
+		Action:     action,
+		Parameters: params,
+		Timestamp:  time.Now().Unix(),
 	}
+
+	err := c.sendCommandToDevice(cmd)
+	if err != nil {
+		c.mutex.Lock()
+		c.commandQueue = append(c.commandQueue, cmd)
+		c.mutex.Unlock()
+		log.Printf("Command queued: %s - %s", cmdType, action)
+	}
+
+	return err
+}
+
+func (c *Connector) sendCommandToDevice(cmd Command) error {
+	jsonData, err := json.Marshal(cmd)
+	if err != nil {
+		return err
+	}
+
+	url := "http://" + c.deviceAddr + "/api/command"
+	resp, err := c.client.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("device returned error status: " + resp.Status)
+	}
+
+	return nil
+}
+
+// ProcessCommandQueue attempts to send queued commands
+func (c *Connector) ProcessCommandQueue() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if len(c.commandQueue) == 0 {
+		return nil
+	}
+
+	log.Printf("Processing command queue: %d commands", len(c.commandQueue))
+	var remainingCommands []Command
+	var processErr error = nil
+
+	for _, cmd := range c.commandQueue {
+		if err := c.sendCommandToDevice(cmd); err != nil {
+			remainingCommands = append(remainingCommands, cmd)
+			processErr = errors.Join(processErr, fmt.Errorf("error processing queued command %s - %s: %w", cmd.Type, cmd.Action, err))
+		} else {
+			log.Printf("Queued command processed: %s - %s", cmd.Type, cmd.Action)
+		}
+	}
+
+	c.commandQueue = remainingCommands
+	return processErr
+}
+
+// GetQueueLength returns the number of queued commands
+func (c *Connector) GetQueueLength() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return len(c.commandQueue)
 }

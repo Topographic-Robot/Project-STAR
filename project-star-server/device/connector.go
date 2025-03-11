@@ -3,7 +3,8 @@ package device
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -83,9 +84,9 @@ func (c *Connector) sendCommandToDevice(cmd Command) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("device returned error status: " + resp.Status)
+		bodyBytes, _ := io.ReadAll(resp.Body) // Read the response body
+		return fmt.Errorf("device returned error status: %s, body: %s", resp.Status, string(bodyBytes))
 	}
-
 	return nil
 }
 
