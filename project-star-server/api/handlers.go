@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -22,26 +23,37 @@ func New(connector *device.Connector) *Handler {
 	}
 }
 
-// MovementHandler handles movement commands
-func (h *Handler) MovementHandler(w http.ResponseWriter, r *http.Request) {
+// genericCommandHandler handles commands of various types
+func (h *Handler) genericCommandHandler(w http.ResponseWriter, r *http.Request, commandType string) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var cmd models.CommandRequest
-	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	err := json.NewDecoder(r.Body).Decode(&cmd)
+	if err != nil {
+		log.Printf("Error decoding request body: %v", err)
+		http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Received movement command: %s", cmd.Command)
+	// Check for empty command
+	if cmd.Command == "" {
+		http.Error(w, "Missing required field: command", http.StatusBadRequest)
+		return
+	}
 
-	err := h.connector.SendCommand("movement", cmd.Command, cmd.Parameters)
+	log.Printf("Received %s command: %s", commandType, cmd.Command)
+
+	err = h.connector.SendCommand(commandType, cmd.Command, cmd.Parameters)
+	if err != nil {
+		log.Printf("Error sending command: %v", err)
+	}
 
 	response := models.CommandResponse{
 		Status:    "success",
-		Message:   "Movement command processed",
+		Message:   fmt.Sprintf("%s command processed", commandType),
 		Timestamp: time.Now().Unix(),
 	}
 
@@ -51,71 +63,26 @@ func (h *Handler) MovementHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+// MovementHandler handles movement commands
+func (h *Handler) MovementHandler(w http.ResponseWriter, r *http.Request) {
+	h.genericCommandHandler(w, r, "movement")
 }
 
 // SensorsHandler handles sensor commands
 func (h *Handler) SensorsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var cmd models.CommandRequest
-	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("Received sensor command: %s", cmd.Command)
-
-	err := h.connector.SendCommand("sensor", cmd.Command, cmd.Parameters)
-
-	response := models.CommandResponse{
-		Status:    "success",
-		Message:   "Sensor command processed",
-		Timestamp: time.Now().Unix(),
-	}
-
-	if err != nil {
-		response.Status = "queued"
-		response.Message = "Command queued for later delivery"
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	h.genericCommandHandler(w, r, "sensor")
 }
 
 // ExpansionsHandler handles expansion commands
 func (h *Handler) ExpansionsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var cmd models.CommandRequest
-	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("Received expansion command: %s", cmd.Command)
-
-	err := h.connector.SendCommand("expansion", cmd.Command, cmd.Parameters)
-
-	response := models.CommandResponse{
-		Status:    "success",
-		Message:   "Expansion command processed",
-		Timestamp: time.Now().Unix(),
-	}
-
-	if err != nil {
-		response.Status = "queued"
-		response.Message = "Command queued for later delivery"
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	h.genericCommandHandler(w, r, "expansion")
 }
 
 // StatusHandler handles status requests
@@ -138,5 +105,9 @@ func (h *Handler) StatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
