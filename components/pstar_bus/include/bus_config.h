@@ -27,9 +27,9 @@ extern "C" {
  * @return pstar_bus_config_t* Pointer to the created configuration, or NULL on failure.
  */
 pstar_bus_config_t* pstar_bus_config_create_i2c(const char*         name, 
-                                          i2c_port_t          port, 
-                                          uint8_t             address, 
-                                          pstar_common_mode_t mode);
+                                                i2c_port_t          port, 
+                                                uint8_t             address, 
+                                                pstar_common_mode_t mode);
 
 /**
  * @brief Create a new SPI bus configuration.
@@ -54,10 +54,10 @@ pstar_bus_config_t* pstar_bus_config_create_spi(const char*         name,
  * @return pstar_bus_config_t* Pointer to the created configuration, or NULL on failure.
  */
 pstar_bus_config_t* pstar_bus_config_create_uart(const char*         name, 
-                                                uart_port_t         port,
-                                                size_t              rx_buffer_size, 
-                                                size_t              tx_buffer_size,
-                                                pstar_common_mode_t mode);
+                                                 uart_port_t         port,
+                                                 size_t              rx_buffer_size, 
+                                                 size_t              tx_buffer_size,
+                                                 pstar_common_mode_t mode);
 
 /**
  * @brief Create a new GPIO bus configuration.
@@ -67,7 +67,7 @@ pstar_bus_config_t* pstar_bus_config_create_uart(const char*         name,
  * @return pstar_bus_config_t* Pointer to the created configuration, or NULL on failure.
  */
 pstar_bus_config_t* pstar_bus_config_create_gpio(const char*         name, 
-                                                pstar_common_mode_t mode);
+                                                 pstar_common_mode_t mode);
 
 /**
  * @brief Create a new SDIO bus configuration.
@@ -79,9 +79,9 @@ pstar_bus_config_t* pstar_bus_config_create_gpio(const char*         name,
  * @return pstar_bus_config_t* Pointer to the created configuration, or NULL on failure.
  */
 pstar_bus_config_t* pstar_bus_config_create_sdio(const char*         name, 
-                                                uint32_t            host_flags,
-                                                uint8_t             slot,
-                                                pstar_common_mode_t mode);
+                                                 uint32_t            host_flags,
+                                                 uint8_t             slot,
+                                                 pstar_common_mode_t mode);
 
 /**
  * @brief Destroy a bus configuration and free all resources.

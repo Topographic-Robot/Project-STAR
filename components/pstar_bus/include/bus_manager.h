@@ -8,21 +8,7 @@ extern "C" {
 #endif
 
 #include "esp_err.h"
-#include "bus_types.h"
-
-/* Structs ********************************************************************/
-
-/**
- * @brief Bus manager structure that maintains a list of bus configurations.
- *
- * @note Thread Safety: The functions managing bus configurations are not 
- *       inherently thread-safe. Users should ensure external locking if 
- *       multiple tasks may access the manager concurrently.
- */
-typedef struct pstar_bus_manager {
-  pstar_bus_config_t* buses; /**< Linked list of bus configurations */
-  const char*         tag;   /**< Tag for logging */
-} pstar_bus_manager_t;
+#include "bus_manager_types.h"
 
 /* Public Functions ***********************************************************/
 
