@@ -1,0 +1,21 @@
+idf_component_register(
+  SRCS
+    "sd_card_hal/sd_card_hal.c"
+  INCLUDE_DIRS
+    "sd_card_hal/include"
+    "include"
+  REQUIRES
+    esp_timer
+    pstar_bus
+    pstar_logging
+    pstar_error_handling
+    fatfs
+    vfs
+    wear_levelling
+    esp_partition
+  PRIV_REQUIRES
+    driver
+    nvs_flash
+    zlib
+)
+
