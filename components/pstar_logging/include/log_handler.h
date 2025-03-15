@@ -19,13 +19,6 @@ extern "C" {
 typedef struct sd_card_hal sd_card_hal_t;
 typedef struct file_write_manager file_write_manager_t;
 
-/* Macros *********************************************************************/
-
-#define LOG_MAX_MESSAGE_LENGTH (256)   /* Maximum length of log messages */
-#define LOG_MAX_TAG_LENGTH     (32)    /* Maximum length of log tags */
-#define LOG_SEPARATOR          (" - ") /* Separator between log components */
-#define LOG_TASK_NAME_LENGTH   (16)    /* Maximum length of task name to display */
-
 /* Global Variables ***********************************************************/
 
 extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequence numbers */
@@ -37,14 +30,14 @@ extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequenc
  * 
  * Sets up the log handler and optionally initializes SD card logging.
  * 
- * @param[in] log_to_sd      Whether to enable logging to SD card
- * @param[in] file_manager   Pointer to the file write manager instance (required if log_to_sd is true)
- * @param[in] sd_card        Pointer to the SD card HAL instance (required if log_to_sd is true)
+ * @param[in] log_to_sd    Whether to enable logging to SD card
+ * @param[in] file_manager Pointer to the file write manager instance (required if log_to_sd is true)
+ * @param[in] sd_card      Pointer to the SD card HAL instance (required if log_to_sd is true)
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-esp_err_t log_init(bool log_to_sd, 
+esp_err_t log_init(bool                  log_to_sd, 
                    file_write_manager_t* file_manager, 
-                   sd_card_hal_t* sd_card);
+                   sd_card_hal_t*        sd_card);
 
 /**
  * @brief Cleans up the log handler resources

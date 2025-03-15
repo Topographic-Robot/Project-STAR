@@ -5,6 +5,7 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "time_manager.h"
+#include "log_macros.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -41,7 +42,7 @@ static void priv_get_task_info(char*  buffer,
 
   TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
   if (current_task) {
-    char task_name[LOG_TASK_NAME_LENGTH];
+    char task_name[PSTAR_LOGGING_TASK_NAME_LENGTH];
     /* Get task name, truncate if too long */
     strlcpy(task_name, pcTaskGetName(current_task), sizeof(task_name));
     snprintf(buffer, size, "[%s:%p]", task_name, (void*)current_task);
@@ -65,15 +66,15 @@ void log_write_va(esp_log_level_t   level,
   }
 
   /* Format the detailed message with provided va_list */
-  char formatted_msg[LOG_MAX_MESSAGE_LENGTH];
+  char formatted_msg[PSTAR_LOGGING_MAX_MESSAGE_LENGTH];
   vsnprintf(formatted_msg, sizeof(formatted_msg), detailed_msg, args);
 
   /* Get task information */
-  char task_info[LOG_MAX_MESSAGE_LENGTH / 4];
+  char task_info[PSTAR_LOGGING_MAX_MESSAGE_LENGTH / 4];
   priv_get_task_info(task_info, sizeof(task_info));
 
   /* Create the complete log message with the required format */
-  char     complete_msg[LOG_MAX_MESSAGE_LENGTH * 2];
+  char     complete_msg[PSTAR_LOGGING_MAX_MESSAGE_LENGTH * 2];
   char*    timestamp = NULL;
   uint64_t seq_num   = atomic_fetch_add(&g_log_sequence_number, 1);
 
@@ -91,7 +92,7 @@ void log_write_va(esp_log_level_t   level,
              seq_num,
              task_info,
              short_msg,
-             LOG_SEPARATOR,
+             PSTAR_LOGGING_SEPARATOR,
              formatted_msg);
     free(timestamp);
   } else {
@@ -102,7 +103,7 @@ void log_write_va(esp_log_level_t   level,
              seq_num,
              task_info,
              short_msg,
-             LOG_SEPARATOR,
+             PSTAR_LOGGING_SEPARATOR,
              formatted_msg);
   }
 

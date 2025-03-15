@@ -3,6 +3,7 @@
 #include "log_storage.h"
 #include "log_handler.h"
 #include "esp_system.h"
+#include "log_macros.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -14,6 +15,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 /* Constants ******************************************************************/
 
@@ -28,7 +30,7 @@ static const int         log_zlib_mem_level       = 8;                     /* Me
 
 /* Globals (Static) ***********************************************************/
 
-static log_entry_t       s_log_buffer[LOG_BUFFER_SIZE]            = {0};   /* Buffer to store logs when SD card is not available */
+static log_entry_t       s_log_buffer[PSTAR_LOGGING_BUFFER_SIZE]            = {0};   /* Buffer to store logs when SD card is not available */
 static uint32_t          s_log_buffer_index                       = 0;     /* Current index in the buffer */
 static bool              s_log_storage_initialized                = false; /* Flag to track initialization status */
 static char              s_current_log_file[MAX_FILE_PATH_LENGTH] = {0};   /* Current log file path */
@@ -128,7 +130,7 @@ static inline int priv_format_log_filepath(char*                  buffer,
                                            const struct tm* const timeinfo,
                                            const char* const      extension)
 {
-  char date_str[DATE_STRING_BUFFER_SIZE];
+  char date_str[PSTAR_LOGGING_DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), timeinfo);
   
   return snprintf(buffer, 
@@ -211,7 +213,7 @@ static bool priv_check_log_rotation(void)
   time_t    now = time(NULL);
   localtime_r(&now, &timeinfo);
   
-  char date_str[DATE_STRING_BUFFER_SIZE];
+  char date_str[PSTAR_LOGGING_DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), &timeinfo);
   
   /* Extract date from current log file path */
@@ -521,7 +523,7 @@ static esp_err_t priv_flush_log_buffer(void)
       uint64_t milliseconds = priv_timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
       
       /* Format the timestamp and log entry */
-      char formatted_log[LOG_STORAGE_MAX_FORMATTED_ENTRY_LENGTH];
+      char formatted_log[PSTAR_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
       int  written = priv_format_log_entry(formatted_log, 
                                            sizeof(formatted_log), 
                                            &timeinfo,
@@ -660,14 +662,14 @@ esp_err_t log_storage_write(esp_log_level_t  level,
   }
   
   /* Store log in buffer */
-  if (s_log_buffer_index < LOG_BUFFER_SIZE) {
+  if (s_log_buffer_index < PSTAR_LOGGING_BUFFER_SIZE) {
     s_log_buffer[s_log_buffer_index].level     = level;
     s_log_buffer[s_log_buffer_index].timestamp = esp_timer_get_time();
 
     strncpy(s_log_buffer[s_log_buffer_index].buffer, 
             message, 
-            LOG_STORAGE_MAX_MESSAGE_LENGTH - 1);
-    s_log_buffer[s_log_buffer_index].buffer[LOG_STORAGE_MAX_MESSAGE_LENGTH - 1] = '\0';
+            PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1);
+    s_log_buffer[s_log_buffer_index].buffer[PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1] = '\0';
     s_log_buffer_index++;
   } else {
     /* Buffer is full, need to flush */
@@ -680,13 +682,13 @@ esp_err_t log_storage_write(esp_log_level_t  level,
 
     strncpy(s_log_buffer[0].buffer, 
             message, 
-            LOG_STORAGE_MAX_MESSAGE_LENGTH - 1);
-    s_log_buffer[0].buffer[LOG_STORAGE_MAX_MESSAGE_LENGTH - 1] = '\0';
+            PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1);
+    s_log_buffer[0].buffer[PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1] = '\0';
     s_log_buffer_index = 1;
   }
   
   /* If buffer is full or SD card is available, try to flush */
-  if (s_log_buffer_index >= LOG_BUFFER_SIZE && s_sd_card_available) {
+  if (s_log_buffer_index >= PSTAR_LOGGING_BUFFER_SIZE && s_sd_card_available) {
     priv_flush_log_buffer();
   }
   

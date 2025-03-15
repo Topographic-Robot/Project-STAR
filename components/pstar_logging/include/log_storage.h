@@ -7,34 +7,10 @@
 extern "C" {
 #endif
 
-#include "esp_err.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "sd_card_hal.h"
 #include "file_write_manager.h"
-
-/* Macros *********************************************************************/
-
-#define LOG_BUFFER_SIZE                        (10)                                 /* Size of the log buffer for temporary storage */
-#define LOG_STORAGE_MAX_MESSAGE_LENGTH         (256)                                /* Maximum length of log messages */
-#define TIMESTAMP_BUFFER_SIZE                  (64)                                 /* Buffer size for formatted timestamp strings */
-#define DATE_STRING_BUFFER_SIZE                (32)                                 /* Buffer size for date strings */
-#define LOG_STORAGE_MAX_FORMATTED_ENTRY_LENGTH (LOG_STORAGE_MAX_MESSAGE_LENGTH * 2) /* Formatted log entry buffer size */
-
-/* Structs ********************************************************************/
-
-/**
- * @brief Structure for storing a log entry
- *      
- * This structure contains all the information needed for a single log entry,
- * including the message text, log level, and timestamp when the log was created.
- */
-typedef struct log_entry {
-  char            buffer[LOG_STORAGE_MAX_MESSAGE_LENGTH]; /**< Buffer for the log message text */
-  esp_log_level_t level;                                  /**< Log level (error, warning, info, etc.) */
-  uint64_t        timestamp;                              /**< Timestamp when the log was created */
-} log_entry_t;
+#include "log_types.h"
 
 /* Public Functions ***********************************************************/
 
