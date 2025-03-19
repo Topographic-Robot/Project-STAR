@@ -1,8 +1,10 @@
 **/build/
-**/.cache/
+**/cache/
 **/.vscode/
 **/compiled_comands.json
-**/sdkconfig*
+
+sdkconfig*
+!sdkconfig.defaults
 
 *.zip
 

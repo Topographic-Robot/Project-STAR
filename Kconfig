@@ -1,0 +1,13 @@
+# Root Kconfig file for Project-Star
+
+# Include project-level configuration (if any)
+source "main/Kconfig.projbuild"
+
+# Include component Kconfig files to define all your custom symbols
+source "components/pstar_logger/Kconfig.Kconfig"
+source "components/pstar_bus/Kconfig.Kconfig"
+source "components/pstar_managers/Kconfig.Kconfig"
+source "components/pstar_error_handler/Kconfig.Kconfig"
+source "components/pstar_pin_validator/Kconfig.Kconfig"
+source "components/pstar_storage_hal/Kconfig.Kconfig"
+

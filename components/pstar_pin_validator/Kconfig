@@ -1,0 +1,36 @@
+menu "Project Star Pin Validator Configuration"
+
+    config PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+        bool "Enable Pin Validator"
+        default y
+        help
+            Enable pin validation system to detect pin assignment conflicts
+            across all components. If enabled, pin_validator_init() MUST be called
+            manually early in the application startup before components register pins.
+
+    config PSTAR_KCONFIG_PIN_VALIDATOR_VALIDATE_AT_STARTUP
+        bool "Validate pins at startup"
+        depends on PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+        default y
+        help
+            Validate all pin assignments automatically near the end of app_main startup,
+            after components should have registered their pins. Requires manual call
+            to pin_validator_init() earlier.
+
+    config PSTAR_KCONFIG_PIN_VALIDATOR_HALT_ON_CONFLICT
+        bool "Halt system on pin conflicts (during startup validation)"
+        depends on PSTAR_KCONFIG_PIN_VALIDATOR_VALIDATE_AT_STARTUP
+        default n
+        help
+            If enabled, the system will halt when pin conflicts are detected
+            during the automatic startup validation.
+
+    config PSTAR_KCONFIG_PIN_VALIDATOR_PRINT_ASSIGNMENTS
+        bool "Print pin assignments during startup validation"
+        depends on PSTAR_KCONFIG_PIN_VALIDATOR_VALIDATE_AT_STARTUP
+        default y
+        help
+            Print a table of all registered pin assignments when validation
+            occurs automatically during startup.
+
+endmenu

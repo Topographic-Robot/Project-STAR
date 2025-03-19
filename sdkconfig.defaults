@@ -1,0 +1,11 @@
+CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED=y
+
+# SD Card Configuration
+# Uncomment the line below to disable SD card support completely
+# CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED=n
+
+# Logging Configuration
+# Even when SD card is disabled, you can still keep SD logging enabled
+# The system will gracefully fall back to console-only logging
+CONFIG_PSTAR_KCONFIG_LOGGING_ENABLED=y
+CONFIG_PSTAR_KCONFIG_LOGGING_CONSOLE_ENABLED=y

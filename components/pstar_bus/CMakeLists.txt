@@ -1,20 +1,29 @@
+# Initialize lists for conditional sources and includes
+set(bus_srcs 
+    "pstar_bus_types.c"
+    "pstar_bus_manager.c"
+    "pstar_bus_config.c"
+    "pstar_bus_i2c.c"
+    "pstar_bus_spi.c"
+    "pstar_bus_uart.c"
+    "pstar_bus_gpio.c")
+
+# Conditionally add SDIO bus source if SD card is enabled
+if(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED)
+    list(APPEND bus_srcs "pstar_bus_sdio.c")
+endif()
+
 idf_component_register(
-  SRCS
-    "bus_types.c"
-    "bus_manager.c"
-    "bus_config.c"
-    "bus_i2c.c"
-    "bus_spi.c"
-    "bus_gpio.c"
-    "bus_sdio.c"
-    "bus_uart.c"
+  SRCS ${bus_srcs}
   INCLUDE_DIRS
     "include"
   REQUIRES
-    pstar_logging
-    pstar_storage_hal
     driver
+    esp_common
+    freertos
     esp_timer
-  PRIV_REQUIRES
-    zlib
-) 
+    pstar_pin_validator
+    sdmmc
+    nvs_flash
+    pstar_storage_hal
+)

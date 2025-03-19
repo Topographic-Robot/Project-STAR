@@ -1,0 +1,42 @@
+menu "Project Star Error Handling Configuration"
+
+    config PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+        bool "Enable Error Handling Component"
+        default y
+        help
+            Enable the Project Star Error Handling component, which provides
+            a unified way to handle and recover from errors.
+
+    config PSTAR_KCONFIG_ERROR_DEFAULT_MAX_RETRIES
+        int "Default maximum retries"
+        depends on PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+        range 0 100
+        default 3
+        help
+            Default maximum number of retry attempts for error recovery.
+
+    config PSTAR_KCONFIG_ERROR_DEFAULT_RETRY_DELAY_MS
+        int "Default retry delay (ms)"
+        depends on PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+        range 0 60000
+        default 1000
+        help
+            Default delay between retry attempts in milliseconds.
+
+    config PSTAR_KCONFIG_ERROR_DEFAULT_MAX_DELAY_MS
+        int "Default maximum retry delay (ms)"
+        depends on PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+        range 0 300000
+        default 5000
+        help
+            Default maximum delay between retry attempts in milliseconds
+            (applies when using exponential backoff).
+
+    config PSTAR_KCONFIG_ERROR_VERBOSE_LOGGING
+        bool "Enable verbose error logging"
+        depends on PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+        default n
+        help
+            Enable more detailed logging for error handling events.
+
+endmenu

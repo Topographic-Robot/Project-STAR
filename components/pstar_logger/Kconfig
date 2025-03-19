@@ -1,0 +1,169 @@
+menu "Project Star Logging Configuration"
+
+    config PSTAR_KCONFIG_LOGGING_ENABLED
+        bool "Enable Logging Component"
+        default y
+        help
+            Enable the Project Star Logging component, which provides
+            a unified way to log messages across the application.
+            Note: All logging functions (log_info, log_error, etc.) are void functions
+            and do not return error codes.
+
+    menu "Log Level Configuration"
+        depends on PSTAR_KCONFIG_LOGGING_ENABLED
+
+        config PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
+            bool "Enable logging to SD card (Requires File Write Manager)"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            default y
+            help
+                Enable logging to SD card via the File Write Manager.
+                Requires the File Write Manager component to be enabled (which in turn
+                requires SD Card support in the Storage HAL).
+
+        choice PSTAR_KCONFIG_LOGGING_DEFAULT_LEVEL
+            prompt "Default log level"
+            default PSTAR_KCONFIG_LOGGING_LEVEL_INFO
+            help
+                Default log level for filtering messages.
+
+            config PSTAR_KCONFIG_LOGGING_LEVEL_ERROR
+                bool "Error"
+            config PSTAR_KCONFIG_LOGGING_LEVEL_WARN
+                bool "Warning"
+            config PSTAR_KCONFIG_LOGGING_LEVEL_INFO
+                bool "Info"
+            config PSTAR_KCONFIG_LOGGING_LEVEL_DEBUG
+                bool "Debug"
+            config PSTAR_KCONFIG_LOGGING_LEVEL_VERBOSE
+                bool "Verbose"
+        endchoice
+
+        config PSTAR_KCONFIG_LOGGING_CONSOLE_ENABLED
+            bool "Enable logging to console"
+            default y
+            help
+                Enable logging messages to the serial console.
+    endmenu
+
+    menu "SD Card Logging Configuration"
+        depends on PSTAR_KCONFIG_LOGGING_ENABLED && PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
+
+        config PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED
+            bool "Enable log compression"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            default y
+            help
+                Enable compression of log files stored on SD card to save space.
+
+        config PSTAR_KCONFIG_LOGGING_BUFFER_SIZE
+            int "Log buffer size"
+            range 1 100
+            default 10
+            help
+                Size of the buffer for storing logs when SD card is unavailable.
+
+        config PSTAR_KCONFIG_LOGGING_MAX_FILE_SIZE_KB
+            int "Maximum log file size (KB)"
+            range 64 10240
+            default 1024
+            help
+                Maximum size of each log file in kilobytes before rotation occurs.
+
+        config PSTAR_KCONFIG_LOGGING_BASE_DIR
+            string "Log base directory"
+            default "logs"
+            help
+                Base directory for storing log files on the SD card.
+
+        config PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE
+            int "Log compression buffer size"
+            depends on PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED && PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 1024 16384
+            default 4096
+            help
+                Size of buffer used for compressing log data.
+
+        config PSTAR_KCONFIG_LOGGING_COMPRESSED_EXTENSION
+            string "Log compressed file extension"
+            depends on PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED && PSTAR_KCONFIG_SD_CARD_ENABLED
+            default ".gz"
+            help
+                File extension for compressed log files.
+
+        config PSTAR_KCONFIG_LOGGING_ZLIB_WINDOW_BITS
+            int "Zlib window bits"
+            depends on PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED && PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 8 15
+            default 15
+            help
+                Window bits parameter for zlib compression.
+
+        config PSTAR_KCONFIG_LOGGING_ZLIB_MEM_LEVEL
+            int "Zlib memory level"
+            depends on PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED && PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 1 9
+            default 8
+            help
+                Memory level parameter for zlib compression.
+    endmenu
+
+    menu "Log Format Configuration"
+        depends on PSTAR_KCONFIG_LOGGING_ENABLED
+
+        config PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH
+            int "Maximum log message length"
+            range 64 1024
+            default 256
+            help
+                Maximum length of log message text.
+
+        config PSTAR_KCONFIG_LOGGING_MAX_TAG_LENGTH
+            int "Maximum tag length"
+            range 16 64
+            default 32
+            help
+                Maximum length of log tag string.
+
+        config PSTAR_KCONFIG_LOGGING_SEPARATOR
+            string "Log message separator"
+            default " - "
+            help
+                Separator string between short message and detailed message.
+
+        config PSTAR_KCONFIG_LOGGING_TASK_NAME_LENGTH
+            int "Maximum task name length"
+            range 8 32
+            default 16
+            help
+                Maximum length of task name in log messages.
+
+        config PSTAR_KCONFIG_LOGGING_TIMESTAMP_BUFFER_SIZE
+            int "Timestamp buffer size"
+            range 32 128
+            default 64
+            help
+                Size of buffer for timestamp strings.
+
+        config PSTAR_KCONFIG_LOGGING_DATE_STRING_BUFFER_SIZE
+            int "Date string buffer size"
+            range 16 64
+            default 32
+            help
+                Size of buffer for date strings.
+
+        config PSTAR_KCONFIG_LOGGING_INCLUDE_TIMESTAMP
+            bool "Include timestamp in log messages"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            default y
+            help
+                Include timestamp in each log message.
+
+        config PSTAR_KCONFIG_LOGGING_INCLUDE_TASK_INFO
+            bool "Include task information in log messages"
+            default y
+            help
+                Include task name and handle in each log message.
+    endmenu
+
+endmenu
