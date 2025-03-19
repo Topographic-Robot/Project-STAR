@@ -1,4 +1,4 @@
-/* main/pstar_managers/file_write_manager.c */
+/* components/pstar_managers/file_write_manager.c */
 
 #include "include/file_write_manager.h"
 #include <stdio.h>
@@ -18,7 +18,7 @@
 /* Constants ******************************************************************/
 
 static const char* const file_manager_tag   = "File Manager";
-static const uint32_t    max_pending_writes = 20;
+static const uint32_t    max_pending_writes = CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES;
 
 /* Default configuration values */
 static const file_writer_config_t s_default_config = {

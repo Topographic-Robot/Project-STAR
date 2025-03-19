@@ -1918,7 +1918,7 @@ This section covers the coding style for building the topographical robot.
    asm_inline_asm
    header_files
    include_statements
-   error_handling
+   error_handler
    concurrency_and_parllelism
    memory_management
    project_structure

@@ -6,12 +6,17 @@
 
 ## Table of Contents
 
-- [Project-Star: Survey and Terrain Analysis Robot (STAR)](#project-star-survey-and-terrain-analysis-robot-star)
+- [Project-STAR: Survey and Terrain Analysis Robot (STAR)](#project-star-survey-and-terrain-analysis-robot-star)
   - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Hardware](#hardware)
   - [Software](#software)
   - [Installation](#installation)
+  - [Configuration](#configuration)
+    - [Using menuconfig](#using-menuconfig)
+    - [Validating Kconfig Files](#validating-kconfig-files)
+    - [ESP-IDF Kconfig Documentation](#esp-idf-kconfig-documentation)
+    - [Additional ESP-IDF Resources](#additional-esp-idf-resources)
   - [Wiring](#wiring)
   - [EC11](#ec11)
   - [JTAG Debugging](#jtag-debugging)
@@ -110,60 +115,67 @@ The firmware is developed using the **ESP-IDF** framework and written primarily 
    - If you intend to send sensor data to a web server, copy the `main/include/tasks/include/webserver_info.txt` file to `main/include/tasks/include/webserver_info.h`.
    - Edit `webserver_info.h` and replace the placeholder value for `webserver_url` with your server's URL. **Do not commit this file to Git.**
 
-5. **Build and Flash:**
+5. **Configure Project Settings:**
+   ```bash
+   idf.py menuconfig
+   ```
+   - Navigate to the "Project STAR Configuration" section to configure sensor settings, sampling rates, and other project-specific options.
+   - Ensure that all necessary features are enabled for your specific hardware configuration.
+
+6. **Build and Flash:**
    ```bash
    idf.py set-target esp32
    idf.py build
    idf.py -p /dev/ttyUSB0 flash monitor  # Replace /dev/ttyUSB0 with your ESP32's port
    ```
 
-## Wiring
+## Configuration
 
-The `Wiring.txt` file in the repository provides detailed pin connections between the ESP32 and each component. Here's a summary:
+STAR uses the ESP-IDF's Kconfig system to manage project configuration options. This provides a flexible way to enable/disable features and set various parameters without modifying the code.
 
-**Important:** Always double-check the pin connections in `Wiring.txt` before powering on the robot.
+### Using menuconfig
 
-| Component       | Component Pin | ESP32 Pin         | Notes                                                                                                  |
-| --------------- | ------------- | ----------------- | ------------------------------------------------------------------------------------------------------ |
-| DHT22           | DATA          | GPIO_NUM_4 (D4)   | Temperature and humidity sensor.                                                                       |
-| MPU6050         | SDA           | GPIO_NUM_21 (D21) | Accelerometer and gyroscope. Uses I2C.                                                                 |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | INT           | GPIO_NUM_26 (D26) | Interrupt pin for motion detection, data ready, etc.                                                   |
-| BH1750          | SDA           | GPIO_NUM_21 (D21) | Ambient light sensor. Uses I2C.                                                                        |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-| QMC5883L        | SDA           | GPIO_NUM_21 (D21) | Magnetometer. Uses I2C.                                                                                |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | DRDY          | GPIO_NUM_18 (D18) |                                                                                                        |
-| OV7670          | SDA           | GPIO_NUM_21 (D21) | Camera module. Uses I2C for configuration. Data and control signals are managed by the DE10-Lite FPGA. |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-| Micro-SD Reader | MOSI          | GPIO_NUM_23 (D23) | Uses SPI.                                                                                              |
-|                 | MISO          | GPIO_NUM_19 (D19) |                                                                                                        |
-|                 | CLK           | GPIO_NUM_14 (D14) |                                                                                                        |
-|                 | CS            | GPIO_NUM_5 (D5)   |                                                                                                        |
-| SEN-CCS811      | SDA           | GPIO_NUM_21 (D21) | Air quality sensor (eCO2, TVOC). Uses I2C.                                                             |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | WAKE          | GPIO_NUM_33 (D33) |                                                                                                        |
-|                 | RST           | GPIO_NUM_32 (D32) |                                                                                                        |
-|                 | INT           | GPIO_NUM_25 (D25) |                                                                                                        |
-| MQ135           | A0            | GPIO_NUM_34 (D34) | Air quality sensor (various gases). Analog output.                                                     |
-|                 | D0            | GPIO_NUM_35 (D35) | Digital output (optional).                                                                             |
-| GY-NEO6MV2      | TX            | GPIO_NUM_16 (RX2) | GPS module. Uses UART.                                                                                 |
-|                 | RX            | GPIO_NUM_17 (TX2) |                                                                                                        |
-| PCA9685         | SDA           | GPIO_NUM_21 (D21) | PWM driver (for motor control). Uses I2C.                                                              |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | OE            | GPIO_NUM_15 (D15) | Output Enable.                                                                                         |
+To access the configuration interface:
 
-## EC11
+```bash
+idf.py menuconfig
+```
 
-| Component    | Component Pin | ESP32 Pin         | Notes                                                              |
-| ------------ | ------------- | ----------------- | ------------------------------------------------------------------ |
-| EC11 Encoder | OutA (CLK)    | GPIO_NUM_27 (D27) | Rotary encoder for motor control. Each encoder controls one motor. |
-|              | OutB (DT)     | GPIO_NUM_13 (D13) |                                                                    |
-|              | OutC (GND)    | GND               |                                                                    |
-|              | ButtonA       | GPIO_NUM_14 (D14) | Button signal for resetting motor position.                        |
-|              | ButtonB       | 3V3               | Connect to 3.3V power.                                             |
+This will open a text-based configuration interface where you can navigate through different categories and adjust settings for your specific needs.
 
-- Enable EC11 in `CMakeLists.txt` by adding `add_compile_definitions(EC11_USE_INTERRUPTS=1)`
+Key configuration options for STAR include:
+- Sensor enabling/disabling
+- Sampling rates and precision settings
+- Communication parameters
+- Debug levels
+- Power management options
+
+### Validating Kconfig Files
+
+To check the syntax and validity of a specific Kconfig file:
+
+```bash
+python -m kconfcheck <path_to_kconfig_file>
+```
+
+To check all Kconfig files in the project:
+
+```bash
+find . -name "Kconfig*" -exec python -m kconfcheck {} \;
+```
+
+### ESP-IDF Kconfig Documentation
+
+For detailed information about the Kconfig system and how to create or modify configuration options, refer to:
+- [ESP-IDF Kconfig Reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig.html)
+- [ESP-IDF Configuration Options Reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/config.html)
+
+### Additional ESP-IDF Resources
+
+- [ESP-IDF Programming Guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
+- [ESP32 Technical Reference Manual](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf)
+- [ESP-IDF API Reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/index.html)
+- [ESP-IDF Examples](https://github.com/espressif/esp-idf/tree/master/examples)
 
 ## JTAG Debugging
 

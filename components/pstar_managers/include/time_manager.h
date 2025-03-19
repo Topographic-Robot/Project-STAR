@@ -1,4 +1,4 @@
-/* main/pstar_managers/include/time_manager.h */
+/* components/pstar_managers/include/time_manager.h */
 
 #ifndef PSTAR_TIME_MANAGER_H
 #define PSTAR_TIME_MANAGER_H
@@ -9,10 +9,15 @@ extern "C" {
 
 #include "esp_err.h"
 #include <stdbool.h>
+#include "sdkconfig.h"
 
 /* Macros *********************************************************************/
 
-#define TIME_STRFTIME_BUFFER_SIZE (64) /**< Size of buffer for formatted time strings */
+#ifndef CONFIG_PSTAR_TIME_STRFTIME_BUFFER_SIZE
+#define CONFIG_PSTAR_TIME_STRFTIME_BUFFER_SIZE (64)
+#endif
+
+#define TIME_STRFTIME_BUFFER_SIZE (CONFIG_PSTAR_TIME_STRFTIME_BUFFER_SIZE) /**< Size of buffer for formatted time strings */
 
 /* Public Functions ***********************************************************/
 

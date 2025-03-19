@@ -4,8 +4,8 @@ idf_component_register(
   INCLUDE_DIRS
     "include"
   REQUIRES
-    pstar_logging
-    main
-  PRIV_REQUIRES
     driver
-) 
+    freertos
+)
+
+message(STATUS "pstar_error_handler: Component enabled")

@@ -1,4 +1,4 @@
-/* components/pstar_error_handling/include/error_handler_types.h */
+/* components/pstar_error_handler/include/error_handler_types.h */
 
 #ifndef PSTAR_ERROR_HANDLER_TYPES_H
 #define PSTAR_ERROR_HANDLER_TYPES_H

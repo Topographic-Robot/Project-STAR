@@ -26,46 +26,51 @@
 /* Logging and identification */
 static const char* const sd_card_tag = "SD Card HAL";
 
-/* Timing and configuration constants */
-static const uint32_t    sd_card_default_det_debounce_time     = 100;                /* Debounce time in ms */
-static const uint32_t    sd_card_default_mount_task_stack_size = 4096;               /* Stack size for mount task */
-static const UBaseType_t sd_card_default_mount_task_priority   = 5;                  /* Priority for mount task */
-static const uint32_t    sd_card_default_max_mount_retries     = 3;                  /* Maximum mount retries */
-static const uint32_t    sd_card_default_retry_delay_ms        = 1000;               /* Delay between retries in ms */
-static const uint32_t    sd_card_default_max_retry_delay_ms    = 5000;               /* Maximum retry delay in ms */
-static const uint32_t    sd_card_default_max_files             = 5;                  /* Maximum number of files */
-static const uint32_t    sd_card_default_allocation_unit_size  = 16384;              /* Allocation unit size in bytes (16 KB) */
-static const TickType_t  sd_card_default_mutex_timeout         = pdMS_TO_TICKS(500); /* Mutex timeout */
-static const size_t      sd_card_max_path_len                  = 128;                /* Maximum path length */
-static const char* const sd_card_nvs_namespace                 = "sd_card";          /* NVS namespace for SD card configuration */
-static const char* const sd_card_nvs_interface_key             = "interface";        /* NVS key for last working interface */
-static const char* const sd_card_nvs_bus_width_key             = "bus_width";        /* NVS key for last working bus width */
+/* Timing and configuration constants - using Kconfig values with the appropriate prefix */
+static const uint32_t    sd_card_default_det_debounce_time     = CONFIG_PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS;
+static const uint32_t    sd_card_default_mount_task_stack_size = CONFIG_PSTAR_KCONFIG_SD_CARD_TASK_STACK_SIZE;
+static const UBaseType_t sd_card_default_mount_task_priority   = CONFIG_PSTAR_KCONFIG_SD_CARD_TASK_PRIORITY;
+static const uint32_t    sd_card_default_max_mount_retries     = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY;
+static const uint32_t    sd_card_default_retry_delay_ms        = CONFIG_PSTAR_KCONFIG_SD_CARD_RETRY_DELAY_MS;
+static const uint32_t    sd_card_default_max_retry_delay_ms    = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY_DELAY_MS;
+static const uint32_t    sd_card_default_max_files             = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES;
+static const uint32_t    sd_card_default_allocation_unit_size  = CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE;
+static const TickType_t  sd_card_default_mutex_timeout         = pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_MUTEX_TIMEOUT_MS);
+static const size_t      sd_card_max_path_len                  = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH;
+static const char* const sd_card_nvs_namespace                 = CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE;
+static const char* const sd_card_nvs_interface_key             = CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY;
+static const char* const sd_card_nvs_bus_width_key             = CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY;
 
-/* Default pin configurations */
-/* Update in sd_card_hal.c */
+/* Bus names from Kconfig */
+static const char* const sd_card_default_gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME;
+static const char* const sd_card_default_spi_bus_name  = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME;
+static const char* const sd_card_default_sdio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME;
+
+/* Default pin configurations from Kconfig */
 static const sd_card_pin_config_t sd_card_default_pins = {
   /* GPIO pins */
-  .gpio_det_pin  = GPIO_NUM_13, /* Card detect pin (high active) */
+  .gpio_det_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO, /* Card detect pin */
   
   /* SPI pins */
-  .spi_di_pin    = GPIO_NUM_19, /* SPI DI (Data In) */
-  .spi_do_pin    = GPIO_NUM_23, /* SPI DO (Data Out) */
-  .spi_sclk_pin  = GPIO_NUM_14, /* SPI SCLK (Clock) */
-  .spi_cs_pin    = GPIO_NUM_5,  /* SPI CS (Chip Select) */
+  .spi_di_pin    = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO, /* SPI DI (Data In) */
+  .spi_do_pin    = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO, /* SPI DO (Data Out) */
+  .spi_sclk_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO,  /* SPI SCLK (Clock) */
+  .spi_cs_pin    = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO,   /* SPI CS (Chip Select) */
   
   /* SDIO pins */
-  .sdio_clk_pin  = GPIO_NUM_14, /* SDIO CLK */
-  .sdio_cmd_pin  = GPIO_NUM_15, /* SDIO CMD */
-  .sdio_d0_pin   = GPIO_NUM_2,  /* SDIO D0 (mandatory for both 1-bit and 4-bit modes) */
-  .sdio_d1_pin   = GPIO_NUM_4,  /* SDIO D1 (only for 4-bit mode) */
-  .sdio_d2_pin   = GPIO_NUM_12, /* SDIO D2 (only for 4-bit mode) */
-  .sdio_d3_pin   = GPIO_NUM_32, /* SDIO D3 (only for 4-bit mode) */
+  .sdio_clk_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO, /* SDIO CLK */
+  .sdio_cmd_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO, /* SDIO CMD */
+  .sdio_d0_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO,  /* SDIO D0 (mandatory) */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+  .sdio_d1_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO,  /* SDIO D1 (4-bit mode) */
+  .sdio_d2_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO,  /* SDIO D2 (4-bit mode) */
+  .sdio_d3_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO,  /* SDIO D3 (4-bit mode) */
+#else
+  .sdio_d1_pin   = -1,  /* Not used in 1-bit mode */
+  .sdio_d2_pin   = -1,  /* Not used in 1-bit mode */
+  .sdio_d3_pin   = -1,  /* Not used in 1-bit mode */
+#endif
 };
-
-/* Bus names */
-static const char* const sd_card_default_gpio_bus_name = "sd_card_gpio";
-static const char* const sd_card_default_spi_bus_name  = "sd_card_spi";
-static const char* const sd_card_default_sdio_bus_name = "sd_card_sdio";
 
 /* Function Prototypes ********************************************************/
 

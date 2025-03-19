@@ -1,4 +1,4 @@
-/* main/pstar_managers/time_manager.c */
+/* components/pstar_managers/time_manager.c */
 
 #include "time_manager.h"
 #include "log_handler.h"
@@ -18,7 +18,7 @@
 
 static const char* const time_manager_tag     = "Time Manager";
 static const uint32_t    time_sync_bit        = (1 << 0);
-static const uint32_t    time_sync_timeout_ms = 15000; /* 15 seconds timeout for time sync */
+static const uint32_t    time_sync_timeout_ms = CONFIG_PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS;
 
 /* Globals (Static) ***********************************************************/
 

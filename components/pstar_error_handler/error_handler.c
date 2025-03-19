@@ -1,4 +1,4 @@
-/* components/pstar_error_handling/error_handler.c */
+/* components/pstar_error_handler/error_handler.c */
 
 #include "error_handler.h"
 #include "log_handler.h"

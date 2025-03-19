@@ -19,14 +19,14 @@
 
 /* Constants ******************************************************************/
 
-static const char* const log_storage_tag          = "Log Storage";
-static const char* const log_base_dir             = "logs";
-static const int         log_max_file_size        = 1024 * 1024;           /* Maximum log file size in bytes (1MB) */
-static const int         log_compression_level    = Z_DEFAULT_COMPRESSION; /* Compression level (0-9, or Z_DEFAULT_COMPRESSION) */
-static const int         log_compression_buffer   = 4096;                  /* Size of compression buffer */
-static const char* const log_compressed_extension = ".gz";                 /* Extension for compressed log files */
-static const int         log_zlib_window_bits     = 15 + 16;               /* Window size with gzip header */
-static const int         log_zlib_mem_level       = 8;                     /* Memory level for zlib compression */
+static const char* const log_storage_tag = "Log Storage";
+/* Using Kconfig macros with the proper prefix */
+#define PSTAR_LOGGING_MAX_FILE_SIZE          (CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_SIZE_KB * 1024)
+#define PSTAR_LOGGING_COMPRESSION_BUFFER     CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE
+#define PSTAR_LOGGING_ZLIB_GZIP_WINDOW_BITS  (CONFIG_PSTAR_KCONFIG_LOGGING_ZLIB_WINDOW_BITS + 16)
+#define PSTAR_LOGGING_ZLIB_MEMORY_LEVEL      CONFIG_PSTAR_KCONFIG_LOGGING_ZLIB_MEM_LEVEL
+#define PSTAR_LOGGING_BASE_DIRECTORY         CONFIG_PSTAR_KCONFIG_LOGGING_BASE_DIR
+#define PSTAR_LOGGING_COMPRESSED_FILE_EXT    CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSED_EXTENSION
 
 /* Globals (Static) ***********************************************************/
 
@@ -136,7 +136,7 @@ static inline int priv_format_log_filepath(char*                  buffer,
   return snprintf(buffer, 
                   buffer_size,
                   "%s/%s/%04d-%02d-%02d_%02d-%02d-%02d%s",
-                  log_base_dir,
+                  PSTAR_LOGGING_BASE_DIRECTORY,
                   date_str,
                   timeinfo->tm_year + 1900,
                   timeinfo->tm_mon + 1,
@@ -180,7 +180,7 @@ static void priv_generate_log_file_path(char*  file_path,
   time_t    now = time(NULL);
   localtime_r(&now, &timeinfo);
   
-  const char* const extension = s_compression_enabled ? log_compressed_extension : ".txt";
+  const char* const extension = s_compression_enabled ? PSTAR_LOGGING_COMPRESSED_FILE_EXT : ".txt";
   priv_format_log_filepath(file_path, file_path_len, &timeinfo, extension);
 }
 
@@ -204,7 +204,7 @@ static bool priv_check_log_rotation(void)
   }
   
   /* Check if file size exceeds the maximum */
-  if (st.st_size >= log_max_file_size) {
+  if (st.st_size >= PSTAR_LOGGING_MAX_FILE_SIZE) {
     return true;
   }
   
@@ -217,7 +217,7 @@ static bool priv_check_log_rotation(void)
   priv_format_date_string(date_str, sizeof(date_str), &timeinfo);
   
   /* Extract date from current log file path */
-  char *date_start = strstr(s_current_log_file, log_base_dir);
+  char *date_start = strstr(s_current_log_file, PSTAR_LOGGING_BASE_DIRECTORY);
   if (date_start == NULL) {
     return false;
   }
@@ -274,10 +274,10 @@ static esp_err_t priv_compress_data(const char* const input,
   
   /* Initialize zlib for gzip compression */
   int ret = deflateInit2(&stream, 
-                         log_compression_level, 
+                         Z_DEFAULT_COMPRESSION, 
                          Z_DEFLATED,
-                         log_zlib_window_bits,
-                         log_zlib_mem_level,
+                         PSTAR_LOGGING_ZLIB_GZIP_WINDOW_BITS,
+                         PSTAR_LOGGING_ZLIB_MEMORY_LEVEL,
                          Z_DEFAULT_STRATEGY);
   if (ret != Z_OK) {
     log_error(log_storage_tag, 
@@ -330,7 +330,7 @@ static esp_err_t priv_write_log_data(const char* const file_path,
   /* Check if compression is enabled */
   if (s_compression_enabled) {
     /* Compress data before writing */
-    char *compress_buffer = malloc(log_compression_buffer);
+    char *compress_buffer = malloc(PSTAR_LOGGING_COMPRESSION_BUFFER);
     if (compress_buffer == NULL) {
       log_error(log_storage_tag, 
                 "Memory Error", 
@@ -339,7 +339,7 @@ static esp_err_t priv_write_log_data(const char* const file_path,
     }
     
     size_t data_len   = strlen(data);
-    size_t output_len = log_compression_buffer;
+    size_t output_len = PSTAR_LOGGING_COMPRESSION_BUFFER;
     
     esp_err_t ret = priv_compress_data(data, 
                                        data_len, 
@@ -765,7 +765,7 @@ esp_err_t log_storage_cleanup(void)
   log_info(log_storage_tag, "Cleanup Start", "Beginning log storage cleanup");
   esp_err_t ret = ESP_OK;
 
-  /* Take mutex to ensure thread safety */
+  /* Take mutex for thread safety */
   if (xSemaphoreTake(s_log_mutex, portMAX_DELAY) != pdTRUE) {
     log_error(log_storage_tag, "Mutex Error", "Failed to take mutex during cleanup");
     return ESP_ERR_TIMEOUT;
@@ -811,3 +811,4 @@ esp_err_t log_storage_cleanup(void)
 
   return ret;
 }
+

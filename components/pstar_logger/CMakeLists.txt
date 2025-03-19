@@ -5,10 +5,15 @@ idf_component_register(
   INCLUDE_DIRS
     "include"
   REQUIRES
+    driver
+    esp_common
+    freertos
     pstar_storage_hal
+    nvs_flash
+    esp_timer
     pstar_managers
   PRIV_REQUIRES
-    driver
-    esp_timer
     zlib
-) 
+)
+
+message(STATUS "pstar_logger: Component enabled with all features")

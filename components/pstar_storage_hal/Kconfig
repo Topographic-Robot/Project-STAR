@@ -1,0 +1,262 @@
+menu "Project Star Storage HAL Configuration"
+
+    config PSTAR_KCONFIG_STORAGE_HAL_ENABLED
+        bool "Enable Storage HAL Component"
+        default y
+        help
+            Enable the Project Star Storage Hardware Abstraction Layer component,
+            which provides a unified interface for storage devices.
+
+    menu "SD Card Configuration"
+        depends on PSTAR_KCONFIG_STORAGE_HAL_ENABLED
+
+        config PSTAR_KCONFIG_SD_CARD_ENABLED
+            bool "Enable SD Card Support"
+            default y
+            help
+                Enable SD card support in the storage HAL.
+
+        config PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+            bool "Enable SD Card Detection"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            default y
+            help
+                Enable hardware detection of SD card insertion/removal.
+
+        config PSTAR_KCONFIG_SD_CARD_DETECTION_LOW_ACTIVE
+            bool "Card detect pin is low-active"
+            depends on PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+            default n
+            help
+                If enabled, card detect pin is low-active (0=card present).
+                If disabled, card detect pin is high-active (1=card present).
+
+        config PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+            bool "Use 4-bit SD bus width"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            default y
+            help
+                If enabled, SD card will use 4-bit bus width when possible.
+                If disabled, SD card will always use 1-bit bus width.
+
+        config PSTAR_KCONFIG_SD_CARD_MAX_RETRY
+            int "Maximum mount retries"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 1 10
+            default 3
+            help
+                Maximum number of retry attempts when mounting the SD card.
+
+        config PSTAR_KCONFIG_SD_CARD_RETRY_DELAY_MS
+            int "Retry delay (ms)"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 100 5000
+            default 1000
+            help
+                Delay between retry attempts in milliseconds.
+
+        config PSTAR_KCONFIG_SD_CARD_MAX_RETRY_DELAY_MS
+            int "Maximum retry delay (ms)"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 1000 30000
+            default 5000
+            help
+                Maximum delay between retry attempts in milliseconds.
+
+        config PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS
+            int "Card detection debounce time (ms)"
+            depends on PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+            range 10 1000
+            default 100
+            help
+                Debounce time in milliseconds for SD card detection.
+
+        config PSTAR_KCONFIG_SD_CARD_MUTEX_TIMEOUT_MS
+            int "SD card mutex timeout (ms)"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 100 5000
+            default 500
+            help
+                Timeout in milliseconds for acquiring the SD card mutex.
+
+        config PSTAR_KCONFIG_SD_CARD_TASK_STACK_SIZE
+            int "SD card task stack size"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 2048 8192
+            default 4096
+            help
+                Stack size for the SD card mount task.
+
+        config PSTAR_KCONFIG_SD_CARD_TASK_PRIORITY
+            int "SD card task priority"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 1 24
+            default 5
+            help
+                FreeRTOS priority for the SD card mount task.
+
+        config PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH
+            int "Maximum SD card path length"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            range 64 512
+            default 128
+            help
+                Maximum length for SD card file paths.
+    endmenu
+
+    menu "SD Card Pin Configuration"
+        depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+
+        config PSTAR_KCONFIG_SD_CARD_DET_GPIO
+            int "Card detect GPIO pin"
+            depends on PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+            range 0 39
+            default 13
+            help
+                GPIO pin number for SD card detection.
+
+        config PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO
+            int "SPI CS GPIO pin"
+            range 0 39
+            default 5
+            help
+                GPIO pin number for SPI Chip Select.
+
+        config PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO
+            int "SPI MOSI GPIO pin"
+            range 0 39
+            default 23
+            help
+                GPIO pin number for SPI MOSI (Master Out Slave In).
+
+        config PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO
+            int "SPI MISO GPIO pin"
+            range 0 39
+            default 19
+            help
+                GPIO pin number for SPI MISO (Master In Slave Out).
+
+        config PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO
+            int "SPI CLK GPIO pin"
+            range 0 39
+            default 14
+            help
+                GPIO pin number for SPI Clock.
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO
+            int "SDIO CLK GPIO pin"
+            range 0 39
+            default 14
+            help
+                GPIO pin number for SDIO Clock.
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO
+            int "SDIO CMD GPIO pin"
+            range 0 39
+            default 15
+            help
+                GPIO pin number for SDIO Command.
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO
+            int "SDIO D0 GPIO pin"
+            range 0 39
+            default 2
+            help
+                GPIO pin number for SDIO Data 0.
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO
+            int "SDIO D1 GPIO pin (4-bit mode)"
+            depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+            range 0 39
+            default 4
+            help
+                GPIO pin number for SDIO Data 1 (only used in 4-bit mode).
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO
+            int "SDIO D2 GPIO pin (4-bit mode)"
+            depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+            range 0 39
+            default 12
+            help
+                GPIO pin number for SDIO Data 2 (only used in 4-bit mode).
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO
+            int "SDIO D3 GPIO pin (4-bit mode)"
+            depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+            range 0 39
+            default 32
+            help
+                GPIO pin number for SDIO Data 3 (only used in 4-bit mode).
+    endmenu
+
+    menu "SD Card Bus Name Configuration"
+        depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+
+        config PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME
+            string "SD card GPIO bus name"
+            default "sd_card_gpio"
+            help
+                Name of the GPIO bus used for SD card.
+
+        config PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME
+            string "SD card SPI bus name"
+            default "sd_card_spi"
+            help
+                Name of the SPI bus used for SD card.
+
+        config PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME
+            string "SD card SDIO bus name"
+            default "sd_card_sdio"
+            help
+                Name of the SDIO bus used for SD card.
+    endmenu
+
+    menu "SD Card NVS Configuration"
+        depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+
+        config PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE
+            string "SD card NVS namespace"
+            default "sd_card"
+            help
+                NVS namespace used for storing SD card configuration.
+
+        config PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY
+            string "NVS key for interface setting"
+            default "interface"
+            help
+                NVS key used to store the SD card interface configuration.
+
+        config PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY
+            string "NVS key for bus width setting"
+            default "bus_width"
+            help
+                NVS key used to store the SD card bus width configuration.
+    endmenu
+
+    menu "Filesystem Configuration"
+        depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+
+        config PSTAR_KCONFIG_SD_CARD_MOUNT_POINT
+            string "SD card mount point"
+            default "/sdcard"
+            help
+                Mount point for the SD card in the filesystem.
+
+        config PSTAR_KCONFIG_SD_CARD_MAX_FILES
+            int "Maximum open files"
+            range 1 20
+            default 5
+            help
+                Maximum number of files that can be open simultaneously.
+
+        config PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE
+            int "Filesystem allocation unit size"
+            range 512 65536
+            default 16384
+            help
+                Allocation unit size for the filesystem in bytes.
+                Larger values may improve performance but waste space.
+    endmenu
+
+endmenu
+

@@ -1,3 +1,4 @@
+# Register the component with ESP-IDF
 idf_component_register(
   SRCS
     "bus_types.c"
@@ -11,10 +12,11 @@ idf_component_register(
   INCLUDE_DIRS
     "include"
   REQUIRES
-    pstar_logging
-    pstar_storage_hal
     driver
+    esp_common
+    freertos
+    pstar_storage_hal
     esp_timer
-  PRIV_REQUIRES
-    zlib
-) 
+)
+
+message(STATUS "pstar_bus: Component enabled with all bus types")

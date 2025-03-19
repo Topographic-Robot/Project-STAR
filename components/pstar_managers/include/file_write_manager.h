@@ -1,4 +1,4 @@
-/* main/pstar_managers/include/file_write_manager.h */
+/* components/pstar_managers/include/file_write_manager.h */
 
 #ifndef PSTAR_FILE_WRITE_MANAGER_H
 #define PSTAR_FILE_WRITE_MANAGER_H
@@ -9,15 +9,33 @@ extern "C" {
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
+#include "sdkconfig.h"
 
 /* Forward declarations */
 typedef struct sd_card_hal sd_card_hal_t;
 
 /* Macros *********************************************************************/
 
-#define MAX_FILE_PATH_LENGTH  (256) /**< Maximum file path length, including the null terminator. */
-#define MAX_DATA_LENGTH       (256) /**< Maximum data length per write request, including the null terminator. */
-#define TIMESTAMP_BUFFER_SIZE (64)  /**< Size of buffer for timestamp strings. */
+/* Use Kconfig values with fallbacks for backward compatibility */
+#ifndef CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES
+#define CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES (20)
+#endif
+
+#ifndef CONFIG_PSTAR_FILE_MANAGER_MAX_PATH_LENGTH
+#define CONFIG_PSTAR_FILE_MANAGER_MAX_PATH_LENGTH (256)
+#endif
+
+#ifndef CONFIG_PSTAR_FILE_MANAGER_MAX_DATA_LENGTH
+#define CONFIG_PSTAR_FILE_MANAGER_MAX_DATA_LENGTH (256)
+#endif
+
+#ifndef CONFIG_PSTAR_FILE_MANAGER_TIMESTAMP_BUFFER_SIZE
+#define CONFIG_PSTAR_FILE_MANAGER_TIMESTAMP_BUFFER_SIZE (64)
+#endif
+
+#define MAX_FILE_PATH_LENGTH  (CONFIG_PSTAR_FILE_MANAGER_MAX_PATH_LENGTH)       /**< Maximum file path length, including the null terminator. */
+#define MAX_DATA_LENGTH       (CONFIG_PSTAR_FILE_MANAGER_MAX_DATA_LENGTH)       /**< Maximum data length per write request, including the null terminator. */
+#define TIMESTAMP_BUFFER_SIZE (CONFIG_PSTAR_FILE_MANAGER_TIMESTAMP_BUFFER_SIZE) /**< Size of buffer for timestamp strings. */
 
 /* Structs ********************************************************************/
 
