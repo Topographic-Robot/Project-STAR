@@ -21,9 +21,8 @@ _Atomic uint64_t g_log_sequence_number = 0; /* Initialize sequence counter */
 
 /* Globals (Static) ***********************************************************/
 
-static bool                  s_log_to_sd_enabled = false;
-static file_write_manager_t* s_file_manager      = NULL;
-static sd_card_hal_t*        s_sd_card           = NULL;
+static file_write_manager_t* s_file_manager = NULL;
+static sd_card_hal_t*        s_sd_card      = NULL;
 
 /* Private Function Prototypes ************************************************/
 
@@ -43,7 +42,7 @@ void log_write_va(esp_log_level_t   level,
   }
 
   /* Format the detailed message with provided va_list */
-  char formatted_msg[PSTAR_LOGGING_MAX_MESSAGE_LENGTH];
+  char formatted_msg[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH];
   int result = vsnprintf(formatted_msg, sizeof(formatted_msg), detailed_msg, args);
   
   /* Check for formatting errors or truncation */
@@ -60,16 +59,16 @@ void log_write_va(esp_log_level_t   level,
   }
 
   /* Get task information */
-  char task_info[PSTAR_LOGGING_MAX_MESSAGE_LENGTH / 4];
+  char task_info[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH / 4];
   priv_get_task_info(task_info, sizeof(task_info));
 
   /* Create the complete log message with the required format */
-  char     complete_msg[PSTAR_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
+  char     complete_msg[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
   char*    timestamp = NULL;
   uint64_t seq_num   = atomic_fetch_add(&g_log_sequence_number, 1);
 
-  /* Only try to get timestamp if time manager is initialized */
-  if (time_manager_is_initialized()) {
+  /* Only try to get timestamp if time manager is initialized and timestamp inclusion is enabled */
+  if (CONFIG_PSTAR_KCONFIG_LOGGING_INCLUDE_TIMESTAMP && time_manager_is_initialized()) {
     timestamp = time_manager_get_timestamp();
   }
 
@@ -81,9 +80,9 @@ void log_write_va(esp_log_level_t   level,
                        "[%s][%llu]%s %s%s%s",
                        timestamp,
                        seq_num,
-                       task_info,
+                       CONFIG_PSTAR_KCONFIG_LOGGING_INCLUDE_TASK_INFO ? task_info : "",
                        short_msg,
-                       PSTAR_LOGGING_SEPARATOR,
+                       CONFIG_PSTAR_KCONFIG_LOGGING_SEPARATOR,
                        formatted_msg);
     free(timestamp);
   } else {
@@ -92,9 +91,9 @@ void log_write_va(esp_log_level_t   level,
                        sizeof(complete_msg), 
                        "[%llu]%s %s%s%s",
                        seq_num,
-                       task_info,
+                       CONFIG_PSTAR_KCONFIG_LOGGING_INCLUDE_TASK_INFO ? task_info : "",
                        short_msg,
-                       PSTAR_LOGGING_SEPARATOR,
+                       CONFIG_PSTAR_KCONFIG_LOGGING_SEPARATOR,
                        formatted_msg);
   }
   
@@ -134,7 +133,7 @@ void log_write_va(esp_log_level_t   level,
   }
   
   /* If SD card logging is enabled, also write to storage */
-  if (s_log_to_sd_enabled) {
+  if (CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED) {
     log_storage_write(level, complete_msg);
   }
 }
@@ -151,21 +150,17 @@ void log_write(esp_log_level_t   level,
   va_end(args);
 }
 
-esp_err_t log_init(bool                  log_to_sd, 
-                   file_write_manager_t* file_manager, 
+esp_err_t log_init(file_write_manager_t* file_manager, 
                    sd_card_hal_t*        sd_card)
 {
   log_info(LOG_HANDLER_TAG, "Init Start", "Initializing log handler");
   
-  s_log_to_sd_enabled = log_to_sd;
-  
-  if (log_to_sd) {
+  if (CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED) {
     /* Check that both file_manager and sd_card are provided */
     if (file_manager == NULL || sd_card == NULL) {
       log_error(LOG_HANDLER_TAG, 
                 "Init Error", 
                 "file_manager and sd_card must be provided when log_to_sd is true");
-      s_log_to_sd_enabled = false;
       return ESP_ERR_INVALID_ARG;
     }
     
@@ -180,7 +175,6 @@ esp_err_t log_init(bool                  log_to_sd,
                 "Storage Error", 
                 "Failed to initialize log storage: %s", 
                 esp_err_to_name(ret));
-      s_log_to_sd_enabled = false;
       s_file_manager = NULL;
       s_sd_card = NULL;
       return ret;
@@ -195,6 +189,14 @@ esp_err_t log_init(bool                  log_to_sd,
 
 void log_set_sd_logging(bool enabled)
 {
+  /* Only needed for runtime control when Kconfig already enables SD logging */
+  if (!CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED) {
+    log_warn(LOG_HANDLER_TAG, 
+             "SD Config Error", 
+             "Cannot enable SD card logging: disabled in Kconfig");
+    return;
+  }
+
   /* Only allow enabling if the file manager and SD card were provided during init */
   if (enabled && (s_file_manager == NULL || s_sd_card == NULL)) {
     log_error(LOG_HANDLER_TAG, 
@@ -203,7 +205,6 @@ void log_set_sd_logging(bool enabled)
     return;
   }
   
-  s_log_to_sd_enabled = enabled;
   log_info(LOG_HANDLER_TAG, 
            "SD Config", 
            "SD card logging %s", 
@@ -212,7 +213,7 @@ void log_set_sd_logging(bool enabled)
 
 esp_err_t log_flush(void)
 {
-  if (!s_log_to_sd_enabled) {
+  if (!CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED) {
     log_info(LOG_HANDLER_TAG, "Flush Skip", "SD card logging is disabled, skipping flush");
     return ESP_OK;
   }
@@ -235,7 +236,7 @@ esp_err_t log_cleanup(void)
   esp_err_t ret = ESP_OK;
 
   /* Flush any remaining logs */
-  if (s_log_to_sd_enabled) {
+  if (CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED) {
     esp_err_t temp_ret = log_flush();
     if (temp_ret != ESP_OK) {
       log_warn(LOG_HANDLER_TAG, 
@@ -258,9 +259,6 @@ esp_err_t log_cleanup(void)
 
   /* Reset sequence number */
   atomic_store(&g_log_sequence_number, 0);
-
-  /* Disable SD card logging */
-  s_log_to_sd_enabled = false;
   
   /* Clear references */
   s_file_manager = NULL;
@@ -290,7 +288,7 @@ static void priv_get_task_info(char* buffer, size_t size)
 
   TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
   if (current_task) {
-    char task_name[PSTAR_LOGGING_TASK_NAME_LENGTH];
+    char task_name[CONFIG_PSTAR_KCONFIG_LOGGING_TASK_NAME_LENGTH];
     /* Get task name, truncate if too long */
     strlcpy(task_name, pcTaskGetName(current_task), sizeof(task_name));
     int written = snprintf(buffer, size, "[%s:%p]", task_name, (void*)current_task);

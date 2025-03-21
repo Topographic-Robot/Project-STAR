@@ -28,15 +28,14 @@ extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequenc
 /**
  * @brief Initializes the log handler
  * 
- * Sets up the log handler and optionally initializes SD card logging.
+ * Sets up the log handler and optionally initializes SD card logging if 
+ * CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED is set.
  * 
- * @param[in] log_to_sd    Whether to enable logging to SD card
- * @param[in] file_manager Pointer to the file write manager instance (required if log_to_sd is true)
- * @param[in] sd_card      Pointer to the SD card HAL instance (required if log_to_sd is true)
+ * @param[in] file_manager Pointer to the file write manager instance (required if SD logging is enabled)
+ * @param[in] sd_card      Pointer to the SD card HAL instance (required if SD logging is enabled)
  * @return ESP_OK if successful, ESP_FAIL otherwise
  */
-esp_err_t log_init(bool                  log_to_sd, 
-                   file_write_manager_t* file_manager, 
+esp_err_t log_init(file_write_manager_t* file_manager, 
                    sd_card_hal_t*        sd_card);
 
 /**
@@ -57,6 +56,9 @@ esp_err_t log_cleanup(void);
 
 /**
  * @brief Enables or disables logging to SD card
+ * 
+ * This is only operational if CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED is set.
+ * It provides runtime control over the SD card logging feature.
  * 
  * @param[in] enabled Whether to enable logging to SD card
  */
@@ -207,3 +209,9 @@ void log_verbose(const char* const tag,
   log_write_va(ESP_LOG_VERBOSE, tag, short_msg, detailed_msg, args);
   va_end(args);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PSTAR_LOG_HANDLER_H */

@@ -21,14 +21,6 @@
 
 #define LOG_STORAGE_TAG ("Log Storage")
 
-/* Using Kconfig macros with the proper prefix */
-#define PSTAR_LOGGING_MAX_FILE_SIZE          (CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_SIZE_KB * 1024)
-#define PSTAR_LOGGING_COMPRESSION_BUFFER     CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE
-#define PSTAR_LOGGING_ZLIB_GZIP_WINDOW_BITS  (CONFIG_PSTAR_KCONFIG_LOGGING_ZLIB_WINDOW_BITS + 16)
-#define PSTAR_LOGGING_ZLIB_MEMORY_LEVEL      CONFIG_PSTAR_KCONFIG_LOGGING_ZLIB_MEM_LEVEL
-#define PSTAR_LOGGING_BASE_DIRECTORY         CONFIG_PSTAR_KCONFIG_LOGGING_BASE_DIR
-#define PSTAR_LOGGING_COMPRESSED_FILE_EXT    CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSED_EXTENSION
-
 /* Globals (Static) ***********************************************************/
 
 static log_entry_t       s_log_buffer[CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE]                = {0};   /* Buffer to store logs when SD card is not available */
@@ -36,7 +28,7 @@ static uint32_t          s_log_buffer_index                                     
 static bool              s_log_storage_initialized                                             = false; /* Flag to track initialization status */
 static char              s_current_log_file[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_PATH_LENGTH] = {0};   /* Current log file path */
 static SemaphoreHandle_t s_log_mutex                                                           = NULL;  /* Mutex for thread-safe access */
-static bool              s_compression_enabled                                                 = true;  /* Compression state */
+/* Compression state is controlled directly by Kconfig */
 static bool              s_sd_card_available                                                   = false; /* Flag indicating if SD card is available */
 static file_write_manager_t* s_file_manager                                                    = NULL;  /* File write manager instance */
 static sd_card_hal_t*    s_sd_card                                                             = NULL;  /* SD card HAL instance */
@@ -131,13 +123,13 @@ static inline int priv_format_log_filepath(char*                  buffer,
                                            const struct tm* const timeinfo,
                                            const char* const      extension)
 {
-  char date_str[PSTAR_LOGGING_DATE_STRING_BUFFER_SIZE];
+  char date_str[CONFIG_PSTAR_KCONFIG_LOGGING_DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), timeinfo);
   
   return snprintf(buffer, 
                   buffer_size,
                   "%s/%s/%04d-%02d-%02d_%02d-%02d-%02d%s",
-                  PSTAR_LOGGING_BASE_DIRECTORY,
+                  CONFIG_PSTAR_KCONFIG_LOGGING_BASE_DIR,
                   date_str,
                   timeinfo->tm_year + 1900,
                   timeinfo->tm_mon + 1,
@@ -181,7 +173,7 @@ static void priv_generate_log_file_path(char*  file_path,
   time_t    now = time(NULL);
   localtime_r(&now, &timeinfo);
   
-  const char* const extension = s_compression_enabled ? PSTAR_LOGGING_COMPRESSED_FILE_EXT : ".txt";
+  const char* const extension = CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED ? CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSED_EXTENSION : ".txt";
   priv_format_log_filepath(file_path, file_path_len, &timeinfo, extension);
 }
 
@@ -214,11 +206,11 @@ static bool priv_check_log_rotation(void)
   time_t    now = time(NULL);
   localtime_r(&now, &timeinfo);
   
-  char date_str[PSTAR_LOGGING_DATE_STRING_BUFFER_SIZE];
+  char date_str[CONFIG_PSTAR_KCONFIG_LOGGING_DATE_STRING_BUFFER_SIZE];
   priv_format_date_string(date_str, sizeof(date_str), &timeinfo);
   
   /* Extract date from current log file path */
-  char *date_start = strstr(s_current_log_file, PSTAR_LOGGING_BASE_DIRECTORY);
+  char *date_start = strstr(s_current_log_file, CONFIG_PSTAR_KCONFIG_LOGGING_BASE_DIR);
   if (date_start == NULL) {
     return false;
   }
@@ -278,7 +270,7 @@ static esp_err_t priv_compress_data(const char* const input,
                          Z_DEFAULT_COMPRESSION, 
                          Z_DEFLATED,
                          PSTAR_LOGGING_ZLIB_GZIP_WINDOW_BITS,
-                         PSTAR_LOGGING_ZLIB_MEMORY_LEVEL,
+                         CONFIG_PSTAR_KCONFIG_LOGGING_ZLIB_MEM_LEVEL,
                          Z_DEFAULT_STRATEGY);
   if (ret != Z_OK) {
     log_error(LOG_STORAGE_TAG, 
@@ -329,9 +321,9 @@ static esp_err_t priv_write_log_data(const char* const file_path,
   }
   
   /* Check if compression is enabled */
-  if (s_compression_enabled) {
+  if (CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED) {
     /* Compress data before writing */
-    char *compress_buffer = malloc(PSTAR_LOGGING_COMPRESSION_BUFFER);
+    char *compress_buffer = malloc(CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE);
     if (compress_buffer == NULL) {
       log_error(LOG_STORAGE_TAG, 
                 "Memory Error", 
@@ -340,7 +332,7 @@ static esp_err_t priv_write_log_data(const char* const file_path,
     }
     
     size_t data_len   = strlen(data);
-    size_t output_len = PSTAR_LOGGING_COMPRESSION_BUFFER;
+    size_t output_len = CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE;
     
     esp_err_t ret = priv_compress_data(data, 
                                        data_len, 
@@ -389,7 +381,7 @@ static esp_err_t priv_flush_log_buffer(void)
   char*  all_logs   = NULL;
   size_t total_size = 0;
   
-  if (s_compression_enabled) {
+  if (CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED) {
     /* Calculate total size needed */
     for (uint32_t i = 0; i < s_log_buffer_index; i++) {
       const char* level_str = priv_log_level_to_string(s_log_buffer[i].level);
@@ -524,7 +516,7 @@ static esp_err_t priv_flush_log_buffer(void)
       uint64_t milliseconds = priv_timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
       
       /* Format the timestamp and log entry */
-      char formatted_log[PSTAR_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
+      char formatted_log[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
       int  written = priv_format_log_entry(formatted_log, 
                                            sizeof(formatted_log), 
                                            &timeinfo,
@@ -667,14 +659,14 @@ esp_err_t log_storage_write(esp_log_level_t  level,
   }
   
   /* Store log in buffer */
-  if (s_log_buffer_index < PSTAR_LOGGING_BUFFER_SIZE) {
+  if (s_log_buffer_index < CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE) {
     s_log_buffer[s_log_buffer_index].level     = level;
     s_log_buffer[s_log_buffer_index].timestamp = esp_timer_get_time();
 
     strncpy(s_log_buffer[s_log_buffer_index].buffer, 
             message, 
-            PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1);
-    s_log_buffer[s_log_buffer_index].buffer[PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1] = '\0';
+            CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH - 1);
+    s_log_buffer[s_log_buffer_index].buffer[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH - 1] = '\0';
     s_log_buffer_index++;
   } else {
     /* Buffer is full, need to flush */
@@ -687,13 +679,13 @@ esp_err_t log_storage_write(esp_log_level_t  level,
 
     strncpy(s_log_buffer[0].buffer, 
             message, 
-            PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1);
-    s_log_buffer[0].buffer[PSTAR_LOGGING_MAX_MESSAGE_LENGTH - 1] = '\0';
+            CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH - 1);
+    s_log_buffer[0].buffer[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH - 1] = '\0';
     s_log_buffer_index = 1;
   }
   
   /* If buffer is full or SD card is available, try to flush */
-  if (s_log_buffer_index >= PSTAR_LOGGING_BUFFER_SIZE && s_sd_card_available) {
+  if (s_log_buffer_index >= CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE && s_sd_card_available) {
     priv_flush_log_buffer();
   }
   
@@ -736,35 +728,16 @@ esp_err_t log_storage_set_compression(bool enabled)
     return ESP_FAIL;
   }
   
-  if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(LOG_STORAGE_TAG, 
-              "Mutex Error", 
-              "Failed to acquire mutex for compression config");
-    return ESP_FAIL;
-  }
-  
-  /* Only update if the setting has changed */
-  if (s_compression_enabled != enabled) {
-    s_compression_enabled = enabled;
-    log_info(LOG_STORAGE_TAG, 
-             "Compression Config", 
-             "Log compression %s", 
-             enabled ? "enabled" : "disabled");
-    
-    /* Flush current logs before changing compression setting */
-    priv_flush_log_buffer();
-    
-    /* Force log rotation on next write to use new extension */
-    s_current_log_file[0] = '\0';
-  }
-  
-  xSemaphoreGive(s_log_mutex);
+  /* Cannot modify compression setting at runtime, controlled by Kconfig */
+  log_warn(LOG_STORAGE_TAG,
+           "Compression Config",
+           "Compression settings controlled by Kconfig, cannot be changed at runtime");
   return ESP_OK;
 }
 
 bool log_storage_is_compression_enabled(void)
 {
-  return s_compression_enabled;
+  return CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED;
 }
 
 esp_err_t log_storage_cleanup(void)
@@ -820,4 +793,3 @@ esp_err_t log_storage_cleanup(void)
 
   return ret;
 }
-
