@@ -3,6 +3,10 @@
 #ifndef PSTAR_ERROR_HANDLER_TYPES_H
 #define PSTAR_ERROR_HANDLER_TYPES_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -30,5 +34,9 @@ typedef struct error_handler {
   void*             reset_context;            /**< Context passed to reset function */
   SemaphoreHandle_t mutex;                    /**< Mutex for thread-safe operations */
 } error_handler_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PSTAR_ERROR_HANDLER_TYPES_H */

@@ -1,4 +1,4 @@
-/* components/pstar_logging/log_handler.c */
+/* components/pstar_logger/log_handler.c */
 
 #include "log_handler.h"
 #include "log_storage.h"
@@ -13,7 +13,7 @@
 
 /* Constants ******************************************************************/
 
-#define LOG_TAG ("Log Handler")
+#define LOG_HANDLER_TAG ("Log Handler")
 
 /* Global Variables ***********************************************************/
 
@@ -25,44 +25,9 @@ static bool                  s_log_to_sd_enabled = false;
 static file_write_manager_t* s_file_manager      = NULL;
 static sd_card_hal_t*        s_sd_card           = NULL;
 
-/* Private Functions ***********************************************************/
+/* Private Function Prototypes ************************************************/
 
-/**
- * @brief Get the current task information formatted as a string
- * 
- * @param[out] buffer Buffer to store the task info string
- * @param[in]  size   Size of the buffer
- */
-static void priv_get_task_info(char*  buffer, 
-                               size_t size) 
-{
-  if (!buffer || size == 0) {
-    return;
-  }
-
-  TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
-  if (current_task) {
-    char task_name[PSTAR_LOGGING_TASK_NAME_LENGTH];
-    /* Get task name, truncate if too long */
-    strlcpy(task_name, pcTaskGetName(current_task), sizeof(task_name));
-    int written = snprintf(buffer, size, "[%s:%p]", task_name, (void*)current_task);
-    
-    /* Check for truncation */
-    if (written < 0 || (size_t)written >= size) {
-      /* Ensure null termination if truncated */
-      buffer[size - 1] = '\0';
-    }
-  } else {
-    /* If no task context (e.g. running from ISR), indicate that */
-    int written = snprintf(buffer, size, "[ISR]");
-    
-    /* Check for truncation */
-    if (written < 0 || (size_t)written >= size) {
-      /* Ensure null termination if truncated */
-      buffer[size - 1] = '\0';
-    }
-  }
-}
+static void priv_get_task_info(char* buffer, size_t size);
 
 /* Public Functions ***********************************************************/
 
@@ -112,25 +77,25 @@ void log_write_va(esp_log_level_t   level,
   if (timestamp != NULL) {
     /* Include timestamp, sequence number, and task info */
     written = snprintf(complete_msg, 
-                      sizeof(complete_msg), 
-                      "[%s][%llu]%s %s%s%s",
-                      timestamp,
-                      seq_num,
-                      task_info,
-                      short_msg,
-                      PSTAR_LOGGING_SEPARATOR,
-                      formatted_msg);
+                       sizeof(complete_msg), 
+                       "[%s][%llu]%s %s%s%s",
+                       timestamp,
+                       seq_num,
+                       task_info,
+                       short_msg,
+                       PSTAR_LOGGING_SEPARATOR,
+                       formatted_msg);
     free(timestamp);
   } else {
     /* Skip timestamp but include sequence number and task info */
     written = snprintf(complete_msg, 
-                      sizeof(complete_msg), 
-                      "[%llu]%s %s%s%s",
-                      seq_num,
-                      task_info,
-                      short_msg,
-                      PSTAR_LOGGING_SEPARATOR,
-                      formatted_msg);
+                       sizeof(complete_msg), 
+                       "[%llu]%s %s%s%s",
+                       seq_num,
+                       task_info,
+                       short_msg,
+                       PSTAR_LOGGING_SEPARATOR,
+                       formatted_msg);
   }
   
   /* Check for truncation in the complete message */
@@ -186,16 +151,18 @@ void log_write(esp_log_level_t   level,
   va_end(args);
 }
 
-esp_err_t log_init(bool log_to_sd, file_write_manager_t* file_manager, sd_card_hal_t* sd_card)
+esp_err_t log_init(bool                  log_to_sd, 
+                   file_write_manager_t* file_manager, 
+                   sd_card_hal_t*        sd_card)
 {
-  log_info(LOG_TAG, "Init Start", "Initializing log handler");
+  log_info(LOG_HANDLER_TAG, "Init Start", "Initializing log handler");
   
   s_log_to_sd_enabled = log_to_sd;
   
   if (log_to_sd) {
     /* Check that both file_manager and sd_card are provided */
     if (file_manager == NULL || sd_card == NULL) {
-      log_error(LOG_TAG, 
+      log_error(LOG_HANDLER_TAG, 
                 "Init Error", 
                 "file_manager and sd_card must be provided when log_to_sd is true");
       s_log_to_sd_enabled = false;
@@ -209,7 +176,7 @@ esp_err_t log_init(bool log_to_sd, file_write_manager_t* file_manager, sd_card_h
     /* Initialize log storage */
     esp_err_t ret = log_storage_init(file_manager, sd_card);
     if (ret != ESP_OK) {
-      log_error(LOG_TAG, 
+      log_error(LOG_HANDLER_TAG, 
                 "Storage Error", 
                 "Failed to initialize log storage: %s", 
                 esp_err_to_name(ret));
@@ -219,10 +186,10 @@ esp_err_t log_init(bool log_to_sd, file_write_manager_t* file_manager, sd_card_h
       return ret;
     }
     
-    log_info(LOG_TAG, "Storage Ready", "Log storage initialized successfully");
+    log_info(LOG_HANDLER_TAG, "Storage Ready", "Log storage initialized successfully");
   }
   
-  log_info(LOG_TAG, "Init Complete", "Log handler initialized successfully");
+  log_info(LOG_HANDLER_TAG, "Init Complete", "Log handler initialized successfully");
   return ESP_OK;
 }
 
@@ -230,14 +197,14 @@ void log_set_sd_logging(bool enabled)
 {
   /* Only allow enabling if the file manager and SD card were provided during init */
   if (enabled && (s_file_manager == NULL || s_sd_card == NULL)) {
-    log_error(LOG_TAG, 
+    log_error(LOG_HANDLER_TAG, 
               "SD Config Error", 
               "Cannot enable SD card logging: missing file_manager or sd_card");
     return;
   }
   
   s_log_to_sd_enabled = enabled;
-  log_info(LOG_TAG, 
+  log_info(LOG_HANDLER_TAG, 
            "SD Config", 
            "SD card logging %s", 
            enabled ? "enabled" : "disabled");
@@ -246,13 +213,13 @@ void log_set_sd_logging(bool enabled)
 esp_err_t log_flush(void)
 {
   if (!s_log_to_sd_enabled) {
-    log_info(LOG_TAG, "Flush Skip", "SD card logging is disabled, skipping flush");
+    log_info(LOG_HANDLER_TAG, "Flush Skip", "SD card logging is disabled, skipping flush");
     return ESP_OK;
   }
   
   esp_err_t ret = log_storage_flush();
   if (ret != ESP_OK) {
-    log_error(LOG_TAG, 
+    log_error(LOG_HANDLER_TAG, 
               "Flush Error", 
               "Failed to flush log storage: %s", 
               esp_err_to_name(ret));
@@ -263,7 +230,7 @@ esp_err_t log_flush(void)
 
 esp_err_t log_cleanup(void)
 {
-  log_info(LOG_TAG, "Cleanup Start", "Beginning log handler cleanup");
+  log_info(LOG_HANDLER_TAG, "Cleanup Start", "Beginning log handler cleanup");
 
   esp_err_t ret = ESP_OK;
 
@@ -271,7 +238,7 @@ esp_err_t log_cleanup(void)
   if (s_log_to_sd_enabled) {
     esp_err_t temp_ret = log_flush();
     if (temp_ret != ESP_OK) {
-      log_warn(LOG_TAG, 
+      log_warn(LOG_HANDLER_TAG, 
                "Flush Warning", 
                "Failed to flush logs during cleanup: %s", 
                esp_err_to_name(temp_ret));
@@ -281,7 +248,7 @@ esp_err_t log_cleanup(void)
     /* Clean up log storage */
     temp_ret = log_storage_cleanup();
     if (temp_ret != ESP_OK) {
-      log_warn(LOG_TAG, 
+      log_warn(LOG_HANDLER_TAG, 
                "Storage Warning", 
                "Failed to clean up log storage: %s", 
                esp_err_to_name(temp_ret));
@@ -299,10 +266,48 @@ esp_err_t log_cleanup(void)
   s_file_manager = NULL;
   s_sd_card = NULL;
 
-  log_info(LOG_TAG, 
+  log_info(LOG_HANDLER_TAG, 
            "Cleanup Complete", 
            "Log handler cleanup %s", 
            (ret == ESP_OK) ? "successful" : "completed with warnings");
 
   return ret;
+}
+
+/* Private Functions **********************************************************/
+
+/**
+ * @brief Get the current task information formatted as a string
+ * 
+ * @param[out] buffer Buffer to store the task info string
+ * @param[in]  size   Size of the buffer
+ */
+static void priv_get_task_info(char* buffer, size_t size) 
+{
+  if (!buffer || size == 0) {
+    return;
+  }
+
+  TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
+  if (current_task) {
+    char task_name[PSTAR_LOGGING_TASK_NAME_LENGTH];
+    /* Get task name, truncate if too long */
+    strlcpy(task_name, pcTaskGetName(current_task), sizeof(task_name));
+    int written = snprintf(buffer, size, "[%s:%p]", task_name, (void*)current_task);
+    
+    /* Check for truncation */
+    if (written < 0 || (size_t)written >= size) {
+      /* Ensure null termination if truncated */
+      buffer[size - 1] = '\0';
+    }
+  } else {
+    /* If no task context (e.g. running from ISR), indicate that */
+    int written = snprintf(buffer, size, "[ISR]");
+    
+    /* Check for truncation */
+    if (written < 0 || (size_t)written >= size) {
+      /* Ensure null termination if truncated */
+      buffer[size - 1] = '\0';
+    }
+  }
 }

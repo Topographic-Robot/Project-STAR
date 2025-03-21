@@ -1,4 +1,4 @@
-/* components/pstar_logging/include/log_handler.h */
+/* components/pstar_logger/include/log_handler.h */
 
 #ifndef PSTAR_LOG_HANDLER_H
 #define PSTAR_LOG_HANDLER_H
@@ -207,9 +207,3 @@ void log_verbose(const char* const tag,
   log_write_va(ESP_LOG_VERBOSE, tag, short_msg, detailed_msg, args);
   va_end(args);
 }
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* PSTAR_LOG_HANDLER_H */
