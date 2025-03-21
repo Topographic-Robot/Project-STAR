@@ -16,7 +16,7 @@ extern "C" {
 #include <stdatomic.h>
 
 /* Forward declarations */
-typedef struct sd_card_hal sd_card_hal_t;
+typedef struct sd_card_hal        sd_card_hal_t;
 typedef struct file_write_manager file_write_manager_t;
 
 /* Global Variables ***********************************************************/

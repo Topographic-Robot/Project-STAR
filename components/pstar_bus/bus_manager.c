@@ -8,7 +8,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_manager_tag = "Bus Manager";
+#define BUS_MANAGER_TAG ("Bus Manager")
 
 /* Public Functions ***********************************************************/
 
@@ -16,7 +16,7 @@ esp_err_t pstar_bus_manager_init(pstar_bus_manager_t* manager, const char* tag)
 {
   /* Validate input */
   if (!manager) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Initialization failed", 
               "Bus manager pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -30,8 +30,8 @@ esp_err_t pstar_bus_manager_init(pstar_bus_manager_t* manager, const char* tag)
     manager->tag = strdup(tag);
   } else {
     char* temp;
-    if (asprintf(&temp, "%s Default Tag", bus_manager_tag) == -1) {
-      log_error(bus_manager_tag, 
+    if (asprintf(&temp, "%s Default Tag", BUS_MANAGER_TAG) == -1) {
+      log_error(BUS_MANAGER_TAG, 
                 "Initialization failed", 
                 "Memory allocation for tag failed");
       return ESP_ERR_NO_MEM;
@@ -42,7 +42,7 @@ esp_err_t pstar_bus_manager_init(pstar_bus_manager_t* manager, const char* tag)
   /* Create the mutex for thread-safe operations */
   manager->mutex = xSemaphoreCreateMutex();
   if (manager->mutex == NULL) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Initialization failed", 
               "Failed to create mutex for bus manager");
     if (manager->tag) {
@@ -63,7 +63,7 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !config) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Bus addition failed", 
               "Manager or configuration pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -71,7 +71,7 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager,
 
   /* Validate bus configuration */
   if (!config->name) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Bus addition failed", 
               "Bus configuration lacks a name");
     return ESP_ERR_INVALID_ARG;
@@ -118,7 +118,7 @@ pstar_bus_config_t* pstar_bus_manager_find_bus(const pstar_bus_manager_t* manage
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Bus search failed", 
               "Manager or name pointer is NULL");
     return NULL;
@@ -153,7 +153,7 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Bus removal failed", 
               "Manager or name pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -228,7 +228,7 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
 {
   /* Validate input */
   if (!manager) {
-    log_error(bus_manager_tag, 
+    log_error(BUS_MANAGER_TAG, 
               "Deinitialization failed", 
               "Bus manager pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -283,7 +283,7 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
     manager->mutex = NULL;
   }
 
-  log_info(bus_manager_tag, 
+  log_info(BUS_MANAGER_TAG, 
            "Bus manager deinitialized", 
            "Successfully cleaned up bus manager resources");
   return ESP_OK;

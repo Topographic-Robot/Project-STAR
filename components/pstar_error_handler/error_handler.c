@@ -6,7 +6,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const error_handler_tag = "Error Handler";
+#define ERROR_HANDLER_TAG ("Error Handler")
   
 /* Public Functions ***********************************************************/
 
@@ -24,7 +24,7 @@ void error_handler_init(error_handler_t* handler,
   if (handler->mutex == NULL) {
     handler->mutex = xSemaphoreCreateMutex();
     if (handler->mutex == NULL) {
-      log_error(error_handler_tag, 
+      log_error(ERROR_HANDLER_TAG, 
                 "Mutex Error", 
                 "Failed to create mutex during initialization");
       return;
@@ -57,7 +57,7 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
   }
   
   if (xSemaphoreTake(handler->mutex, portMAX_DELAY) == pdTRUE) {
-    log_error(error_handler_tag, 
+    log_error(ERROR_HANDLER_TAG, 
               "Error Recorded", 
               "Desc: %s | Code: %d | File: %s | Line: %d | Retry: %lu", 
               description, 
@@ -88,7 +88,7 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
           xSemaphoreGive(handler->mutex);
           return ESP_OK;
         } else {
-          log_error(error_handler_tag, 
+          log_error(ERROR_HANDLER_TAG, 
                     "Reset Failed", 
                     "Reset function failed with code: %d on retry %lu", 
                     reset_result, 
@@ -96,7 +96,7 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
         }
       }
     } else {
-      log_error(error_handler_tag, 
+      log_error(ERROR_HANDLER_TAG, 
                 "Max Retries", 
                 "Max retries exceeded (%lu attempts). No further attempts will be made.", 
                 handler->max_retries);

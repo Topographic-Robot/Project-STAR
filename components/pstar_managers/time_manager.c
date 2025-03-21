@@ -16,9 +16,9 @@
 
 /* Constants ******************************************************************/
 
-static const char* const time_manager_tag     = "Time Manager";
-static const uint32_t    time_sync_bit        = (1 << 0);
-static const uint32_t    time_sync_timeout_ms = CONFIG_PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS;
+#define TIME_MANAGER_TAG ("Time Manager")
+static const uint32_t time_sync_bit        = (1 << 0);
+static const uint32_t time_sync_timeout_ms = CONFIG_PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS;
 
 /* Globals (Static) ***********************************************************/
 
@@ -44,7 +44,7 @@ static void priv_time_sync_notification_cb(struct timeval *tv)
   localtime_r(&now, &timeinfo);
   strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
 
-  log_info(time_manager_tag,
+  log_info(TIME_MANAGER_TAG,
            "Time Synced",
            "Time synchronized: %s",
            strftime_buf);
@@ -61,7 +61,7 @@ static void priv_time_sync_notification_cb(struct timeval *tv)
  */
 static void priv_set_default_time(void)
 {
-  log_warn(time_manager_tag,
+  log_warn(TIME_MANAGER_TAG,
            "Default Time",
            "Using default time due to unavailable network sync");
 
@@ -84,7 +84,7 @@ static void priv_set_default_time(void)
 
   settimeofday(&tv, NULL);
 
-  log_info(time_manager_tag,
+  log_info(TIME_MANAGER_TAG,
            "Time Set",
            "System time set to default: 2025-01-01 00:00:00");
   s_time_initialized = true; /* Mark time as initialized even though it's default */
@@ -102,7 +102,9 @@ static void priv_set_default_time(void)
  */
 static void priv_initialize_sntp(void)
 {
-  log_info(time_manager_tag, "SNTP Start", "Beginning SNTP service initialization");
+  log_info(TIME_MANAGER_TAG, 
+           "SNTP Start", 
+           "Beginning SNTP service initialization");
 
   /* Set SNTP operating mode (polling mode) */
   esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
@@ -116,7 +118,7 @@ static void priv_initialize_sntp(void)
   /* Initialize SNTP */
   esp_sntp_init();
 
-  log_info(time_manager_tag,
+  log_info(TIME_MANAGER_TAG,
            "SNTP Complete",
            "SNTP service initialized, awaiting time sync");
 }
@@ -128,11 +130,11 @@ static void priv_initialize_sntp(void)
  */
 static void priv_time_sync_task(void *pvParameters)
 {
-  log_info(time_manager_tag, "Sync Task", "Time synchronization task started");
+  log_info(TIME_MANAGER_TAG, "Sync Task", "Time synchronization task started");
 
   esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (netif == NULL || !esp_netif_is_netif_up(netif)) {
-    log_warn(time_manager_tag,
+    log_warn(TIME_MANAGER_TAG,
              "Network Error",
              "Network unavailable, falling back to default time");
     priv_set_default_time();
@@ -150,12 +152,12 @@ static void priv_time_sync_task(void *pvParameters)
                                          pdMS_TO_TICKS(time_sync_timeout_ms));
 
   if ((bits & time_sync_bit) == 0) {
-    log_error(time_manager_tag,
+    log_error(TIME_MANAGER_TAG,
               "Sync Error",
               "Time sync failed after timeout");
     priv_set_default_time();
   } else {
-    log_info(time_manager_tag,
+    log_info(TIME_MANAGER_TAG,
              "Init Complete",
              "Time manager initialization finished");
     s_time_initialized = true;
@@ -195,12 +197,14 @@ char* time_manager_get_timestamp(void)
 
 esp_err_t time_manager_init(void)
 {
-  log_info(time_manager_tag, "Init Start", "Beginning time manager initialization");
+  log_info(TIME_MANAGER_TAG, 
+           "Init Start", 
+           "Beginning time manager initialization");
 
   /* Create event group for synchronization */
   s_time_sync_event_group = xEventGroupCreate();
   if (s_time_sync_event_group == NULL) {
-    log_error(time_manager_tag,
+    log_error(TIME_MANAGER_TAG,
               "Init Error",
               "Failed to create event group");
     return ESP_FAIL;
@@ -215,7 +219,7 @@ esp_err_t time_manager_init(void)
                                         &s_time_sync_task_handle);
 
   if (task_created != pdPASS) {
-    log_error(time_manager_tag,
+    log_error(TIME_MANAGER_TAG,
               "Init Error",
               "Failed to create time sync task");
     vEventGroupDelete(s_time_sync_event_group);
@@ -223,7 +227,7 @@ esp_err_t time_manager_init(void)
     return ESP_FAIL;
   }
 
-  log_info(time_manager_tag,
+  log_info(TIME_MANAGER_TAG,
            "Init Progress",
            "Time synchronization started in background");
 
@@ -232,7 +236,7 @@ esp_err_t time_manager_init(void)
 
 esp_err_t time_manager_cleanup(void)
 {
-  log_info(time_manager_tag,
+  log_info(TIME_MANAGER_TAG,
            "Cleanup Start",
            "Beginning time manager cleanup");
 
@@ -253,19 +257,19 @@ esp_err_t time_manager_cleanup(void)
     /* Stop the SNTP service */
     esp_sntp_stop();
 
-    log_info(time_manager_tag,
+    log_info(TIME_MANAGER_TAG,
              "SNTP Stop",
              "SNTP service stopped successfully");
 
     /* Reset the initialization flag */
     s_time_initialized = false;
   } else {
-    log_info(time_manager_tag,
+    log_info(TIME_MANAGER_TAG,
              "Cleanup Skip",
              "Time manager was not initialized, nothing to clean up");
   }
 
-  log_info(time_manager_tag,
+  log_info(TIME_MANAGER_TAG,
            "Cleanup Complete",
            "Time manager cleanup completed successfully");
 

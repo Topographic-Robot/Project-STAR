@@ -9,7 +9,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_i2c_tag = "Bus I2C";
+#define BUS_I2C_TAG ("Bus I2C")
 
 /* Private Function Prototypes ************************************************/
 
@@ -32,7 +32,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
 void pstar_bus_i2c_init_default_ops(pstar_i2c_ops_t* ops)
 {
   if (ops == NULL) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Init Error", 
               "I2C operations pointer is NULL");
     return;
@@ -41,7 +41,7 @@ void pstar_bus_i2c_init_default_ops(pstar_i2c_ops_t* ops)
   ops->write = priv_pstar_bus_i2c_write;
   ops->read  = priv_pstar_bus_i2c_read;
   
-  log_info(bus_i2c_tag, 
+  log_info(BUS_I2C_TAG, 
            "Default Ops", 
            "Initialized default I2C operations");
 }
@@ -55,7 +55,7 @@ esp_err_t pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -64,7 +64,7 @@ esp_err_t pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -73,7 +73,7 @@ esp_err_t pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is an I2C bus */
   if (bus_config->type != k_pstar_bus_type_i2c) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Bus '%s' is not an I2C bus (type: %s)", 
               name, 
@@ -90,7 +90,7 @@ esp_err_t pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
                                             reg_addr, 
                                             bytes_written);
   } else {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "No write operation defined for I2C bus '%s'", 
               name);
@@ -107,7 +107,7 @@ esp_err_t pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -116,7 +116,7 @@ esp_err_t pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -125,7 +125,7 @@ esp_err_t pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is an I2C bus */
   if (bus_config->type != k_pstar_bus_type_i2c) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Bus '%s' is not an I2C bus (type: %s)", 
               name, 
@@ -142,7 +142,7 @@ esp_err_t pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
                                            reg_addr, 
                                            bytes_read);
   } else {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "No read operation defined for I2C bus '%s'", 
               name);
@@ -175,7 +175,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -184,7 +184,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -193,7 +193,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is an I2C bus */
   if (bus_config->type != k_pstar_bus_type_i2c) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Bus '%s' is not an I2C bus (type: %s)", 
               name, 
@@ -203,7 +203,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -217,7 +217,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   /* Initialize command link */
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   if (cmd == NULL) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to create I2C command link");
     return ESP_ERR_NO_MEM;
@@ -225,7 +225,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Start condition */
   if ((result = i2c_master_start(cmd)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to add START condition: %s", 
               esp_err_to_name(result));
@@ -235,7 +235,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Send device address (write mode) */
   if ((result = i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to write device address: %s", 
               esp_err_to_name(result));
@@ -245,7 +245,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Send register address */
   if ((result = i2c_master_write_byte(cmd, reg_addr, true)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to write register address: %s", 
               esp_err_to_name(result));
@@ -255,7 +255,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Send data */
   if ((result = i2c_master_write(cmd, data, len, true)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to write data: %s", 
               esp_err_to_name(result));
@@ -265,7 +265,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   
   /* Stop condition */
   if ((result = i2c_master_stop(cmd)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to add STOP condition: %s", 
               esp_err_to_name(result));
@@ -276,7 +276,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
   /* Execute command */
   result = i2c_master_cmd_begin(port, cmd, pdMS_TO_TICKS(1000));
   if (result != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Write Error", 
               "Failed to execute I2C transaction on bus '%s' (port %d, addr 0x%02X): %s", 
               name, 
@@ -284,7 +284,7 @@ static esp_err_t priv_pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
               address, 
               esp_err_to_name(result));
   } else {
-    log_debug(bus_i2c_tag, 
+    log_debug(BUS_I2C_TAG, 
               "Write Success", 
               "Successfully wrote %zu bytes to I2C bus '%s' (port %d, addr 0x%02X, reg 0x%02X)",
               len, 
@@ -346,7 +346,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -355,7 +355,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -364,7 +364,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is an I2C bus */
   if (bus_config->type != k_pstar_bus_type_i2c) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Bus '%s' is not an I2C bus (type: %s)", 
               name, 
@@ -374,7 +374,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -388,7 +388,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   /* Step 1: Write register address */
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   if (cmd == NULL) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to create I2C command link");
     return ESP_ERR_NO_MEM;
@@ -396,7 +396,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Start condition */
   if ((result = i2c_master_start(cmd)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to add START condition: %s", 
               esp_err_to_name(result));
@@ -406,7 +406,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Send device address (write mode) */
   if ((result = i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to write device address: %s", 
               esp_err_to_name(result));
@@ -416,7 +416,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Send register address */
   if ((result = i2c_master_write_byte(cmd, reg_addr, true)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to write register address: %s", 
               esp_err_to_name(result));
@@ -428,7 +428,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Repeated start */
   if ((result = i2c_master_start(cmd)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to add repeated START condition: %s", 
               esp_err_to_name(result));
@@ -438,7 +438,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Send device address (read mode) */
   if ((result = i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_READ, true)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to write device address (read mode): %s", 
               esp_err_to_name(result));
@@ -449,7 +449,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   /* Read data (acknowledge all bytes except the last one) */
   if (len > 1) {
     if ((result = i2c_master_read(cmd, data, len - 1, I2C_MASTER_ACK)) != ESP_OK) {
-      log_error(bus_i2c_tag, 
+      log_error(BUS_I2C_TAG, 
                 "Read Error", 
                 "Failed to read data with ACK: %s", 
                 esp_err_to_name(result));
@@ -460,7 +460,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Read last byte with NACK */
   if ((result = i2c_master_read_byte(cmd, &data[len - 1], I2C_MASTER_NACK)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to read last byte with NACK: %s", 
               esp_err_to_name(result));
@@ -470,7 +470,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   
   /* Stop condition */
   if ((result = i2c_master_stop(cmd)) != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to add STOP condition: %s", 
               esp_err_to_name(result));
@@ -481,7 +481,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
   /* Execute command */
   result = i2c_master_cmd_begin(port, cmd, pdMS_TO_TICKS(1000));
   if (result != ESP_OK) {
-    log_error(bus_i2c_tag, 
+    log_error(BUS_I2C_TAG, 
               "Read Error", 
               "Failed to execute I2C transaction on bus '%s' (port %d, addr 0x%02X): %s", 
               name, 
@@ -489,7 +489,7 @@ static esp_err_t priv_pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
               address, 
               esp_err_to_name(result));
   } else {
-    log_debug(bus_i2c_tag, 
+    log_debug(BUS_I2C_TAG, 
               "Read Success", 
               "Successfully read %zu bytes from I2C bus '%s' (port %d, addr 0x%02X, reg 0x%02X)",
               len, 

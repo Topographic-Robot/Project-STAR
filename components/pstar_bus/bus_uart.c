@@ -9,7 +9,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_uart_tag = "Bus UART";
+#define BUS_UART_TAG ("Bus UART")
 
 /* Private Function Prototypes ************************************************/
 
@@ -30,7 +30,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
 void pstar_bus_uart_init_default_ops(pstar_uart_ops_t* ops)
 {
   if (ops == NULL) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Init Error", 
               "UART operations pointer is NULL");
     return;
@@ -39,7 +39,7 @@ void pstar_bus_uart_init_default_ops(pstar_uart_ops_t* ops)
   ops->write = priv_pstar_bus_uart_write;
   ops->read  = priv_pstar_bus_uart_read;
   
-  log_info(bus_uart_tag, 
+  log_info(BUS_UART_TAG, 
            "Default Ops", 
            "Initialized default UART operations");
 }
@@ -52,7 +52,7 @@ esp_err_t pstar_bus_uart_write(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -61,7 +61,7 @@ esp_err_t pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -70,7 +70,7 @@ esp_err_t pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is a UART bus */
   if (bus_config->type != k_pstar_bus_type_uart) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Bus '%s' is not a UART bus (type: %s)", 
               name, 
@@ -86,7 +86,7 @@ esp_err_t pstar_bus_uart_write(const pstar_bus_manager_t* manager,
                                              len, 
                                              bytes_written);
   } else {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "No write operation defined for UART bus '%s'", 
               name);
@@ -102,7 +102,7 @@ esp_err_t pstar_bus_uart_read(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -111,7 +111,7 @@ esp_err_t pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -120,7 +120,7 @@ esp_err_t pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is a UART bus */
   if (bus_config->type != k_pstar_bus_type_uart) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Bus '%s' is not a UART bus (type: %s)", 
               name, 
@@ -132,7 +132,7 @@ esp_err_t pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   if (bus_config->config.uart.ops.read) {
     return bus_config->config.uart.ops.read(manager, name, data, len, bytes_read);
   } else {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "No read operation defined for UART bus '%s'", 
               name);
@@ -162,7 +162,7 @@ static esp_err_t priv_pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -171,7 +171,7 @@ static esp_err_t priv_pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -180,7 +180,7 @@ static esp_err_t priv_pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is a UART bus */
   if (bus_config->type != k_pstar_bus_type_uart) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Bus '%s' is not a UART bus (type: %s)", 
               name, 
@@ -190,7 +190,7 @@ static esp_err_t priv_pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -203,7 +203,7 @@ static esp_err_t priv_pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   /* Write data to UART */
   int written = uart_write_bytes(port, (const char*)data, len);
   if (written < 0) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Failed to write data to UART port %d", 
               port);
@@ -213,14 +213,14 @@ static esp_err_t priv_pstar_bus_uart_write(const pstar_bus_manager_t* manager,
   /* Ensure all data is transmitted before returning */
   result = uart_wait_tx_done(port, pdMS_TO_TICKS(1000));
   if (result != ESP_OK) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Write Error", 
               "Failed to wait for UART transmission completion: %s", 
               esp_err_to_name(result));
     return result;
   }
   
-  log_debug(bus_uart_tag, 
+  log_debug(BUS_UART_TAG, 
             "Write Success", 
             "Successfully wrote %d bytes to UART bus '%s' (port %d)",
             written, 
@@ -272,7 +272,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -281,7 +281,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -290,7 +290,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is a UART bus */
   if (bus_config->type != k_pstar_bus_type_uart) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Bus '%s' is not a UART bus (type: %s)", 
               name, 
@@ -300,7 +300,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -314,7 +314,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   size_t available_bytes;
   esp_err_t result = uart_get_buffered_data_len(port, &available_bytes);
   if (result != ESP_OK) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Failed to get available data length: %s", 
               esp_err_to_name(result));
@@ -323,7 +323,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   
   /* If no data is available, wait for some data to arrive */
   if (available_bytes == 0) {
-    log_debug(bus_uart_tag, 
+    log_debug(BUS_UART_TAG, 
               "Read Wait", 
               "No data available, waiting for data on UART port %d", 
               port);
@@ -334,7 +334,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
     /* Wait for data with configurable timeout */
     int read_bytes = uart_read_bytes(port, data, len, pdMS_TO_TICKS(timeout_ms));
     if (read_bytes < 0) {
-      log_error(bus_uart_tag, 
+      log_error(BUS_UART_TAG, 
                 "Read Error", 
                 "Failed to read data from UART port %d", 
                 port);
@@ -342,7 +342,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
     }
     
     if (read_bytes == 0) {
-      log_warn(bus_uart_tag, 
+      log_warn(BUS_UART_TAG, 
                "Read Timeout", 
                "Timeout (%lu ms) while waiting for data on UART port %d", 
                timeout_ms, 
@@ -356,7 +356,7 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
       return ESP_ERR_TIMEOUT;
     }
     
-    log_debug(bus_uart_tag, 
+    log_debug(BUS_UART_TAG, 
               "Read Success", 
               "Successfully read %d bytes from UART bus '%s' (port %d)",
               read_bytes, 
@@ -395,14 +395,14 @@ static esp_err_t priv_pstar_bus_uart_read(const pstar_bus_manager_t* manager,
   size_t to_read = (available_bytes < len) ? available_bytes : len;
   int read_bytes = uart_read_bytes(port, data, to_read, 0);
   if (read_bytes < 0) {
-    log_error(bus_uart_tag, 
+    log_error(BUS_UART_TAG, 
               "Read Error", 
               "Failed to read data from UART port %d", 
               port);
     return ESP_FAIL;
   }
   
-  log_debug(bus_uart_tag, 
+  log_debug(BUS_UART_TAG, 
             "Read Success", 
             "Successfully read %d bytes from UART bus '%s' (port %d)",
             read_bytes, 

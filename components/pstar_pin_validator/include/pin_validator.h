@@ -10,6 +10,15 @@
 #define PIN_VALIDATOR_MAX_USAGE_DESC_LEN (64)           /**< Maximum length of pin usage description */
 #define PIN_VALIDATOR_MAX_PINS           (GPIO_NUM_MAX) /**< Maximum number of pins that can be registered */
 
+/* Pin usage information structure */
+typedef struct pin_usage_info {
+  bool in_use;
+  char component_name[PIN_VALIDATOR_MAX_USAGE_DESC_LEN];
+  char usage_desc[PIN_VALIDATOR_MAX_USAGE_DESC_LEN];
+  bool can_share;
+  int  usage_count;
+} pin_usage_info_t;
+
 /**
  * @brief Initialize the pin validator system
  * 

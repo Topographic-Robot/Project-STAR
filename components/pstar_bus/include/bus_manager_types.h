@@ -31,16 +31,16 @@ typedef union pstar_bus_config_union {
  * representing a different bus managed by the bus_manager.
  */
 typedef struct pstar_bus_config {  
-  const char*                name;        /**< Unique name for this bus instance */
-  pstar_bus_type_t           type;        /**< Type of bus */
-  pstar_common_mode_t        mode;        /**< Operation mode */
-  bool                       initialized; /**< Whether this bus has been initialized */
-  void*                      handle;      /**< Device handle (if applicable) */
-  void*                      user_ctx;    /**< User context pointer */
+  const char*              name;        /**< Unique name for this bus instance */
+  pstar_bus_type_t         type;        /**< Type of bus */
+  pstar_common_mode_t      mode;        /**< Operation mode */
+  bool                     initialized; /**< Whether this bus has been initialized */
+  void*                    handle;      /**< Device handle (if applicable) */
+  void*                    user_ctx;    /**< User context pointer */
   
-  pstar_bus_config_union_t   config;      /**< Bus-specific configuration */
+  pstar_bus_config_union_t config;      /**< Bus-specific configuration */
   
-  struct pstar_bus_config*   next;        /**< Pointer to the next bus in the list */
+  struct pstar_bus_config* next;        /**< Pointer to the next bus in the list */
 } pstar_bus_config_t;
 
 /**

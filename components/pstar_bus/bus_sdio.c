@@ -10,7 +10,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_sdio_tag = "Bus SDIO";
+#define BUS_SDIO_TAG ("Bus SDIO")
 
 /* Private Function Prototypes ************************************************/
 
@@ -38,7 +38,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
 void pstar_bus_sdio_init_default_ops(pstar_sdio_ops_t* ops)
 {
   if (ops == NULL) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Init Error", 
               "SDIO operations pointer is NULL");
     return;
@@ -48,7 +48,7 @@ void pstar_bus_sdio_init_default_ops(pstar_sdio_ops_t* ops)
   ops->read  = priv_pstar_bus_sdio_read;
   ops->ioctl = priv_pstar_bus_sdio_ioctl;
   
-  log_info(bus_sdio_tag, 
+  log_info(BUS_SDIO_TAG, 
            "Default Ops", 
            "Initialized default SDIO operations");
 }
@@ -62,7 +62,7 @@ esp_err_t pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -71,7 +71,7 @@ esp_err_t pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -80,7 +80,7 @@ esp_err_t pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SDIO bus */
   if (bus_config->type != k_pstar_bus_type_sdio) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Bus '%s' is not an SDIO bus (type: %s)", 
               name, 
@@ -92,7 +92,7 @@ esp_err_t pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   if (bus_config->config.sdio.ops.write) {
     return bus_config->config.sdio.ops.write(manager, name, data, len, offset, bytes_written);
   } else {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "No write operation defined for SDIO bus '%s'", 
               name);
@@ -109,7 +109,7 @@ esp_err_t pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -118,7 +118,7 @@ esp_err_t pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -127,7 +127,7 @@ esp_err_t pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SDIO bus */
   if (bus_config->type != k_pstar_bus_type_sdio) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Bus '%s' is not an SDIO bus (type: %s)", 
               name, 
@@ -139,7 +139,7 @@ esp_err_t pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   if (bus_config->config.sdio.ops.read) {
     return bus_config->config.sdio.ops.read(manager, name, data, len, offset, bytes_read);
   } else {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "No read operation defined for SDIO bus '%s'", 
               name);
@@ -154,7 +154,7 @@ esp_err_t pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -163,7 +163,7 @@ esp_err_t pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Bus '%s' not found", 
               name);
@@ -172,7 +172,7 @@ esp_err_t pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SDIO bus */
   if (bus_config->type != k_pstar_bus_type_sdio) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Bus '%s' is not an SDIO bus (type: %s)", 
               name, 
@@ -184,7 +184,7 @@ esp_err_t pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   if (bus_config->config.sdio.ops.ioctl) {
     return bus_config->config.sdio.ops.ioctl(manager, name, cmd, arg);
   } else {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "No ioctl operation defined for SDIO bus '%s'", 
               name);
@@ -216,7 +216,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -225,7 +225,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -234,7 +234,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SDIO bus */
   if (bus_config->type != k_pstar_bus_type_sdio) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Bus '%s' is not an SDIO bus (type: %s)", 
               name, 
@@ -244,7 +244,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -254,7 +254,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   /* Get SDIO card handle */
   sdmmc_card_t* card = bus_config->config.sdio.card;
   if (!card) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "No SDIO card found for bus '%s'", 
               name);
@@ -263,7 +263,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
 
   /* Validate sector size */
   if (card->csd.sector_size == 0) {
-    log_error(bus_sdio_tag,
+    log_error(BUS_SDIO_TAG,
               "Write Error",
               "Invalid sector size (0) for SDIO card on bus '%s'",
               name);
@@ -272,7 +272,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   
   /* Check if length is aligned to sector size */
   if (len % card->csd.sector_size != 0) {
-    log_error(bus_sdio_tag,
+    log_error(BUS_SDIO_TAG,
               "Write Error",
               "Data length (%zu) is not a multiple of sector size (%d) on bus '%s'",
               len,
@@ -284,7 +284,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   /* Calculate number of sectors to write */
   size_t sectors = len / card->csd.sector_size;
   if (sectors == 0) {
-    log_error(bus_sdio_tag,
+    log_error(BUS_SDIO_TAG,
               "Write Error",
               "Data length too small to write a complete sector on bus '%s'",
               name);
@@ -294,7 +294,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
   /* Write data to card */
   result = sdmmc_write_sectors(card, data, offset, sectors);
   if (result != ESP_OK) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Write Error", 
               "Failed to write to SDIO card on bus '%s': %s", 
               name, 
@@ -302,7 +302,7 @@ static esp_err_t priv_pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
     return result;
   }
   
-  log_debug(bus_sdio_tag, 
+  log_debug(BUS_SDIO_TAG, 
             "Write Success", 
             "Successfully wrote %zu bytes (%zu sectors) to SDIO bus '%s' at offset %zu",
             len, 
@@ -358,7 +358,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -367,7 +367,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -376,7 +376,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SDIO bus */
   if (bus_config->type != k_pstar_bus_type_sdio) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Bus '%s' is not an SDIO bus (type: %s)", 
               name, 
@@ -386,7 +386,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -396,7 +396,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   /* Get SDIO card handle */
   sdmmc_card_t* card = bus_config->config.sdio.card;
   if (!card) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "No SDIO card found for bus '%s'", 
               name);
@@ -405,7 +405,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   
   /* Validate sector size */
   if (card->csd.sector_size == 0) {
-    log_error(bus_sdio_tag,
+    log_error(BUS_SDIO_TAG,
               "Read Error",
               "Invalid sector size (0) for SDIO card on bus '%s'",
               name);
@@ -414,7 +414,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   
   /* Check if length is aligned to sector size */
   if (len % card->csd.sector_size != 0) {
-    log_error(bus_sdio_tag,
+    log_error(BUS_SDIO_TAG,
               "Read Error",
               "Data length (%zu) is not a multiple of sector size (%d) on bus '%s'",
               len,
@@ -426,7 +426,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   /* Calculate number of sectors to read */
   size_t sectors = len / card->csd.sector_size;
   if (sectors == 0) {
-    log_error(bus_sdio_tag,
+    log_error(BUS_SDIO_TAG,
               "Read Error",
               "Data length too small to read a complete sector on bus '%s'",
               name);
@@ -436,7 +436,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
   /* Read data from card */
   result = sdmmc_read_sectors(card, data, offset, sectors);
   if (result != ESP_OK) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "Read Error", 
               "Failed to read from SDIO card on bus '%s': %s", 
               name, 
@@ -444,7 +444,7 @@ static esp_err_t priv_pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
     return result;
   }
   
-  log_debug(bus_sdio_tag, 
+  log_debug(BUS_SDIO_TAG, 
             "Read Success", 
             "Successfully read %zu bytes (%zu sectors) from SDIO bus '%s' at offset %zu",
             len, 
@@ -495,7 +495,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -504,7 +504,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Bus '%s' not found", 
               name);
@@ -513,7 +513,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SDIO bus */
   if (bus_config->type != k_pstar_bus_type_sdio) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Bus '%s' is not an SDIO bus (type: %s)", 
               name, 
@@ -523,7 +523,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -542,7 +542,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
        cmd == k_pstar_sdio_ioctl_get_rca || 
        cmd == k_pstar_sdio_ioctl_get_bus_width || 
        cmd == k_pstar_sdio_ioctl_get_bus_freq)) {
-    log_error(bus_sdio_tag, 
+    log_error(BUS_SDIO_TAG, 
               "IOCTL Error", 
               "Card not available for requested operation");
     return ESP_ERR_INVALID_STATE;
@@ -552,7 +552,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
   switch (cmd) {
     case k_pstar_sdio_ioctl_get_card_info:
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_card_info");
         return ESP_ERR_INVALID_ARG;
@@ -563,7 +563,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_status:
       /* Get card status */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_status");
         return ESP_ERR_INVALID_ARG;
@@ -575,7 +575,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_csd:
       /* Get CSD register */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_csd");
         return ESP_ERR_INVALID_ARG;
@@ -587,7 +587,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_cid:
       /* Get CID register */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_cid");
         return ESP_ERR_INVALID_ARG;
@@ -599,14 +599,14 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_scr:
       /* Get SCR register */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_scr");
         return ESP_ERR_INVALID_ARG;
       }
       /* Card pointer is already validated above */
       if (card->scr.sd_spec == 0) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "SCR register not available");
         return ESP_ERR_NOT_SUPPORTED;
@@ -617,7 +617,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_ocr:
       /* Get OCR register */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_ocr");
         return ESP_ERR_INVALID_ARG;
@@ -629,7 +629,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_rca:
       /* Get RCA register */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_rca");
         return ESP_ERR_INVALID_ARG;
@@ -641,7 +641,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_bus_width:
       /* Get bus width */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_bus_width");
         return ESP_ERR_INVALID_ARG;
@@ -657,7 +657,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
       
     case k_pstar_sdio_ioctl_set_bus_width:
       /* Set bus width - not supported */
-      log_error(bus_sdio_tag, 
+      log_error(BUS_SDIO_TAG, 
                 "IOCTL Error", 
                 "Setting bus width not supported");
       return ESP_ERR_NOT_SUPPORTED;
@@ -665,7 +665,7 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
     case k_pstar_sdio_ioctl_get_bus_freq:
       /* Get bus frequency */
       if (!arg) {
-        log_error(bus_sdio_tag, 
+        log_error(BUS_SDIO_TAG, 
                   "IOCTL Error", 
                   "Argument is NULL for get_bus_freq");
         return ESP_ERR_INVALID_ARG;
@@ -676,34 +676,34 @@ static esp_err_t priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
       
     case k_pstar_sdio_ioctl_set_bus_freq:
       /* Set bus frequency - not supported */
-      log_error(bus_sdio_tag, 
+      log_error(BUS_SDIO_TAG, 
                 "IOCTL Error", 
                 "Setting bus frequency not supported");
       return ESP_ERR_NOT_SUPPORTED;
       
     case k_pstar_sdio_ioctl_enable_card_detect:
       /* Enable/disable card detect is not supported in the current implementation */
-      log_error(bus_sdio_tag, 
+      log_error(BUS_SDIO_TAG, 
                 "IOCTL Error", 
                 "Card detection control not supported");
       return ESP_ERR_NOT_SUPPORTED;
       
     case k_pstar_sdio_ioctl_custom:
       /* Custom IOCTL - not supported */
-      log_error(bus_sdio_tag, 
+      log_error(BUS_SDIO_TAG, 
                 "IOCTL Error", 
                 "Custom IOCTL not supported");
       return ESP_ERR_NOT_SUPPORTED;
       
     default:
-      log_error(bus_sdio_tag, 
+      log_error(BUS_SDIO_TAG, 
                 "IOCTL Error", 
                 "Unknown IOCTL command: %d", 
                 cmd);
       return ESP_ERR_INVALID_ARG;
   }
   
-  log_debug(bus_sdio_tag, 
+  log_debug(BUS_SDIO_TAG, 
             "IOCTL Success", 
             "Successfully executed IOCTL command %d on SDIO bus '%s'",
             cmd, 

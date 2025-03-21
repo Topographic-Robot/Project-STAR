@@ -9,7 +9,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_spi_tag = "Bus SPI";
+#define BUS_SPI_TAG ("Bus SPI")
 
 /* Private Functions **********************************************************/
 
@@ -30,7 +30,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
 void pstar_bus_spi_init_default_ops(pstar_spi_ops_t* ops)
 {
   if (ops == NULL) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Init Error", 
               "SPI operations pointer is NULL");
     return;
@@ -39,7 +39,7 @@ void pstar_bus_spi_init_default_ops(pstar_spi_ops_t* ops)
   ops->write = priv_pstar_bus_spi_write;
   ops->read  = priv_pstar_bus_spi_read;
   
-  log_info(bus_spi_tag, 
+  log_info(BUS_SPI_TAG, 
            "Default Ops", 
            "Initialized default SPI operations");
 }
@@ -52,7 +52,7 @@ esp_err_t pstar_bus_spi_write(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -61,7 +61,7 @@ esp_err_t pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -70,7 +70,7 @@ esp_err_t pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SPI bus */
   if (bus_config->type != k_pstar_bus_type_spi) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Bus '%s' is not an SPI bus (type: %s)", 
               name, 
@@ -86,7 +86,7 @@ esp_err_t pstar_bus_spi_write(const pstar_bus_manager_t* manager,
                                             len, 
                                             bytes_written);
   } else {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "No write operation defined for SPI bus '%s'", 
               name);
@@ -102,7 +102,7 @@ esp_err_t pstar_bus_spi_read(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -111,7 +111,7 @@ esp_err_t pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -120,7 +120,7 @@ esp_err_t pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SPI bus */
   if (bus_config->type != k_pstar_bus_type_spi) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Bus '%s' is not an SPI bus (type: %s)", 
               name, 
@@ -132,7 +132,7 @@ esp_err_t pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   if (bus_config->config.spi.ops.read) {
     return bus_config->config.spi.ops.read(manager, name, data, len, bytes_read);
   } else {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "No read operation defined for SPI bus '%s'", 
               name);
@@ -164,7 +164,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -173,7 +173,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Bus '%s' not found", 
               name);
@@ -182,7 +182,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SPI bus */
   if (bus_config->type != k_pstar_bus_type_spi) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Bus '%s' is not an SPI bus (type: %s)", 
               name, 
@@ -192,7 +192,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -221,7 +221,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
                                 &device_handle);
     
     if (result != ESP_OK) {
-      log_error(bus_spi_tag, 
+      log_error(BUS_SPI_TAG, 
                 "Device Error", 
                 "Failed to add SPI device to bus '%s': %s", 
                 name, 
@@ -235,7 +235,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
     /* Store the handle for future use */
     bus_config->handle = device_handle;
     
-    log_debug(bus_spi_tag, 
+    log_debug(BUS_SPI_TAG, 
               "Device Added", 
               "Added SPI device to bus '%s'", 
               name);
@@ -245,7 +245,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
   }
   
   if (result != ESP_OK) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Write Error", 
               "Failed to execute SPI transaction on bus '%s' (host %d): %s", 
               name, 
@@ -256,12 +256,12 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
     if (device_added) {
       esp_err_t remove_err = spi_bus_remove_device(device_handle);
       if (remove_err != ESP_OK) {
-        log_error(bus_spi_tag,
+        log_error(BUS_SPI_TAG,
                   "Device Error",
                   "Failed to remove SPI device after failed transaction: %s",
                   esp_err_to_name(remove_err));
       } else {
-        log_debug(bus_spi_tag,
+        log_debug(BUS_SPI_TAG,
                   "Device Removed",
                   "Successfully removed SPI device after failed transaction");
       }
@@ -269,12 +269,12 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
       /* Also free the bus if we were responsible for adding the device */
       esp_err_t free_err = spi_bus_free(host);
       if (free_err != ESP_OK) {
-        log_error(bus_spi_tag,
+        log_error(BUS_SPI_TAG,
                  "Bus Error",
                  "Failed to free SPI bus after failed transaction: %s",
                  esp_err_to_name(free_err));
       } else {
-        log_debug(bus_spi_tag,
+        log_debug(BUS_SPI_TAG,
                  "Bus Freed",
                  "Successfully freed SPI bus after failed transaction");
       }
@@ -285,7 +285,7 @@ static esp_err_t priv_pstar_bus_spi_write(const pstar_bus_manager_t* manager,
     
     return result;
   } else {
-    log_debug(bus_spi_tag, 
+    log_debug(BUS_SPI_TAG, 
               "Write Success", 
               "Successfully wrote %zu bytes to SPI bus '%s' (host %d)",
               len, 
@@ -341,7 +341,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || !data || len == 0) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -350,7 +350,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Bus '%s' not found", 
               name);
@@ -359,7 +359,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   
   /* Check if this is an SPI bus */
   if (bus_config->type != k_pstar_bus_type_spi) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Bus '%s' is not an SPI bus (type: %s)", 
               name, 
@@ -369,7 +369,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -398,7 +398,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
                                 &device_handle);
     
     if (result != ESP_OK) {
-      log_error(bus_spi_tag, 
+      log_error(BUS_SPI_TAG, 
                 "Device Error", 
                 "Failed to add SPI device to bus '%s': %s", 
                 name, 
@@ -412,7 +412,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
     /* Store the handle for future use */
     bus_config->handle = device_handle;
     
-    log_debug(bus_spi_tag, 
+    log_debug(BUS_SPI_TAG, 
               "Device Added", 
               "Added SPI device to bus '%s'", 
               name);
@@ -422,7 +422,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
   }
   
   if (result != ESP_OK) {
-    log_error(bus_spi_tag, 
+    log_error(BUS_SPI_TAG, 
               "Read Error", 
               "Failed to execute SPI transaction on bus '%s' (host %d): %s", 
               name, 
@@ -433,12 +433,12 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
     if (device_added) {
       esp_err_t remove_err = spi_bus_remove_device(device_handle);
       if (remove_err != ESP_OK) {
-        log_error(bus_spi_tag,
+        log_error(BUS_SPI_TAG,
                   "Device Error",
                   "Failed to remove SPI device after failed transaction: %s",
                   esp_err_to_name(remove_err));
       } else {
-        log_debug(bus_spi_tag,
+        log_debug(BUS_SPI_TAG,
                   "Device Removed",
                   "Successfully removed SPI device after failed transaction");
       }
@@ -446,12 +446,12 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
       /* Also free the bus if we were responsible for adding the device */
       esp_err_t free_err = spi_bus_free(host);
       if (free_err != ESP_OK) {
-        log_error(bus_spi_tag,
+        log_error(BUS_SPI_TAG,
                  "Bus Error",
                  "Failed to free SPI bus after failed transaction: %s",
                  esp_err_to_name(free_err));
       } else {
-        log_debug(bus_spi_tag,
+        log_debug(BUS_SPI_TAG,
                  "Bus Freed",
                  "Successfully freed SPI bus after failed transaction");
       }
@@ -462,7 +462,7 @@ static esp_err_t priv_pstar_bus_spi_read(const pstar_bus_manager_t* manager,
     
     return result;
   } else {
-    log_debug(bus_spi_tag, 
+    log_debug(BUS_SPI_TAG, 
               "Read Success", 
               "Successfully read %zu bytes from SPI bus '%s' (host %d)",
               len, 

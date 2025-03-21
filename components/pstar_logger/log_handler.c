@@ -13,7 +13,7 @@
 
 /* Constants ******************************************************************/
 
-const char* const log_tag = "Log Handler";
+#define LOG_TAG ("Log Handler")
 
 /* Global Variables ***********************************************************/
 
@@ -21,9 +21,9 @@ _Atomic uint64_t g_log_sequence_number = 0; /* Initialize sequence counter */
 
 /* Globals (Static) ***********************************************************/
 
-static bool               s_log_to_sd_enabled = false;
-static file_write_manager_t* s_file_manager   = NULL;
-static sd_card_hal_t*     s_sd_card           = NULL;
+static bool                  s_log_to_sd_enabled = false;
+static file_write_manager_t* s_file_manager      = NULL;
+static sd_card_hal_t*        s_sd_card           = NULL;
 
 /* Private Functions ***********************************************************/
 
@@ -188,14 +188,14 @@ void log_write(esp_log_level_t   level,
 
 esp_err_t log_init(bool log_to_sd, file_write_manager_t* file_manager, sd_card_hal_t* sd_card)
 {
-  log_info(log_tag, "Init Start", "Initializing log handler");
+  log_info(LOG_TAG, "Init Start", "Initializing log handler");
   
   s_log_to_sd_enabled = log_to_sd;
   
   if (log_to_sd) {
     /* Check that both file_manager and sd_card are provided */
     if (file_manager == NULL || sd_card == NULL) {
-      log_error(log_tag, 
+      log_error(LOG_TAG, 
                 "Init Error", 
                 "file_manager and sd_card must be provided when log_to_sd is true");
       s_log_to_sd_enabled = false;
@@ -209,7 +209,7 @@ esp_err_t log_init(bool log_to_sd, file_write_manager_t* file_manager, sd_card_h
     /* Initialize log storage */
     esp_err_t ret = log_storage_init(file_manager, sd_card);
     if (ret != ESP_OK) {
-      log_error(log_tag, 
+      log_error(LOG_TAG, 
                 "Storage Error", 
                 "Failed to initialize log storage: %s", 
                 esp_err_to_name(ret));
@@ -219,10 +219,10 @@ esp_err_t log_init(bool log_to_sd, file_write_manager_t* file_manager, sd_card_h
       return ret;
     }
     
-    log_info(log_tag, "Storage Ready", "Log storage initialized successfully");
+    log_info(LOG_TAG, "Storage Ready", "Log storage initialized successfully");
   }
   
-  log_info(log_tag, "Init Complete", "Log handler initialized successfully");
+  log_info(LOG_TAG, "Init Complete", "Log handler initialized successfully");
   return ESP_OK;
 }
 
@@ -230,14 +230,14 @@ void log_set_sd_logging(bool enabled)
 {
   /* Only allow enabling if the file manager and SD card were provided during init */
   if (enabled && (s_file_manager == NULL || s_sd_card == NULL)) {
-    log_error(log_tag, 
+    log_error(LOG_TAG, 
               "SD Config Error", 
               "Cannot enable SD card logging: missing file_manager or sd_card");
     return;
   }
   
   s_log_to_sd_enabled = enabled;
-  log_info(log_tag, 
+  log_info(LOG_TAG, 
            "SD Config", 
            "SD card logging %s", 
            enabled ? "enabled" : "disabled");
@@ -246,13 +246,13 @@ void log_set_sd_logging(bool enabled)
 esp_err_t log_flush(void)
 {
   if (!s_log_to_sd_enabled) {
-    log_info(log_tag, "Flush Skip", "SD card logging is disabled, skipping flush");
+    log_info(LOG_TAG, "Flush Skip", "SD card logging is disabled, skipping flush");
     return ESP_OK;
   }
   
   esp_err_t ret = log_storage_flush();
   if (ret != ESP_OK) {
-    log_error(log_tag, 
+    log_error(LOG_TAG, 
               "Flush Error", 
               "Failed to flush log storage: %s", 
               esp_err_to_name(ret));
@@ -263,7 +263,7 @@ esp_err_t log_flush(void)
 
 esp_err_t log_cleanup(void)
 {
-  log_info(log_tag, "Cleanup Start", "Beginning log handler cleanup");
+  log_info(LOG_TAG, "Cleanup Start", "Beginning log handler cleanup");
 
   esp_err_t ret = ESP_OK;
 
@@ -271,7 +271,7 @@ esp_err_t log_cleanup(void)
   if (s_log_to_sd_enabled) {
     esp_err_t temp_ret = log_flush();
     if (temp_ret != ESP_OK) {
-      log_warn(log_tag, 
+      log_warn(LOG_TAG, 
                "Flush Warning", 
                "Failed to flush logs during cleanup: %s", 
                esp_err_to_name(temp_ret));
@@ -281,7 +281,7 @@ esp_err_t log_cleanup(void)
     /* Clean up log storage */
     temp_ret = log_storage_cleanup();
     if (temp_ret != ESP_OK) {
-      log_warn(log_tag, 
+      log_warn(LOG_TAG, 
                "Storage Warning", 
                "Failed to clean up log storage: %s", 
                esp_err_to_name(temp_ret));
@@ -299,7 +299,7 @@ esp_err_t log_cleanup(void)
   s_file_manager = NULL;
   s_sd_card = NULL;
 
-  log_info(log_tag, 
+  log_info(LOG_TAG, 
            "Cleanup Complete", 
            "Log handler cleanup %s", 
            (ret == ESP_OK) ? "successful" : "completed with warnings");

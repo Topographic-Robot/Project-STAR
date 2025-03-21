@@ -7,7 +7,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_config_tag = "Bus Config";
+#define BUS_CONFIG_TAG ("Bus Config")
 
 /* Private Function Prototypes ************************************************/
 
@@ -42,7 +42,7 @@ pstar_bus_config_t* pstar_bus_config_create_i2c(const char*         name,
   config->config.i2c.config.scl_io_num       = -1;     /* Set to -1, to be configured by user */
   config->config.i2c.config.master.clk_speed = 100000; /* Default to 100kHz */
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "I2C Created", 
            "Created I2C bus configuration for '%s', port %d, address 0x%02X", 
            name, 
@@ -81,7 +81,7 @@ pstar_bus_config_t* pstar_bus_config_create_spi(const char*         name,
   config->config.spi.dev_config.spics_io_num   = -1;      /* Set to -1, to be configured by user */
   config->config.spi.dev_config.queue_size     = 1;       /* Default queue size */
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "SPI Created", 
            "Created SPI bus configuration for '%s', host %d", 
            name, 
@@ -117,7 +117,7 @@ pstar_bus_config_t* pstar_bus_config_create_uart(const char*         name,
   config->config.uart.config.rx_flow_ctrl_thresh = 0;                        /* Not used without flow control */
   config->config.uart.config.source_clk          = UART_SCLK_APB;
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "UART Created", 
            "Created UART bus configuration for '%s', port %d, RX buffer %zu, TX buffer %zu", 
            name, 
@@ -145,7 +145,7 @@ pstar_bus_config_t* pstar_bus_config_create_gpio(const char*         name,
   config->config.gpio.config.pull_down_en = GPIO_PULLDOWN_DISABLE;
   config->config.gpio.config.intr_type    = GPIO_INTR_DISABLE;      /* Interrupts disabled by default */
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "GPIO Created", 
            "Created GPIO bus configuration for '%s'", 
            name);
@@ -182,7 +182,7 @@ pstar_bus_config_t* pstar_bus_config_create_sdio(const char*         name,
   /* Initialize card pointer to NULL */
   config->config.sdio.card = NULL;
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "SDIO Created", 
            "Created SDIO bus configuration for '%s', slot %d", 
            name, 
@@ -193,7 +193,7 @@ pstar_bus_config_t* pstar_bus_config_create_sdio(const char*         name,
 esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
 {
   if (config == NULL) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Destroy Error", 
               "Bus configuration pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -203,7 +203,7 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
   if (config->initialized) {
     esp_err_t result = pstar_bus_config_deinit(config);
     if (result != ESP_OK) {
-      log_error(bus_config_tag, 
+      log_error(BUS_CONFIG_TAG, 
                "Deinit Error", 
                "Failed to deinitialize bus '%s' before destroying: %s", 
                config->name, 
@@ -211,7 +211,7 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
       
       /* Despite the error, we'll proceed with cleanup to avoid resource leaks */
       /* This is a conscious decision to continue with cleanup, even if deinit failed */
-      log_warn(bus_config_tag,
+      log_warn(BUS_CONFIG_TAG,
                "Destroy Warning",
                "Proceeding with cleanup of bus '%s' despite deinit failure",
                config->name);
@@ -219,7 +219,7 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
   }
 
   /* Log the destruction */
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "Destroying Bus", 
            "Destroying bus configuration for '%s'", 
            config->name);
@@ -233,7 +233,7 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
 esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 {
   if (config == NULL) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Init Error", 
               "Bus configuration pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -241,7 +241,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
   /* Check if already initialized */
   if (config->initialized) {
-    log_warn(bus_config_tag, 
+    log_warn(BUS_CONFIG_TAG, 
              "Already Init", 
              "Bus '%s' is already initialized", 
              config->name);
@@ -253,7 +253,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
   /* Initialize the bus based on its type */
   switch (config->type) {
     case k_pstar_bus_type_i2c:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "I2C Init", 
                "Initializing I2C bus '%s', port %d", 
                config->name, 
@@ -269,7 +269,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_spi:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "SPI Init", 
                "Initializing SPI bus '%s', host %d", 
                config->name, 
@@ -280,7 +280,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_uart:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "UART Init", 
                "Initializing UART bus '%s', port %d", 
                config->name, 
@@ -297,7 +297,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_gpio:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "GPIO Init", 
                "Initializing GPIO bus '%s'", 
                config->name);
@@ -308,7 +308,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_sdio:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "SDIO Init", 
                "Initializing SDIO bus '%s', slot %d", 
                config->name, 
@@ -320,7 +320,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     default:
-      log_error(bus_config_tag, 
+      log_error(BUS_CONFIG_TAG, 
                 "Unknown Type", 
                 "Unknown bus type %d for bus '%s'", 
                 config->type, 
@@ -329,7 +329,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
   }
 
   if (result != ESP_OK) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Init Failed", 
               "Failed to initialize bus '%s': %s", 
               config->name, 
@@ -340,7 +340,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
   /* Mark as initialized */
   config->initialized = true;
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "Init Success", 
            "Successfully initialized bus '%s' (%s)", 
            config->name, 
@@ -352,7 +352,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
 {
   if (config == NULL) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Deinit Error", 
               "Bus configuration pointer is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -360,7 +360,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
 
   /* If not initialized, nothing to do */
   if (!config->initialized) {
-    log_warn(bus_config_tag, 
+    log_warn(BUS_CONFIG_TAG, 
              "Not Init", 
              "Bus '%s' is not initialized, nothing to deinitialize", 
              config->name);
@@ -372,7 +372,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
   /* Deinitialize the bus based on its type */
   switch (config->type) {
     case k_pstar_bus_type_i2c:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "I2C Deinit", 
                "Deinitializing I2C bus '%s', port %d", 
                config->name, 
@@ -381,7 +381,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_spi:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "SPI Deinit", 
                "Deinitializing SPI bus '%s', host %d", 
                config->name, 
@@ -391,13 +391,13 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       if (config->handle != NULL) {
         esp_err_t dev_result = spi_bus_remove_device((spi_device_handle_t)config->handle);
         if (dev_result != ESP_OK) {
-          log_warn(bus_config_tag,
+          log_warn(BUS_CONFIG_TAG,
                    "SPI Device Warning",
                    "Failed to remove SPI device during deinit: %s",
                    esp_err_to_name(dev_result));
           /* Continue with bus deinitialization despite the warning */
         } else {
-          log_debug(bus_config_tag,
+          log_debug(BUS_CONFIG_TAG,
                     "SPI Device Removed",
                     "Successfully removed SPI device during deinit");
           config->handle = NULL;
@@ -409,7 +409,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_uart:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "UART Deinit", 
                "Deinitializing UART bus '%s', port %d", 
                config->name, 
@@ -418,7 +418,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_gpio:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "GPIO Deinit", 
                "Deinitializing GPIO bus '%s'", 
                config->name);
@@ -427,7 +427,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_sdio:
-      log_info(bus_config_tag, 
+      log_info(BUS_CONFIG_TAG, 
                "SDIO Deinit", 
                "Deinitializing SDIO bus '%s'", 
                config->name);
@@ -437,7 +437,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     default:
-      log_error(bus_config_tag, 
+      log_error(BUS_CONFIG_TAG, 
                 "Unknown Type", 
                 "Unknown bus type %d for bus '%s'", 
                 config->type, 
@@ -446,7 +446,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
   }
 
   if (result != ESP_OK) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Deinit Failed", 
               "Failed to deinitialize bus '%s': %s", 
               config->name, 
@@ -457,7 +457,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
   /* Mark as not initialized */
   config->initialized = false;
 
-  log_info(bus_config_tag, 
+  log_info(BUS_CONFIG_TAG, 
            "Deinit Success", 
            "Successfully deinitialized bus '%s'", 
            config->name);
@@ -505,7 +505,7 @@ static pstar_bus_config_t* priv_pstar_bus_config_create_common(const char*      
                                                                pstar_common_mode_t mode)
 {
   if (name == NULL) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Create Error", 
               "Bus name cannot be NULL");
     return NULL;
@@ -514,7 +514,7 @@ static pstar_bus_config_t* priv_pstar_bus_config_create_common(const char*      
   /* Allocate memory for the bus configuration */
   pstar_bus_config_t* config = (pstar_bus_config_t*)malloc(sizeof(pstar_bus_config_t));
   if (config == NULL) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Memory Error", 
               "Failed to allocate memory for bus configuration");
     return NULL;
@@ -529,7 +529,7 @@ static pstar_bus_config_t* priv_pstar_bus_config_create_common(const char*      
    * but we're responsible for freeing it when no longer needed. */
   char* name_copy = strdup(name);
   if (name_copy == NULL) {
-    log_error(bus_config_tag, 
+    log_error(BUS_CONFIG_TAG, 
               "Memory Error", 
               "Failed to allocate memory for bus name");
     free(config);

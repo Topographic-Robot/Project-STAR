@@ -19,7 +19,8 @@
 
 /* Constants ******************************************************************/
 
-static const char* const log_storage_tag = "Log Storage";
+#define LOG_STORAGE_TAG ("Log Storage")
+
 /* Using Kconfig macros with the proper prefix */
 #define PSTAR_LOGGING_MAX_FILE_SIZE          (CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_SIZE_KB * 1024)
 #define PSTAR_LOGGING_COMPRESSION_BUFFER     CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE
@@ -30,15 +31,15 @@ static const char* const log_storage_tag = "Log Storage";
 
 /* Globals (Static) ***********************************************************/
 
-static log_entry_t       s_log_buffer[PSTAR_LOGGING_BUFFER_SIZE]            = {0};   /* Buffer to store logs when SD card is not available */
-static uint32_t          s_log_buffer_index                       = 0;     /* Current index in the buffer */
-static bool              s_log_storage_initialized                = false; /* Flag to track initialization status */
-static char              s_current_log_file[MAX_FILE_PATH_LENGTH] = {0};   /* Current log file path */
-static SemaphoreHandle_t s_log_mutex                              = NULL;  /* Mutex for thread-safe access */
-static bool              s_compression_enabled                    = true;  /* Compression state */
-static bool              s_sd_card_available                      = false; /* Flag indicating if SD card is available */
-static file_write_manager_t* s_file_manager                       = NULL;  /* File write manager instance */
-static sd_card_hal_t*    s_sd_card                                = NULL;  /* SD card HAL instance */
+static log_entry_t       s_log_buffer[CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE]                = {0};   /* Buffer to store logs when SD card is not available */
+static uint32_t          s_log_buffer_index                                                    = 0;     /* Current index in the buffer */
+static bool              s_log_storage_initialized                                             = false; /* Flag to track initialization status */
+static char              s_current_log_file[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_PATH_LENGTH] = {0};   /* Current log file path */
+static SemaphoreHandle_t s_log_mutex                                                           = NULL;  /* Mutex for thread-safe access */
+static bool              s_compression_enabled                                                 = true;  /* Compression state */
+static bool              s_sd_card_available                                                   = false; /* Flag indicating if SD card is available */
+static file_write_manager_t* s_file_manager                                                    = NULL;  /* File write manager instance */
+static sd_card_hal_t*    s_sd_card                                                             = NULL;  /* SD card HAL instance */
 
 /* Private Helper Functions ***************************************************/
 
@@ -243,7 +244,7 @@ static esp_err_t priv_rotate_log_file(void)
   
   /* Generate new log file path */
   priv_generate_log_file_path(s_current_log_file, sizeof(s_current_log_file));
-  log_info(log_storage_tag, 
+  log_info(LOG_STORAGE_TAG, 
            "Log Rotation", 
            "Rotating to new log file: %s", 
            s_current_log_file);
@@ -280,7 +281,7 @@ static esp_err_t priv_compress_data(const char* const input,
                          PSTAR_LOGGING_ZLIB_MEMORY_LEVEL,
                          Z_DEFAULT_STRATEGY);
   if (ret != Z_OK) {
-    log_error(log_storage_tag, 
+    log_error(LOG_STORAGE_TAG, 
               "Zlib Init Failed", 
               "Failed to initialize zlib: %d", 
               ret);
@@ -300,7 +301,7 @@ static esp_err_t priv_compress_data(const char* const input,
   deflateEnd(&stream);
   
   if (ret != Z_STREAM_END) {
-    log_error(log_storage_tag, 
+    log_error(LOG_STORAGE_TAG, 
               "Compression Failed", 
               "Failed to compress data: %d", 
               ret);
@@ -332,7 +333,7 @@ static esp_err_t priv_write_log_data(const char* const file_path,
     /* Compress data before writing */
     char *compress_buffer = malloc(PSTAR_LOGGING_COMPRESSION_BUFFER);
     if (compress_buffer == NULL) {
-      log_error(log_storage_tag, 
+      log_error(LOG_STORAGE_TAG, 
                 "Memory Error", 
                 "Failed to allocate compression buffer");
       return ESP_FAIL;
@@ -372,7 +373,7 @@ static esp_err_t priv_flush_log_buffer(void)
   }
   
   if (!s_sd_card_available) {
-    log_warn(log_storage_tag, 
+    log_warn(LOG_STORAGE_TAG, 
              "Flush Skip", 
              "SD card not available, keeping %lu logs in buffer", 
              s_log_buffer_index);
@@ -408,7 +409,7 @@ static esp_err_t priv_flush_log_buffer(void)
       
       /* Check for potential overflow */
       if (total_size > SIZE_MAX - entry_len) {
-        log_error(log_storage_tag, 
+        log_error(LOG_STORAGE_TAG, 
                   "Buffer Error", 
                   "Log buffer size would overflow size_t");
         return ESP_ERR_INVALID_SIZE;
@@ -419,7 +420,7 @@ static esp_err_t priv_flush_log_buffer(void)
     
     /* Add 1 for null terminator */
     if (total_size > SIZE_MAX - 1) {
-      log_error(log_storage_tag, 
+      log_error(LOG_STORAGE_TAG, 
                 "Buffer Error", 
                 "Log buffer size would overflow with null terminator");
       return ESP_ERR_INVALID_SIZE;
@@ -429,7 +430,7 @@ static esp_err_t priv_flush_log_buffer(void)
     /* Allocate buffer for all logs */
     all_logs = malloc(total_size);
     if (!all_logs) {
-      log_error(log_storage_tag, 
+      log_error(LOG_STORAGE_TAG, 
                 "Memory Error", 
                 "Failed to allocate buffer for log compression (size: %zu)", 
                 total_size);
@@ -454,7 +455,7 @@ static esp_err_t priv_flush_log_buffer(void)
       /* Format the timestamp and log entry - ensure there's enough space */
       size_t remaining_space = total_size - pos;
       if (remaining_space <= 1) {
-        log_error(log_storage_tag,
+        log_error(LOG_STORAGE_TAG,
                   "Buffer Error",
                   "Insufficient space remaining in buffer");
         free(all_logs);
@@ -469,7 +470,7 @@ static esp_err_t priv_flush_log_buffer(void)
                                           s_log_buffer[i].buffer);
       
       if (written < 0 || (size_t)written >= remaining_space) {
-        log_error(log_storage_tag,
+        log_error(LOG_STORAGE_TAG,
                   "Format Error",
                   "Failed to format log entry or insufficient buffer space");
         free(all_logs);
@@ -482,7 +483,7 @@ static esp_err_t priv_flush_log_buffer(void)
       if (pos < total_size - 1) {
         all_logs[pos++] = '\n';
       } else {
-        log_warn(log_storage_tag,
+        log_warn(LOG_STORAGE_TAG,
                  "Format Warning",
                  "No space for newline in buffer");
         break;
@@ -494,7 +495,7 @@ static esp_err_t priv_flush_log_buffer(void)
       all_logs[pos] = '\0';
     } else {
       all_logs[total_size - 1] = '\0';
-      log_warn(log_storage_tag,
+      log_warn(LOG_STORAGE_TAG,
                "Format Warning",
                "Buffer filled completely, possible truncation");
     }
@@ -504,7 +505,7 @@ static esp_err_t priv_flush_log_buffer(void)
     free(all_logs);
     
     if (ret != ESP_OK) {
-      log_error(log_storage_tag, 
+      log_error(LOG_STORAGE_TAG, 
                 "Write Failed", 
                 "Failed to write compressed logs: %s", 
                 esp_err_to_name(ret));
@@ -532,7 +533,7 @@ static esp_err_t priv_flush_log_buffer(void)
                                            s_log_buffer[i].buffer);
       
       if (written < 0 || (size_t)written >= sizeof(formatted_log)) {
-        log_error(log_storage_tag,
+        log_error(LOG_STORAGE_TAG,
                   "Format Error",
                   "Failed to format log entry or buffer too small");
         return ESP_FAIL;
@@ -541,7 +542,7 @@ static esp_err_t priv_flush_log_buffer(void)
       /* Enqueue the log for writing */
       esp_err_t ret = file_write_enqueue(s_file_manager, s_current_log_file, formatted_log);
       if (ret != ESP_OK) {
-        log_error(log_storage_tag, 
+        log_error(LOG_STORAGE_TAG, 
                   "Write Failed", 
                   "Failed to enqueue log for writing: %s", 
                   esp_err_to_name(ret));
@@ -553,7 +554,7 @@ static esp_err_t priv_flush_log_buffer(void)
   /* Reset buffer index */
   s_log_buffer_index = 0;
   
-  log_info(log_storage_tag, 
+  log_info(LOG_STORAGE_TAG, 
            "Buffer Flushed", 
            "Successfully flushed log buffer to SD card");
   return ESP_OK;
@@ -564,14 +565,16 @@ static esp_err_t priv_flush_log_buffer(void)
 esp_err_t log_storage_init(file_write_manager_t* manager, sd_card_hal_t* sd_card)
 {
   if (manager == NULL || sd_card == NULL) {
-    log_error(log_storage_tag, "Init Error", "Invalid arguments: manager or sd_card is NULL");
+    log_error(LOG_STORAGE_TAG, 
+              "Init Error", 
+              "Invalid arguments: manager or sd_card is NULL");
     return ESP_ERR_INVALID_ARG;
   }
 
-  log_info(log_storage_tag, "Init", "Initializing log storage");
+  log_info(LOG_STORAGE_TAG, "Init", "Initializing log storage");
   
   if (s_log_storage_initialized) {
-    log_warn(log_storage_tag, "Already Init", "Log storage already initialized");
+    log_warn(LOG_STORAGE_TAG, "Already Init", "Log storage already initialized");
     return ESP_OK;
   }
   
@@ -582,7 +585,7 @@ esp_err_t log_storage_init(file_write_manager_t* manager, sd_card_hal_t* sd_card
   /* Create mutex for thread-safe access */
   s_log_mutex = xSemaphoreCreateMutex();
   if (s_log_mutex == NULL) {
-    log_error(log_storage_tag, "Mutex Failed", "Failed to create mutex");
+    log_error(LOG_STORAGE_TAG, "Mutex Failed", "Failed to create mutex");
     return ESP_FAIL;
   }
   
@@ -599,7 +602,9 @@ esp_err_t log_storage_init(file_write_manager_t* manager, sd_card_hal_t* sd_card
   */
   
   s_log_storage_initialized = true;
-  log_info(log_storage_tag, "Init Success", "Log storage initialized successfully");
+  log_info(LOG_STORAGE_TAG, 
+           "Init Success", 
+           "Log storage initialized successfully");
   
   return ESP_OK;
 }
@@ -619,7 +624,7 @@ void log_storage_set_sd_available(bool available)
   }
   
   if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(log_storage_tag, 
+    log_error(LOG_STORAGE_TAG, 
               "Mutex Error", 
               "Failed to acquire mutex for SD card status update");
     return;
@@ -629,12 +634,12 @@ void log_storage_set_sd_available(bool available)
   
   if (available) {
     /* SD card became available, try to flush buffer */
-    log_info(log_storage_tag, 
+    log_info(LOG_STORAGE_TAG, 
              "SD Available", 
              "SD card became available, flushing buffered logs");
     priv_flush_log_buffer();
   } else {
-    log_warn(log_storage_tag, 
+    log_warn(LOG_STORAGE_TAG, 
              "SD Unavailable", 
              "SD card became unavailable, logs will be buffered");
   }
@@ -650,7 +655,7 @@ esp_err_t log_storage_write(esp_log_level_t  level,
   }
   
   if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(log_storage_tag, 
+    log_error(LOG_STORAGE_TAG, 
               "Mutex Error", 
               "Failed to acquire mutex for log write");
     return ESP_FAIL;
@@ -673,7 +678,7 @@ esp_err_t log_storage_write(esp_log_level_t  level,
     s_log_buffer_index++;
   } else {
     /* Buffer is full, need to flush */
-    log_warn(log_storage_tag, "Buffer Full", "Log buffer full, forcing flush");
+    log_warn(LOG_STORAGE_TAG, "Buffer Full", "Log buffer full, forcing flush");
     priv_flush_log_buffer();
     
     /* Store the current log */
@@ -699,12 +704,12 @@ esp_err_t log_storage_write(esp_log_level_t  level,
 esp_err_t log_storage_flush(void)
 {
   if (!s_log_storage_initialized) {
-    log_error(log_storage_tag, "Flush Error", "Log storage not initialized");
+    log_error(LOG_STORAGE_TAG, "Flush Error", "Log storage not initialized");
     return ESP_FAIL;
   }
   
   if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(log_storage_tag, 
+    log_error(LOG_STORAGE_TAG, 
               "Mutex Error", 
               "Failed to acquire mutex for log flush");
     return ESP_FAIL;
@@ -718,19 +723,21 @@ esp_err_t log_storage_flush(void)
   esp_err_t ret = priv_flush_log_buffer();
   
   xSemaphoreGive(s_log_mutex);
-  log_info(log_storage_tag, "Flush Complete", "Log flush completed successfully");
+  log_info(LOG_STORAGE_TAG, 
+           "Flush Complete", 
+           "Log flush completed successfully");
   return ret;
 }
 
 esp_err_t log_storage_set_compression(bool enabled)
 {
   if (!s_log_storage_initialized) {
-    log_error(log_storage_tag, "Config Error", "Log storage not initialized");
+    log_error(LOG_STORAGE_TAG, "Config Error", "Log storage not initialized");
     return ESP_FAIL;
   }
   
   if (xSemaphoreTake(s_log_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(log_storage_tag, 
+    log_error(LOG_STORAGE_TAG, 
               "Mutex Error", 
               "Failed to acquire mutex for compression config");
     return ESP_FAIL;
@@ -739,7 +746,7 @@ esp_err_t log_storage_set_compression(bool enabled)
   /* Only update if the setting has changed */
   if (s_compression_enabled != enabled) {
     s_compression_enabled = enabled;
-    log_info(log_storage_tag, 
+    log_info(LOG_STORAGE_TAG, 
              "Compression Config", 
              "Log compression %s", 
              enabled ? "enabled" : "disabled");
@@ -762,19 +769,21 @@ bool log_storage_is_compression_enabled(void)
 
 esp_err_t log_storage_cleanup(void)
 {
-  log_info(log_storage_tag, "Cleanup Start", "Beginning log storage cleanup");
+  log_info(LOG_STORAGE_TAG, "Cleanup Start", "Beginning log storage cleanup");
   esp_err_t ret = ESP_OK;
 
   /* Take mutex for thread safety */
   if (xSemaphoreTake(s_log_mutex, portMAX_DELAY) != pdTRUE) {
-    log_error(log_storage_tag, "Mutex Error", "Failed to take mutex during cleanup");
+    log_error(LOG_STORAGE_TAG, 
+              "Mutex Error", 
+              "Failed to take mutex during cleanup");
     return ESP_ERR_TIMEOUT;
   }
 
   /* Flush any remaining logs */
   esp_err_t temp_ret = log_storage_flush();
   if (temp_ret != ESP_OK) {
-    log_warn(log_storage_tag, 
+    log_warn(LOG_STORAGE_TAG, 
              "Flush Warning", 
              "Failed to flush logs during cleanup: %s", 
              esp_err_to_name(temp_ret));
@@ -804,7 +813,7 @@ esp_err_t log_storage_cleanup(void)
   /* Reset initialization flag */
   s_log_storage_initialized = false;
 
-  log_info(log_storage_tag, 
+  log_info(LOG_STORAGE_TAG, 
            "Cleanup Complete", 
            "Log storage cleanup %s", 
            (ret == ESP_OK) ? "successful" : "completed with warnings");

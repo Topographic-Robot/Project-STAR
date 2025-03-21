@@ -47,11 +47,11 @@ typedef struct pstar_i2c_ops {
  * @brief I2C bus configuration structure.
  */
 typedef struct pstar_i2c_bus_config {
-  i2c_port_t            port;     /**< I2C port number */
-  i2c_config_t          config;   /**< I2C configuration */
-  uint8_t               address;  /**< 7-bit I2C device address */
+  i2c_port_t            port;      /**< I2C port number */
+  i2c_config_t          config;    /**< I2C configuration */
+  uint8_t               address;   /**< 7-bit I2C device address */
   pstar_i2c_callbacks_t callbacks; /**< I2C callback functions */
-  pstar_i2c_ops_t       ops;      /**< I2C operation function pointers */
+  pstar_i2c_ops_t       ops;       /**< I2C operation function pointers */
 } pstar_i2c_bus_config_t;
 
 /**

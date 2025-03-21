@@ -17,8 +17,8 @@
 
 /* Constants ******************************************************************/
 
-static const char* const file_manager_tag   = "File Manager";
-static const uint32_t    max_pending_writes = CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES;
+#define FILE_MANAGER_TAG ("File Manager")
+static const uint32_t max_pending_writes = CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES;
 
 /* Default configuration values */
 static const file_writer_config_t s_default_config = {
@@ -75,7 +75,7 @@ static void priv_file_write_task(void* param);
 static esp_err_t priv_create_directories(const char* const file_path)
 {
   if (file_path == NULL) {
-    log_error(file_manager_tag, "Dir Create Error", "Invalid file path (NULL)");
+    log_error(FILE_MANAGER_TAG, "Dir Create Error", "Invalid file path (NULL)");
     return ESP_ERR_INVALID_ARG;
   }
   
@@ -119,17 +119,17 @@ static esp_err_t priv_create_directories(const char* const file_path)
     if (stat(path_copy, &st) != 0) {
       /* Directory doesn't exist, create it */
       if (mkdir(path_copy, 0755) != 0) {
-        log_error(file_manager_tag, 
+        log_error(FILE_MANAGER_TAG, 
                   "Dir Create Failed", 
                   "Failed to create directory: %s (errno: %d)", 
                   path_copy, 
                   errno);
         return ESP_FAIL;
       }
-      log_debug(file_manager_tag, "Dir Created", "Created directory: %s", path_copy);
+      log_debug(FILE_MANAGER_TAG, "Dir Created", "Created directory: %s", path_copy);
     } else if (!S_ISDIR(st.st_mode)) {
       /* Path exists but is not a directory */
-      log_error(file_manager_tag, 
+      log_error(FILE_MANAGER_TAG, 
                 "Dir Create Failed", 
                 "Path exists but is not a directory: %s", 
                 path_copy);
@@ -153,7 +153,7 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
                                     const char* const data)
 {
   if (manager == NULL || file_path == NULL || data == NULL) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Write Error", 
               "Invalid arguments: manager, file_path or data is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -161,7 +161,7 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
   
   /* Check if SD card is available */
   if (!sd_card_is_available(manager->sd_card)) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "SD Card Error", 
               "SD card not available, cannot write to file: %s", 
               file_path);
@@ -179,7 +179,7 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
   /* Create directories if they don't exist */
   esp_err_t ret = priv_create_directories(full_path);
   if (ret != ESP_OK) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Dir Create Error", 
               "Failed to create directories for file: %s", 
               full_path);
@@ -189,7 +189,7 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
   /* Open the file for writing (append mode) */
   FILE* file = fopen(full_path, "a");
   if (file == NULL) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "File Open Error", 
               "Failed to open file: %s (errno: %d)",
               full_path, 
@@ -224,7 +224,7 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
   /* Close file */
   fclose(file);
   
-  log_debug(file_manager_tag, 
+  log_debug(FILE_MANAGER_TAG, 
             "Write Success", 
             "Data written to file: %s", 
             file_path);
@@ -237,7 +237,7 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
                                            uint32_t          data_length)
 {
   if (manager == NULL || file_path == NULL || data == NULL || data_length == 0) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Binary Write Error", 
               "Invalid arguments: manager, file_path or data is NULL, or data_length is 0");
     return ESP_ERR_INVALID_ARG;
@@ -245,7 +245,7 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
   
   /* Check if SD card is available */
   if (!sd_card_is_available(manager->sd_card)) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "SD Card Error", 
               "SD card not available, cannot write binary data to file: %s", 
               file_path);
@@ -263,7 +263,7 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
   /* Create directories if they don't exist */
   esp_err_t ret = priv_create_directories(full_path);
   if (ret != ESP_OK) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Dir Create Error", 
               "Failed to create directories for binary file: %s", 
               full_path);
@@ -273,7 +273,7 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
   /* Open the file for writing (binary mode) */
   FILE* file = fopen(full_path, "wb");
   if (file == NULL) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Binary File Open Error", 
               "Failed to open file: %s (errno: %d)",
               full_path, 
@@ -284,7 +284,7 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
   /* Write the binary data to the file */
   size_t bytes_written = fwrite(data, 1, data_length, file);
   if (bytes_written != data_length) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Binary Write Error", 
               "Failed to write all data: %zu of %lu bytes written",
               bytes_written, 
@@ -298,7 +298,7 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
   /* Close the file */
   fclose(file);
   
-  log_debug(file_manager_tag, 
+  log_debug(FILE_MANAGER_TAG, 
             "Binary Write Success", 
             "Binary data written to file: %s (%lu bytes)",
             file_path, 
@@ -311,12 +311,12 @@ static void priv_file_write_task(void* param)
   file_write_manager_t* manager = (file_write_manager_t*)param;
   
   if (manager == NULL) {
-    log_error(file_manager_tag, "Task Error", "Null manager pointer, exiting task");
+    log_error(FILE_MANAGER_TAG, "Task Error", "Null manager pointer, exiting task");
     vTaskDelete(NULL);
     return;
   }
   
-  log_info(file_manager_tag, "Task Start", "File write task started");
+  log_info(FILE_MANAGER_TAG, "Task Start", "File write task started");
   
   while (1) {
     /* Wait for a request from the queue */
@@ -325,7 +325,7 @@ static void priv_file_write_task(void* param)
     if (xQueueReceive(manager->file_write_queue, &request, portMAX_DELAY) == pdTRUE) {
       /* Check if this is a termination request */
       if (strcmp(request.file_path, "TERMINATE") == 0) {
-        log_info(file_manager_tag, 
+        log_info(FILE_MANAGER_TAG, 
                  "Task Terminate", 
                  "Received termination request, exiting task");
         break; /* Exit the task loop */
@@ -360,7 +360,7 @@ static void priv_file_write_task(void* param)
   }
   
   /* Task cleanup before exit */
-  log_info(file_manager_tag, 
+  log_info(FILE_MANAGER_TAG, 
            "Task Exit", 
            "File write task exiting");
   
@@ -375,20 +375,20 @@ esp_err_t file_write_manager_init(file_write_manager_t* manager,
                                   const file_writer_config_t* config)
 {
   if (manager == NULL || sd_card == NULL) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Init Error", 
               "Invalid arguments: manager or sd_card is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
   if (manager->initialized) {
-    log_warn(file_manager_tag, 
+    log_warn(FILE_MANAGER_TAG, 
              "Init Skip", 
              "File write manager already initialized");
     return ESP_OK;
   }
   
-  log_info(file_manager_tag, "Init Start", "Initializing file write manager");
+  log_info(FILE_MANAGER_TAG, "Init Start", "Initializing file write manager");
   
   /* Initialize the manager structure */
   memset(manager, 0, sizeof(file_write_manager_t));
@@ -403,7 +403,7 @@ esp_err_t file_write_manager_init(file_write_manager_t* manager,
   
   /* Skip initialization if not enabled */
   if (!manager->config.enabled) {
-    log_info(file_manager_tag, 
+    log_info(FILE_MANAGER_TAG, 
              "Init Skip", 
              "File write manager disabled in configuration");
     return ESP_OK;
@@ -413,7 +413,7 @@ esp_err_t file_write_manager_init(file_write_manager_t* manager,
   manager->file_write_queue = xQueueCreate(max_pending_writes, 
                                            sizeof(file_write_request_t));
   if (manager->file_write_queue == NULL) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Queue Error", 
               "Failed to create file write queue");
     return ESP_FAIL;
@@ -428,14 +428,14 @@ esp_err_t file_write_manager_init(file_write_manager_t* manager,
                                         &manager->file_write_task);
   
   if (task_created != pdPASS) {
-    log_error(file_manager_tag, "Task Error", "Failed to create file write task");
+    log_error(FILE_MANAGER_TAG, "Task Error", "Failed to create file write task");
     vQueueDelete(manager->file_write_queue);
     manager->file_write_queue = NULL;
     return ESP_FAIL;
   }
   
   manager->initialized = true;
-  log_info(file_manager_tag, 
+  log_info(FILE_MANAGER_TAG, 
            "Init Complete", 
            "File write manager initialized successfully");
   return ESP_OK;
@@ -446,14 +446,14 @@ esp_err_t file_write_enqueue(file_write_manager_t* manager,
                              const char* const data)
 {
   if (manager == NULL || !manager->initialized) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Enqueue Error", 
               "File write manager not initialized or NULL");
     return ESP_FAIL;
   }
   
   if (!file_path || !data) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Enqueue Error", 
               "Invalid arguments: file_path or data is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -471,7 +471,7 @@ esp_err_t file_write_enqueue(file_write_manager_t* manager,
   size_t data_length = strlen(data) + 1; /* Include null terminator */
   request.data       = malloc(data_length);
   if (!request.data) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Memory Error", 
               "Failed to allocate memory for text data");
     return ESP_FAIL;
@@ -483,14 +483,14 @@ esp_err_t file_write_enqueue(file_write_manager_t* manager,
   
   /* Send the request to the queue */
   if (xQueueSend(manager->file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Queue Error", 
               "Failed to enqueue file write request: queue full");
     free(request.data);
     return ESP_FAIL;
   }
   
-  log_debug(file_manager_tag, 
+  log_debug(FILE_MANAGER_TAG, 
             "Enqueue Success", 
             "Enqueued write request for file: %s", 
             file_path);
@@ -503,14 +503,14 @@ esp_err_t file_write_binary_enqueue(file_write_manager_t* manager,
                                     uint32_t          data_length)
 {
   if (manager == NULL || !manager->initialized) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Binary Enqueue Error", 
               "File write manager not initialized or NULL");
     return ESP_FAIL;
   }
   
   if (!file_path || !data || data_length == 0) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Binary Enqueue Error", 
               "Invalid arguments: file_path or data is NULL, or data_length is 0");
     return ESP_ERR_INVALID_ARG;
@@ -527,7 +527,7 @@ esp_err_t file_write_binary_enqueue(file_write_manager_t* manager,
   /* Allocate memory for the binary data and copy it */
   request.data = malloc(data_length);
   if (!request.data) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Memory Error", 
               "Failed to allocate memory for binary data");
     return ESP_FAIL;
@@ -539,14 +539,14 @@ esp_err_t file_write_binary_enqueue(file_write_manager_t* manager,
   
   /* Send the request to the queue */
   if (xQueueSend(manager->file_write_queue, &request, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Queue Error", 
               "Failed to enqueue binary write request: queue full");
     free(request.data);
     return ESP_FAIL;
   }
   
-  log_debug(file_manager_tag, 
+  log_debug(FILE_MANAGER_TAG, 
             "Binary Enqueue Success", 
             "Enqueued binary write request for file: %s (%lu bytes)", 
             file_path, (unsigned long)data_length);
@@ -556,25 +556,25 @@ esp_err_t file_write_binary_enqueue(file_write_manager_t* manager,
 esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
 {
   if (manager == NULL) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Cleanup Error", 
               "Manager is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
   if (!manager->initialized) {
-    log_warn(file_manager_tag, 
+    log_warn(FILE_MANAGER_TAG, 
              "Cleanup Skip", 
              "File write manager not initialized, nothing to clean up");
     return ESP_OK;
   }
 
-  log_info(file_manager_tag, 
+  log_info(FILE_MANAGER_TAG, 
            "Cleanup Start", 
            "Beginning file write manager cleanup");
 
   /* Process any remaining items in the queue */
-  log_info(file_manager_tag, 
+  log_info(FILE_MANAGER_TAG, 
            "Queue Drain", 
            "Processing remaining items in the write queue");
 
@@ -588,7 +588,7 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
 
   /* Send the termination request to the queue */
   if (xQueueSend(manager->file_write_queue, &termination_request, pdMS_TO_TICKS(100)) != pdTRUE) {
-    log_error(file_manager_tag, 
+    log_error(FILE_MANAGER_TAG, 
               "Termination Error", 
               "Failed to enqueue termination request: queue full");
     /* Continue with cleanup anyway */
@@ -599,7 +599,7 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
 
   /* Delete the task */
   if (manager->file_write_task != NULL) {
-    log_info(file_manager_tag, 
+    log_info(FILE_MANAGER_TAG, 
              "Task Delete", 
              "Deleting file write task");
     vTaskDelete(manager->file_write_task);
@@ -608,7 +608,7 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
 
   /* Delete the queue */
   if (manager->file_write_queue != NULL) {
-    log_info(file_manager_tag, 
+    log_info(FILE_MANAGER_TAG, 
              "Queue Delete", 
              "Deleting file write queue");
     vQueueDelete(manager->file_write_queue);
@@ -616,7 +616,7 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
   }
 
   manager->initialized = false;
-  log_info(file_manager_tag, 
+  log_info(FILE_MANAGER_TAG, 
            "Cleanup Complete", 
            "File write manager cleanup completed successfully");
   

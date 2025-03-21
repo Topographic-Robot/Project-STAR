@@ -9,7 +9,7 @@
 
 /* Constants ******************************************************************/
 
-static const char* const bus_gpio_tag = "Bus GPIO";
+#define BUS_GPIO_TAG ("Bus GPIO")
 
 /* Private Function Prototypes ************************************************/
 
@@ -38,7 +38,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
 void pstar_bus_gpio_init_default_ops(pstar_gpio_ops_t* ops)
 {
   if (ops == NULL) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Init Error", 
               "GPIO operations pointer is NULL");
     return;
@@ -49,7 +49,7 @@ void pstar_bus_gpio_init_default_ops(pstar_gpio_ops_t* ops)
   ops->isr_add    = priv_pstar_bus_gpio_isr_add;
   ops->isr_remove = priv_pstar_bus_gpio_isr_remove;
   
-  log_info(bus_gpio_tag, 
+  log_info(BUS_GPIO_TAG, 
            "Default Ops", 
            "Initialized default GPIO operations");
 }
@@ -61,7 +61,7 @@ esp_err_t pstar_bus_gpio_set_level(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -70,7 +70,7 @@ esp_err_t pstar_bus_gpio_set_level(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Bus '%s' not found", 
               name);
@@ -79,7 +79,7 @@ esp_err_t pstar_bus_gpio_set_level(const pstar_bus_manager_t* manager,
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -91,7 +91,7 @@ esp_err_t pstar_bus_gpio_set_level(const pstar_bus_manager_t* manager,
   if (bus_config->config.gpio.ops.set_level) {
     return bus_config->config.gpio.ops.set_level(manager, name, pin_num, level);
   } else {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "No set_level operation defined for GPIO bus '%s'", 
               name);
@@ -106,7 +106,7 @@ esp_err_t pstar_bus_gpio_get_level(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name || !level) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Invalid parameters: manager, name, or level is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -115,7 +115,7 @@ esp_err_t pstar_bus_gpio_get_level(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Bus '%s' not found", 
               name);
@@ -124,7 +124,7 @@ esp_err_t pstar_bus_gpio_get_level(const pstar_bus_manager_t* manager,
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -136,7 +136,7 @@ esp_err_t pstar_bus_gpio_get_level(const pstar_bus_manager_t* manager,
   if (bus_config->config.gpio.ops.get_level) {
     return bus_config->config.gpio.ops.get_level(manager, name, pin_num, level);
   } else {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "No get_level operation defined for GPIO bus '%s'", 
               name);
@@ -152,7 +152,7 @@ esp_err_t pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name || !isr_handler) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Invalid parameters: manager, name, or isr_handler is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -161,7 +161,7 @@ esp_err_t pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Bus '%s' not found", 
               name);
@@ -170,7 +170,7 @@ esp_err_t pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -186,7 +186,7 @@ esp_err_t pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
                                                isr_handler, 
                                                args);
   } else {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "No isr_add operation defined for GPIO bus '%s'", 
               name);
@@ -200,7 +200,7 @@ esp_err_t pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manager,
 {
   /* Validate input */
   if (!manager || !name) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Invalid parameters: manager or name is NULL");
     return ESP_ERR_INVALID_ARG;
@@ -209,7 +209,7 @@ esp_err_t pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Bus '%s' not found", 
               name);
@@ -218,7 +218,7 @@ esp_err_t pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manager,
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -230,7 +230,7 @@ esp_err_t pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manager,
   if (bus_config->config.gpio.ops.isr_remove) {
     return bus_config->config.gpio.ops.isr_remove(manager, name, pin_num);
   } else {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "No isr_remove operation defined for GPIO bus '%s'", 
               name);
@@ -258,7 +258,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
   
   /* Validate input */
   if (!manager || !name || pin_num < 0) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -267,7 +267,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Bus '%s' not found", 
               name);
@@ -276,7 +276,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -286,7 +286,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -296,7 +296,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
   /* Check if the pin is configured (bit is set in pin_bit_mask) */
   uint64_t pin_mask = (1ULL << pin_num);
   if ((bus_config->config.gpio.config.pin_bit_mask & pin_mask) == 0) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Pin %d is not configured in bus '%s'", 
               pin_num, 
@@ -307,7 +307,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
   /* Set the GPIO level */
   result = gpio_set_level(pin_num, level);
   if (result != ESP_OK) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Set Level Error", 
               "Failed to set level for pin %d on bus '%s': %s", 
               pin_num, 
@@ -316,7 +316,7 @@ static esp_err_t priv_pstar_bus_gpio_set_level(const pstar_bus_manager_t* manage
     return result;
   }
   
-  log_debug(bus_gpio_tag, 
+  log_debug(BUS_GPIO_TAG, 
             "Set Level", 
             "Set pin %d to level %lu on bus '%s'", 
             pin_num, 
@@ -360,7 +360,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
 {
   /* Validate input */
   if (!manager || !name || pin_num < 0 || !level) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -369,7 +369,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Bus '%s' not found", 
               name);
@@ -378,7 +378,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -388,7 +388,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -398,7 +398,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
   /* Check if the pin is configured (bit is set in pin_bit_mask) */
   uint64_t pin_mask = (1ULL << pin_num);
   if ((bus_config->config.gpio.config.pin_bit_mask & pin_mask) == 0) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Pin %d is not configured in bus '%s'", 
               pin_num, 
@@ -409,7 +409,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
   /* Get the GPIO level */
   int gpio_level = gpio_get_level(pin_num);
   if (gpio_level < 0) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "Get Level Error", 
               "Failed to get level for pin %d on bus '%s'", 
               pin_num, 
@@ -420,7 +420,7 @@ static esp_err_t priv_pstar_bus_gpio_get_level(const pstar_bus_manager_t* manage
   /* Set the output value */
   *level = (uint32_t)gpio_level;
   
-  log_debug(bus_gpio_tag, 
+  log_debug(BUS_GPIO_TAG, 
             "Get Level", 
             "Got level %lu from pin %d on bus '%s'", 
             *level, 
@@ -450,7 +450,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   
   /* Validate input */
   if (!manager || !name || pin_num < 0 || !isr_handler) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -459,7 +459,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Bus '%s' not found", 
               name);
@@ -468,7 +468,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -478,7 +478,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -488,7 +488,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   /* Check if the pin is configured (bit is set in pin_bit_mask) */
   uint64_t pin_mask = (1ULL << pin_num);
   if ((bus_config->config.gpio.config.pin_bit_mask & pin_mask) == 0) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Pin %d is not configured in bus '%s'", 
               pin_num, 
@@ -503,7 +503,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   result = gpio_install_isr_service(0);
   if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) {
     /* ESP_ERR_INVALID_STATE means the service is already installed, which is OK */
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Service Error", 
               "Failed to install GPIO ISR service for bus '%s': %s", 
               name, 
@@ -514,7 +514,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
   /* Add ISR handler for this pin */
   result = gpio_isr_handler_add(pin_num, isr_handler, args);
   if (result != ESP_OK) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Add Error", 
               "Failed to add ISR handler for pin %d on bus '%s': %s", 
               pin_num, 
@@ -523,7 +523,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
     return result;
   }
   
-  log_info(bus_gpio_tag, 
+  log_info(BUS_GPIO_TAG, 
            "ISR Added", 
            "Added ISR handler for pin %d on bus '%s'", 
            pin_num, 
@@ -548,7 +548,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
   
   /* Validate input */
   if (!manager || !name || pin_num < 0) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Invalid parameters");
     return ESP_ERR_INVALID_ARG;
@@ -557,7 +557,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
   /* Find the bus configuration */
   pstar_bus_config_t* bus_config = pstar_bus_manager_find_bus(manager, name);
   if (!bus_config) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Bus '%s' not found", 
               name);
@@ -566,7 +566,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
   
   /* Check if this is a GPIO bus */
   if (bus_config->type != k_pstar_bus_type_gpio) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Bus '%s' is not a GPIO bus (type: %s)", 
               name, 
@@ -576,7 +576,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
   
   /* Check if the bus is initialized */
   if (!bus_config->initialized) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Bus '%s' is not initialized", 
               name);
@@ -586,7 +586,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
   /* Remove ISR handler for this pin */
   result = gpio_isr_handler_remove(pin_num);
   if (result != ESP_OK) {
-    log_error(bus_gpio_tag, 
+    log_error(BUS_GPIO_TAG, 
               "ISR Remove Error", 
               "Failed to remove ISR handler for pin %d on bus '%s': %s", 
               pin_num, 
@@ -595,7 +595,7 @@ static esp_err_t priv_pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manag
     return result;
   }
   
-  log_info(bus_gpio_tag, 
+  log_info(BUS_GPIO_TAG, 
            "ISR Removed", 
            "Removed ISR handler for pin %d on bus '%s'", 
            pin_num, 

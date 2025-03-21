@@ -6,39 +6,32 @@
 #include "freertos/semphr.h"
 #include <string.h>
 
-static const char* TAG = "Pin Validator";
-
-/* Pin usage information structure */
-typedef struct {
-  bool in_use;
-  char component_name[PIN_VALIDATOR_MAX_USAGE_DESC_LEN];
-  char usage_desc[PIN_VALIDATOR_MAX_USAGE_DESC_LEN];
-  bool can_share;
-  int usage_count;
-} pin_usage_info_t;
+#define PIN_VALIDATOR_TAG ("Pin Validator")
 
 /* Global pin registry */
-static pin_usage_info_t s_pin_registry[PIN_VALIDATOR_MAX_PINS] = {0};
-static SemaphoreHandle_t s_validator_mutex = NULL;
-static bool s_initialized = false;
+static pin_usage_info_t  s_pin_registry[PIN_VALIDATOR_MAX_PINS] = {0};
+static SemaphoreHandle_t s_validator_mutex                      = NULL;
+static bool              s_initialized                          = false;
 
 /* Helper function to safely release mutex */
-static void release_mutex(void) {
+static void release_mutex(void) 
+{
   if (s_validator_mutex != NULL) {
     xSemaphoreGive(s_validator_mutex);
   }
 }
 
-esp_err_t pin_validator_init(void) {
+esp_err_t pin_validator_init(void) 
+{
   if (s_initialized) {
-    ESP_LOGW(TAG, "Pin validator already initialized");
+    ESP_LOGW(PIN_VALIDATOR_TAG, "Pin validator already initialized");
     return ESP_OK;
   }
   
   /* Initialize the mutex for thread safety */
   s_validator_mutex = xSemaphoreCreateMutex();
   if (s_validator_mutex == NULL) {
-    ESP_LOGE(TAG, "Failed to create mutex");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Failed to create mutex");
     return ESP_ERR_NO_MEM;
   }
   
@@ -46,31 +39,32 @@ esp_err_t pin_validator_init(void) {
   memset(s_pin_registry, 0, sizeof(s_pin_registry));
   
   s_initialized = true;
-  ESP_LOGI(TAG, "Pin validator initialized");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "Pin validator initialized");
   return ESP_OK;
 }
 
-esp_err_t pin_validator_register_pin(gpio_num_t pin, 
-                                    const char* component_name,
-                                    const char* usage_desc,
-                                    bool can_share) {
+esp_err_t pin_validator_register_pin(gpio_num_t  pin, 
+                                     const char* component_name,
+                                     const char* usage_desc,
+                                     bool        can_share) 
+{
   if (!s_initialized) {
-    ESP_LOGE(TAG, "Pin validator not initialized");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   
   if (pin < 0 || pin >= PIN_VALIDATOR_MAX_PINS) {
-    ESP_LOGE(TAG, "Invalid pin number: %d", pin);
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Invalid pin number: %d", pin);
     return ESP_ERR_INVALID_ARG;
   }
   
   if (component_name == NULL || usage_desc == NULL) {
-    ESP_LOGE(TAG, "Component name or usage description is NULL");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Component name or usage description is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
   if (xSemaphoreTake(s_validator_mutex, portMAX_DELAY) != pdTRUE) {
-    ESP_LOGE(TAG, "Failed to take mutex");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Failed to take mutex");
     return ESP_ERR_TIMEOUT;
   }
   
@@ -79,23 +73,33 @@ esp_err_t pin_validator_register_pin(gpio_num_t pin,
     /* If pin is already registered by this component, just increment usage count */
     if (strcmp(s_pin_registry[pin].component_name, component_name) == 0) {
       s_pin_registry[pin].usage_count++;
-      ESP_LOGD(TAG, "Incremented usage count for pin %d by %s: %s (count: %d)",
-              pin, component_name, usage_desc, s_pin_registry[pin].usage_count);
+      ESP_LOGD(PIN_VALIDATOR_TAG, 
+               "Incremented usage count for pin %d by %s: %s (count: %d)",
+              pin, 
+              component_name, 
+              usage_desc, 
+              s_pin_registry[pin].usage_count);
       release_mutex();
       return ESP_OK;
     }
     
     /* If pin can't be shared, flag a conflict */
     if (!s_pin_registry[pin].can_share || !can_share) {
-      ESP_LOGW(TAG, "Pin %d already registered by %s for %s, new request from %s for %s",
-              pin, s_pin_registry[pin].component_name, s_pin_registry[pin].usage_desc,
+      ESP_LOGW(PIN_VALIDATOR_TAG, 
+               "Pin %d already registered by %s for %s, new request from %s for %s",
+              pin, 
+              s_pin_registry[pin].component_name, 
+              s_pin_registry[pin].usage_desc,
               component_name, usage_desc);
       
       /* Still register it to track the conflict */
       s_pin_registry[pin].can_share = false; /* Mark as conflict */
     } else {
-      ESP_LOGI(TAG, "Pin %d will be shared between %s and %s",
-              pin, s_pin_registry[pin].component_name, component_name);
+      ESP_LOGI(PIN_VALIDATOR_TAG, 
+               "Pin %d will be shared between %s and %s",
+                pin, 
+                s_pin_registry[pin].component_name, 
+                component_name);
     }
   } else {
     /* First registration for this pin */
@@ -103,8 +107,11 @@ esp_err_t pin_validator_register_pin(gpio_num_t pin,
     s_pin_registry[pin].usage_count = 1;
     s_pin_registry[pin].can_share = can_share;
     
-    ESP_LOGI(TAG, "Registered pin %d for %s: %s",
-            pin, component_name, usage_desc);
+    ESP_LOGI(PIN_VALIDATOR_TAG, 
+             "Registered pin %d for %s: %s",
+             pin, 
+             component_name, 
+             usage_desc);
   }
   
   /* Update component name by concatenating or replacing */
@@ -153,12 +160,12 @@ esp_err_t pin_validator_register_pins(const gpio_num_t* pins,
                                      const char* usage_desc,
                                      bool can_share) {
   if (!s_initialized) {
-    ESP_LOGE(TAG, "Pin validator not initialized");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   
   if (pins == NULL || num_pins == 0) {
-    ESP_LOGE(TAG, "Invalid pins array or num_pins == 0");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Invalid pins array or num_pins == 0");
     return ESP_ERR_INVALID_ARG;
   }
   
@@ -179,33 +186,33 @@ esp_err_t pin_validator_register_pins(const gpio_num_t* pins,
 
 esp_err_t pin_validator_validate_all(bool halt_on_conflict) {
   if (!s_initialized) {
-    ESP_LOGE(TAG, "Pin validator not initialized");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   
   if (xSemaphoreTake(s_validator_mutex, portMAX_DELAY) != pdTRUE) {
-    ESP_LOGE(TAG, "Failed to take mutex");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Failed to take mutex");
     return ESP_ERR_TIMEOUT;
   }
   
   bool has_conflicts = false;
   
-  ESP_LOGI(TAG, "Validating all pin assignments...");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "Validating all pin assignments...");
   
   /* Check each pin for multiple non-shareable registrations */
   for (int pin = 0; pin < PIN_VALIDATOR_MAX_PINS; pin++) {
     if (s_pin_registry[pin].in_use && s_pin_registry[pin].usage_count > 1 && !s_pin_registry[pin].can_share) {
-      ESP_LOGE(TAG, "PIN CONFLICT: GPIO %d used by multiple components: %s",
+      ESP_LOGE(PIN_VALIDATOR_TAG, "PIN CONFLICT: GPIO %d used by multiple components: %s",
               pin, s_pin_registry[pin].component_name);
-      ESP_LOGE(TAG, "    Usage: %s", s_pin_registry[pin].usage_desc);
+      ESP_LOGE(PIN_VALIDATOR_TAG, "    Usage: %s", s_pin_registry[pin].usage_desc);
       has_conflicts = true;
     }
   }
   
   if (has_conflicts) {
-    ESP_LOGE(TAG, "PIN VALIDATION FAILED: Conflicts detected!");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "PIN VALIDATION FAILED: Conflicts detected!");
     if (halt_on_conflict) {
-      ESP_LOGE(TAG, "System halted due to pin conflicts. Please fix your configuration.");
+      ESP_LOGE(PIN_VALIDATOR_TAG, "System halted due to pin conflicts. Please fix your configuration.");
       release_mutex();
       while(1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -214,7 +221,7 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict) {
     release_mutex();
     return ESP_ERR_INVALID_STATE;
   } else {
-    ESP_LOGI(TAG, "PIN VALIDATION PASSED: No conflicts detected.");
+    ESP_LOGI(PIN_VALIDATOR_TAG, "PIN VALIDATION PASSED: No conflicts detected.");
     release_mutex();
     return ESP_OK;
   }
@@ -222,25 +229,25 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict) {
 
 esp_err_t pin_validator_print_assignments(void) {
   if (!s_initialized) {
-    ESP_LOGE(TAG, "Pin validator not initialized");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   
   if (xSemaphoreTake(s_validator_mutex, portMAX_DELAY) != pdTRUE) {
-    ESP_LOGE(TAG, "Failed to take mutex");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Failed to take mutex");
     return ESP_ERR_TIMEOUT;
   }
   
-  ESP_LOGI(TAG, "=== PIN ASSIGNMENT TABLE ===");
-  ESP_LOGI(TAG, "| GPIO | Component      | Usage                  | Shared | Count |");
-  ESP_LOGI(TAG, "|------|----------------|------------------------|--------|-------|");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "=== PIN ASSIGNMENT TABLE ===");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "| GPIO | Component      | Usage                  | Shared | Count |");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "|------|----------------|------------------------|--------|-------|");
   
   bool any_pins_used = false;
   
   for (int pin = 0; pin < PIN_VALIDATOR_MAX_PINS; pin++) {
     if (s_pin_registry[pin].in_use) {
       any_pins_used = true;
-      ESP_LOGI(TAG, "| %-4d | %-14s | %-22s | %-6s | %-5d |",
+      ESP_LOGI(PIN_VALIDATOR_TAG, "| %-4d | %-14s | %-22s | %-6s | %-5d |",
               pin, 
               s_pin_registry[pin].component_name,
               s_pin_registry[pin].usage_desc,
@@ -250,10 +257,10 @@ esp_err_t pin_validator_print_assignments(void) {
   }
   
   if (!any_pins_used) {
-    ESP_LOGI(TAG, "No pins registered yet.");
+    ESP_LOGI(PIN_VALIDATOR_TAG, "No pins registered yet.");
   }
   
-  ESP_LOGI(TAG, "=========================");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "=========================");
   
   release_mutex();
   return ESP_OK;
@@ -261,17 +268,17 @@ esp_err_t pin_validator_print_assignments(void) {
 
 esp_err_t pin_validator_clear_all(void) {
   if (!s_initialized) {
-    ESP_LOGE(TAG, "Pin validator not initialized");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   
   if (xSemaphoreTake(s_validator_mutex, portMAX_DELAY) != pdTRUE) {
-    ESP_LOGE(TAG, "Failed to take mutex");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Failed to take mutex");
     return ESP_ERR_TIMEOUT;
   }
   
   memset(s_pin_registry, 0, sizeof(s_pin_registry));
-  ESP_LOGI(TAG, "Cleared all pin assignments");
+  ESP_LOGI(PIN_VALIDATOR_TAG, "Cleared all pin assignments");
   
   release_mutex();
   return ESP_OK;
@@ -279,34 +286,34 @@ esp_err_t pin_validator_clear_all(void) {
 
 esp_err_t pin_validator_unregister_pin(gpio_num_t pin, const char* component_name) {
   if (!s_initialized) {
-    ESP_LOGE(TAG, "Pin validator not initialized");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   
   if (pin < 0 || pin >= PIN_VALIDATOR_MAX_PINS) {
-    ESP_LOGE(TAG, "Invalid pin number: %d", pin);
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Invalid pin number: %d", pin);
     return ESP_ERR_INVALID_ARG;
   }
   
   if (component_name == NULL) {
-    ESP_LOGE(TAG, "Component name is NULL");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Component name is NULL");
     return ESP_ERR_INVALID_ARG;
   }
   
   if (xSemaphoreTake(s_validator_mutex, portMAX_DELAY) != pdTRUE) {
-    ESP_LOGE(TAG, "Failed to take mutex");
+    ESP_LOGE(PIN_VALIDATOR_TAG, "Failed to take mutex");
     return ESP_ERR_TIMEOUT;
   }
   
   if (!s_pin_registry[pin].in_use) {
-    ESP_LOGW(TAG, "Pin %d not registered, cannot unregister", pin);
+    ESP_LOGW(PIN_VALIDATOR_TAG, "Pin %d not registered, cannot unregister", pin);
     release_mutex();
     return ESP_ERR_NOT_FOUND;
   }
   
   /* Check if this component has registered this pin */
   if (strstr(s_pin_registry[pin].component_name, component_name) == NULL) {
-    ESP_LOGW(TAG, "Pin %d not registered by %s, cannot unregister", pin, component_name);
+    ESP_LOGW(PIN_VALIDATOR_TAG, "Pin %d not registered by %s, cannot unregister", pin, component_name);
     release_mutex();
     return ESP_ERR_NOT_FOUND;
   }
@@ -317,9 +324,9 @@ esp_err_t pin_validator_unregister_pin(gpio_num_t pin, const char* component_nam
   /* If pin is no longer used, clear its entry */
   if (s_pin_registry[pin].usage_count <= 0) {
     memset(&s_pin_registry[pin], 0, sizeof(pin_usage_info_t));
-    ESP_LOGI(TAG, "Unregistered pin %d completely", pin);
+    ESP_LOGI(PIN_VALIDATOR_TAG, "Unregistered pin %d completely", pin);
   } else {
-    ESP_LOGI(TAG, "Decremented usage count for pin %d (count: %d)", 
+    ESP_LOGI(PIN_VALIDATOR_TAG, "Decremented usage count for pin %d (count: %d)", 
             pin, s_pin_registry[pin].usage_count);
     
     /* This is simplified and does not update the component_name and usage_desc strings

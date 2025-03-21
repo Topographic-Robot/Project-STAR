@@ -13,10 +13,8 @@ extern "C" {
 /* Forward Declarations *******************************************************/
 
 /* Forward declare pstar_bus_config_t and pstar_bus_event_t */
-typedef struct pstar_bus_config pstar_bus_config_t;
-typedef struct pstar_bus_event pstar_bus_event_t;
-
-/* Forward declare pstar_bus_manager_t for use in function pointer types */
+typedef struct pstar_bus_config  pstar_bus_config_t;
+typedef struct pstar_bus_event   pstar_bus_event_t;
 typedef struct pstar_bus_manager pstar_bus_manager_t;
 
 /* Enums **********************************************************************/

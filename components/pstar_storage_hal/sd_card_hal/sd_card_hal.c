@@ -24,7 +24,7 @@
 /* Constants ******************************************************************/
 
 /* Logging and identification */
-static const char* const sd_card_tag = "SD Card HAL";
+#define SD_CARD_HAL_TAG ("SD Card HAL")
 
 /* Timing and configuration constants - using Kconfig values with the appropriate prefix */
 static const uint32_t    sd_card_default_det_debounce_time     = CONFIG_PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS;
