@@ -26,26 +26,6 @@
 /* Logging and identification */
 #define SD_CARD_HAL_TAG ("SD Card HAL")
 
-/* Timing and configuration constants - using Kconfig values with the appropriate prefix */
-static const uint32_t    sd_card_default_det_debounce_time     = CONFIG_PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS;
-static const uint32_t    sd_card_default_mount_task_stack_size = CONFIG_PSTAR_KCONFIG_SD_CARD_TASK_STACK_SIZE;
-static const UBaseType_t sd_card_default_mount_task_priority   = CONFIG_PSTAR_KCONFIG_SD_CARD_TASK_PRIORITY;
-static const uint32_t    sd_card_default_max_mount_retries     = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY;
-static const uint32_t    sd_card_default_retry_delay_ms        = CONFIG_PSTAR_KCONFIG_SD_CARD_RETRY_DELAY_MS;
-static const uint32_t    sd_card_default_max_retry_delay_ms    = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY_DELAY_MS;
-static const uint32_t    sd_card_default_max_files             = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES;
-static const uint32_t    sd_card_default_allocation_unit_size  = CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE;
-static const TickType_t  sd_card_default_mutex_timeout         = pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_MUTEX_TIMEOUT_MS);
-static const size_t      sd_card_max_path_len                  = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH;
-static const char* const sd_card_nvs_namespace                 = CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE;
-static const char* const sd_card_nvs_interface_key             = CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY;
-static const char* const sd_card_nvs_bus_width_key             = CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY;
-
-/* Bus names from Kconfig */
-static const char* const sd_card_default_gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME;
-static const char* const sd_card_default_spi_bus_name  = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME;
-static const char* const sd_card_default_sdio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME;
-
 /* Default pin configurations from Kconfig */
 static const sd_card_pin_config_t sd_card_default_pins = {
   /* GPIO pins */
@@ -125,7 +105,7 @@ esp_err_t sd_card_init_with_pins(sd_card_hal_t*              sd_card,
   /* Validate arguments */
   if (sd_card == NULL || tag == NULL || mount_path == NULL || 
       component_id == NULL || pin_config == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Init Error", 
               "Invalid arguments");
     return ESP_ERR_INVALID_ARG;
@@ -210,7 +190,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   /* Validate arguments */
   if (sd_card == NULL || tag == NULL || mount_path == NULL || 
       component_id == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Invalid arguments", 
               "sd_card: %p, tag: %s, mount_path: %s, component_id: %s", 
               sd_card, 
@@ -222,7 +202,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   
   /* Validate bus width */
   if (bus_width != k_sd_bus_width_1bit && bus_width != k_sd_bus_width_4bit) {
-    log_error(sd_card_tag,
+    log_error(SD_CARD_HAL_TAG,
               "Invalid bus width",
               "Bus width must be 1 or 4, got: %d",
               bus_width);
@@ -231,7 +211,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   
   /* Validate mount path using the simpler path check */
   if (!priv_path_is_safe_simple(mount_path)) {
-    log_error(sd_card_tag,
+    log_error(SD_CARD_HAL_TAG,
               "Invalid mount path",
               "Mount path '%s' is not safe",
               mount_path);
@@ -240,9 +220,9 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   
   /* Default task configuration */
   sd_card_task_config_t task_config = {
-    .stack_size    = sd_card_default_mount_task_stack_size,
-    .priority      = sd_card_default_mount_task_priority,
-    .mutex_timeout = sd_card_default_mutex_timeout,
+    .stack_size    = CONFIG_PSTAR_KCONFIG_SD_CARD_TASK_STACK_SIZE,
+    .priority      = CONFIG_PSTAR_KCONFIG_SD_CARD_TASK_PRIORITY,
+    .mutex_timeout = pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_MUTEX_TIMEOUT_MS),
   };
   
   /* Initialize performance metrics */
@@ -257,8 +237,8 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   sd_card_hal_t sd_card_default = {
     .tag                          = tag,
     .mount_path                   = mount_path,
-    .max_files                    = sd_card_default_max_files,
-    .allocation_unit_size         = sd_card_default_allocation_unit_size,
+    .max_files                    = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES,
+    .allocation_unit_size         = CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE,
     .card_detect_low_active       = false,                                /* Default to high-active (1=card present) */
     .bus_width                    = bus_width,                            /* Use provided bus width */
     .pin_config                   = sd_card_default_pins,                 /* Use default pin configuration */
@@ -288,7 +268,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   /* Check for pin conflicts */
   if (bus_width == k_sd_bus_width_4bit && 
       sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-    log_warn(sd_card_tag, 
+    log_warn(SD_CARD_HAL_TAG, 
              "Pin Conflict", 
              "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
              "Will default to 1-bit mode for better compatibility.", 
@@ -300,16 +280,16 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
 
   /* Initialize error handler */
   error_handler_init(&sd_card->error_handler, 
-                     sd_card_default_max_mount_retries,
-                     sd_card_default_retry_delay_ms,
-                     sd_card_default_max_retry_delay_ms,
+                     CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY,
+                     CONFIG_PSTAR_KCONFIG_SD_CARD_RETRY_DELAY_MS,
+                     CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY_DELAY_MS,
                      priv_sd_card_reset, /* Reset function */ 
                      sd_card);           /* Reset context */
 
   /* Initialize mutex */
   sd_card->mutex = xSemaphoreCreateMutex();
   if (sd_card->mutex == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Failed to create mutex", 
               "sd_card: %p", 
               sd_card);
@@ -319,7 +299,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   /* Initialize bus manager */
   err = pstar_bus_manager_init(&sd_card->bus_manager, tag);
   if (err != ESP_OK) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Failed to initialize bus manager", 
               "err: %d", 
               err);
@@ -352,7 +332,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     /* Non-critical error, continue without NVS */
   }
 
-  log_info(sd_card_tag, 
+  log_info(SD_CARD_HAL_TAG, 
            "SD Card Default Init", 
            "SD card HAL initialized with %s bus width mode", 
            priv_sd_bus_width_to_string(sd_card->bus_width));
@@ -365,14 +345,14 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
                                   TickType_t     mutex_timeout)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Set Task Config Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
   
   if (sd_card->initialized) {
-    log_warn(sd_card_tag, 
+    log_warn(SD_CARD_HAL_TAG, 
              "Set Task Config Warning", 
              "Cannot change task configuration after initialization");
     return ESP_ERR_INVALID_STATE;
@@ -380,7 +360,7 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
   
   /* Validate configuration */
   if (stack_size < 2048) {
-    log_warn(sd_card_tag,
+    log_warn(SD_CARD_HAL_TAG,
              "Config Warning",
              "Stack size %lu is too small, using minimum of 2048",
              stack_size);
@@ -388,10 +368,10 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
   }
   
   if (mutex_timeout == 0) {
-    log_warn(sd_card_tag,
+    log_warn(SD_CARD_HAL_TAG,
              "Config Warning",
              "Mutex timeout of 0 is not allowed, using default");
-    mutex_timeout = sd_card_default_mutex_timeout;
+    mutex_timeout = pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_MUTEX_TIMEOUT_MS);
   }
   
   /* Update task configuration */
@@ -414,7 +394,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card,
 {
   /* Validate arguments */
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Init Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -452,7 +432,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card,
                                         &sd_card->mount_task_handle);
 
   if (task_created != pdPASS) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Failed to create mount task", 
               "sd_card: %p", 
               sd_card);
@@ -461,7 +441,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card,
     if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
       mutex_taken = true;
       pstar_bus_gpio_isr_remove(&sd_card->bus_manager, 
-                          sd_card_default_gpio_bus_name, 
+                          CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
                           sd_card->pin_config.gpio_det_pin);
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
     }
@@ -735,7 +715,7 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
 esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Cleanup Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -796,7 +776,7 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
   /* Clean up GPIO ISR */
   if (sd_card->initialized) {
     pstar_bus_gpio_isr_remove(&sd_card->bus_manager, 
-                        sd_card_default_gpio_bus_name, 
+                        CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
                         sd_card->pin_config.gpio_det_pin);
   }
 
@@ -947,7 +927,7 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   esp_err_t    err;
   
   /* Open NVS namespace */
-  err = nvs_open(sd_card_nvs_namespace, NVS_READWRITE, &nvs_handle);
+  err = nvs_open(CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
   if (err != ESP_OK) {
     log_warn(sd_card->tag,
              "NVS Warning",
@@ -957,7 +937,7 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   }
   
   /* Save current interface */
-  err = nvs_set_u8(nvs_handle, sd_card_nvs_interface_key, 
+  err = nvs_set_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY, 
                    (uint8_t)sd_card->current_interface);
   if (err != ESP_OK) {
     log_warn(sd_card->tag,
@@ -969,7 +949,7 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   }
   
   /* Save bus width */
-  err = nvs_set_u8(nvs_handle, sd_card_nvs_bus_width_key, 
+  err = nvs_set_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY, 
                    (uint8_t)sd_card->bus_width);
   if (err != ESP_OK) {
     log_warn(sd_card->tag,
@@ -1019,7 +999,7 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
   esp_err_t    err;
   
   /* Open NVS namespace */
-  err = nvs_open(sd_card_nvs_namespace, NVS_READONLY, &nvs_handle);
+  err = nvs_open(CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
   if (err != ESP_OK) {
     /* Not finding the namespace is normal on first boot, just return */
     if (err == ESP_ERR_NVS_NOT_FOUND) {
@@ -1038,7 +1018,7 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
   
   /* Load interface */
   uint8_t interface_val;
-  err = nvs_get_u8(nvs_handle, sd_card_nvs_interface_key, &interface_val);
+  err = nvs_get_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY, &interface_val);
   if (err == ESP_OK) {
     /* Validate the loaded value */
     if (interface_val < k_sd_interface_count) {
@@ -1061,7 +1041,7 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
   
   /* Load bus width */
   uint8_t bus_width_val;
-  err = nvs_get_u8(nvs_handle, sd_card_nvs_bus_width_key, &bus_width_val);
+  err = nvs_get_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY, &bus_width_val);
   if (err == ESP_OK) {
     /* Validate the loaded value */
     if (bus_width_val == k_sd_bus_width_1bit || 
@@ -1132,10 +1112,10 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
   }
   
   /* Create a system directory for test files if it doesn't exist */
-  char system_dir[sd_card_max_path_len];
+  char system_dir[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
   
   /* Safely construct system directory path */
-  if (strlen(sd_card->mount_path) > sd_card_max_path_len - 9) { /* 9 = length of "/.system" + null terminator */
+  if (strlen(sd_card->mount_path) > CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH - 9) { /* 9 = length of "/.system" + null terminator */
     log_error(sd_card->tag,
               "Performance Error",
               "Mount path too long for creating system directory");
@@ -1168,10 +1148,10 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
   }
   
   /* Create test file path in the system directory using safe string operations */
-  char test_path[sd_card_max_path_len];
+  char test_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
   
   /* Safe copy and concatenation */
-  if (strlen(system_dir) > sd_card_max_path_len - 11) { /* 11 = length of "/perf_test" + null terminator */
+  if (strlen(system_dir) > CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH - 11) { /* 11 = length of "/perf_test" + null terminator */
     log_error(sd_card->tag,
               "Performance Error",
               "System directory path too long, cannot append test filename");
@@ -1285,19 +1265,19 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
 static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
 {
   if (sd_card == NULL || path == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Path Validation Error", 
               "NULL parameter provided to path validation");
     return false;
   }
   
   /* Path length check to prevent buffer overflow attacks */
-  if (strlen(path) >= sd_card_max_path_len) {
-    log_error(sd_card_tag, 
+  if (strlen(path) >= CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH) {
+    log_error(SD_CARD_HAL_TAG, 
               "Path Validation Error", 
               "Path too long: %zu characters exceeds maximum of %zu", 
               strlen(path), 
-              sd_card_max_path_len - 1);
+              CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH - 1);
     return false;
   }
   
@@ -1306,7 +1286,7 @@ static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
     /* Check if the path starts with the configured mount point prefix */
     size_t mount_path_len = strlen(sd_card->mount_path);
     if (strncmp(path, sd_card->mount_path, mount_path_len) != 0) {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Path Validation Error", 
                 "Path '%s' does not begin with configured mount point '%s'", 
                 path, 
@@ -1320,7 +1300,7 @@ static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
       strstr(path, "./") != NULL ||   /* Potential hiding technique */
       strstr(path, "//") != NULL ||   /* Multiple slashes can bypass filters */
       strstr(path, "\\") != NULL) {   /* Backslashes can be problematic */
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Path Validation Error", 
               "Path '%s' contains potentially unsafe directory traversal patterns", 
               path);
@@ -1333,7 +1313,7 @@ static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
     if (!(isalnum((unsigned char)*c) || *c == '_' || *c == '-' || *c == '.' || 
           *c == '/' || *c == ' ' || *c == '+' || *c == '=' || *c == ',' || 
           *c == '@' || *c == '(' || *c == ')')) {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Path Validation Error", 
                 "Path '%s' contains invalid character '%c' (0x%02X)",
                 path, *c, (unsigned char)*c);
@@ -1363,7 +1343,7 @@ static bool priv_path_is_safe_simple(const char* path)
       strstr(path, "./") != NULL ||   /* Potential hiding technique */
       strstr(path, "//") != NULL ||   /* Multiple slashes can bypass filters */
       strstr(path, "\\") != NULL) {   /* Backslashes can be problematic */
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Path Validation Error", 
               "Path '%s' contains potentially unsafe directory traversal patterns", 
               path);
@@ -1376,7 +1356,7 @@ static bool priv_path_is_safe_simple(const char* path)
     if (!(isalnum((unsigned char)*c) || *c == '_' || *c == '-' || *c == '.' || 
           *c == '/' || *c == ' ' || *c == '+' || *c == '=' || *c == ',' || 
           *c == '@' || *c == '(' || *c == ')')) {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Path Validation Error", 
                 "Path '%s' contains invalid character '%c' (0x%02X)",
                 path, *c, (unsigned char)*c);
@@ -1405,7 +1385,7 @@ static bool priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* 
     /* Check if the path starts with the configured mount point prefix */
     size_t mount_path_len = strlen(sd_card->mount_path);
     if (strncmp(path, sd_card->mount_path, mount_path_len) != 0) {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Path Validation Error", 
                 "Path '%s' does not begin with configured mount point '%s'", 
                 path, 
@@ -1427,7 +1407,7 @@ static bool priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* 
 static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, const char* path)
 {
   if (sd_card == NULL || path == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Directory Error", 
               "NULL parameter provided to directory creation");
     return ESP_ERR_INVALID_ARG;
@@ -1445,14 +1425,14 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
     /* Path exists, check if it's a directory */
     if (S_ISDIR(st.st_mode)) {
       /* Already a directory, nothing to do */
-      log_debug(sd_card_tag, 
+      log_debug(SD_CARD_HAL_TAG, 
                 "Directory Already Exists", 
                 "Path exists and is a directory: %s", 
                 path);
       return ESP_OK;
     } else {
       /* Path exists but is not a directory */
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Directory Error", 
                 "Path exists but is not a directory: %s (type: %lu)", 
                 path, 
@@ -1462,7 +1442,7 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
   }
   
   /* Directory doesn't exist, create it */
-  log_info(sd_card_tag, 
+  log_info(SD_CARD_HAL_TAG, 
            "Creating Directory", 
            "Creating directory: %s", 
            path);
@@ -1470,17 +1450,17 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
   if (mkdir(path, 0755) != 0) {
     /* Check specific error conditions */
     if (errno == ENOENT) {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Directory Error", 
                 "Failed to create directory %s: Parent directory doesn't exist", 
                 path);
     } else if (errno == EACCES) {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Directory Error", 
                 "Failed to create directory %s: Permission denied", 
                 path);
     } else {
-      log_error(sd_card_tag, 
+      log_error(SD_CARD_HAL_TAG, 
                 "Directory Error", 
                 "Failed to create directory %s: %s (errno: %d)", 
                 path, 
@@ -1490,7 +1470,7 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
     return ESP_FAIL;
   }
   
-  log_info(sd_card_tag, 
+  log_info(SD_CARD_HAL_TAG, 
            "Directory Created", 
            "Successfully created directory: %s", 
            path);
@@ -1531,7 +1511,7 @@ static esp_err_t priv_sd_card_reset(void* context)
   sd_card_hal_t* sd_card     = (sd_card_hal_t*)context;
   
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Reset Error", 
               "Invalid context pointer");
     return ESP_ERR_INVALID_ARG;
@@ -1636,7 +1616,7 @@ static bool priv_sd_card_is_inserted(sd_card_hal_t* sd_card)
     
     /* Read the card detect pin */
     err = pstar_bus_gpio_get_level(&sd_card->bus_manager, 
-                             sd_card_default_gpio_bus_name, 
+                             CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
                              sd_card->pin_config.gpio_det_pin, 
                              &level);
     
@@ -1680,7 +1660,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
                                                    uint32_t       clock_speed_hz)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "SPI Setup Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -1696,7 +1676,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
   sdspi_dev_handle_t  sdspi_handle = 0;
   esp_err_t           err          = ESP_OK;
 
-  spi_config = pstar_bus_config_create_spi(sd_card_default_spi_bus_name, 
+  spi_config = pstar_bus_config_create_spi(CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME, 
                                      SPI2_HOST, 
                                      k_pstar_mode_polling);
   if (spi_config == NULL) {
@@ -1722,7 +1702,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
   spi_config->config.spi.dev_config.flags          = 0;                                 /* No special flags */
 
   /* Check if the bus already exists */
-  pstar_bus_config_t* existing_spi = pstar_bus_manager_find_bus(&sd_card->bus_manager, sd_card_default_spi_bus_name);
+  pstar_bus_config_t* existing_spi = pstar_bus_manager_find_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
   if (existing_spi != NULL) {
     /* Clean up the existing configuration first */
     if (existing_spi->initialized) {
@@ -1735,7 +1715,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
         /* Proceed despite warning, but be aware this might cause issues */
       }
     }
-    err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_spi_bus_name);
+    err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     if (err != ESP_OK) {
       log_warn(sd_card->tag,
                "SPI Cleanup Warning",
@@ -1764,7 +1744,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
               "Failed to initialize SPI bus: %s", 
               esp_err_to_name(err));
     /* Properly clean up - first remove from manager, then destroy */
-    esp_err_t remove_err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_spi_bus_name);
+    esp_err_t remove_err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     if (remove_err != ESP_OK) {
       log_warn(sd_card->tag,
                "SPI Cleanup Warning",
@@ -1800,7 +1780,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
               esp_err_to_name(err));
     /* Clean up properly in reverse order */
     pstar_bus_config_deinit(spi_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_spi_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     pstar_bus_config_destroy(spi_config);
     return err;
   }
@@ -1815,7 +1795,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
     /* Clean up properly in reverse order */
     sdspi_host_deinit();
     pstar_bus_config_deinit(spi_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_spi_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     pstar_bus_config_destroy(spi_config);
     return err;
   }
@@ -1840,7 +1820,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
     sdspi_host_remove_device(sdspi_handle);
     sdspi_host_deinit();
     pstar_bus_config_deinit(spi_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_spi_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     pstar_bus_config_destroy(spi_config);
     return ESP_ERR_NO_MEM;
   }
