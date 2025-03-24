@@ -26,7 +26,7 @@
 static log_entry_t       s_log_buffer[CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE]                = {0};   /* Buffer to store logs when SD card is not available */
 static uint32_t          s_log_buffer_index                                                    = 0;     /* Current index in the buffer */
 static bool              s_log_storage_initialized                                             = false; /* Flag to track initialization status */
-static char              s_current_log_file[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_PATH_LENGTH] = {0};   /* Current log file path */
+static char              s_current_log_file[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH] = {0};   /* Current log file path */
 static SemaphoreHandle_t s_log_mutex                                                           = NULL;  /* Mutex for thread-safe access */
 /* Compression state is controlled directly by Kconfig */
 static bool              s_sd_card_available                                                   = false; /* Flag indicating if SD card is available */
@@ -516,7 +516,7 @@ static esp_err_t priv_flush_log_buffer(void)
       uint64_t milliseconds = priv_timestamp_us_to_milliseconds(s_log_buffer[i].timestamp);
       
       /* Format the timestamp and log entry */
-      char formatted_log[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
+      char formatted_log[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH];
       int  written = priv_format_log_entry(formatted_log, 
                                            sizeof(formatted_log), 
                                            &timeinfo,

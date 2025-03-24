@@ -63,7 +63,7 @@ void log_write_va(esp_log_level_t   level,
   priv_get_task_info(task_info, sizeof(task_info));
 
   /* Create the complete log message with the required format */
-  char     complete_msg[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FORMATTED_ENTRY_LENGTH];
+  char     complete_msg[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH];
   char*    timestamp = NULL;
   uint64_t seq_num   = atomic_fetch_add(&g_log_sequence_number, 1);
 

@@ -18,8 +18,6 @@
 
 #define FILE_MANAGER_TAG ("File Manager")
 
-static const uint32_t max_pending_writes = CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES;
-
 /* Default configuration values */
 static const file_writer_config_t s_default_config = {
   .priority    = 5,
@@ -45,7 +43,6 @@ esp_err_t file_write_manager_init(file_write_manager_t*       manager,
                                   sd_card_hal_t*              sd_card,
                                   const file_writer_config_t* config)
 {
-  esp_err_t err = ESP_OK;
   /* Validate arguments */
   if (manager == NULL || sd_card == NULL) {
     log_error(FILE_MANAGER_TAG, 
@@ -83,7 +80,7 @@ esp_err_t file_write_manager_init(file_write_manager_t*       manager,
   }
   
   /* Create queue for file write requests */
-  manager->file_write_queue = xQueueCreate(max_pending_writes, 
+  manager->file_write_queue = xQueueCreate(CONFIG_PSTAR_FILE_MANAGER_MAX_PENDING_WRITES, 
                                            sizeof(file_write_request_t));
   if (manager->file_write_queue == NULL) {
     log_error(FILE_MANAGER_TAG, 

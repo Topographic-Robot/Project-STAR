@@ -1845,7 +1845,7 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
 static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "SDIO Setup Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -1988,7 +1988,7 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
   
   /* Check if the bus already exists */
   pstar_bus_config_t* existing_sdio = pstar_bus_manager_find_bus(&sd_card->bus_manager, 
-                                                                 sd_card_default_sdio_bus_name);
+                                                                 CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
   if (existing_sdio != NULL) {
     /* Clean up the existing configuration first */
     if (existing_sdio->initialized) {
@@ -2001,7 +2001,7 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
       }
     }
     esp_err_t err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, 
-                                                sd_card_default_sdio_bus_name);
+                                                CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
     if (err != ESP_OK) {
       log_warn(sd_card->tag,
                "SDIO Cleanup Warning",
@@ -2013,7 +2013,7 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
   /* Create SDIO bus configuration */
   uint32_t host_flags = sdmmc_host.flags;
   
-  pstar_bus_config_t* sdio_config = pstar_bus_config_create_sdio(sd_card_default_sdio_bus_name, 
+  pstar_bus_config_t* sdio_config = pstar_bus_config_create_sdio(CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME, 
                                                                  host_flags,
                                                                  SDMMC_HOST_SLOT_1, 
                                                                  k_pstar_mode_polling);
@@ -2064,7 +2064,7 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
               "SDIO Setup Error", 
               "Failed to initialize SDIO bus: %s", 
               esp_err_to_name(err));
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_sdio_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
     pstar_bus_config_destroy(sdio_config);
     return err;
   }
@@ -2085,7 +2085,7 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
               "SDIO Setup Error", 
               "Failed to allocate memory for SD card");
     pstar_bus_config_deinit(sdio_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_sdio_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
     pstar_bus_config_destroy(sdio_config);
     return ESP_ERR_NO_MEM;
   }
@@ -2118,7 +2118,7 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
 static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Detection Setup Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -2143,13 +2143,13 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
 
   /* Check if the bus already exists */
   pstar_bus_config_t* existing_gpio = pstar_bus_manager_find_bus(&sd_card->bus_manager, 
-                                                                 sd_card_default_gpio_bus_name);
+                                                                 CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
   if (existing_gpio != NULL) {
     /* Clean up the existing configuration first */
     if (existing_gpio->initialized) {
       /* Remove ISR handler if it was registered */
       pstar_bus_gpio_isr_remove(&sd_card->bus_manager, 
-                          sd_card_default_gpio_bus_name, 
+                          CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
                           sd_card->pin_config.gpio_det_pin);
       
       esp_err_t err = pstar_bus_config_deinit(existing_gpio);
@@ -2161,7 +2161,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
       }
     }
     esp_err_t err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, 
-                                                 sd_card_default_gpio_bus_name);
+                                                 CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
     if (err != ESP_OK) {
       log_warn(sd_card->tag,
                "GPIO Cleanup Warning",
@@ -2171,7 +2171,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
   }
 
   /* Create GPIO bus configuration */
-  pstar_bus_config_t* gpio_config = pstar_bus_config_create_gpio(sd_card_default_gpio_bus_name, 
+  pstar_bus_config_t* gpio_config = pstar_bus_config_create_gpio(CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
                                                                  k_pstar_mode_interrupt);
   if (gpio_config == NULL) {
     log_error(sd_card->tag, 
@@ -2208,14 +2208,14 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
               "Detection Setup Error", 
               "Failed to initialize GPIO bus: %s", 
               esp_err_to_name(err));
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_gpio_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
     pstar_bus_config_destroy(gpio_config);
     return err;
   }
 
   /* Register ISR handler for the detection pin */
   err = pstar_bus_gpio_isr_add(&sd_card->bus_manager, 
-                         sd_card_default_gpio_bus_name, 
+                         CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
                          sd_card->pin_config.gpio_det_pin, 
                          priv_sd_card_detection_isr, 
                          sd_card);
@@ -2225,7 +2225,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
               "Failed to register ISR for card detection pin: %s", 
               esp_err_to_name(err));
     pstar_bus_config_deinit(gpio_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, sd_card_default_gpio_bus_name);
+    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
     pstar_bus_config_destroy(gpio_config);
     return err;
   }
@@ -2281,7 +2281,7 @@ static void IRAM_ATTR priv_sd_card_detection_isr(void* arg)
 static esp_err_t priv_sd_card_try_interfaces(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Interface Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -2668,7 +2668,7 @@ static esp_err_t priv_sd_card_try_interfaces(sd_card_hal_t* sd_card)
 static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Mount Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -2708,7 +2708,7 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
   /* Ensure mount path directory exists */
   esp_err_t dir_result = priv_create_directory_if_needed(sd_card, sd_card->mount_path);
   if (dir_result != ESP_OK) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Mount Error", 
               "Failed to create or verify mount directory: %s", 
               esp_err_to_name(dir_result));
@@ -2820,7 +2820,7 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
   sd_card->card = card;
 
   /* Create logs directory if not exists */
-  char logs_path[sd_card_max_path_len];
+  char logs_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
   if (snprintf(logs_path, sizeof(logs_path), "%s/logs", sd_card->mount_path) >= 
       (int)sizeof(logs_path)) {
     log_warn(sd_card->tag, 
@@ -2866,7 +2866,7 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
 static esp_err_t priv_sd_card_unmount(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Unmount Error", 
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
@@ -2916,7 +2916,7 @@ static void priv_sd_card_mount_task(void* arg)
 {
   sd_card_hal_t* sd_card = (sd_card_hal_t*)arg;
   if (sd_card == NULL) {
-    log_error(sd_card_tag, 
+    log_error(SD_CARD_HAL_TAG, 
               "Mount Task Error", 
               "Invalid task parameter");
     vTaskDelete(NULL);
@@ -3006,7 +3006,7 @@ static void priv_sd_card_mount_task(void* arg)
         last_change_time = current_time;
         debounce_counter++;
       } else if ((current_time - last_change_time) >= 
-                 pdMS_TO_TICKS(sd_card_default_det_debounce_time)) {
+                 pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS)) {
         /* Debounce period expired, consider it a stable change */
         log_info(sd_card->tag, 
                  "Card Status Change", 
