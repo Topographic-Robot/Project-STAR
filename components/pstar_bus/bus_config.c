@@ -2,6 +2,7 @@
 
 #include "bus_config.h"
 #include "log_handler.h"
+#include "pin_validator.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -258,6 +259,39 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                "Initializing I2C bus '%s', port %d", 
                config->name, 
                config->config.i2c.port);
+      
+      /* Register I2C pins with pin validator */
+      if (config->config.i2c.config.sda_io_num != -1) {
+        result = pin_validator_register_pin(config->config.i2c.config.sda_io_num, 
+                                            config->name,
+                                            "I2C SDA",
+                                            false);
+        if (result != ESP_OK) {
+          log_error(BUS_CONFIG_TAG, 
+                    "Pin Registration Error", 
+                    "Failed to register SDA pin for I2C bus '%s': %s", 
+                    config->name, 
+                    esp_err_to_name(result));
+          return result;
+        }
+      }
+      
+      if (config->config.i2c.config.scl_io_num != -1) {
+        result = pin_validator_register_pin(config->config.i2c.config.scl_io_num, 
+                                            config->name,
+                                            "I2C SCL",
+                                            false);
+        if (result != ESP_OK) {
+          log_error(BUS_CONFIG_TAG, 
+                    "Pin Registration Error", 
+                    "Failed to register SCL pin for I2C bus '%s': %s", 
+                    config->name, 
+                    esp_err_to_name(result));
+          return result;
+        }
+      }
+      
+      /* Configure I2C bus */
       result = i2c_param_config(config->config.i2c.port, &config->config.i2c.config);
       if (result == ESP_OK) {
         result = i2c_driver_install(config->config.i2c.port, 
@@ -274,6 +308,69 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                "Initializing SPI bus '%s', host %d", 
                config->name, 
                config->config.spi.host);
+      
+      /* Register SPI pins with pin validator */
+      if (config->config.spi.bus_config.mosi_io_num != -1) {
+        result = pin_validator_register_pin(config->config.spi.bus_config.mosi_io_num, 
+                                            config->name,
+                                            "SPI MOSI",
+                                            false);
+        if (result != ESP_OK) {
+          log_error(BUS_CONFIG_TAG, 
+                    "Pin Registration Error", 
+                    "Failed to register MOSI pin for SPI bus '%s': %s", 
+                    config->name, 
+                    esp_err_to_name(result));
+          return result;
+        }
+      }
+      
+      if (config->config.spi.bus_config.miso_io_num != -1) {
+        result = pin_validator_register_pin(config->config.spi.bus_config.miso_io_num, 
+                                            config->name,
+                                            "SPI MISO",
+                                            false);
+        if (result != ESP_OK) {
+          log_error(BUS_CONFIG_TAG, 
+                    "Pin Registration Error", 
+                    "Failed to register MISO pin for SPI bus '%s': %s", 
+                    config->name, 
+                    esp_err_to_name(result));
+          return result;
+        }
+      }
+      
+      if (config->config.spi.bus_config.sclk_io_num != -1) {
+        result = pin_validator_register_pin(config->config.spi.bus_config.sclk_io_num, 
+                                            config->name,
+                                            "SPI SCLK",
+                                            false);
+        if (result != ESP_OK) {
+          log_error(BUS_CONFIG_TAG, 
+                    "Pin Registration Error", 
+                    "Failed to register SCLK pin for SPI bus '%s': %s", 
+                    config->name, 
+                    esp_err_to_name(result));
+          return result;
+        }
+      }
+      
+      if (config->config.spi.dev_config.spics_io_num != -1) {
+        result = pin_validator_register_pin(config->config.spi.dev_config.spics_io_num, 
+                                            config->name,
+                                            "SPI CS",
+                                            false);
+        if (result != ESP_OK) {
+          log_error(BUS_CONFIG_TAG, 
+                    "Pin Registration Error", 
+                    "Failed to register CS pin for SPI bus '%s': %s", 
+                    config->name, 
+                    esp_err_to_name(result));
+          return result;
+        }
+      }
+      
+      /* Initialize SPI bus */
       result = spi_bus_initialize(config->config.spi.host, 
                                   &config->config.spi.bus_config, 
                                   SPI_DMA_CH_AUTO);
@@ -285,6 +382,13 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                "Initializing UART bus '%s', port %d", 
                config->name, 
                config->config.uart.port);
+      
+      /* Register UART pins with pin validator */
+      /* Note/TODO: UART pins are configured internally by the ESP-IDF UART driver.
+       * We need to extract pin numbers from the uart_config_t or find another
+       * way to get these pins. For now, we won't register UART pins. */
+      
+      /* Configure UART */
       result = uart_param_config(config->config.uart.port, &config->config.uart.config);
       if (result == ESP_OK) {
         result = uart_driver_install(config->config.uart.port,
@@ -301,6 +405,28 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                "GPIO Init", 
                "Initializing GPIO bus '%s'", 
                config->name);
+      
+      /* Register GPIO pins with pin validator */
+      uint64_t pin_mask = config->config.gpio.config.pin_bit_mask;
+      for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
+        if ((pin_mask >> pin) & 0x1) {
+          /* This pin is used, register it */
+          result = pin_validator_register_pin(pin, 
+                                              config->name,
+                                              "GPIO",
+                                              false);
+          if (result != ESP_OK) {
+            log_error(BUS_CONFIG_TAG, 
+                      "Pin Registration Error", 
+                      "Failed to register GPIO pin %d for bus '%s': %s", 
+                      pin, 
+                      config->name, 
+                      esp_err_to_name(result));
+            return result;
+          }
+        }
+      }
+      
       /* Only configure GPIO if pins are specified (non-zero mask) */
       if (config->config.gpio.config.pin_bit_mask != 0) {
         result = gpio_config(&config->config.gpio.config);
@@ -313,6 +439,11 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                "Initializing SDIO bus '%s', slot %d", 
                config->name, 
                config->config.sdio.host.slot);
+      
+      /* Register SDIO pins with pin validator */
+      /* Note/TODO: SDIO pins are configured internally by the ESP-IDF SDMMC driver.
+       * We need to find a way to get these pins. For now, we won't register SDIO pins. */
+      
       /* For SDIO, we just set the initialized flag here.
        * The actual card detection and mounting is handled
        * by the SD card HAL. */
@@ -377,6 +508,18 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                "Deinitializing I2C bus '%s', port %d", 
                config->name, 
                config->config.i2c.port);
+      
+      /* Unregister I2C pins from pin validator */
+      if (config->config.i2c.config.sda_io_num != -1) {
+        pin_validator_unregister_pin(config->config.i2c.config.sda_io_num, 
+                                     config->name);
+      }
+      
+      if (config->config.i2c.config.scl_io_num != -1) {
+        pin_validator_unregister_pin(config->config.i2c.config.scl_io_num, 
+                                     config->name);
+      }
+      
       result = i2c_driver_delete(config->config.i2c.port);
       break;
 
@@ -386,6 +529,27 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                "Deinitializing SPI bus '%s', host %d", 
                config->name, 
                config->config.spi.host);
+      
+      /* Unregister SPI pins from pin validator */
+      if (config->config.spi.bus_config.mosi_io_num != -1) {
+        pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num, 
+                                     config->name);
+      }
+      
+      if (config->config.spi.bus_config.miso_io_num != -1) {
+        pin_validator_unregister_pin(config->config.spi.bus_config.miso_io_num, 
+                                     config->name);
+      }
+      
+      if (config->config.spi.bus_config.sclk_io_num != -1) {
+        pin_validator_unregister_pin(config->config.spi.bus_config.sclk_io_num, 
+                                     config->name);
+      }
+      
+      if (config->config.spi.dev_config.spics_io_num != -1) {
+        pin_validator_unregister_pin(config->config.spi.dev_config.spics_io_num, 
+                                     config->name);
+      }
       
       /* First remove any attached device */
       if (config->handle != NULL) {
@@ -414,6 +578,9 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                "Deinitializing UART bus '%s', port %d", 
                config->name, 
                config->config.uart.port);
+      
+      /* No pins to unregister for UART as we didn't register them */
+      
       result = uart_driver_delete(config->config.uart.port);
       break;
 
@@ -422,6 +589,16 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                "GPIO Deinit", 
                "Deinitializing GPIO bus '%s'", 
                config->name);
+      
+      /* Unregister GPIO pins from pin validator */
+      uint64_t pin_mask = config->config.gpio.config.pin_bit_mask;
+      for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
+        if ((pin_mask >> pin) & 0x1) {
+          /* This pin is used, unregister it */
+          pin_validator_unregister_pin(pin, config->name);
+        }
+      }
+      
       /* No specific deinitialize for GPIO, just set the flag */
       result = ESP_OK;
       break;
@@ -431,6 +608,9 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                "SDIO Deinit", 
                "Deinitializing SDIO bus '%s'", 
                config->name);
+      
+      /* No pins to unregister for SDIO as we didn't register them */
+      
       /* For SDIO, we just clear the initialized flag here.
        * The actual unmounting is handled by the SD card HAL. */
       result = ESP_OK;

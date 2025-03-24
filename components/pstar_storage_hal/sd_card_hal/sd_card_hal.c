@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
+#include "pin_validator.h" 
 #include "bus_config.h"
 #include "bus_sdio.h"
 #include "bus_spi.h"
@@ -76,6 +77,7 @@ static esp_err_t priv_sd_card_try_interfaces(sd_card_hal_t* sd_card);
 static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card);
 static esp_err_t priv_sd_card_unmount(sd_card_hal_t* sd_card);
 static void priv_sd_card_mount_task(void* arg);
+static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
 
 /* Public Functions ***********************************************************/
 
@@ -95,6 +97,82 @@ const char* sd_card_interface_to_string(sd_interface_type_t interface_type)
   }
 }
 
+esp_err_t sd_card_init(sd_card_hal_t* sd_card,
+                       const char*    parent_id,
+                       uint32_t       priority)
+{
+  /* Validate arguments */
+  if (sd_card == NULL) {
+    log_error(SD_CARD_HAL_TAG,
+              "Init Error",
+              "Invalid SD card HAL pointer");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Check if already initialized */
+  if (sd_card->initialized) {
+    log_warn(sd_card->tag,
+             "Init Warning",
+             "SD card HAL already initialized");
+    return ESP_OK;
+  }
+
+  log_info(sd_card->tag,
+           "Init Started",
+           "Initializing SD card HAL with %s bus width",
+           priv_sd_bus_width_to_string(sd_card->bus_width));
+
+  /* Set up card detection GPIO */
+  esp_err_t err = priv_sd_card_setup_detection(sd_card);
+  if (err != ESP_OK) {
+    log_error(sd_card->tag,
+              "Init Error",
+              "Failed to set up card detection: %s",
+              esp_err_to_name(err));
+    return err;
+  }
+
+  /* Register SD card pins with the pin validator */
+  err = priv_register_sd_card_pins(sd_card);
+  if (err != ESP_OK) {
+    log_error(sd_card->tag,
+              "Init Error",
+              "Failed to register SD card pins: %s",
+              esp_err_to_name(err));
+    return err;
+  }
+
+  /* Initialize mount task */
+  BaseType_t task_created = xTaskCreate(priv_sd_card_mount_task,
+                                        "sd_mount_task",
+                                        sd_card->task_config.stack_size,
+                                        (void*)sd_card,
+                                        sd_card->task_config.priority,
+                                        &sd_card->mount_task_handle);
+  if (task_created != pdPASS) {
+    log_error(SD_CARD_HAL_TAG,
+              "Failed to create mount task",
+              "sd_card: %p",
+              sd_card);
+    /* Cleanup detection setup if needed */
+    bool mutex_taken = false;
+    if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+      mutex_taken = true;
+      pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
+                                CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                                sd_card->pin_config.gpio_det_pin);
+      priv_release_mutex_if_taken(sd_card, &mutex_taken);
+    }
+    return ESP_ERR_NO_MEM;
+  }
+
+  /* Mark as initialized */
+  sd_card->initialized = true;
+  log_info(sd_card->tag,
+           "Init Complete",
+           "SD card HAL initialization complete");
+  return ESP_OK;
+}
 
 esp_err_t sd_card_init_with_pins(sd_card_hal_t*              sd_card, 
                                  const char*                 tag, 
@@ -389,37 +467,47 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
   return ESP_OK;
 }
 
-esp_err_t sd_card_init(sd_card_hal_t* sd_card, 
-                       const char*    parent_id, 
+esp_err_t sd_card_init(sd_card_hal_t* sd_card,
+                       const char*    parent_id,
                        uint32_t       priority)
 {
   /* Validate arguments */
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, 
-              "Init Error", 
+    log_error(SD_CARD_HAL_TAG,
+              "Init Error",
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
   /* Check if already initialized */
   if (sd_card->initialized) {
-    log_warn(sd_card->tag, 
-             "Init Warning", 
+    log_warn(sd_card->tag,
+             "Init Warning",
              "SD card HAL already initialized");
     return ESP_OK;
   }
 
-  log_info(sd_card->tag, 
-           "Init Started", 
-           "Initializing SD card HAL with %s bus width", 
+  log_info(sd_card->tag,
+           "Init Started",
+           "Initializing SD card HAL with %s bus width",
            priv_sd_bus_width_to_string(sd_card->bus_width));
 
   /* Set up card detection GPIO */
   esp_err_t err = priv_sd_card_setup_detection(sd_card);
   if (err != ESP_OK) {
-    log_error(sd_card->tag, 
-              "Init Error", 
-              "Failed to set up card detection: %s", 
+    log_error(sd_card->tag,
+              "Init Error",
+              "Failed to set up card detection: %s",
+              esp_err_to_name(err));
+    return err;
+  }
+
+  /* Register SD card pins with the pin validator */
+  err = priv_register_sd_card_pins(sd_card);
+  if (err != ESP_OK) {
+    log_error(sd_card->tag,
+              "Init Error",
+              "Failed to register SD card pins: %s",
               esp_err_to_name(err));
     return err;
   }
@@ -431,19 +519,18 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card,
                                         (void*)sd_card,
                                         sd_card->task_config.priority,
                                         &sd_card->mount_task_handle);
-
   if (task_created != pdPASS) {
-    log_error(SD_CARD_HAL_TAG, 
-              "Failed to create mount task", 
-              "sd_card: %p", 
+    log_error(SD_CARD_HAL_TAG,
+              "Failed to create mount task",
+              "sd_card: %p",
               sd_card);
-    /* Cleanup detection setup */
+    /* Cleanup detection setup if needed */
     bool mutex_taken = false;
     if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
       mutex_taken = true;
-      pstar_bus_gpio_isr_remove(&sd_card->bus_manager, 
-                          CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME, 
-                          sd_card->pin_config.gpio_det_pin);
+      pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
+                                CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                                sd_card->pin_config.gpio_det_pin);
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
     }
     return ESP_ERR_NO_MEM;
@@ -451,9 +538,8 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card,
 
   /* Mark as initialized */
   sd_card->initialized = true;
-
-  log_info(sd_card->tag, 
-           "Init Complete", 
+  log_info(sd_card->tag,
+           "Init Complete",
            "SD card HAL initialization complete");
   return ESP_OK;
 }
@@ -3212,4 +3298,83 @@ static void priv_sd_card_mount_task(void* arg)
            "SD card mount/unmount task received exit request");
   
   vTaskDelete(NULL);
+}
+
+/**
+ * @brief Register all SD card pins with the pin validator
+ * 
+ * @param[in] sd_card Pointer to the SD card HAL instance
+ */
+static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
+{
+  esp_err_t err;
+
+  /* Register card detection pin */
+  err = pin_validator_register_pin(sd_card->pin_config.gpio_det_pin,
+                                   "SD Card HAL",
+                                   "Card detect pin",
+                                   false);
+  if (err != ESP_OK) return err;
+
+  /* Register SPI pins */
+  err = pin_validator_register_pin(sd_card->pin_config.spi_di_pin,
+                                   "SD Card HAL",
+                                   "SPI MISO",
+                                   false);
+  if (err != ESP_OK) return err;
+  err = pin_validator_register_pin(sd_card->pin_config.spi_do_pin,
+                                   "SD Card HAL",
+                                   "SPI MOSI",
+                                   false);
+  if (err != ESP_OK) return err;
+  err = pin_validator_register_pin(sd_card->pin_config.spi_sclk_pin,
+                                   "SD Card HAL",
+                                   "SPI Clock",
+                                   false);
+  if (err != ESP_OK) return err;
+  err = pin_validator_register_pin(sd_card->pin_config.spi_cs_pin,
+                                   "SD Card HAL",
+                                   "SPI Chip Select",
+                                   false);
+  if (err != ESP_OK) return err;
+
+  /* Register SDIO pins */
+  err = pin_validator_register_pin(sd_card->pin_config.sdio_clk_pin,
+                                   "SD Card HAL",
+                                   "SDIO Clock",
+                                   false);
+  if (err != ESP_OK) return err;
+  err = pin_validator_register_pin(sd_card->pin_config.sdio_cmd_pin,
+                                   "SD Card HAL",
+                                   "SDIO CMD",
+                                   false);
+  if (err != ESP_OK) return err;
+  err = pin_validator_register_pin(sd_card->pin_config.sdio_d0_pin,
+                                   "SD Card HAL",
+                                   "SDIO D0",
+                                   false);
+  if (err != ESP_OK) return err;
+  if (sd_card->pin_config.sdio_d1_pin >= 0) {
+    err = pin_validator_register_pin(sd_card->pin_config.sdio_d1_pin,
+                                     "SD Card HAL",
+                                     "SDIO D1",
+                                     false);
+    if (err != ESP_OK) return err;
+  }
+  if (sd_card->pin_config.sdio_d2_pin >= 0) {
+    err = pin_validator_register_pin(sd_card->pin_config.sdio_d2_pin,
+                                     "SD Card HAL",
+                                     "SDIO D2",
+                                     false);
+    if (err != ESP_OK) return err;
+  }
+  if (sd_card->pin_config.sdio_d3_pin >= 0) {
+    err = pin_validator_register_pin(sd_card->pin_config.sdio_d3_pin,
+                                     "SD Card HAL",
+                                     "SDIO D3",
+                                     false);
+    if (err != ESP_OK) return err;
+  }
+
+  return ESP_OK;
 }

@@ -15,10 +15,10 @@
   - [Configuration](#configuration)
     - [Using menuconfig](#using-menuconfig)
     - [Validating Kconfig Files](#validating-kconfig-files)
+    - [Fixing Kconfig Warnings (Step 2)](#fixing-kconfig-warnings-step-2)
+    - [Kconfig Validation and Update Script](#kconfig-validation-and-update-script)
     - [ESP-IDF Kconfig Documentation](#esp-idf-kconfig-documentation)
     - [Additional ESP-IDF Resources](#additional-esp-idf-resources)
-  - [Wiring](#wiring)
-  - [EC11](#ec11)
   - [JTAG Debugging](#jtag-debugging)
   - [Documentation](#documentation)
   - [Contributing](#contributing)
@@ -143,13 +143,6 @@ idf.py menuconfig
 
 This will open a text-based configuration interface where you can navigate through different categories and adjust settings for your specific needs.
 
-Key configuration options for STAR include:
-- Sensor enabling/disabling
-- Sampling rates and precision settings
-- Communication parameters
-- Debug levels
-- Power management options
-
 ### Validating Kconfig Files
 
 To check the syntax and validity of a specific Kconfig file:
@@ -163,6 +156,104 @@ To check all Kconfig files in the project:
 ```bash
 find . -name "Kconfig*" -exec python -m kconfcheck {} \;
 ```
+
+### Fixing Kconfig Warnings (Step 2)
+
+**Issue:**  
+When loading `sdkconfig.defaults`, warnings like "unknown kconfig symbol 'PSTAR_KCONFIG_BUS_COMPONENT_ENABLED' assigned to 'y'" appear because the defaults file is processed before component Kconfig files are loaded.
+
+**Solution:**  
+Create a root‑level `Kconfig` file that sources all your component Kconfig files. This ensures that all configuration symbols are defined before `sdkconfig.defaults` is processed.
+
+**Steps:**
+
+1. **Create the Root‑Level Kconfig File:**  
+   Place a file named `Kconfig` in the project's root directory (same level as `CMakeLists.txt`) with the following content:
+
+   ```kconfig
+   # Root Kconfig file for Project-Star
+
+   # Include project-level configuration (if any)
+   source "main/Kconfig.projbuild"
+
+   # Include component Kconfig files to define all custom symbols
+   source "components/pstar_logger/Kconfig"
+   source "components/pstar_bus/Kconfig"
+   source "components/pstar_managers/Kconfig"
+   source "components/pstar_error_handler/Kconfig"
+   source "components/pstar_pin_validator/Kconfig"
+   source "components/pstar_storage_hal/Kconfig"
+   ```
+
+2. **Clean and Reconfigure:**  
+   - Run `idf.py fullclean` to remove previous build artifacts.  
+   - Then run `idf.py menuconfig` to load the new configuration.  
+   - Verify that the warnings about unknown Kconfig symbols no longer appear.
+
+### Kconfig Validation and Update Script
+
+An included shell script (`check_and_update_kconfig.sh`) automates the process of validating your Kconfig files and updating them if necessary. This script performs the following actions:
+
+- **Runs `kconfcheck`:** It scans all Kconfig files in the project to validate their syntax.
+- **Retries if Needed:** It will retry up to a set maximum number of attempts (default is 10) if `kconfcheck` fails.
+- **Updates Files:** Upon successful validation, it moves any generated `Kconfig.new` files to replace the original ones.
+
+**Script Content:**
+
+```bash
+#!/usr/bin/env bash
+# check_and_update_kconfig.sh
+
+max_attempts=10
+attempt=0
+
+while [ $attempt -lt $max_attempts ]; do
+  echo "Attempt $((attempt + 1)) of $max_attempts: Running kconfcheck on all Kconfig files..."
+
+  # Run kconfcheck on all Kconfig files
+  find . -name "Kconfig*" -exec python -m kconfcheck {} \;
+
+  # Capture exit code
+  exit_code=$?
+
+  if [ $exit_code -eq 0 ]; then
+    echo "kconfcheck completed successfully!"
+    
+    # Move Kconfig.new files to replace originals
+    find . -name "Kconfig.new" -exec sh -c 'echo "Moving $0 to ${0%.new}"; mv "$0" "${0%.new}"' {} \;
+    
+    if [ $? -eq 0 ]; then
+      echo "All Kconfig files checked and updated successfully."
+      exit 0
+    else
+      echo "Error moving Kconfig.new files."
+      exit 1
+    fi
+  fi
+
+  echo "kconfcheck failed (exit code $exit_code), retrying..."
+  attempt=$((attempt + 1))
+done
+
+echo "Reached maximum attempts ($max_attempts). kconfcheck did not succeed."
+exit 1
+```
+
+**Usage:**
+
+1. Make the script executable:
+
+   ```bash
+   chmod +x check_and_update_kconfig.sh
+   ```
+
+2. Run the script from the project's root directory:
+
+   ```bash
+   ./check_and_update_kconfig.sh
+   ```
+
+This script helps ensure that your Kconfig files are valid and that any updates (if `kconfcheck` generates `.new` files) are applied automatically.
 
 ### ESP-IDF Kconfig Documentation
 
@@ -221,17 +312,7 @@ JTAG (Joint Test Action Group) debugging is crucial for in-depth troubleshooting
      - **`-f board/esp32-wrover-kit-3.3v.cfg`:** This specifies the configuration file for the ESP32-WROVER-KIT board, which has similar JTAG settings. You can adapt this to other ESP32 boards if needed.
      - **`-c "ftdi_vid_pid 0x0403 0x6011"`:** This sets the VID and PID for the CJMCU-4232. Replace `0x0403` and `0x6011` with the values you identified in step 1 if they are different.
 
-   - You should see output indicating that OpenOCD has started successfully and is listening on port 3333 for GDB connections. Example Output:
-     ```
-     Info : clock speed 20000 kHz
-     Info : JTAG tap: esp32.esp32.tap0 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
-     Info : JTAG tap: esp32.esp32.tap1 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
-     Info : esp32.cpu0: Debug controller was reset.
-     Info : esp32.cpu0: Core was reset.
-     Info : esp32.cpu1: Debug controller was reset.
-     Info : esp32.cpu1: Core was reset.
-     Info : Listening on port 3333 for gdb connections
-     ```
+   - You should see output indicating that OpenOCD has started successfully and is listening on port 3333 for GDB connections.
 
 3. **Connect with GDB:**
 

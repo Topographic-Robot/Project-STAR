@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
+# Set CMP0175 to NEW to enforce correct usage of add_custom_command
+cmake_policy(SET CMP0175 NEW)
+
 # Print build information
 message(STATUS "Project-Star: Build started")
 message(STATUS "Project-Star: ESP-IDF path: $ENV{IDF_PATH}")
@@ -12,7 +15,6 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 # Set extra component directories to resolve header dependencies.
-# (We still list all directories; each component will self-disable if its Kconfig is off)
 set(EXTRA_COMPONENT_DIRS
   "components/pstar_bus"
   "components/pstar_error_handler"
@@ -77,9 +79,11 @@ add_custom_target(build_summary ALL
   DEPENDS app
 )
 
+# Append a custom command with an explicit POST_BUILD option for each extra component.
 foreach(COMPONENT ${EXTRA_COMPONENT_DIRS})
-  add_custom_command(TARGET build_summary
+  add_custom_command(TARGET build_summary POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "  - ${COMPONENT}"
+    VERBATIM
   )
 endforeach()
 
