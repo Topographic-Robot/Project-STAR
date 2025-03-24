@@ -62,7 +62,8 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card);
 static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path);
 static bool priv_path_is_safe_simple(const char* path);
 static bool priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* path);
-static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, const char* path);
+static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, 
+                                                 const char*          path);
 static const char* priv_sd_bus_width_to_string(sd_bus_width_t bus_width);
 static esp_err_t priv_sd_card_reset(void* context);
 static bool priv_sd_card_is_inserted(sd_card_hal_t* sd_card);

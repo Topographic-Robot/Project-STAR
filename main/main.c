@@ -5,12 +5,10 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-
-/* For Project Star components */
 #include "log_handler.h"
 #include "error_handler.h"
 
-static const char* main_tag = "main";
+#define MAIN_TAG ("Main")
 
 void app_main(void)
 {
@@ -23,7 +21,7 @@ void app_main(void)
  }
  ESP_ERROR_CHECK(ret);
  
- ESP_LOGI(main_tag, "Project Star starting up");
+ ESP_LOGI(MAIN_TAG, "Project Star starting up");
  
- ESP_LOGI(main_tag, "Project Star initialization complete");
+ ESP_LOGI(MAIN_TAG, "Project Star initialization complete");
 }

@@ -17,8 +17,7 @@
 /* Constants ******************************************************************/
 
 #define TIME_MANAGER_TAG ("Time Manager")
-static const uint32_t time_sync_bit        = (1 << 0);
-static const uint32_t time_sync_timeout_ms = CONFIG_PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS;
+#define TIME_SYNC_BIT    (1 << 0)
 
 /* Globals (Static) ***********************************************************/
 
@@ -35,7 +34,7 @@ static TaskHandle_t       s_time_sync_task_handle = NULL;
 static void priv_time_sync_notification_cb(struct timeval *tv)
 {
   if (s_time_sync_event_group) {
-    xEventGroupSetBits(s_time_sync_event_group, time_sync_bit);
+    xEventGroupSetBits(s_time_sync_event_group, TIME_SYNC_BIT);
   }
 
   char      strftime_buf[64];
@@ -146,12 +145,12 @@ static void priv_time_sync_task(void *pvParameters)
 
   /* Wait for time sync or timeout */
   EventBits_t bits = xEventGroupWaitBits(s_time_sync_event_group,
-                                         time_sync_bit,
+                                         TIME_SYNC_BIT,
                                          pdFALSE,
                                          pdFALSE,
-                                         pdMS_TO_TICKS(time_sync_timeout_ms));
+                                         pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS));
 
-  if ((bits & time_sync_bit) == 0) {
+  if ((bits & TIME_SYNC_BIT) == 0) {
     log_error(TIME_MANAGER_TAG,
               "Sync Error",
               "Time sync failed after timeout");
