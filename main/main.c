@@ -6,7 +6,9 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "log_handler.h"
+#if CONFIG_PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
 #include "error_handler.h"
+#endif
 
 #define MAIN_TAG ("Main")
 
@@ -22,6 +24,14 @@ void app_main(void)
  ESP_ERROR_CHECK(ret);
  
  ESP_LOGI(MAIN_TAG, "Project Star starting up");
+ 
+#if CONFIG_PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+ /* Initialize error handler */
+ ESP_LOGI(MAIN_TAG, "Initializing error handler");
+ error_handler_init();
+#else
+ ESP_LOGI(MAIN_TAG, "Error handler disabled in configuration");
+#endif
  
  ESP_LOGI(MAIN_TAG, "Project Star initialization complete");
 }

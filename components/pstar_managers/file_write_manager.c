@@ -12,7 +12,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
 #include "sd_card_hal.h"
+#endif
 
 /* Constants ******************************************************************/
 
@@ -43,6 +45,7 @@ esp_err_t file_write_manager_init(file_write_manager_t*       manager,
                                   sd_card_hal_t*              sd_card,
                                   const file_writer_config_t* config)
 {
+#if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
   /* Validate arguments */
   if (manager == NULL || sd_card == NULL) {
     log_error(FILE_MANAGER_TAG, 
@@ -50,6 +53,20 @@ esp_err_t file_write_manager_init(file_write_manager_t*       manager,
               "Invalid arguments: manager or sd_card is NULL");
     return ESP_ERR_INVALID_ARG;
   }
+#else
+  /* When SD card is disabled, only validate manager */
+  if (manager == NULL) {
+    log_error(FILE_MANAGER_TAG, 
+              "Init Error", 
+              "Invalid arguments: manager is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+  
+  /* Log warning that SD card functionality is disabled */
+  log_warn(FILE_MANAGER_TAG,
+           "SD Card Disabled",
+           "File operations will be limited due to disabled SD card support");
+#endif
   
   if (manager->initialized) {
     log_warn(FILE_MANAGER_TAG, 
@@ -62,7 +79,9 @@ esp_err_t file_write_manager_init(file_write_manager_t*       manager,
   
   /* Initialize the manager structure */
   memset(manager, 0, sizeof(file_write_manager_t));
+#if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
   manager->sd_card = sd_card;
+#endif
   
   /* Apply configuration (use defaults if config is NULL) */
   if (config != NULL) {
@@ -129,6 +148,13 @@ esp_err_t file_write_enqueue(file_write_manager_t* manager,
     return ESP_ERR_INVALID_ARG;
   }
   
+#if !CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
+  log_error(FILE_MANAGER_TAG,
+            "SD Card Disabled",
+            "Cannot enqueue file write request: SD card support is disabled");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
+  
   /* Create a request */
   file_write_request_t request;
   memset(&request, 0, sizeof(request));
@@ -185,6 +211,13 @@ esp_err_t file_write_binary_enqueue(file_write_manager_t* manager,
               "Invalid arguments: file_path or data is NULL, or data_length is 0");
     return ESP_ERR_INVALID_ARG;
   }
+  
+#if !CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
+  log_error(FILE_MANAGER_TAG,
+            "SD Card Disabled",
+            "Cannot enqueue binary write request: SD card support is disabled");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
   
   /* Create a binary request */
   file_write_request_t request;
@@ -398,6 +431,10 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
     return ESP_ERR_INVALID_ARG;
   }
   
+  /* Prepare the full path */
+  char full_path[MAX_FILE_PATH_LENGTH * 2];
+
+#if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
   /* Check if SD card is available */
   if (!sd_card_is_available(manager->sd_card)) {
     log_error(FILE_MANAGER_TAG, 
@@ -408,12 +445,17 @@ static esp_err_t priv_write_to_file(file_write_manager_t* manager,
   }
   
   /* Prepend the SD card mount path to the file path */
-  char full_path[MAX_FILE_PATH_LENGTH * 2];
   snprintf(full_path, 
            sizeof(full_path), 
            "%s/%s", 
            manager->sd_card->mount_path, 
            file_path);
+#else
+  log_error(FILE_MANAGER_TAG,
+            "SD Card Disabled",
+            "Cannot write to file: SD card support is disabled");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
   
   /* Create directories if they don't exist */
   esp_err_t ret = priv_create_directories(full_path);
@@ -491,6 +533,10 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
     return ESP_ERR_INVALID_ARG;
   }
   
+  /* Prepare the full path */
+  char full_path[MAX_FILE_PATH_LENGTH * 2];
+
+#if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
   /* Check if SD card is available */
   if (!sd_card_is_available(manager->sd_card)) {
     log_error(FILE_MANAGER_TAG, 
@@ -501,12 +547,17 @@ static esp_err_t priv_write_binary_to_file(file_write_manager_t* manager,
   }
   
   /* Prepend the SD card mount path to the file path */
-  char full_path[MAX_FILE_PATH_LENGTH * 2];
   snprintf(full_path, 
            sizeof(full_path), 
            "%s/%s", 
            manager->sd_card->mount_path, 
            file_path);
+#else
+  log_error(FILE_MANAGER_TAG,
+            "SD Card Disabled",
+            "Cannot write binary data to file: SD card support is disabled");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
   
   /* Create directories if they don't exist */
   esp_err_t ret = priv_create_directories(full_path);
@@ -583,6 +634,19 @@ static void priv_file_write_task(void* param)
                  "Received termination request, exiting task");
         break; /* Exit the task loop */
       }
+      
+#if !CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
+      log_error(FILE_MANAGER_TAG,
+                "SD Card Disabled",
+                "Skipping file write request: SD card support is disabled");
+      
+      /* Free the allocated data buffer */
+      if (request.data) {
+        free(request.data);
+        request.data = NULL;
+      }
+      continue;
+#endif
       
       /* Check if this is a binary request */
       if (request.is_binary) {
