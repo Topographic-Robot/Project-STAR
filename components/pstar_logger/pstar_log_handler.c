@@ -52,7 +52,7 @@ void log_write_va(esp_log_level_t   level,
 
   /* Format the detailed message with provided va_list */
   char formatted_msg[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH];
-  int result = vsnprintf(formatted_msg, sizeof(formatted_msg), detailed_msg, args);
+  int  result = vsnprintf(formatted_msg, sizeof(formatted_msg), detailed_msg, args);
   
   /* Check for formatting errors or truncation */
   if (result < 0) {

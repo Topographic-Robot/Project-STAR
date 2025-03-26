@@ -12,7 +12,7 @@ extern "C" {
 
 /**
  * @brief Macros for logging constants not directly available from Kconfig
- * 
+ *
  * These macros define derived constants that aren't directly specified in Kconfig.
  */
 
@@ -20,6 +20,7 @@ extern "C" {
 #define PSTAR_LOGGING_MAX_FILE_PATH_LENGTH       (256)                                                  /**< Maximum path length for log files */
 #define PSTAR_LOGGING_MAX_FILE_SIZE              (CONFIG_PSTAR_KCONFIG_LOGGING_MAX_FILE_SIZE_KB * 1024) /**< Maximum file size for log files */
 #define PSTAR_LOGGING_ZLIB_GZIP_WINDOW_BITS      (CONFIG_PSTAR_KCONFIG_LOGGING_ZLIB_WINDOW_BITS + 16)   /**< Zlib Gzip window bits */
+#define PSTAR_LOGGING_MAX_COMPRESSION_INPUT_SIZE (1024 * 1024)                                          /**< 1MB max buffer before compression */
 
 #ifdef __cplusplus
 }
