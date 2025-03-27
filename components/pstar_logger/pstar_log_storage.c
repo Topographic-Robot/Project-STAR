@@ -1,5 +1,3 @@
-// ===================== ./components/pstar_logger/pstar_log_storage.c ========================
-
 /* components/pstar_logging/log_storage.c */
 
 #include "pstar_log_storage.h"
@@ -187,15 +185,20 @@ void log_storage_set_sd_available(bool available)
 
 esp_err_t log_storage_write(esp_log_level_t level, const char* const message)
 {
-  // Storage doesn't need init check here, as it only affects SD writing. Buffering should always work if mutex exists.
+  // Ensure message is valid
   if (message == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
 
-  // Ensure mutex is created
+  // Ensure mutex is created - create it on demand if not initialized yet
   if (s_log_mutex == NULL) {
-      ESP_LOGE(TAG, "Log storage mutex not initialized!"); // Use ESP_LOGE
-      return ESP_ERR_INVALID_STATE;
+      // Create mutex on first use if it doesn't exist yet
+      s_log_mutex = xSemaphoreCreateMutex();
+      if (s_log_mutex == NULL) {
+          ESP_LOGE(TAG, "Log storage mutex not initialized and creation failed!"); 
+          return ESP_ERR_INVALID_STATE;
+      }
+      ESP_LOGW(TAG, "Created log mutex on first write call - prefer calling log_init() first");
   }
 
   // Acquire mutex to access buffer
@@ -290,8 +293,13 @@ esp_err_t log_storage_flush(void)
 
   // Ensure mutex is created
   if (s_log_mutex == NULL) {
-      ESP_LOGE(TAG, "Flush Error: Log storage mutex not initialized!"); // Use ESP_LOGE
-      return ESP_ERR_INVALID_STATE;
+      // Create mutex on demand if needed
+      s_log_mutex = xSemaphoreCreateMutex();
+      if (s_log_mutex == NULL) {
+          ESP_LOGE(TAG, "Flush Error: Log storage mutex not initialized and creation failed!"); 
+          return ESP_ERR_INVALID_STATE;
+      }
+      ESP_LOGW(TAG, "Created log mutex during flush - prefer calling log_init() first");
   }
 
   // Acquire mutex

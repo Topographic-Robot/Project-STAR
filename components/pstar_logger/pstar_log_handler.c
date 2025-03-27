@@ -172,7 +172,7 @@ void log_write_va(esp_log_level_t   level,
         ESP_LOGE(tag, "Failed to write log to storage: %s", esp_err_to_name(storage_err));
     }
   }
-  // *** FIX: Removed the #else block that called log_storage_write when SD was disabled ***
+  // Note: We've removed the incorrect #else branch that was here previously
 #endif
 }
 
@@ -214,7 +214,11 @@ esp_err_t log_init(void* file_manager, // Parameters ignored
       // Console logging already works. No storage init possible yet.
       ESP_LOGI(TAG, "Performing minimal log handler initialization (SD storage deferred).");
       // Call storage init with NULLs for minimal setup (mutex)
-      log_storage_init(NULL, NULL);
+      esp_err_t ret = log_storage_init(NULL, NULL);
+      if (ret != ESP_OK) {
+          ESP_LOGW(TAG, "Minimal storage init failed: %s", esp_err_to_name(ret));
+          // Continue anyway since console logging works without storage
+      }
       // Do NOT set s_logger_fully_initialized = true yet.
       return ESP_OK;
   } else if (file_manager == NULL || sd_card == NULL) {
@@ -245,7 +249,11 @@ esp_err_t log_init(void* file_manager, // Parameters ignored
   ESP_LOGI(TAG, "Performing log handler initialization (SD Card Disabled).");
   // Minimal init IS the full init in this case.
   // Initialize storage with NULL pointers (it will handle this minimally)
-  log_storage_init(NULL, NULL);
+  esp_err_t ret = log_storage_init(NULL, NULL);
+  if (ret != ESP_OK) {
+      ESP_LOGW(TAG, "Storage init failed: %s", esp_err_to_name(ret));
+      // Continue anyway since console logging works without storage
+  }
   atomic_store(&s_logger_fully_initialized, true);
   log_info(TAG, "Init Complete", "Log handler initialized successfully (Console Only)");
   return ESP_OK;
