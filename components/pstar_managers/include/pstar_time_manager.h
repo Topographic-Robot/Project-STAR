@@ -9,20 +9,13 @@ extern "C" {
 
 #include "esp_err.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include "sdkconfig.h"
-
-/* Macros *********************************************************************/
-
-#ifndef CONFIG_PSTAR_TIME_STRFTIME_BUFFER_SIZE
-#define CONFIG_PSTAR_TIME_STRFTIME_BUFFER_SIZE (64)
-#endif
-
-#define TIME_STRFTIME_BUFFER_SIZE (CONFIG_PSTAR_TIME_STRFTIME_BUFFER_SIZE) /**< Size of buffer for formatted time strings */
 
 /* Public Functions ***********************************************************/
 
 /**
- * @brief Checks if the system time has been properly initialized.
+ * @brief Checks if the system time has been properly initialized (either via NTP or default).
  *
  * The system time is considered initialized if either:
  * - NTP synchronization was successful
@@ -33,53 +26,61 @@ extern "C" {
 bool time_manager_is_initialized(void);
 
 /**
- * @brief Formats the current date and time as a string.
+ * @brief Formats the current date and time as a string into a provided buffer.
  *
- * Retrieves the current system time and formats it as `YYYY-MM-DD HH:MM:SS`.
- * The system time is synchronized with NTP if WiFi is available, otherwise
- * it uses the default time set during initialization.
+ * Retrieves the current system time and formats it as `YYYY-MM-DD HH:MM:SS`
+ * into the given buffer. The system time is synchronized with NTP if WiFi is
+ * available and sync was successful, otherwise it uses the default time set
+ * during initialization.
  *
- * @return A dynamically allocated string containing the formatted timestamp.
- *         The caller is responsible for freeing this memory using free().
- *         Returns NULL if memory allocation fails.
+ * @param[out] buffer Buffer to store the formatted timestamp string.
+ * @param[in]  size   Size of the provided buffer. Should be at least 20 bytes.
+ * @return
+ *  - ESP_OK on success.
+ *  - ESP_ERR_INVALID_STATE if the time manager is not initialized.
+ *  - ESP_ERR_INVALID_ARG if buffer is NULL or size is too small.
+ *  - ESP_FAIL if formatting fails internally.
  *
- * @note 
- * - The returned string must be freed by the caller to avoid memory leaks.
+ * @note
  * - The system time must be properly initialized before calling this function.
+ * - The buffer should be at least 20 bytes to hold "YYYY-MM-DD HH:MM:SS\0".
  */
-char* time_manager_get_timestamp(void);
+esp_err_t time_manager_get_timestamp(char* buffer, size_t size);
 
 /**
  * @brief Initializes the SNTP service and synchronizes the ESP32's system time.
  *
- * Sets up the Simple Network Time Protocol (SNTP) service to retrieve the 
- * current date and time from an NTP server. If synchronization with the NTP 
- * server fails (e.g., due to lack of Wi-Fi connectivity), the system falls 
- * back to manually setting the time to a predefined default value ("beginning 
- * of time"). The synchronized system time is critical for logging and 
- * timestamping operations across the application.
+ * Sets up the Simple Network Time Protocol (SNTP) service to retrieve the
+ * current date and time from an NTP server. This function starts a background
+ * task to handle synchronization. If synchronization with the NTP
+ * server fails (e.g., due to lack of Wi-Fi connectivity within the timeout),
+ * the system falls back to manually setting the time to a predefined default
+ * value ("beginning of time"). The synchronized system time is critical for
+ * logging and timestamping operations across the application.
  *
  * @return
- * - ESP_OK   if the system time is successfully synchronized with an NTP server.
- * - ESP_FAIL if synchronization fails and the default fallback time is set.
+ * - ESP_OK   if initialization tasks are successfully started.
+ * - ESP_FAIL if task creation or event group creation fails.
+ * - ESP_ERR_NO_MEM if memory allocation fails.
  *
  * @note
  * - Call this function once during the system initialization phase.
- * - Ensure Wi-Fi connectivity is established before invoking this function 
- *   for successful NTP synchronization.
+ * - Actual time synchronization happens asynchronously in the background.
+ * - Use time_manager_is_initialized() to check if synchronization has completed
+ *   or the fallback time has been set.
  */
 esp_err_t time_manager_init(void);
 
 /**
  * @brief Cleans up resources used by the time manager module.
  *
- * Stops the SNTP service and performs cleanup of resources allocated during
- * time manager initialization. This function should be called during system
- * shutdown to ensure proper cleanup of the time synchronization subsystem.
+ * Stops the SNTP service, deletes the background task (if running), and
+ * performs cleanup of resources allocated during time manager initialization
+ * (event group). This function should be called during system shutdown.
  *
  * @return
  * - ESP_OK   if all resources are successfully cleaned up.
- * - ESP_FAIL if any cleanup operation fails.
+ * - ESP_FAIL if any cleanup operation fails (currently always returns ESP_OK).
  *
  * @note
  * - Call this function during the system shutdown phase.

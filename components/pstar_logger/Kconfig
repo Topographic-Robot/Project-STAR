@@ -46,6 +46,18 @@ menu "Project Star Logging Configuration"
                 Enable logging messages to the serial console.
     endmenu
 
+    menu "Log Buffering Configuration"
+        depends on PSTAR_KCONFIG_LOGGING_ENABLED
+
+        config PSTAR_KCONFIG_LOGGING_BUFFER_SIZE
+            int "Log buffer size (entries)"
+            range 1 100
+            default 50
+            help
+                Size of the buffer (in number of log entries) for storing logs temporarily,
+                especially when SD card is unavailable or before storage is initialized.
+    endmenu
+
     menu "SD Card Logging Configuration"
         depends on PSTAR_KCONFIG_LOGGING_ENABLED && PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
 
@@ -55,13 +67,6 @@ menu "Project Star Logging Configuration"
             default y
             help
                 Enable compression of log files stored on SD card to save space.
-
-        config PSTAR_KCONFIG_LOGGING_BUFFER_SIZE
-            int "Log buffer size"
-            range 1 100
-            default 10
-            help
-                Size of the buffer for storing logs when SD card is unavailable.
 
         config PSTAR_KCONFIG_LOGGING_MAX_FILE_SIZE_KB
             int "Maximum log file size (KB)"

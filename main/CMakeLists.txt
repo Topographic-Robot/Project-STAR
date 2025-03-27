@@ -5,4 +5,6 @@ idf_component_register(
     pstar_pin_validator
     pstar_logger
     pstar_error_handler
+    pstar_managers
+    pstar_storage_hal
 )

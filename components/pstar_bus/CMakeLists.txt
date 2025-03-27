@@ -10,7 +10,7 @@ set(bus_srcs
 
 # Conditionally add SDIO bus source if SD card is enabled
 if(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED)
-    list(APPEND bus_srcs "pstar_bus_sdio.c")
+  list(APPEND bus_srcs "pstar_bus_sdio.c")
 endif()
 
 idf_component_register(
@@ -26,4 +26,5 @@ idf_component_register(
     sdmmc
     nvs_flash
     pstar_storage_hal
+    pstar_logger
 )
