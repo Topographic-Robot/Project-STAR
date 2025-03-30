@@ -1,4 +1,4 @@
-/* components/pstar_storage_hal/sd_card_hal/include/sd_card_types.h */
+/* components/pstar_storage_hal/sd_card_hal/include/pstar_sd_card_types.h */
 
 #ifndef PSTAR_SD_CARD_TYPES_H
 #define PSTAR_SD_CARD_TYPES_H
@@ -7,31 +7,33 @@
 extern "C" {
 #endif
 
-#include "esp_err.h"
+#include "pstar_bus_manager_types.h"
+#include "pstar_error_handler.h"
+
+#include "driver/gpio.h" /* Add this include for gpio_num_t */
 #include "driver/spi_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "pstar_error_handler.h"
+
+#include "esp_err.h"
 #include "sdmmc_cmd.h"
-#include "pstar_bus_manager.h"
 
 /* Enums **********************************************************************/
 
 /**
- * @brief SD card interface types in order of preference
- * 
- * The enum values represent the clock speeds in Hz
+ * @brief SD card interface types
+ *
+ * Defines the possible communication interfaces for the SD card.
  */
-typedef enum : uint32_t {
-  k_sd_interface_sdio       = 40000000, /* 40 MHz SDIO (highest performance) */
-  k_sd_interface_fast_spi   = 20000000, /* 20 MHz SPI */
-  k_sd_interface_normal_spi = 4000000,  /* 4 MHz SPI */
-  k_sd_interface_slow_spi   = 400000,   /* 400 kHz SPI (lowest performance but most compatible) */
-  k_sd_interface_count      = 4,        /* Total number of interfaces */
+typedef enum : uint8_t {
+  k_sd_interface_none = 0, /* No interface selected or initialized */
+  k_sd_interface_spi,      /* SPI interface */
+  k_sd_interface_sdio,     /* SDIO (SDMMC) interface */
+  k_sd_interface_count,    /* Total number of interface types */
 } sd_interface_type_t;
 
 /**
- * @brief SD card bus width options
+ * @brief SD card bus width options (Primarily for SDIO)
  */
 typedef enum : uint8_t {
   k_sd_bus_width_1bit = 1, /* 1-bit bus width for maximum compatibility */
@@ -50,6 +52,16 @@ typedef enum {
   k_sd_state_failed,              /* Maximum retries reached, permanent failure */
 } sd_state_t;
 
+/* Typedefs *******************************************************************/
+
+/**
+ * @brief Callback function type for SD card availability notifications.
+ *
+ * @param available True if the SD card is now available (inserted and mounted),
+ *                  false otherwise.
+ */
+typedef void (*sd_availability_cb_t)(bool available);
+
 /* Structs ********************************************************************/
 
 /**
@@ -67,13 +79,13 @@ typedef struct sd_card_task_config {
 typedef struct sd_card_pin_config {
   /* GPIO pins */
   gpio_num_t gpio_det_pin; /* Card detect pin */
-  
+
   /* SPI pins */
-  gpio_num_t spi_di_pin;   /* SPI DI (Data In) */
-  gpio_num_t spi_do_pin;   /* SPI DO (Data Out) */
+  gpio_num_t spi_miso_pin; /* SPI MISO (Master In Slave Out) */
+  gpio_num_t spi_mosi_pin; /* SPI MOSI (Master Out Slave In) */
   gpio_num_t spi_sclk_pin; /* SPI SCLK (Clock) */
   gpio_num_t spi_cs_pin;   /* SPI CS (Chip Select) */
-  
+
   /* SDIO pins */
   gpio_num_t sdio_clk_pin; /* SDIO CLK */
   gpio_num_t sdio_cmd_pin; /* SDIO CMD */
@@ -100,12 +112,12 @@ typedef struct sd_card_performance {
   int64_t last_measured;      /**< Timestamp of last measurement in microseconds */
   float   read_speed_kbps;    /**< Read speed in kilobits per second */
   float   write_speed_kbps;   /**< Write speed in kilobits per second */
-  bool    measurement_needed;  /**< Flag indicating if measurement is needed */
+  bool    measurement_needed; /**< Flag indicating if measurement is needed */
 } sd_card_performance_t;
 
 /**
  * @brief Structure containing all SD card HAL configuration and state
- * 
+ *
  * This structure encapsulates all configuration parameters and runtime state
  * for the SD card hardware abstraction layer. It provides a unified interface
  * for SD card operations with automatic card detection, error handling, and
@@ -113,41 +125,50 @@ typedef struct sd_card_performance {
  */
 typedef struct sd_card_hal {
   /* Constants */
-  const char*           tag;                                  /**< Logging tag for identification in logs */
-  const char*           mount_path;                           /**< Filesystem mount path (e.g., "/sdcard") */
-  const uint8_t         max_files;                            /**< Maximum number of simultaneously open files */
-  const uint32_t        allocation_unit_size;                 /**< Filesystem allocation unit size in bytes */
-  
+  const char*    tag;                  /**< Logging tag for identification in logs */
+  const char*    mount_path;           /**< Filesystem mount path (e.g., "/sdcard") */
+  const uint8_t  max_files;            /**< Maximum number of simultaneously open files */
+  const uint32_t allocation_unit_size; /**< Filesystem allocation unit size in bytes */
+
   /* Configuration */
-  bool                  card_detect_low_active;               /**< If true, card detect pin is low-active (0=card present), if false, high-active (1=card present) */
-  sd_bus_width_t        bus_width;                            /**< SD card bus width (1-bit or 4-bit mode) */
-  sd_card_pin_config_t  pin_config;                           /**< Pin configuration for all SD card interfaces */
-  sd_card_task_config_t task_config;                          /**< Task configuration parameters */
-  
+  bool
+    card_detect_low_active; /**< If true, card detect pin is low-active (0=card present), if false, high-active (1=card present) */
+  sd_bus_width_t bus_width; /**< SD card bus width (1-bit or 4-bit mode) - Primarily for SDIO */
+  sd_card_pin_config_t  pin_config;          /**< Pin configuration for all SD card interfaces */
+  sd_interface_type_t   preferred_interface; /**< Preferred interface to try first */
+  bool                  enable_fallback;     /**< Whether to try other interfaces on failure */
+  bool                  sdio_mode_enabled;   /**< Cache if SDIO mode is enabled */
+  bool                  spi_mode_enabled;    /**< Cache if SPI mode is enabled */
+  sd_card_task_config_t task_config;         /**< Task configuration parameters */
+
   /* State machine */
-  sd_state_t            state;                                /**< Current state of the SD card state machine */
-  uint32_t              error_count;                          /**< Number of errors encountered */
-  int64_t               last_state_change_time;               /**< Timestamp of last state change */
-  
+  sd_state_t state;                  /**< Current state of the SD card state machine */
+  uint32_t   error_count;            /**< Number of errors encountered */
+  int64_t    last_state_change_time; /**< Timestamp of last state change */
+
   /* Interface tracking */
-  sd_interface_type_t   current_interface;                    /**< Currently active interface type */
-  sd_interface_info_t   interface_info[k_sd_interface_count]; /**< Information about each interface */
-  bool                  interface_discovery_complete;         /**< Whether interface discovery is complete for current card */
-  uint32_t              interface_attempt_count;              /**< Number of interface discovery attempts */
-  
+  sd_interface_type_t current_interface;                    /**< Currently active interface type */
+  sd_interface_info_t interface_info[k_sd_interface_count]; /**< Information about each interface */
+  bool
+    interface_discovery_complete;   /**< Whether interface discovery is complete for current card */
+  uint32_t interface_attempt_count; /**< Number of interface discovery attempts */
+
   /* State variables */
-  sdmmc_card_t*         card;                                 /**< SD card descriptor for ESP-IDF SD card API */
-  SemaphoreHandle_t     mutex;                                /**< Mutex for thread-safe access to card state */
-  bool                  card_available;                       /**< Indicates if a card is currently inserted and mounted */
-  bool                  initialized;                          /**< Indicates if the HAL has been initialized */
-  volatile bool         mount_task_exit_requested;            /**< Flag to request exit from mount task */
-  TaskHandle_t          mount_task_handle;                    /**< Handle for the automatic mount/unmount task */
-  error_handler_t       error_handler;                        /**< Error handler for fault detection and recovery */
-  const char*           component_id;                         /**< Component ID for error handler registration */
-  pstar_bus_manager_t   bus_manager;                          /**< Bus manager for SPI and GPIO */
-  
+  sdmmc_card_t*       card;           /**< SD card descriptor for ESP-IDF SD card API */
+  SemaphoreHandle_t   mutex;          /**< Mutex for thread-safe access to card state */
+  _Atomic bool        card_available; /**< Atomic: Indicates if card is mounted and ready */
+  bool                initialized;    /**< Indicates if the HAL has been initialized */
+  volatile bool       mount_task_exit_requested; /**< Flag to request exit from mount task */
+  TaskHandle_t        mount_task_handle;         /**< Handle for the automatic mount/unmount task */
+  error_handler_t     error_handler; /**< Error handler for fault detection and recovery */
+  const char*         component_id;  /**< Component ID for error handler registration */
+  pstar_bus_manager_t bus_manager;   /**< Bus manager for SPI and GPIO */
+
   /* Performance monitoring */
-  sd_card_performance_t performance;                          /**< Performance metrics for the SD card */
+  sd_card_performance_t performance; /**< Performance metrics for the SD card */
+
+  sd_availability_cb_t availability_callback; /**< Callback function for availability changes */
+
 } sd_card_hal_t;
 
 #ifdef __cplusplus

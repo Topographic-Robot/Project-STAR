@@ -1,3 +1,5 @@
+# components/pstar_bus/Kconfig
+
 menu "Project Star Bus Configuration"
 
     config PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
@@ -35,10 +37,12 @@ menu "Project Star Bus Configuration"
                 Enable GPIO bus type support in the bus component.
 
         config PSTAR_KCONFIG_BUS_SDIO_ENABLED
-            bool "Enable SDIO Bus Support"
-            default y
+            bool "Enable SDIO Bus Support (for SD Cards in SDIO mode)"
+            default y # Default to enabled if SD card might use it
             help
                 Enable SDIO bus type support in the bus component.
+                This is required if the Storage HAL is configured to use
+                SD cards in SDIO (SDMMC) mode.
     endmenu
 
     menu "Bus Manager Configuration"

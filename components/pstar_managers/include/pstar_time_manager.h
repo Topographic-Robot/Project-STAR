@@ -1,4 +1,4 @@
-/* components/pstar_managers/include/time_manager.h */
+/* components/pstar_managers/include/pstar_time_manager.h */
 
 #ifndef PSTAR_TIME_MANAGER_H
 #define PSTAR_TIME_MANAGER_H
@@ -7,9 +7,10 @@
 extern "C" {
 #endif
 
-#include "esp_err.h"
 #include <stdbool.h>
 #include <stddef.h>
+
+#include "esp_err.h"
 #include "sdkconfig.h"
 
 /* Public Functions ***********************************************************/

@@ -1,3 +1,5 @@
+# components/pstar_logger/Kconfig
+
 menu "Project Star Logging Configuration"
 
     config PSTAR_KCONFIG_LOGGING_ENABLED

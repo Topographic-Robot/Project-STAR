@@ -1,3 +1,5 @@
+# CMakeLists.txt
+
 cmake_minimum_required(VERSION 3.16)
 
 # Set CMP0175 to NEW to enforce correct usage of add_custom_command
@@ -15,9 +17,10 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 # Set extra component directories to resolve header dependencies.
-set(EXTRA_COMPONENT_DIRS
-  "components/pstar_pin_validator"
-)
+# NOTE: This is generally not needed if components are in the standard 'components' directory.
+# Removed pstar_pin_validator as it should be found automatically.
+# set(EXTRA_COMPONENT_DIRS
+# )
 
 # Include ESP-IDF project CMake and define the project.
 # The ESP-IDF build system handles core component includes automatically based on REQUIRES.
@@ -36,18 +39,11 @@ idf_build_set_property(INCLUDE_DIRECTORIES
 )
 
 # Define a custom target to print a build summary.
+# Simplified: Removed component listing as the previous method was inaccurate.
 add_custom_target(build_summary ALL
   COMMAND ${CMAKE_COMMAND} -E echo "Project-Star: Build completed successfully"
-  COMMAND ${CMAKE_COMMAND} -E echo "Project-Star: Enabled components (as registered):"
   VERBATIM
   DEPENDS app
 )
 
-# Append a custom command with an explicit POST_BUILD option for each extra component directory.
-# Note: This lists directories, not necessarily enabled components.
-foreach(COMPONENT ${EXTRA_COMPONENT_DIRS})
-  add_custom_command(TARGET build_summary POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "  - ${COMPONENT}"
-    VERBATIM
-  )
-endforeach()
+# Removed inaccurate component listing loop

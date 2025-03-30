@@ -1,4 +1,4 @@
-/* components/pstar_bus/bus_types.c */
+/* components/pstar_bus/pstar_bus_types.c */
 
 #include "pstar_bus_types.h"
 

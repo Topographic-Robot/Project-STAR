@@ -7,21 +7,25 @@
 extern "C" {
 #endif
 
-#include "esp_err.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "sdkconfig.h"
+
 #include <stdarg.h>
-#include <stdbool.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stddef.h>
 
+#include "esp_err.h"
+#include "esp_log.h"
+#include "sdkconfig.h"
+
 /* Forward declarations */
-#if CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
+struct sd_card_hal;
+struct file_write_manager;
+
+/* Define type aliases using the structs */
 typedef struct sd_card_hal        sd_card_hal_t;
 typedef struct file_write_manager file_write_manager_t;
-#endif
 
 /* Global Variables ***********************************************************/
 
@@ -54,13 +58,11 @@ extern _Atomic uint64_t g_log_sequence_number; /* Atomic counter for log sequenc
  *       Calling this function enables SD card logging (if configured and pointers are valid).
  */
 #if CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
-esp_err_t log_init(file_write_manager_t* file_manager,
-                   sd_card_hal_t*        sd_card);
+esp_err_t log_init(file_write_manager_t* file_manager, sd_card_hal_t* sd_card);
 #else
 esp_err_t log_init(void* file_manager, /* Parameters ignored if SD disabled */
                    void* sd_card);
 #endif
-
 
 /**
  * @brief Checks if the full logger (including potential storage) is initialized.
@@ -133,8 +135,7 @@ void log_write(esp_log_level_t   level,
                const char* const tag,
                const char* const short_msg,
                const char* const detailed_msg,
-               ...)
-               __attribute__((format(printf, 4, 5)));
+               ...) __attribute__((format(printf, 4, 5)));
 
 /* Inline Function Wrappers ***************************************************/
 
@@ -148,11 +149,8 @@ void log_write(esp_log_level_t   level,
  * @param[in] detailed_msg Detailed message with optional format specifiers
  * @param[in] ...          Variable arguments for format string
  */
-static inline __attribute__((format(printf, 3, 4)))
-void log_error(const char* const tag,
-               const char* const short_msg,
-               const char* const detailed_msg,
-               ...)
+static inline __attribute__((format(printf, 3, 4))) void
+log_error(const char* const tag, const char* const short_msg, const char* const detailed_msg, ...)
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -170,11 +168,8 @@ void log_error(const char* const tag,
  * @param[in] detailed_msg Detailed message with optional format specifiers
  * @param[in] ...          Variable arguments for format string
  */
-static inline __attribute__((format(printf, 3, 4)))
-void log_warn(const char* const tag,
-              const char* const short_msg,
-              const char* const detailed_msg,
-              ...)
+static inline __attribute__((format(printf, 3, 4))) void
+log_warn(const char* const tag, const char* const short_msg, const char* const detailed_msg, ...)
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -192,11 +187,8 @@ void log_warn(const char* const tag,
  * @param[in] detailed_msg Detailed message with optional format specifiers
  * @param[in] ...          Variable arguments for format string
  */
-static inline __attribute__((format(printf, 3, 4)))
-void log_info(const char* const tag,
-              const char* const short_msg,
-              const char* const detailed_msg,
-              ...)
+static inline __attribute__((format(printf, 3, 4))) void
+log_info(const char* const tag, const char* const short_msg, const char* const detailed_msg, ...)
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -214,11 +206,8 @@ void log_info(const char* const tag,
  * @param[in] detailed_msg Detailed message with optional format specifiers
  * @param[in] ...          Variable arguments for format string
  */
-static inline __attribute__((format(printf, 3, 4)))
-void log_debug(const char* const tag,
-               const char* const short_msg,
-               const char* const detailed_msg,
-               ...)
+static inline __attribute__((format(printf, 3, 4))) void
+log_debug(const char* const tag, const char* const short_msg, const char* const detailed_msg, ...)
 {
   va_list args;
   va_start(args, detailed_msg);
@@ -236,11 +225,8 @@ void log_debug(const char* const tag,
  * @param[in] detailed_msg Detailed message with optional format specifiers
  * @param[in] ...          Variable arguments for format string
  */
-static inline __attribute__((format(printf, 3, 4)))
-void log_verbose(const char* const tag,
-                 const char* const short_msg,
-                 const char* const detailed_msg,
-                 ...)
+static inline __attribute__((format(printf, 3, 4))) void
+log_verbose(const char* const tag, const char* const short_msg, const char* const detailed_msg, ...)
 {
   va_list args;
   va_start(args, detailed_msg);

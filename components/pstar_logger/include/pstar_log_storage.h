@@ -1,4 +1,4 @@
-/* components/pstar_logging/include/log_storage.h */
+/* components/pstar_logger/include/pstar_log_storage.h */
 
 #ifndef PSTAR_LOG_STORAGE_H
 #define PSTAR_LOG_STORAGE_H
@@ -7,21 +7,20 @@
 extern "C" {
 #endif
 
-#include "esp_log.h"
-#include "sdkconfig.h" // Include sdkconfig first
 #include "pstar_log_types.h"
-#include <stdbool.h> // Include for bool type
 
-/* Forward declarations for required types */
+#include <stdbool.h> /* Include for bool type */
+
+#include "esp_log.h"
+#include "sdkconfig.h" /* Include sdkconfig first */
+
+/* Forward declarations for required types, always declared */
+struct sd_card_hal;
+struct file_write_manager;
+
+/* Define type aliases using the structs */
 typedef struct sd_card_hal        sd_card_hal_t;
 typedef struct file_write_manager file_write_manager_t;
-
-
-#if CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
-// Include full definitions only if SD is enabled
-#include "pstar_sd_card_hal.h"
-#include "pstar_file_write_manager.h"
-#endif
 
 /* Public Functions ***********************************************************/
 
@@ -44,9 +43,11 @@ typedef struct file_write_manager file_write_manager_t;
  *  - ESP_ERR_INVALID_STATE if already initialized.
  */
 #if CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
+/* Use specific types when SD enabled */
 esp_err_t log_storage_init(file_write_manager_t* manager, sd_card_hal_t* sd_card);
 #else
-esp_err_t log_storage_init(void* manager, void* sd_card); /* Parameters ignored */
+/* Use void* when SD disabled */
+esp_err_t log_storage_init(void* manager, void* sd_card);
 #endif
 
 /**
@@ -89,7 +90,6 @@ void log_storage_set_sd_available(bool available);
  */
 esp_err_t log_storage_write(esp_log_level_t level, const char* message);
 
-
 /**
  * @brief Flushes the log buffer to disk if SD card is available and initialized.
  *
@@ -103,28 +103,6 @@ esp_err_t log_storage_write(esp_log_level_t level, const char* message);
  *  - Other error codes from the underlying file writing operations.
  */
 esp_err_t log_storage_flush(void);
-
-/**
- * @brief Sets whether log compression is enabled (Not runtime configurable).
- *
- * @param[in] enabled Whether compression is enabled.
- * @return ESP_OK (This is a no-op as compression is Kconfig controlled).
- */
-#if CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED && CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED
-esp_err_t log_storage_set_compression(bool enabled);
-
-/**
- * @brief Checks if log compression is enabled via Kconfig.
- *
- * @return true if compression is enabled via Kconfig, false otherwise.
- */
-bool log_storage_is_compression_enabled(void);
-#else
-/* Define stubs if compression is disabled */
-static inline esp_err_t log_storage_set_compression(bool enabled) { (void)enabled; return ESP_OK; }
-static inline bool log_storage_is_compression_enabled(void) { return false; }
-#endif
-
 
 /**
  * @brief Cleans up the log storage system.

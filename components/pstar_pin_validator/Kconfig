@@ -1,3 +1,5 @@
+# components/pstar_pin_validator/Kconfig
+
 menu "Project Star Pin Validator Configuration"
 
     config PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED

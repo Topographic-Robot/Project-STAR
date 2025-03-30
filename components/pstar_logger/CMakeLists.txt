@@ -1,22 +1,38 @@
+# components/pstar_logger/CMakeLists.txt
+
 # Initialize lists
-# Handler and Storage are always needed now, as handler calls storage functions
-# even for buffering/mutex management when SD is disabled.
 set(logger_srcs
   "pstar_log_handler.c"
   "pstar_log_storage.c"
 )
-# Base requirements (needed by handler or storage's minimal implementation)
-set(logger_requires driver esp_common freertos nvs_flash esp_timer pstar_managers)
-set(logger_priv_requires "")
+# Base requirements
+set(logger_requires
+    driver
+    esp_common
+    freertos
+    nvs_flash
+    esp_timer
+    # Add storage_hal conditionally
+)
+# Base private requires
+set(logger_priv_requires
+    pstar_managers
+    espressif__zlib
+    # Add storage_hal conditionally
+)
 
-# Conditionally add dependencies needed *only* for SD storage features
+# Conditionally require storage_hal based on Kconfig
 if(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED)
-  # SD storage requires storage_hal (for SD card) and zlib (if compressing)
   list(APPEND logger_requires pstar_storage_hal)
-  if(CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED)
-      list(APPEND logger_priv_requires zlib)
-  endif()
+  list(APPEND logger_priv_requires pstar_storage_hal)
 endif()
+
+# The C code uses #if defined(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED)
+# to guard the actual usage of storage_hal features.
+
+# Ensure no duplicates
+list(REMOVE_DUPLICATES logger_requires)
+list(REMOVE_DUPLICATES logger_priv_requires)
 
 idf_component_register(
   SRCS ${logger_srcs}
@@ -24,3 +40,7 @@ idf_component_register(
   REQUIRES ${logger_requires}
   PRIV_REQUIRES ${logger_priv_requires}
 )
+
+# Diagnostic print statements
+message(STATUS "pstar_logger - Final REQUIRES: ${logger_requires}")
+message(STATUS "pstar_logger - Final PRIV_REQUIRES: ${logger_priv_requires}")

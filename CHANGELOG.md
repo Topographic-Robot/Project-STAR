@@ -72,7 +72,7 @@
   - Converted hexapod_geometry.c from ESP_LOG* to log_*
 - Updated %d to %u in all log messages that include unsigned integers
 
-## 2025-02-23 
+## 2025-02-23
 - Updated sensor HALs to use new logging format:
   - Converted DHT22 sensor HAL from ESP_LOG* to log_*
   - Converted GY-NEO6MV2 GPS HAL from ESP_LOG* to log_*

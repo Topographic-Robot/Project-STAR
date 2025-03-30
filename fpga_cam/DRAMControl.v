@@ -45,7 +45,7 @@ module DRAMControl
     output reg        DRAM_WE_N
   );
 
-  
+
   reg [15:0] DRAM_DQ_0;
   reg [4:0]  DRAMState, prevState; /* Updated to 5 bits to accommodate additional states */
   wire       refreshReq;
@@ -86,7 +86,7 @@ module DRAMControl
                     end else if (DRAMReadReq) begin
                       DRAMState   <= READ0;
                       DRAMReadAck <= 1;
-                    end else if (DRAMWriteReq) begin 
+                    end else if (DRAMWriteReq) begin
                       DRAMState    <= WRITE0;
                       DRAMWriteAck <= 1;
                     end
@@ -106,7 +106,7 @@ module DRAMControl
         READ3:    begin
                     if (!DRAMReadReq) begin
                       DRAMReadAck <= 0;
-                      DRAMState   <= IDLE; 
+                      DRAMState   <= IDLE;
                     end
                   end
         REFRESH0: DRAMState <= REFRESH1;

@@ -1,3 +1,5 @@
+# components/pstar_error_handler/Kconfig
+
 menu "Project Star Error Handling Configuration"
 
     config PSTAR_KCONFIG_ERROR_HANDLER_ENABLED

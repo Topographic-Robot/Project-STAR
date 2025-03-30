@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_i2c.h */
+/* components/pstar_bus/include/pstar_bus_i2c.h */
 
 #ifndef PSTAR_BUS_I2C_H
 #define PSTAR_BUS_I2C_H
@@ -7,10 +7,13 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include "esp_err.h"
-#include "driver/i2c.h"
 #include "pstar_bus_types.h"
+
+#include "driver/i2c.h"
+
+#include <stdint.h>
+
+#include "esp_err.h"
 
 /* Forward Declarations *******************************************************/
 
@@ -38,9 +41,9 @@ void pstar_bus_i2c_init_default_ops(pstar_i2c_ops_t* ops);
  */
 esp_err_t pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
                               const char*                name,
-                              const uint8_t*             data, 
-                              size_t                     len, 
-                              uint8_t                    reg_addr, 
+                              const uint8_t*             data,
+                              size_t                     len,
+                              uint8_t                    reg_addr,
                               size_t*                    bytes_written);
 
 /**
@@ -56,9 +59,9 @@ esp_err_t pstar_bus_i2c_write(const pstar_bus_manager_t* manager,
  */
 esp_err_t pstar_bus_i2c_read(const pstar_bus_manager_t* manager,
                              const char*                name,
-                             uint8_t*                   data, 
-                             size_t                     len, 
-                             uint8_t                    reg_addr, 
+                             uint8_t*                   data,
+                             size_t                     len,
+                             uint8_t                    reg_addr,
                              size_t*                    bytes_read);
 
 #ifdef __cplusplus

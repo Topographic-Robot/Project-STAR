@@ -1,5 +1,6 @@
-# Initialize lists for conditional sources and includes
-set(bus_srcs 
+# components/pstar_bus/CMakeLists.txt
+
+set(bus_srcs
     "pstar_bus_types.c"
     "pstar_bus_manager.c"
     "pstar_bus_config.c"
@@ -8,8 +9,8 @@ set(bus_srcs
     "pstar_bus_uart.c"
     "pstar_bus_gpio.c")
 
-# Conditionally add SDIO bus source if SD card is enabled
-if(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED)
+# Conditionally add SDIO bus source based on BUS Kconfig
+if(CONFIG_PSTAR_KCONFIG_BUS_SDIO_ENABLED)
   list(APPEND bus_srcs "pstar_bus_sdio.c")
 endif()
 
@@ -23,8 +24,7 @@ idf_component_register(
     freertos
     esp_timer
     pstar_pin_validator
-    sdmmc
-    nvs_flash
-    pstar_storage_hal
     pstar_logger
+    pstar_storage_hal
+    sdmmc # Needed for sdmmc types used in pstar_bus_protocol_types.h
 )

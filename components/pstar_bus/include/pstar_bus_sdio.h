@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_sdio.h */
+/* components/pstar_bus/include/pstar_bus_sdio.h */
 
 #ifndef PSTAR_BUS_SDIO_H
 #define PSTAR_BUS_SDIO_H
@@ -7,12 +7,15 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include "esp_err.h"
+#include "pstar_bus_types.h"
+
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"
+
+#include <stdint.h>
+
+#include "esp_err.h"
 #include "sdmmc_cmd.h"
-#include "pstar_bus_types.h"
 
 /* Forward Declarations *******************************************************/
 
@@ -40,7 +43,7 @@ void pstar_bus_sdio_init_default_ops(pstar_sdio_ops_t* ops);
  */
 esp_err_t pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
                                const char*                name,
-                               const uint8_t*             data, 
+                               const uint8_t*             data,
                                size_t                     len,
                                size_t                     offset,
                                size_t*                    bytes_written);
@@ -58,7 +61,7 @@ esp_err_t pstar_bus_sdio_write(const pstar_bus_manager_t* manager,
  */
 esp_err_t pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
                               const char*                name,
-                              uint8_t*                   data, 
+                              uint8_t*                   data,
                               size_t                     len,
                               size_t                     offset,
                               size_t*                    bytes_read);
@@ -72,10 +75,8 @@ esp_err_t pstar_bus_sdio_read(const pstar_bus_manager_t* manager,
  * @param[in] arg     Argument for the command.
  * @return esp_err_t ESP_OK on success, or an error code.
  */
-esp_err_t pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager,
-                               const char*                name,
-                               int                        cmd,
-                               void*                      arg);
+esp_err_t
+pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager, const char* name, int cmd, void* arg);
 
 #ifdef __cplusplus
 }

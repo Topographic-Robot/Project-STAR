@@ -96,33 +96,56 @@ The firmware is developed using the **ESP-IDF** framework and written primarily 
 ## Installation
 
 1. **Install ESP-IDF:**
-   Follow the official ESP-IDF installation instructions: [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
 
-2. **Clone the Repository:**
+   Follow the official ESP-IDF installation instructions:  
+   [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
+
+2. **Ensure Latest `clang-format` (Optional but Recommended):**
+
+   If you are contributing to the project and use `clang-format` for formatting code, make sure it is up to date (preferably version 20.1.1 or later).  
+   On macOS, run the following:
+
+   ```bash
+   brew update
+   brew upgrade llvm
+   ```
+
+   You can check the version of `clang-format` installed:
+
+   ```bash
+   clang-format --version
+   ```
+
+   > ⚠️ **Note:** If `clang-format` is not in your path after upgrading LLVM, you may need to link it manually or use the full path (e.g., `/opt/homebrew/opt/llvm/bin/clang-format`).
+
+3. **Clone the Repository:**
 
    ```bash
    git clone https://github.com/Topographic-Robot/Project-Star.git
    cd Project-Star
    ```
 
-3. **Configure Wi-Fi Credentials:**
+4. **Configure Wi-Fi Credentials:**
 
    - Copy the `main/include/tasks/include/wifi_credentials.txt` file to `main/include/tasks/include/wifi_credentials.h`.
    - Edit `wifi_credentials.h` and replace the placeholder values for `wifi_ssid` and `wifi_pass` with your actual Wi-Fi network credentials. **Do not commit this file to Git.**
 
-4. **Configure Webserver URL (Optional):**
+5. **Configure Webserver URL (Optional):**
 
    - If you intend to send sensor data to a web server, copy the `main/include/tasks/include/webserver_info.txt` file to `main/include/tasks/include/webserver_info.h`.
    - Edit `webserver_info.h` and replace the placeholder value for `webserver_url` with your server's URL. **Do not commit this file to Git.**
 
-5. **Configure Project Settings:**
+6. **Configure Project Settings:**
+
    ```bash
    idf.py menuconfig
    ```
+
    - Navigate to the "Project STAR Configuration" section to configure sensor settings, sampling rates, and other project-specific options.
    - Ensure that all necessary features are enabled for your specific hardware configuration.
 
-6. **Build and Flash:**
+7. **Build and Flash:**
+
    ```bash
    idf.py set-target esp32
    idf.py build
@@ -159,15 +182,15 @@ find . -name "Kconfig*" -exec python -m kconfcheck {} \;
 
 ### Fixing Kconfig Warnings (Step 2)
 
-**Issue:**  
+**Issue:**
 When loading `sdkconfig.defaults`, warnings like "unknown kconfig symbol 'PSTAR_KCONFIG_BUS_COMPONENT_ENABLED' assigned to 'y'" appear because the defaults file is processed before component Kconfig files are loaded.
 
-**Solution:**  
+**Solution:**
 Create a root‑level `Kconfig` file that sources all your component Kconfig files. This ensures that all configuration symbols are defined before `sdkconfig.defaults` is processed.
 
 **Steps:**
 
-1. **Create the Root‑Level Kconfig File:**  
+1. **Create the Root‑Level Kconfig File:**
    Place a file named `Kconfig` in the project's root directory (same level as `CMakeLists.txt`) with the following content:
 
    ```kconfig
@@ -185,9 +208,9 @@ Create a root‑level `Kconfig` file that sources all your component Kconfig fil
    source "components/pstar_storage_hal/Kconfig"
    ```
 
-2. **Clean and Reconfigure:**  
-   - Run `idf.py fullclean` to remove previous build artifacts.  
-   - Then run `idf.py menuconfig` to load the new configuration.  
+2. **Clean and Reconfigure:**
+   - Run `idf.py fullclean` to remove previous build artifacts.
+   - Then run `idf.py menuconfig` to load the new configuration.
    - Verify that the warnings about unknown Kconfig symbols no longer appear.
 
 ### Kconfig Validation and Update Script
@@ -218,10 +241,10 @@ while [ $attempt -lt $max_attempts ]; do
 
   if [ $exit_code -eq 0 ]; then
     echo "kconfcheck completed successfully!"
-    
+
     # Move Kconfig.new files to replace originals
     find . -name "Kconfig.new" -exec sh -c 'echo "Moving $0 to ${0%.new}"; mv "$0" "${0%.new}"' {} \;
-    
+
     if [ $? -eq 0 ]; then
       echo "All Kconfig files checked and updated successfully."
       exit 0

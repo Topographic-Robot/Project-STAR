@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_types.h */
+/* components/pstar_bus/include/pstar_bus_types.h */
 
 #ifndef PSTAR_BUS_TYPES_H
 #define PSTAR_BUS_TYPES_H
@@ -9,8 +9,8 @@ extern "C" {
 
 #include "pstar_bus_common_types.h"
 #include "pstar_bus_event_types.h"
-#include "pstar_bus_protocol_types.h"
 #include "pstar_bus_manager_types.h"
+#include "pstar_bus_protocol_types.h"
 
 #ifdef __cplusplus
 }

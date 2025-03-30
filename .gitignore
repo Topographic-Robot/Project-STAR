@@ -14,7 +14,6 @@ webserver_info.h
 .cproject
 .project
 .clangd
-.clang-format
 
 backup_*
 
@@ -145,3 +144,5 @@ _vmake
 # ESP-IDF specific
 managed_components/
 dependencies.lock
+
+clang_format_backup_*

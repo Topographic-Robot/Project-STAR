@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_spi.h */
+/* components/pstar_bus/include/pstar_bus_spi.h */
 
 #ifndef PSTAR_BUS_SPI_H
 #define PSTAR_BUS_SPI_H
@@ -7,10 +7,13 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include "esp_err.h"
-#include "driver/spi_master.h"
 #include "pstar_bus_types.h"
+
+#include "driver/spi_master.h"
+
+#include <stdint.h>
+
+#include "esp_err.h"
 
 /* Forward Declarations *******************************************************/
 
@@ -32,14 +35,14 @@ void pstar_bus_spi_init_default_ops(pstar_spi_ops_t* ops);
  * @param[in]  name          Name of the SPI bus.
  * @param[in]  data          Data to write.
  * @param[in]  len           Length of data to write.
- * @param[out] bytes_written Pointer to store the number of bytes written 
+ * @param[out] bytes_written Pointer to store the number of bytes written
  *                           (can be NULL).
  * @return esp_err_t ESP_OK on success, or an error code.
  */
 esp_err_t pstar_bus_spi_write(const pstar_bus_manager_t* manager,
                               const char*                name,
-                              const uint8_t*             data, 
-                              size_t                     len, 
+                              const uint8_t*             data,
+                              size_t                     len,
                               size_t*                    bytes_written);
 
 /**
@@ -49,14 +52,14 @@ esp_err_t pstar_bus_spi_write(const pstar_bus_manager_t* manager,
  * @param[in]  name       Name of the SPI bus.
  * @param[out] data       Buffer to read data into.
  * @param[in]  len        Length of data to read.
- * @param[out] bytes_read Pointer to store the number of bytes read 
+ * @param[out] bytes_read Pointer to store the number of bytes read
  *                         (can be NULL).
  * @return esp_err_t ESP_OK on success, or an error code.
  */
 esp_err_t pstar_bus_spi_read(const pstar_bus_manager_t* manager,
                              const char*                name,
-                             uint8_t*                   data, 
-                             size_t                     len, 
+                             uint8_t*                   data,
+                             size_t                     len,
                              size_t*                    bytes_read);
 
 #ifdef __cplusplus

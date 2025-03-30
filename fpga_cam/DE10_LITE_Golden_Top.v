@@ -100,7 +100,7 @@ module DE10_LITE_Golden_Top
 
 	  output        camReset,
 	  output        PWRDownCam,
-	  output        camXCLK,	
+	  output        camXCLK,
 	  input         camPCLK,
 	  input         camVSYNC,
 	  input         HREF,
@@ -192,7 +192,7 @@ module DE10_LITE_Golden_Top
   DRAMControl DRAMControlInstant(.CLK100MHz(CLK100MHz),
                                  .resetN(KEY[1]),
                                  .DRAMWriteReq(DRAMWriteReq),
-                                 .DRAMReadReq(DRAMReadReq),	 
+                                 .DRAMReadReq(DRAMReadReq),
                                  .rowAddress(rowAddress),
                                  .bankAddress(bankAddress),
                                  .dataToDRAM(dataToDRAM),
@@ -201,12 +201,12 @@ module DE10_LITE_Golden_Top
                                 );
 
   vgaGen vgaGenInstant(.pixClock(CLK25MHz),
-                       .resetN(KEY[1]), 
-                       .VSync(VGA_VS), 
-                       .HSync(VGA_HS), 
-                       .red(VGA_R), 
-                       .green(VGA_G), 
-                       .blue(VGA_B) 
+                       .resetN(KEY[1]),
+                       .VSync(VGA_VS),
+                       .HSync(VGA_HS),
+                       .red(VGA_R),
+                       .green(VGA_G),
+                       .blue(VGA_B)
                       );
 endmodule
 

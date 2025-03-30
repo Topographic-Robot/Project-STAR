@@ -1,3 +1,5 @@
+# main/Kconfig.projbuild
+
 menu "Project Star Configuration"
 
     config PSTAR_KCONFIG_PROJECT_VERSION

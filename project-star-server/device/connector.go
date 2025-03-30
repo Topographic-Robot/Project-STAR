@@ -1,3 +1,5 @@
+/* project-star-server/device/connector.go */
+
 package device
 
 import (

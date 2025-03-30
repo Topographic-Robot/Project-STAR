@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_event_types.h */
+/* components/pstar_bus/include/pstar_bus_event_types.h */
 
 #ifndef PSTAR_BUS_EVENT_TYPES_H
 #define PSTAR_BUS_EVENT_TYPES_H
@@ -7,13 +7,15 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "pstar_bus_common_types.h"
+
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/spi_master.h"
 #include "driver/uart.h"
-#include "pstar_bus_common_types.h"
+
+#include <stdbool.h>
+#include <stdint.h>
 
 /* Structs ********************************************************************/
 
@@ -67,9 +69,9 @@ typedef struct pstar_sdio_event_data {
  * @brief Bus event structure for callback information.
  */
 typedef struct pstar_bus_event {
-  pstar_bus_type_t  bus_type;     /**< Type of bus that generated the event */
-  const char*       bus_name;     /**< Name of the bus that generated the event */
-  
+  pstar_bus_type_t bus_type; /**< Type of bus that generated the event */
+  const char*      bus_name; /**< Name of the bus that generated the event */
+
   union {
     pstar_i2c_event_data_t  i2c;  /**< I2C specific event data */
     pstar_spi_event_data_t  spi;  /**< SPI specific event data */

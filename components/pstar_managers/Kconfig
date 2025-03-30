@@ -1,3 +1,5 @@
+# components/pstar_managers/Kconfig
+
 menu "Project Star Managers Configuration"
 
     menu "Time Manager Configuration"
@@ -39,13 +41,21 @@ menu "Project Star Managers Configuration"
             help
                 Size of buffer for formatted time strings.
 
-        config PSTAR_KCONFIG_TIME_SYNC_BIT
-            int "Time sync bit mask"
+        config PSTAR_KCONFIG_TIME_SYNC_TASK_STACK_SIZE
+            int "Stack size for time sync task"
             depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
-            range 1 256
-            default 1
+            range 2048 8192
+            default 4096
             help
-                Bit mask used for time synchronization event signaling.
+                Stack size in bytes for the time synchronization task.
+
+        config PSTAR_KCONFIG_TIME_SYNC_TASK_PRIORITY
+            int "Priority for time sync task"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            range 1 24
+            default 5
+            help
+                FreeRTOS priority level for the time synchronization task.
     endmenu
 
     menu "File Write Manager Configuration"
@@ -64,15 +74,7 @@ menu "Project Star Managers Configuration"
             range 5 100
             default 20
             help
-                Size of the queue for pending file write requests.
-
-        config PSTAR_KCONFIG_FILE_MANAGER_MAX_PENDING_WRITES
-            int "Maximum number of pending writes"
-            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
-            range 5 100
-            default 20
-            help
-                Maximum number of write operations that can be pending at once.
+                Maximum number of write operations that can be pending at once in the queue.
 
         config PSTAR_KCONFIG_FILE_MANAGER_TASK_STACK_SIZE
             int "Stack size for file write task"

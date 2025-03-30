@@ -1,4 +1,4 @@
-/* components/pstar_error_handler/include/error_handler.h */
+/* components/pstar_error_handler/include/pstar_error_handler.h */
 
 #ifndef PSTAR_ERROR_HANDLER_H
 #define PSTAR_ERROR_HANDLER_H
@@ -7,11 +7,13 @@
 extern "C" {
 #endif
 
-#include "esp_err.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "pstar_error_handler_macros.h"
 #include "pstar_error_handler_types.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+#include "esp_err.h"
 
 /* Public Functions ***********************************************************/
 
@@ -34,8 +36,8 @@ esp_err_t error_handler_init(error_handler_t* handler,
                              uint32_t         max_retries,
                              uint32_t         base_retry_delay,
                              uint32_t         max_retry_delay,
-                             esp_err_t      (*reset_fn)(void* context),
-                             void*            reset_context);
+                             esp_err_t (*reset_fn)(void* context),
+                             void* reset_context);
 
 /**
  * @brief Deinitialize an error handler and release resources.
@@ -45,7 +47,7 @@ esp_err_t error_handler_init(error_handler_t* handler,
  *
  * @param[in,out] handler Pointer to the error handler structure to deinitialize.
  */
-void error_handler_deinit(error_handler_t* handler); // <-- FIX: Added declaration
+void error_handler_deinit(error_handler_t* handler);
 
 /**
  * @brief Record an error and manage retry/reset logic
@@ -70,9 +72,8 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
                                      esp_err_t        error,
                                      const char*      description,
                                      const char*      file,
-                                     int              line, /* Its an int since __LINE__ expands to an int */
-                                     const char*      func);
-
+                                     int line, /* Its an int since __LINE__ expands to an int */
+                                     const char* func);
 
 /**
  * @brief Check if a retry should be attempted
@@ -95,7 +96,8 @@ bool error_handler_can_retry(error_handler_t* handler);
  * a new operational phase.
  *
  * @param[in,out] handler Pointer to error handler structure to reset
- * @return ESP_OK if successful, ESP_ERR_TIMEOUT if mutex couldn't be acquired, ESP_ERR_INVALID_STATE if mutex not init.
+ * @return ESP_OK if successful, ESP_ERR_TIMEOUT if mutex couldn't be acquired, 
+ *         ESP_ERR_INVALID_STATE if mutex not init.
  */
 esp_err_t error_handler_reset_state(error_handler_t* handler);
 

@@ -1,84 +1,157 @@
-/* components/pstar_storage_hal/sd_card_hal/sd_card_hal.c */
+/* components/pstar_storage_hal/sd_card_hal/pstar_sd_card_hal.c */
 
 #include "pstar_sd_card_hal.h"
-#include "pstar_log_handler.h"
-#include "esp_vfs_fat.h"
-#include "driver/sdspi_host.h"
-#include "driver/gpio.h" /* Include for gpio_config */
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
-#include <string.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <errno.h>
-#include <ctype.h>
-#include <unistd.h>
-#include "pstar_pin_validator.h"
+
 #include "pstar_bus_config.h"
+#include "pstar_bus_event_types.h"
+#include "pstar_bus_gpio.h"
+#include "pstar_bus_manager.h"
 #include "pstar_bus_sdio.h"
 #include "pstar_bus_spi.h"
-#include "pstar_bus_gpio.h"
-#include "pstar_bus_event.h"
+#include "pstar_log_handler.h"
+#include "pstar_pin_validator.h"
+
+#include "driver/gpio.h"
+#include "driver/sdmmc_host.h"
+#include "driver/sdspi_host.h"
+
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <stdatomic.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "esp_timer.h"
-#include "nvs_flash.h"
+#include "esp_vfs_fat.h"
 #include "nvs.h"
+#include "nvs_flash.h"
+#include "sdkconfig.h"
+#include "sdmmc_cmd.h"
 
 /* Constants ******************************************************************/
 
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+#warning "Both SDIO and SPI modes for SD Card HAL are disabled. SD Card HAL will be non-functional."
+#endif
+#endif
+
+#define SD_INTERFACE_MAX_ERRORS (3)
+
 /* Logging and identification */
-#define SD_CARD_HAL_TAG ("SD Card HAL")
+static const char* TAG = "SD Card HAL";
 
 /* Default pin configurations from Kconfig */
 static const sd_card_pin_config_t sd_card_default_pins = {
   /* GPIO pins */
-  .gpio_det_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO, /* Card detect pin */
+  .gpio_det_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO,
+#else
+    -1,
+#endif
 
   /* SPI pins */
-  .spi_di_pin    = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO, /* SPI DI (Data In) */
-  .spi_do_pin    = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO, /* SPI DO (Data Out) */
-  .spi_sclk_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO,  /* SPI SCLK (Clock) */
-  .spi_cs_pin    = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO,   /* SPI CS (Chip Select) */
+  .spi_miso_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO,
+#else
+    -1,
+#endif
+  .spi_mosi_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO,
+#else
+    -1,
+#endif
+  .spi_sclk_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO,
+#else
+    -1,
+#endif
+  .spi_cs_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO,
+#else
+    -1,
+#endif
 
   /* SDIO pins */
-  .sdio_clk_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO, /* SDIO CLK */
-  .sdio_cmd_pin  = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO, /* SDIO CMD */
-  .sdio_d0_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO,  /* SDIO D0 (mandatory) */
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE
-  .sdio_d1_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO,  /* SDIO D1 (4-bit mode) */
-  .sdio_d2_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO,  /* SDIO D2 (4-bit mode) */
-  .sdio_d3_pin   = CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO,  /* SDIO D3 (4-bit mode) */
+  .sdio_clk_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO,
 #else
-  .sdio_d1_pin   = -1,  /* Not used in 1-bit mode */
-  .sdio_d2_pin   = -1,  /* Not used in 1-bit mode */
-  .sdio_d3_pin   = -1,  /* Not used in 1-bit mode */
+    -1,
 #endif
+  .sdio_cmd_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO,
+#else
+    -1,
+#endif
+  .sdio_d0_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO,
+#else
+    -1,
+#endif
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+  .sdio_d1_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO,
+#else
+    -1,
+#endif
+  .sdio_d2_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO,
+#else
+    -1,
+#endif
+  .sdio_d3_pin =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO,
+#else
+    -1,
+#endif
+#else  /* Not 4BIT_MODE */
+  .sdio_d1_pin = -1,
+  .sdio_d2_pin = -1,
+  .sdio_d3_pin = -1,
+#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE */
 };
 
 /* Function Prototypes ********************************************************/
 
-static void priv_release_mutex_if_taken(sd_card_hal_t* sd_card, bool* mutex_taken);
-static void priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_state);
-static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card);
-static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card);
-static void priv_measure_card_performance(sd_card_hal_t* sd_card);
-static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path);
-static bool priv_path_is_safe_simple(const char* path);
-static bool priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* path);
-static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card,
-                                                 const char*          path);
+static void        priv_release_mutex_if_taken(sd_card_hal_t* sd_card, bool* mutex_taken);
+static void        priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_state);
+static esp_err_t   priv_save_working_config(sd_card_hal_t* sd_card);
+static esp_err_t   priv_load_working_config(sd_card_hal_t* sd_card);
+static void        priv_measure_card_performance(sd_card_hal_t* sd_card);
+static bool        priv_check_directory_traversal(const char* path);
+static bool        priv_check_allowed_characters(const char* path);
+static bool        priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path);
+static bool        priv_path_is_safe_simple(const char* path);
+static bool        priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* path);
+static esp_err_t   priv_create_directory_if_needed(const sd_card_hal_t* sd_card, const char* path);
 static const char* priv_sd_bus_width_to_string(sd_bus_width_t bus_width);
-static esp_err_t priv_sd_card_reset(void* context);
-static bool priv_sd_card_is_inserted(sd_card_hal_t* sd_card);
-static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
-                                                   uint32_t       clock_speed_hz);
-static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card);
+static esp_err_t   priv_sd_card_reset(void* context);
+static bool        priv_sd_card_is_inserted(sd_card_hal_t* sd_card);
+static esp_err_t   priv_sd_card_setup_spi(sd_card_hal_t* sd_card);
+static esp_err_t   priv_sd_card_setup_sdio(sd_card_hal_t* sd_card);
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
 static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card);
-static void priv_sd_card_detection_isr(void* arg);
+static void      priv_sd_card_detection_isr(void* arg);
+#endif
 static esp_err_t priv_sd_card_try_interfaces(sd_card_hal_t* sd_card);
 static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card);
 static esp_err_t priv_sd_card_unmount(sd_card_hal_t* sd_card);
-static void priv_sd_card_mount_task(void* arg);
+static void      priv_sd_card_mount_task(void* arg);
 static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card);
+static void      priv_notify_availability(sd_card_hal_t* sd_card, bool available);
 
 /* Public Functions ***********************************************************/
 
@@ -86,15 +159,13 @@ const char* sd_card_interface_to_string(sd_interface_type_t interface_type)
 {
   switch (interface_type) {
     case k_sd_interface_sdio:
-      return "SDIO (40MHz)";
-    case k_sd_interface_fast_spi:
-      return "Fast SPI (20MHz)";
-    case k_sd_interface_normal_spi:
-      return "Normal SPI (4MHz)";
-    case k_sd_interface_slow_spi:
-      return "Slow SPI (400kHz)";
+      return "SDIO";
+    case k_sd_interface_spi:
+      return "SPI";
+    case k_sd_interface_none:
+      return "None";
     default:
-      return "Unknown Interface";
+      return "Unknown";
   }
 }
 
@@ -106,11 +177,9 @@ esp_err_t sd_card_init_with_pins(sd_card_hal_t*              sd_card,
                                  const sd_card_pin_config_t* pin_config)
 {
   /* Validate arguments */
-  if (sd_card == NULL || tag == NULL || mount_path == NULL ||
-      component_id == NULL || pin_config == NULL) { /* Use log_error */
-    log_error(SD_CARD_HAL_TAG,
-              "Init Error",
-              "Invalid arguments");
+  if (sd_card == NULL || tag == NULL || mount_path == NULL || component_id == NULL ||
+      pin_config == NULL) { /* Use log_error */
+    log_error(TAG, "Init Error", "Invalid arguments");
     return ESP_ERR_INVALID_ARG;
   }
 
@@ -123,8 +192,9 @@ esp_err_t sd_card_init_with_pins(sd_card_hal_t*              sd_card,
   /* Store custom pin configuration */
   memcpy(&sd_card->pin_config, pin_config, sizeof(sd_card_pin_config_t));
 
-  /* Check for pin conflicts */
-  if (bus_width == k_sd_bus_width_4bit &&
+/* Check for pin conflicts with custom pins */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+  if (bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
       sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
     log_warn(sd_card->tag, /* Use log_warn */
              "Pin Conflict",
@@ -135,46 +205,9 @@ esp_err_t sd_card_init_with_pins(sd_card_hal_t*              sd_card,
     /* Default to 1-bit mode when there's a pin conflict */
     sd_card->bus_width = k_sd_bus_width_1bit;
   }
+#endif
 
-  /* Also check for invalid pin assignments */
-  bool valid_pins = true;
-  if (sd_card->pin_config.gpio_det_pin < 0) { /* Use log_error */
-    log_error(sd_card->tag,
-              "Invalid Pins",
-              "Card detect pin is invalid: %d",
-              sd_card->pin_config.gpio_det_pin);
-    valid_pins = false;
-  }
-
-  if (sd_card->pin_config.sdio_clk_pin < 0 ||
-      sd_card->pin_config.sdio_cmd_pin < 0 ||
-      sd_card->pin_config.sdio_d0_pin < 0) { /* Use log_error */
-    log_error(sd_card->tag,
-              "Invalid Pins",
-              "Required SDIO pins are invalid: CLK=%d, CMD=%d, D0=%d",
-              sd_card->pin_config.sdio_clk_pin,
-              sd_card->pin_config.sdio_cmd_pin,
-              sd_card->pin_config.sdio_d0_pin);
-    valid_pins = false;
-  }
-
-  if (sd_card->pin_config.spi_di_pin < 0 ||
-      sd_card->pin_config.spi_do_pin < 0 ||
-      sd_card->pin_config.spi_sclk_pin < 0 ||
-      sd_card->pin_config.spi_cs_pin < 0) { /* Use log_error */
-    log_error(sd_card->tag,
-              "Invalid Pins",
-              "Required SPI pins are invalid: DI=%d, DO=%d, SCLK=%d, CS=%d",
-              sd_card->pin_config.spi_di_pin,
-              sd_card->pin_config.spi_do_pin,
-              sd_card->pin_config.spi_sclk_pin,
-              sd_card->pin_config.spi_cs_pin);
-    valid_pins = false;
-  }
-
-  if (!valid_pins) {
-    return ESP_ERR_INVALID_ARG;
-  }
+  /* Defer detailed pin validation to registration */
 
   log_info(sd_card->tag, /* Use log_info */
            "Custom Pins",
@@ -193,7 +226,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   /* Validate arguments */
   if (sd_card == NULL || tag == NULL || mount_path == NULL ||
       component_id == NULL) { /* Use log_error */
-    log_error(SD_CARD_HAL_TAG,
+    log_error(TAG,
               "Invalid arguments",
               "sd_card: %p, tag: %s, mount_path: %s, component_id: %s",
               sd_card,
@@ -205,7 +238,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
 
   /* Validate bus width */
   if (bus_width != k_sd_bus_width_1bit && bus_width != k_sd_bus_width_4bit) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    log_error(TAG, /* Use log_error */
               "Invalid bus width",
               "Bus width must be 1 or 4, got: %d",
               bus_width);
@@ -214,11 +247,54 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
 
   /* Validate mount path using the simpler path check */
   if (!priv_path_is_safe_simple(mount_path)) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    log_error(TAG, /* Use log_error */
               "Invalid mount path",
               "Mount path '%s' is not safe",
               mount_path);
     return ESP_ERR_INVALID_ARG;
+  }
+
+  /* Determine preferred interface from Kconfig */
+  sd_interface_type_t preferred_interface;
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_INTERFACE_SDIO
+  preferred_interface = k_sd_interface_sdio;
+#elif defined(CONFIG_PSTAR_KCONFIG_SD_CARD_INTERFACE_SPI)
+  preferred_interface = k_sd_interface_spi;
+#else
+#error "No preferred SD card interface selected in Kconfig"
+  preferred_interface = k_sd_interface_none; /* Should not happen */
+#endif
+
+  /* Cache enabled modes */
+  bool sdio_enabled;
+  bool spi_enabled;
+
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+  sdio_enabled = true;
+#else
+  sdio_enabled = false;
+#endif
+
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+  spi_enabled = true;
+#else
+  spi_enabled = false;
+#endif
+
+  /* Check if preferred interface is actually enabled */
+  if ((preferred_interface == k_sd_interface_sdio && !sdio_enabled) ||
+      (preferred_interface == k_sd_interface_spi && !spi_enabled)) {
+    log_warn(TAG,
+             "Interface Config Warning",
+             "Preferred interface (%s) is disabled. Adjusting preference.",
+             sd_card_interface_to_string(preferred_interface));
+    if (sdio_enabled) {
+      preferred_interface = k_sd_interface_sdio;
+    } else if (spi_enabled) {
+      preferred_interface = k_sd_interface_spi;
+    } else {
+      preferred_interface = k_sd_interface_none; /* No interfaces enabled */
+    }
   }
 
   /* Default task configuration */
@@ -238,40 +314,59 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
 
   /* Default Configuration */
   sd_card_hal_t sd_card_default = {
-    .tag                          = tag,
-    .mount_path                   = mount_path,
-    .max_files                    = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES,
-    .allocation_unit_size         = CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE,
-    .card_detect_low_active       = false,                                /* Default to high-active (1=card present) */
-    .bus_width                    = bus_width,                            /* Use provided bus width */
-    .pin_config                   = sd_card_default_pins,                 /* Use default pin configuration */
-    .state                        = k_sd_state_idle,                      /* Initial state */
-    .error_count                  = 0,                                    /* No errors initially */
-    .last_state_change_time       = 0,                                    /* Will be set during init */
-    .current_interface            = k_sd_interface_count,
-    .interface_info               = { {0}, {0}, {0}, {0} },
+    .tag                  = tag,
+    .mount_path           = mount_path,
+    .max_files            = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES,
+    .allocation_unit_size = CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE,
+    .card_detect_low_active =
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+#if CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ACTIVE_LOW
+      true,
+#else
+      false,
+#endif
+#else
+      false,
+#endif
+    .bus_width           = bus_width, /* Use provided bus width */
+    .preferred_interface = preferred_interface,
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLE_INTERFACE_FALLBACK
+    .enable_fallback = true,
+#else
+    .enable_fallback = false,
+#endif
+    .sdio_mode_enabled            = sdio_enabled,
+    .spi_mode_enabled             = spi_enabled,
+    .pin_config                   = sd_card_default_pins, /* Use default pin configuration */
+    .state                        = k_sd_state_idle,      /* Initial state */
+    .error_count                  = 0,                    /* No errors initially */
+    .last_state_change_time       = 0,                    /* Will be set during init */
+    .current_interface            = k_sd_interface_none,
+    .interface_info               = {{0}, {0}, {0}}, /* Initialize all interface info */
     .interface_discovery_complete = false,
     .interface_attempt_count      = 0,
-    .card                         = NULL,                                 /* Will call sdmmc_card_init() */
-    .mutex                        = NULL,                                 /* Will call xSemaphoreCreateMutex() */
-    .card_available               = false,
+    .card                         = NULL, /* Will call sdmmc_card_init() */
+    .mutex                        = NULL, /* Will call xSemaphoreCreateMutex() */
     .initialized                  = false,
     .mount_task_exit_requested    = false,
-    .mount_task_handle            = NULL,                                 /* Will call xTaskCreate() */
-    .error_handler                = { 0 },                                /* Will call error_handler_init() */
+    .mount_task_handle            = NULL, /* Will call xTaskCreate() */
+    .error_handler                = {0},  /* Will call error_handler_init() */
     .component_id                 = component_id,
-    .bus_manager                  = { 0 },                                /* Will call bus_manager_init() */
-    .task_config                  = task_config,                          /* Use default task configuration */
-    .performance                  = performance                           /* Initialize performance metrics */
+    .bus_manager                  = {0},         /* Will call bus_manager_init() */
+    .task_config                  = task_config, /* Use default task configuration */
+    .performance                  = performance, /* Initialize performance metrics */
+    .availability_callback        = NULL         /* Initialize callback */
   };
+  atomic_init(&sd_card_default.card_available, false); /* Initialize atomic bool */
 
   /* Copy default configuration to sd_card */
   memcpy(sd_card, &sd_card_default, sizeof(sd_card_hal_t));
 
-  /* Check for pin conflicts */
-  if (bus_width == k_sd_bus_width_4bit &&
+/* Check for pin conflicts with default pins */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+  if (bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
       sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-    log_warn(SD_CARD_HAL_TAG, /* Use log_warn */
+    log_warn(TAG, /* Use log_warn */
              "Pin Conflict",
              "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
              "Will default to 1-bit mode for better compatibility.",
@@ -280,24 +375,25 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     /* Default to 1-bit mode when there's a pin conflict */
     sd_card->bus_width = k_sd_bus_width_1bit;
   }
+#endif
 
   /* Initialize error handler */
   err = error_handler_init(&sd_card->error_handler,
-                     CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY,
-                     CONFIG_PSTAR_KCONFIG_SD_CARD_RETRY_DELAY_MS,
-                     CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY_DELAY_MS,
-                     priv_sd_card_reset, /* Reset function */
-                     sd_card);           /* Reset context */
+                           CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY,
+                           CONFIG_PSTAR_KCONFIG_SD_CARD_RETRY_DELAY_MS,
+                           CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_RETRY_DELAY_MS,
+                           priv_sd_card_reset, /* Reset function */
+                           sd_card);           /* Reset context */
   if (err != ESP_OK) {
-      log_error(SD_CARD_HAL_TAG, "Failed to init error handler: %s", esp_err_to_name(err));
-      /* Should we cleanup mutex/bus manager here? Or let caller handle? Let caller handle. */
-      return err;
+    log_error(TAG, "Failed to init error handler: %s", esp_err_to_name(err));
+    /* No resources allocated yet to clean up */
+    return err;
   }
 
   /* Initialize mutex */
   sd_card->mutex = xSemaphoreCreateMutex();
   if (sd_card->mutex == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    log_error(TAG, /* Use log_error */
               "Failed to create mutex",
               "sd_card: %p",
               sd_card);
@@ -308,7 +404,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   /* Initialize bus manager */
   err = pstar_bus_manager_init(&sd_card->bus_manager, tag);
   if (err != ESP_OK) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    log_error(TAG, /* Use log_error */
               "Failed to initialize bus manager",
               "err: %d",
               err);
@@ -324,10 +420,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     /* NVS partition was truncated and needs to be erased */
     err = nvs_flash_erase(); /* Use log_warn for NVS issues */
     if (err != ESP_OK) {
-      log_warn(sd_card->tag,
-               "NVS Warning",
-               "Failed to erase NVS: %s",
-               esp_err_to_name(err));
+      log_warn(sd_card->tag, "NVS Warning", "Failed to erase NVS: %s", esp_err_to_name(err));
     }
 
     /* Retry initialization */
@@ -343,9 +436,9 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     err = ESP_OK; /* Treat NVS failure as non-fatal for HAL init */
   }
 
-  log_info(SD_CARD_HAL_TAG, /* Use log_info */
+  log_info(TAG, /* Use log_info */
            "SD Card Default Init",
-           "SD card HAL initialized with %s bus width mode",
+           "SD card HAL structure initialized with %s bus width mode",
            priv_sd_bus_width_to_string(sd_card->bus_width));
   return ESP_OK;
 }
@@ -356,22 +449,22 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
                                   TickType_t     mutex_timeout)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    log_error(TAG, /* Use log_error */
               "Set Task Config Error",
               "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
   if (sd_card->initialized) {
-    log_warn(SD_CARD_HAL_TAG, /* Use log_warn */
+    log_warn(TAG, /* Use log_warn */
              "Set Task Config Warning",
              "Cannot change task configuration after initialization");
     return ESP_ERR_INVALID_STATE;
   }
 
-  /* Validate configuration */ /* Use log_warn for config issues */
+  /* Validate configuration */
   if (stack_size < 2048) {
-    log_warn(SD_CARD_HAL_TAG,
+    log_warn(TAG,
              "Config Warning",
              "Stack size %lu is too small, using minimum of 2048",
              stack_size);
@@ -379,9 +472,7 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
   }
 
   if (mutex_timeout == 0) {
-    log_warn(SD_CARD_HAL_TAG,
-             "Config Warning",
-             "Mutex timeout of 0 is not allowed, using default");
+    log_warn(TAG, "Config Warning", "Mutex timeout of 0 is not allowed, using default");
     mutex_timeout = pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_MUTEX_TIMEOUT_MS);
   }
 
@@ -395,61 +486,76 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
            "SD card task configuration updated: stack=%lu, priority=%u, timeout=%lu",
            stack_size,
            priority,
-           mutex_timeout);
+           (unsigned long)mutex_timeout); /* Cast TickType_t for printf */
   return ESP_OK;
 }
 
-esp_err_t sd_card_init(sd_card_hal_t* sd_card,
-                       uint32_t       priority) /* `priority` seems unused here now? Task priority is in task_config */
+esp_err_t sd_card_init(sd_card_hal_t* sd_card)
 {
   /* Validate arguments */
-  if (sd_card == NULL) { /* Use log_error */
-    log_error(SD_CARD_HAL_TAG,
-              "Init Error",
-              "Invalid SD card HAL pointer");
+  if (sd_card == NULL) {
+    log_error(TAG, "Init Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
-  /* Use log_warn */
   /* Check if already initialized */
   if (sd_card->initialized) {
-    log_warn(sd_card->tag,
-             "Init Warning",
-             "SD card HAL already initialized");
+    log_warn(sd_card->tag, "Init Warning", "SD card HAL already initialized");
     return ESP_OK;
-   }
-  /* Use log_info */
+  }
+
+/* Check if any interface mode is enabled */
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+  log_error(sd_card->tag,
+            "Init Error",
+            "Cannot initialize SD Card HAL: Both SDIO and SPI modes are disabled.");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
+#endif
+
   log_info(sd_card->tag,
            "Init Started",
            "Initializing SD card HAL with %s bus width",
            priv_sd_bus_width_to_string(sd_card->bus_width));
 
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
   /* Set up card detection GPIO */
-  esp_err_t err = priv_sd_card_setup_detection(sd_card);
-  if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+  esp_err_t det_err = priv_sd_card_setup_detection(sd_card);
+  /* Use det_err to avoid conflict */
+  if (det_err != ESP_OK) {
+    log_error(sd_card->tag,
               "Init Error",
               "Failed to set up card detection: %s",
-              esp_err_to_name(err));
-    return err;
+              esp_err_to_name(det_err));
+    return det_err;
   }
+#else
+  /* Card detection disabled */
+  log_info(sd_card->tag, "Detection Info", "SD Card detection is disabled via Kconfig.");
+#endif
 
   /* Register SD card pins with the pin validator */
-  err = priv_register_sd_card_pins(sd_card);
-  if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+  esp_err_t pin_err = priv_register_sd_card_pins(sd_card);
+  if (pin_err != ESP_OK) {
+    log_error(sd_card->tag,
               "Init Error",
               "Failed to register SD card pins: %s",
-              esp_err_to_name(err));
+              esp_err_to_name(pin_err));
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     /* Cleanup detection if pin registration fails */
     bool mutex_taken_cleanup = false;
-    if (sd_card->mutex != NULL && xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
-        mutex_taken_cleanup = true;
+    if (sd_card->mutex != NULL &&
+        xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+      mutex_taken_cleanup = true;
+      if (sd_card->pin_config.gpio_det_pin >= 0) {
         pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
                                   CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
                                   sd_card->pin_config.gpio_det_pin);
-        priv_release_mutex_if_taken(sd_card, &mutex_taken_cleanup);
+      }
+      priv_release_mutex_if_taken(sd_card, &mutex_taken_cleanup);
     }
-    return err;
+#endif
+    return pin_err;
   }
 
   /* Initialize mount task */
@@ -460,27 +566,27 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card,
                                         sd_card->task_config.priority,
                                         &sd_card->mount_task_handle);
   if (task_created != pdPASS) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Failed to create mount task",
-              "sd_card: %p",
-              sd_card);
+    log_error(TAG, "Failed to create mount task", "sd_card: %p", sd_card);
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     /* Cleanup detection setup if needed */
     bool mutex_taken = false;
-    if (sd_card->mutex != NULL && xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+    if (sd_card->mutex != NULL &&
+        xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
       mutex_taken = true;
-      pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
-                                CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
-                                sd_card->pin_config.gpio_det_pin);
+      if (sd_card->pin_config.gpio_det_pin >= 0) {
+        pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
+                                  CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                                  sd_card->pin_config.gpio_det_pin);
+      }
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
     }
+#endif
     return ESP_ERR_NO_MEM;
   }
 
   /* Mark as initialized */
   sd_card->initialized = true;
-  log_info(sd_card->tag, /* Use log_info */
-           "Init Complete",
-           "SD card HAL initialization complete");
+  log_info(sd_card->tag, "Init Complete", "SD card HAL initialization complete");
   return ESP_OK;
 }
 
@@ -489,19 +595,7 @@ bool sd_card_is_available(sd_card_hal_t* sd_card)
   if (sd_card == NULL) {
     return false;
   }
-
-  bool available   = false;
-  bool mutex_taken = false;
-
-  /* Take mutex for thread-safe access */
-  if (sd_card->mutex != NULL &&
-      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
-    mutex_taken = true;
-    available   = sd_card->card_available;
-    priv_release_mutex_if_taken(sd_card, &mutex_taken);
-  }
-
-  return available;
+  return atomic_load(&sd_card->card_available);
 }
 
 sd_state_t sd_card_get_state(sd_card_hal_t* sd_card)
@@ -527,10 +621,10 @@ sd_state_t sd_card_get_state(sd_card_hal_t* sd_card)
 sd_interface_type_t sd_card_get_current_interface(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    return k_sd_interface_count;
+    return k_sd_interface_none;
   }
 
-  sd_interface_type_t interface   = k_sd_interface_count;
+  sd_interface_type_t interface   = k_sd_interface_none;
   bool                mutex_taken = false;
 
   /* Take mutex for thread-safe access */
@@ -564,8 +658,7 @@ sd_bus_width_t sd_card_get_bus_width(sd_card_hal_t* sd_card)
   return width;
 }
 
-esp_err_t sd_card_get_performance(sd_card_hal_t*         sd_card,
-                                  sd_card_performance_t* performance)
+esp_err_t sd_card_get_performance(sd_card_hal_t* sd_card, sd_card_performance_t* performance)
 {
   if (sd_card == NULL || performance == NULL) {
     return ESP_ERR_INVALID_ARG;
@@ -582,7 +675,7 @@ esp_err_t sd_card_get_performance(sd_card_hal_t*         sd_card,
     memcpy(performance, &sd_card->performance, sizeof(sd_card_performance_t));
 
     /* If performance hasn't been measured yet and card is available, flag for measurement */
-    if (performance->last_measured == 0 && sd_card->card_available) {
+    if (performance->last_measured == 0 && atomic_load(&sd_card->card_available)) {
       sd_card->performance.measurement_needed = true;
     }
 
@@ -605,26 +698,24 @@ esp_err_t sd_card_force_remount(sd_card_hal_t* sd_card)
 
   /* Take mutex for thread-safe access */
   if (sd_card->mutex != NULL &&
-      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) { /* Use log_warn/log_error */
+      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
     mutex_taken = true;
 
     /* Only proceed if card is inserted */
     if (!priv_sd_card_is_inserted(sd_card)) {
-      log_warn(sd_card->tag,
-               "Remount Warning",
-               "Cannot remount - no card inserted");
+      log_warn(sd_card->tag, "Remount Warning", "Cannot remount - no card inserted");
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
       return ESP_ERR_NOT_FOUND;
     }
 
     /* Unmount if currently mounted */
-    if (sd_card->card_available) {
+    if (atomic_load(&sd_card->card_available)) {
       esp_err_t unmount_result = priv_sd_card_unmount(sd_card);
-      if (unmount_result != ESP_OK) { /* Use log_error */
+      if (unmount_result != ESP_OK) {
         log_error(sd_card->tag,
-                 "Remount Error",
-                 "Failed to unmount SD card: %s",
-                 esp_err_to_name(unmount_result));
+                  "Remount Error",
+                  "Failed to unmount SD card: %s",
+                  esp_err_to_name(unmount_result));
         result = unmount_result;
         priv_release_mutex_if_taken(sd_card, &mutex_taken);
         return result;
@@ -634,34 +725,41 @@ esp_err_t sd_card_force_remount(sd_card_hal_t* sd_card)
     /* Reset interface discovery state */
     sd_card->interface_discovery_complete = false;
     sd_card->interface_attempt_count      = 0;
+    /* Reset specific interface info */
+    for (int i = 0; i < k_sd_interface_count; i++) {
+      sd_card->interface_info[i].attempted = false;
+      /* Keep successful flag to try preferred first */
+      /* sd_card->interface_info[i].successful = false; */
+      sd_card->interface_info[i].error_count = 0;
+      /* sd_card->interface_info[i].last_success_time = 0; */
+    }
+
     priv_update_state_machine(sd_card, k_sd_state_card_inserted);
     priv_update_state_machine(sd_card, k_sd_state_interface_discovery);
 
     /* Try to mount with a fresh interface discovery */
     esp_err_t mount_result = priv_sd_card_try_interfaces(sd_card);
-    if (mount_result != ESP_OK) { /* Use log_error */
+    if (mount_result != ESP_OK) {
       log_error(sd_card->tag,
-               "Remount Error",
-               "Failed to remount SD card: %s",
-               esp_err_to_name(mount_result));
+                "Remount Error",
+                "Failed to remount SD card: %s",
+                esp_err_to_name(mount_result));
       priv_update_state_machine(sd_card, k_sd_state_error);
       result = mount_result;
-    } else if (sd_card->card_available) {
+    } else if (atomic_load(&sd_card->card_available)) {
       /* Interface discovery successful */
       priv_update_state_machine(sd_card, k_sd_state_interface_ready);
-      log_info(sd_card->tag, /* Use log_info */
-              "Remount Success",
-              "Successfully remounted SD card with %s interface and %s bus width",
-              sd_card_interface_to_string(sd_card->current_interface),
-              priv_sd_bus_width_to_string(sd_card->bus_width));
+      log_info(sd_card->tag,
+               "Remount Success",
+               "Successfully remounted SD card with %s interface and %s bus width",
+               sd_card_interface_to_string(sd_card->current_interface),
+               priv_sd_bus_width_to_string(sd_card->bus_width));
     }
 
     /* Release mutex */
     priv_release_mutex_if_taken(sd_card, &mutex_taken);
   } else {
-    log_error(sd_card->tag, /* Use log_error */
-              "Remount Error",
-              "Failed to acquire mutex for remount operation");
+    log_error(sd_card->tag, "Remount Error", "Failed to acquire mutex for remount operation");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -676,10 +774,7 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
 
   /* Validate bus width */
   if (bus_width != k_sd_bus_width_1bit && bus_width != k_sd_bus_width_4bit) {
-    log_error(sd_card->tag, /* Use log_error */
-              "Invalid bus width",
-              "Bus width must be 1 or 4, got: %d",
-              bus_width);
+    log_error(sd_card->tag, "Invalid bus width", "Bus width must be 1 or 4, got: %d", bus_width);
     return ESP_ERR_INVALID_ARG;
   }
 
@@ -688,11 +783,11 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
 
   /* Take mutex for thread-safe access */
   if (sd_card->mutex != NULL &&
-      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) { /* Use log_info/log_error */
+      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
     mutex_taken = true;
 
     /* Check if the new bus width differs from the current one */
-    if (sd_card->bus_width == bus_width) { /* Use log_info */
+    if (sd_card->bus_width == bus_width) {
       log_info(sd_card->tag,
                "Bus Width",
                "Already using %s bus width",
@@ -701,19 +796,21 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
       return ESP_OK;
     }
 
-    /* Check for pin conflicts with 4-bit mode */
-    if (bus_width == k_sd_bus_width_4bit &&
+/* Check for pin conflicts with 4-bit mode */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+    if (bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
         sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Pin Conflict",
                 "Cannot use 4-bit mode - card detect pin (GPIO %d) conflicts with SDIO D3",
                 sd_card->pin_config.gpio_det_pin);
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
       return ESP_ERR_INVALID_STATE;
     }
+#endif
 
     /* Update bus width */
-    log_info(sd_card->tag, /* Use log_info */
+    log_info(sd_card->tag,
              "Bus Width Change",
              "Changing from %s to %s bus width",
              priv_sd_bus_width_to_string(sd_card->bus_width),
@@ -721,8 +818,11 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
 
     sd_card->bus_width = bus_width;
 
+    /* Save the new bus width setting to NVS */
+    priv_save_working_config(sd_card);
+
     /* If card is currently mounted, force a remount to apply the new bus width */
-    if (sd_card->card_available) {
+    if (atomic_load(&sd_card->card_available)) {
       /* Release mutex since remount will take it again */
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
       return sd_card_force_remount(sd_card);
@@ -731,9 +831,7 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
     /* Release mutex */
     priv_release_mutex_if_taken(sd_card, &mutex_taken);
   } else {
-    log_error(sd_card->tag, /* Use log_error */
-              "Bus Width Error",
-              "Failed to acquire mutex for bus width change");
+    log_error(sd_card->tag, "Bus Width Error", "Failed to acquire mutex for bus width change");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -743,17 +841,13 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
 esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Cleanup Error",
-              "Invalid SD card HAL pointer");
+    log_error(TAG, "Cleanup Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-           "Cleanup Started",
-           "Cleaning up SD card HAL resources");
+  log_info(sd_card->tag, "Cleanup Started", "Cleaning up SD card HAL resources");
 
-  esp_err_t result       = ESP_OK;
+  esp_err_t result      = ESP_OK;
   bool      mutex_taken = false;
 
   /* Signal mount task to exit */
@@ -761,12 +855,20 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     sd_card->mount_task_exit_requested = true;
 
     /* Wait for task to exit with timeout */
-    TickType_t start_time = xTaskGetTickCount();
+    TickType_t       start_time    = xTaskGetTickCount();
     const TickType_t max_wait_time = pdMS_TO_TICKS(1000); /* 1 second max wait */
 
     while (sd_card->mount_task_handle != NULL &&
            (xTaskGetTickCount() - start_time) < max_wait_time) {
       vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    /* Force delete if still running after timeout */
+    if (sd_card->mount_task_handle != NULL) {
+      log_warn(sd_card->tag,
+               "Cleanup Warning",
+               "Mount task did not exit cleanly, forcing deletion.");
+      vTaskDelete(sd_card->mount_task_handle);
+      sd_card->mount_task_handle = NULL;
     }
   }
 
@@ -775,7 +877,7 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     if (xSemaphoreTake(sd_card->mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
       mutex_taken = true;
     } else {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Cleanup Error",
                 "Failed to acquire mutex for cleanup - forcing cleanup anyway");
       /* Continue with cleanup even if we can't get the mutex */
@@ -783,10 +885,10 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
   }
 
   /* Unmount if mounted */
-  if (sd_card->card_available) {
+  if (atomic_load(&sd_card->card_available)) {
     esp_err_t err = priv_sd_card_unmount(sd_card);
     if (err != ESP_OK) {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Cleanup Error",
                 "Failed to unmount SD card: %s",
                 esp_err_to_name(err));
@@ -795,19 +897,15 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     }
   }
 
-  /* Delete mount task if it's still running */
-  if (sd_card->mount_task_handle != NULL) {
-    vTaskDelete(sd_card->mount_task_handle);
-    sd_card->mount_task_handle = NULL;
-  }
-
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
   /* Clean up GPIO ISR */
-  if (sd_card->initialized) { /* Check initialized flag before accessing config */
+  if (sd_card->initialized &&
+      sd_card->pin_config.gpio_det_pin >= 0) { /* Check initialized flag and valid pin */
     pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
-                        CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
-                        sd_card->pin_config.gpio_det_pin);
+                              CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                              sd_card->pin_config.gpio_det_pin);
   }
-
+#endif
   /* Clean up bus manager */
   pstar_bus_manager_deinit(&sd_card->bus_manager);
 
@@ -818,11 +916,12 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
   }
 
   /* Update state */
-  sd_card->initialized                  = false;
-  sd_card->card_available               = false;
+  sd_card->initialized = false;
+  atomic_store(&sd_card->card_available, false);
   sd_card->interface_discovery_complete = false;
-  sd_card->current_interface            = k_sd_interface_count;
+  sd_card->current_interface            = k_sd_interface_none;
   sd_card->state                        = k_sd_state_idle;
+  sd_card->availability_callback        = NULL; /* Clear callback */
 
   /* Give mutex before deleting it */
   priv_release_mutex_if_taken(sd_card, &mutex_taken);
@@ -833,18 +932,65 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     sd_card->mutex = NULL;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-          "Cleanup Complete",
-          "SD card HAL resources cleaned up successfully");
+  /* Deinit error handler */
+  error_handler_deinit(&sd_card->error_handler);
+
+  log_info(sd_card->tag, "Cleanup Complete", "SD card HAL resources cleaned up successfully");
   return result;
+}
+
+esp_err_t sd_card_register_availability_callback(sd_card_hal_t*       sd_card,
+                                                 sd_availability_cb_t callback)
+{
+  if (sd_card == NULL) {
+    log_error(TAG, "Callback Error", "SD card HAL pointer is NULL");
+    return ESP_ERR_INVALID_ARG;
+  }
+  if (!sd_card->initialized) {
+    log_error(TAG, "Callback Error", "SD card HAL not initialized");
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  bool mutex_taken = false;
+  if (sd_card->mutex != NULL &&
+      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+    mutex_taken = true;
+  } else {
+    log_error(TAG, "Callback Error", "Failed to acquire mutex");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  sd_card->availability_callback = callback;
+  log_info(sd_card->tag,
+           "Callback Registered",
+           "Availability callback %s",
+           callback ? "registered" : "cleared");
+
+  priv_release_mutex_if_taken(sd_card, &mutex_taken);
+  return ESP_OK;
 }
 
 /* Private Functions **********************************************************/
 
 /**
+ * @brief Calls the registered availability callback, if any.
+ */
+static void priv_notify_availability(sd_card_hal_t* sd_card, bool available)
+{
+  /* No mutex needed here, called from within critical sections (mount/unmount) */
+  if (sd_card && sd_card->availability_callback) {
+    log_info(sd_card->tag,
+             "Notify Callback",
+             "Notifying listener about availability: %s",
+             available ? "Available" : "Unavailable");
+    sd_card->availability_callback(available);
+  }
+}
+
+/**
  * @brief Safely releases a mutex if it was taken
  *
- * @param[in] sd_card     Pointer to the SD card HAL instance
+ * @param[in]     sd_card     Pointer to the SD card HAL instance
  * @param[in,out] mutex_taken Pointer to the mutex taken flag to update
  */
 static void priv_release_mutex_if_taken(sd_card_hal_t* sd_card, bool* mutex_taken)
@@ -873,7 +1019,7 @@ static void priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_sta
       xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
     mutex_taken = true;
   } else {
-    log_warn(sd_card->tag, /* Use log_warn */
+    log_warn(sd_card->tag,
              "State Change Warning",
              "Failed to acquire mutex for state change, proceeding anyway");
     /* Continue without mutex as this is a critical operation */
@@ -886,16 +1032,10 @@ static void priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_sta
   }
 
   /* Log state transition */
-  const char* states[] = {
-    "IDLE",
-    "CARD_INSERTED",
-    "INTERFACE_DISCOVERY",
-    "INTERFACE_READY",
-    "ERROR",
-    "FAILED"
-  };
+  const char* states[] =
+    {"IDLE", "CARD_INSERTED", "INTERFACE_DISCOVERY", "INTERFACE_READY", "ERROR", "FAILED"};
 
-  log_info(sd_card->tag, /* Use log_info */
+  log_info(sd_card->tag,
            "State Change",
            "Transitioning from %s to %s state",
            states[sd_card->state],
@@ -910,7 +1050,13 @@ static void priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_sta
   /* Reset state-specific variables */
   if (new_state == k_sd_state_interface_discovery) {
     sd_card->interface_discovery_complete = false;
-    sd_card->interface_attempt_count = 0;
+    sd_card->interface_attempt_count      = 0;
+    /* Reset error counts for all interfaces when starting discovery */
+    for (int i = 0; i < k_sd_interface_count; i++) {
+      sd_card->interface_info[i].error_count = 0;
+      sd_card->interface_info[i].attempted   = false;
+      /* Keep successful flag */
+    }
   } else if (new_state == k_sd_state_interface_ready) {
     /* Save the working configuration */
     priv_save_working_config(sd_card);
@@ -927,7 +1073,8 @@ static void priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_sta
     sd_card->error_count++;
   } else if (new_state == k_sd_state_idle) {
     /* Reset error counts */
-    sd_card->error_count = 0;
+    sd_card->error_count       = 0;
+    sd_card->current_interface = k_sd_interface_none; /* Clear current interface */
   }
 
   /* Release mutex */
@@ -942,12 +1089,13 @@ static void priv_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_sta
  */
 static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
 {
-  if (sd_card == NULL || !sd_card->card_available) {
+  if (sd_card == NULL || !atomic_load(&sd_card->card_available)) {
     return ESP_ERR_INVALID_ARG;
   }
 
   /* Only save if we have a valid interface */
-  if (sd_card->current_interface >= k_sd_interface_count) {
+  if (sd_card->current_interface == k_sd_interface_none ||
+      sd_card->current_interface >= k_sd_interface_count) {
     return ESP_ERR_INVALID_STATE;
   }
 
@@ -957,18 +1105,16 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   /* Open NVS namespace */
   err = nvs_open(CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
   if (err != ESP_OK) {
-    log_warn(sd_card->tag, /* Use log_warn */
-             "NVS Warning",
-             "Failed to open NVS namespace: %s",
-             esp_err_to_name(err));
+    log_warn(sd_card->tag, "NVS Warning", "Failed to open NVS namespace: %s", esp_err_to_name(err));
     return err;
   }
 
   /* Save current interface */
-  err = nvs_set_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY,
+  err = nvs_set_u8(nvs_handle,
+                   CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_INTERFACE_KEY,
                    (uint8_t)sd_card->current_interface);
   if (err != ESP_OK) {
-    log_warn(sd_card->tag, /* Use log_warn */
+    log_warn(sd_card->tag,
              "NVS Warning",
              "Failed to save interface to NVS: %s",
              esp_err_to_name(err));
@@ -977,10 +1123,11 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   }
 
   /* Save bus width */
-  err = nvs_set_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY,
+  err = nvs_set_u8(nvs_handle,
+                   CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY,
                    (uint8_t)sd_card->bus_width);
   if (err != ESP_OK) {
-    log_warn(sd_card->tag, /* Use log_warn */
+    log_warn(sd_card->tag,
              "NVS Warning",
              "Failed to save bus width to NVS: %s",
              esp_err_to_name(err));
@@ -991,10 +1138,7 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   /* Commit changes */
   err = nvs_commit(nvs_handle);
   if (err != ESP_OK) {
-    log_warn(sd_card->tag, /* Use log_warn */
-             "NVS Warning",
-             "Failed to commit NVS changes: %s",
-             esp_err_to_name(err));
+    log_warn(sd_card->tag, "NVS Warning", "Failed to commit NVS changes: %s", esp_err_to_name(err));
     nvs_close(nvs_handle);
     return err;
   }
@@ -1002,7 +1146,7 @@ static esp_err_t priv_save_working_config(sd_card_hal_t* sd_card)
   /* Close NVS handle */
   nvs_close(nvs_handle);
 
-  log_info(sd_card->tag, /* Use log_info */
+  log_info(sd_card->tag,
            "Config Saved",
            "Saved working configuration - Interface: %s, Bus Width: %d-bit",
            sd_card_interface_to_string(sd_card->current_interface),
@@ -1030,17 +1174,12 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
   err = nvs_open(CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
   if (err != ESP_OK) {
     /* Not finding the namespace is normal on first boot, just return */
-    if (err == ESP_ERR_NVS_NOT_FOUND) { /* Use log_info */
-      log_info(sd_card->tag,
-               "NVS Info",
-               "No saved SD card configuration found");
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+      log_info(sd_card->tag, "NVS Info", "No saved SD card configuration found");
       return ESP_OK;
     }
 
-    log_warn(sd_card->tag, /* Use log_warn */
-             "NVS Warning",
-             "Failed to open NVS namespace: %s",
-             esp_err_to_name(err));
+    log_warn(sd_card->tag, "NVS Warning", "Failed to open NVS namespace: %s", esp_err_to_name(err));
     return err;
   }
 
@@ -1050,21 +1189,29 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
   if (err == ESP_OK) {
     /* Validate the loaded value */
     if (interface_val < k_sd_interface_count) {
+      /* Set the current interface as the loaded one, it will be tried first */
       sd_card->current_interface = (sd_interface_type_t)interface_val;
       /* Mark that we have a previously working interface */
-      sd_card->interface_info[interface_val].successful        = true;
-      sd_card->interface_info[interface_val].last_success_time = esp_timer_get_time();
+      sd_card->interface_info[interface_val].successful = true;
+      sd_card->interface_info[interface_val].last_success_time =
+        esp_timer_get_time();                       /* Treat load time as last success */
+      sd_card->interface_discovery_complete = true; /* Assume complete if loaded */
     } else {
-      log_warn(sd_card->tag, /* Use log_warn */
-               "NVS Warning",
-               "Invalid interface value in NVS: %d",
-               interface_val);
+      log_warn(sd_card->tag, "NVS Warning", "Invalid interface value in NVS: %d", interface_val);
+      sd_card->current_interface            = k_sd_interface_none;
+      sd_card->interface_discovery_complete = false;
     }
   } else if (err != ESP_ERR_NVS_NOT_FOUND) {
-    log_warn(sd_card->tag, /* Use log_warn */
+    log_warn(sd_card->tag,
              "NVS Warning",
              "Failed to read interface from NVS: %s",
              esp_err_to_name(err));
+    sd_card->current_interface            = k_sd_interface_none;
+    sd_card->interface_discovery_complete = false;
+  } else {
+    /* Interface key not found */
+    sd_card->current_interface            = k_sd_interface_none;
+    sd_card->interface_discovery_complete = false;
   }
 
   /* Load bus width */
@@ -1072,27 +1219,25 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
   err = nvs_get_u8(nvs_handle, CONFIG_PSTAR_KCONFIG_SD_CARD_NVS_BUS_WIDTH_KEY, &bus_width_val);
   if (err == ESP_OK) {
     /* Validate the loaded value */
-    if (bus_width_val == k_sd_bus_width_1bit ||
-        bus_width_val == k_sd_bus_width_4bit) {
+    if (bus_width_val == k_sd_bus_width_1bit || bus_width_val == k_sd_bus_width_4bit) {
       sd_card->bus_width = (sd_bus_width_t)bus_width_val;
     } else {
-      log_warn(sd_card->tag, /* Use log_warn */
-               "NVS Warning",
-               "Invalid bus width value in NVS: %d",
-               bus_width_val);
+      log_warn(sd_card->tag, "NVS Warning", "Invalid bus width value in NVS: %d", bus_width_val);
+      /* Keep the default/Kconfig bus width if NVS is invalid */
     }
   } else if (err != ESP_ERR_NVS_NOT_FOUND) {
-    log_warn(sd_card->tag, /* Use log_warn */
+    log_warn(sd_card->tag,
              "NVS Warning",
              "Failed to read bus width from NVS: %s",
              esp_err_to_name(err));
   }
+  /* If bus width key not found, keep the default/Kconfig value */
 
   /* Close NVS handle */
   nvs_close(nvs_handle);
 
   /* If we successfully loaded a working configuration, log it */
-  if (sd_card->current_interface < k_sd_interface_count) { /* Use log_info */
+  if (sd_card->current_interface != k_sd_interface_none) {
     log_info(sd_card->tag,
              "Config Loaded",
              "Loaded previous working configuration - Interface: %s, Bus Width: %d-bit",
@@ -1103,60 +1248,65 @@ static esp_err_t priv_load_working_config(sd_card_hal_t* sd_card)
 
   log_info(sd_card->tag,
            "Config Not Found",
-           "No valid previous working configuration found");
+           "No valid previous working configuration found, will perform full discovery.");
   return ESP_OK;
 }
 
 static void priv_measure_card_performance(sd_card_hal_t* sd_card)
 {
-  if (sd_card == NULL || !sd_card->card_available || sd_card->card == NULL) {
+  /* Validate input parameters and card availability */
+  if (sd_card == NULL || !atomic_load(&sd_card->card_available) || sd_card->card == NULL) {
     return;
   }
 
-  /* Skip if performance was measured recently (less than 1 minute ago) */
+  /* Skip measurement if performed recently (< 1 minute) */
   int64_t now = esp_timer_get_time();
   if (sd_card->performance.last_measured > 0 &&
       ((now - sd_card->performance.last_measured) < 60000000)) {
     return;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-           "Performance Test",
-           "Measuring SD card performance metrics");
+  log_info(sd_card->tag, "Performance Test", "Measuring SD card performance metrics");
 
-  /* Create a temporary buffer for testing */
-  const size_t buffer_size = 256 * 1024; /* 256 KB test size */
+  /* Allocate a temporary DMA-capable buffer for testing (256 KB) */
+  const size_t buffer_size = 256 * 1024;
   uint8_t*     buffer      = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA);
   if (buffer == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
-              "Performance Error",
-              "Failed to allocate memory for performance test");
+    log_error(sd_card->tag, "Performance Error", "Failed to allocate memory for performance test");
     return;
   }
 
-  /* Fill buffer with test pattern */
+  /* Fill buffer with a test pattern */
   for (size_t i = 0; i < buffer_size; i++) {
     buffer[i] = (uint8_t)(i & 0xFF);
   }
 
-  /* Create a system directory for test files if it doesn't exist */
-  char system_dir[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  /* Define system subdirectory and compute its length dynamically */
+  const char* system_subdir     = "/.system";
+  size_t      system_subdir_len = strlen(system_subdir);
 
-  /* Safely construct system directory path */
-  if (strlen(sd_card->mount_path) > CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH - 9) { /* 9 = length of "/.system" + null terminator */
-    log_error(sd_card->tag, /* Use log_error */
+  /* Ensure the combined path (mount path + system_subdir) fits in the buffer */
+  size_t mount_path_len = strlen(sd_card->mount_path);
+  if (mount_path_len + system_subdir_len + 1 > CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH) {
+    log_error(sd_card->tag,
               "Performance Error",
               "Mount path too long for creating system directory");
     free(buffer);
     return;
   }
 
-  strcpy(system_dir, sd_card->mount_path);
-  strcat(system_dir, "/.system");
+  /* Construct the full system directory path safely using snprintf */
+  char system_dir[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  int  ret = snprintf(system_dir, sizeof(system_dir), "%s%s", sd_card->mount_path, system_subdir);
+  if (ret < 0 || (size_t)ret >= sizeof(system_dir)) {
+    log_error(sd_card->tag, "System Dir Error", "Failed to construct system directory path");
+    free(buffer);
+    return;
+  }
 
-  /* Check if path is safe before proceeding */
+  /* Validate the constructed system directory path */
   if (!priv_path_is_safe_simple(system_dir) || !priv_is_path_within_mount(sd_card, system_dir)) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Performance Error",
               "System directory path '%s' is not valid",
               system_dir);
@@ -1164,10 +1314,10 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
     return;
   }
 
-  /* Create the system directory if it doesn't exist */
+  /* Create the system directory if it does not exist */
   esp_err_t dir_err = priv_create_directory_if_needed(sd_card, system_dir);
   if (dir_err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Performance Error",
               "Failed to create system directory: %s",
               esp_err_to_name(dir_err));
@@ -1175,44 +1325,41 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
     return;
   }
 
-  /* Create test file path in the system directory using safe string operations */
-  char test_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
-
-  /* Safe copy and concatenation */
-  if (strlen(system_dir) > CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH - 11) { /* 11 = length of "/perf_test" + null terminator */
-    log_error(sd_card->tag, /* Use log_error */
+  /* Define test file name and construct its full path dynamically */
+  const char* test_filename     = "/perf_test";
+  size_t      test_filename_len = strlen(test_filename);
+  if (strlen(system_dir) + test_filename_len + 1 > CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH) {
+    log_error(sd_card->tag,
               "Performance Error",
               "System directory path too long, cannot append test filename");
     free(buffer);
     return;
   }
-
-  strcpy(test_path, system_dir);
-  strcat(test_path, "/perf_test");
-
-  /* Measure write speed */
-  int64_t write_start = esp_timer_get_time();
-
-  /* Create test file and write to it */
-  FILE* f = fopen(test_path, "wb");
-  if (f == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
-              "Performance Error",
-              "Failed to create test file: %s",
-              strerror(errno));
+  char test_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  ret = snprintf(test_path, sizeof(test_path), "%s%s", system_dir, test_filename);
+  if (ret < 0 || (size_t)ret >= sizeof(test_path)) {
+    log_error(sd_card->tag, "Test File Path Error", "Failed to construct test file path");
     free(buffer);
     return;
   }
 
-  /* Write buffer to file */
+  /* Measure write speed: create test file and write the buffer */
+  int64_t write_start = esp_timer_get_time();
+  FILE*   f           = fopen(test_path, "wb");
+  if (f == NULL) {
+    log_error(sd_card->tag, "Performance Error", "Failed to create test file: %s", strerror(errno));
+    free(buffer);
+    return;
+  }
+
+  /* (ORDER MATTERS) - Record write_end after fclose to include flush and close time */
   size_t bytes_written = fwrite(buffer, 1, buffer_size, f);
   fclose(f);
-
   int64_t write_end = esp_timer_get_time();
 
-  /* Check if write was successful */
+  /* Verify write success */
   if (bytes_written != buffer_size) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Performance Error",
               "Write test incomplete: %zu/%zu bytes written",
               bytes_written,
@@ -1222,13 +1369,11 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
     return;
   }
 
-  /* Measure read speed */
+  /* Measure read speed: open the test file and read its contents */
   int64_t read_start = esp_timer_get_time();
-
-  /* Open test file for reading */
-  f = fopen(test_path, "rb");
+  f                  = fopen(test_path, "rb");
   if (f == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Performance Error",
               "Failed to open test file for reading: %s",
               strerror(errno));
@@ -1236,22 +1381,18 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
     unlink(test_path);
     return;
   }
-
   /* Clear buffer before reading */
   memset(buffer, 0, buffer_size);
-
-  /* Read file into buffer */
   size_t bytes_read = fread(buffer, 1, buffer_size, f);
   fclose(f);
+  int64_t read_end = esp_timer_get_time(); /* Again, order matters */
 
-  int64_t read_end = esp_timer_get_time();
-
-  /* Clean up test file */
+  /* Remove test file after measurement */
   unlink(test_path);
 
-  /* Check if read was successful */
+  /* Verify read success */
   if (bytes_read != buffer_size) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Performance Error",
               "Read test incomplete: %zu/%zu bytes read",
               bytes_read,
@@ -1260,23 +1401,23 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
     return;
   }
 
-  /* Free buffer */
+  /* Free the temporary buffer */
   free(buffer);
 
-  /* Calculate speeds */
+  /* Calculate speeds in kilobits per second (kbps) */
   float write_time_sec = (float)(write_end - write_start) / 1000000.0f;
   float read_time_sec  = (float)(read_end - read_start) / 1000000.0f;
+  float write_speed_kbps =
+    (write_time_sec > 0) ? (buffer_size * 8.0f / 1000.0f) / write_time_sec : 0;
+  float read_speed_kbps = (read_time_sec > 0) ? (buffer_size * 8.0f / 1000.0f) / read_time_sec : 0;
 
-  float write_speed_kbps = (buffer_size * 8.0f / 1000.0f) / write_time_sec;
-  float read_speed_kbps  = (buffer_size * 8.0f / 1000.0f) / read_time_sec;
-
-  /* Update metrics */
+  /* Update performance metrics */
   sd_card->performance.write_speed_kbps   = write_speed_kbps;
   sd_card->performance.read_speed_kbps    = read_speed_kbps;
   sd_card->performance.last_measured      = now;
   sd_card->performance.measurement_needed = false;
 
-  log_info(sd_card->tag, /* Use log_info */
+  log_info(sd_card->tag,
            "Performance Results",
            "Read: %.2f kbps, Write: %.2f kbps",
            read_speed_kbps,
@@ -1284,24 +1425,75 @@ static void priv_measure_card_performance(sd_card_hal_t* sd_card)
 }
 
 /**
- * @brief Checks if a path is safe to use (no directory traversal attacks)
+ * @brief Helper function to check for unsafe directory traversal patterns.
  *
- * @param[in] sd_card Pointer to the SD card HAL instance
- * @param[in] path Path to check
- * @return true if path is safe, false otherwise
+ * This function checks if the given path contains common directory traversal patterns.
+ *
+ * @param[in] path Path to check.
+ * @return true if no unsafe patterns are found, false otherwise.
+ */
+static bool priv_check_directory_traversal(const char* path)
+{
+  if (strstr(path, "..") != NULL || /* Standard directory traversal */
+      strstr(path, "./") != NULL || /* Potential hiding technique */
+      strstr(path, "//") != NULL || /* Multiple slashes can bypass filters */
+      strstr(path, "\\") != NULL) { /* Backslashes can be problematic */
+    log_error(TAG,
+              "Path Validation Error",
+              "Path '%s' contains potentially unsafe directory traversal patterns",
+              path);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @brief Helper function to ensure the path only contains allowed characters.
+ *
+ * Allowed characters include alphanumerics, underscores, dashes, dots, slashes,
+ * spaces, plus signs, equals, commas, at signs, and parentheses.
+ *
+ * @param[in] path Path to check.
+ * @return true if all characters are allowed, false otherwise.
+ */
+static bool priv_check_allowed_characters(const char* path)
+{
+  for (const char* c = path; *c != '\0'; c++) {
+    if (!(isalnum((unsigned char)*c) || *c == '_' || *c == '-' || *c == '.' || *c == '/' ||
+          *c == ' ' || *c == '+' || *c == '=' || *c == ',' || *c == '@' || *c == '(' ||
+          *c == ')')) {
+      log_error(TAG,
+                "Path Validation Error",
+                "Path '%s' contains invalid character '%c' (0x%02X)",
+                path,
+                *c,
+                (unsigned char)*c);
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * @brief Checks if a path is safe to use (no directory traversal attacks).
+ *
+ * This version validates the path and also verifies that, for absolute paths,
+ * the path starts with the configured SD card mount point.
+ *
+ * @param[in] sd_card Pointer to the SD card HAL instance.
+ * @param[in] path Path to check.
+ * @return true if path is safe, false otherwise.
  */
 static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
 {
   if (sd_card == NULL || path == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Path Validation Error",
-              "NULL parameter provided to path validation");
+    log_error(TAG, "Path Validation Error", "NULL parameter provided to path validation");
     return false;
   }
 
   /* Path length check to prevent buffer overflow attacks */
-  if (strlen(path) >= CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH) { /* Use log_error */
-    log_error(SD_CARD_HAL_TAG,
+  if (strlen(path) >= CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH) {
+    log_error(TAG,
               "Path Validation Error",
               "Path too long: %zu characters exceeds maximum of %zu",
               strlen(path),
@@ -1311,10 +1503,10 @@ static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
 
   /* Don't allow absolute paths that don't start with the SD card mount point */
   if (path[0] == '/') {
-    /* Check if the path starts with the configured mount point prefix */
     size_t mount_path_len = strlen(sd_card->mount_path);
-    if (strncmp(path, sd_card->mount_path, mount_path_len) != 0) {
-      log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    if (strncmp(path, sd_card->mount_path, mount_path_len) != 0 ||
+        (strlen(path) > mount_path_len && path[mount_path_len] != '/')) { /* Check next char */
+      log_error(TAG,
                 "Path Validation Error",
                 "Path '%s' does not begin with configured mount point '%s'",
                 path,
@@ -1323,42 +1515,25 @@ static bool priv_path_is_safe(const sd_card_hal_t* sd_card, const char* path)
     }
   }
 
-  /* Check for directory traversal attempts using various common patterns */
-  if (strstr(path, "..") != NULL ||   /* Standard directory traversal */
-      strstr(path, "./") != NULL ||   /* Potential hiding technique */
-      strstr(path, "//") != NULL ||   /* Multiple slashes can bypass filters */
-      strstr(path, "\\") != NULL) {   /* Backslashes can be problematic */
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Path Validation Error",
-              "Path '%s' contains potentially unsafe directory traversal patterns",
-              path);
+  /* Perform common security checks */
+  if (!priv_check_directory_traversal(path)) {
     return false;
   }
-
-  /* Ensure the path only contains allowed characters */
-  for (const char* c = path; *c != '\0'; c++) {
-    /* Allow alphanumeric characters, common punctuation, slashes and dots */
-    if (!(isalnum((unsigned char)*c) || *c == '_' || *c == '-' || *c == '.' ||
-          *c == '/' || *c == ' ' || *c == '+' || *c == '=' || *c == ',' ||
-          *c == '@' || *c == '(' || *c == ')')) {
-      log_error(SD_CARD_HAL_TAG, /* Use log_error */
-                "Path Validation Error",
-                "Path '%s' contains invalid character '%c' (0x%02X)",
-                path, *c, (unsigned char)*c);
-      return false;
-    }
+  if (!priv_check_allowed_characters(path)) {
+    return false;
   }
 
   return true;
 }
 
 /**
- * @brief Updates the path safety check with the current mount point
+ * @brief Simplified path safety check without requiring an SD card instance.
  *
- * This simpler version validates paths but doesn't require an sd_card instance
+ * This version validates the path for directory traversal patterns and allowed
+ * characters without checking against a mount point.
  *
- * @param[in] path Path to check
- * @return true if path is safe, false otherwise
+ * @param[in] path Path to check.
+ * @return true if path is safe, false otherwise.
  */
 static bool priv_path_is_safe_simple(const char* path)
 {
@@ -1366,30 +1541,12 @@ static bool priv_path_is_safe_simple(const char* path)
     return false;
   }
 
-  /* Check for directory traversal attempts using various common patterns */
-  if (strstr(path, "..") != NULL ||   /* Standard directory traversal */
-      strstr(path, "./") != NULL ||   /* Potential hiding technique */
-      strstr(path, "//") != NULL ||   /* Multiple slashes can bypass filters */
-      strstr(path, "\\") != NULL) {   /* Backslashes can be problematic */
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Path Validation Error",
-              "Path '%s' contains potentially unsafe directory traversal patterns",
-              path);
+  /* Perform common security checks */
+  if (!priv_check_directory_traversal(path)) {
     return false;
   }
-
-  /* Ensure the path only contains allowed characters */
-  for (const char* c = path; *c != '\0'; c++) {
-    /* Allow alphanumeric characters, common punctuation, slashes and dots */
-    if (!(isalnum((unsigned char)*c) || *c == '_' || *c == '-' || *c == '.' ||
-          *c == '/' || *c == ' ' || *c == '+' || *c == '=' || *c == ',' ||
-          *c == '@' || *c == '(' || *c == ')')) {
-      log_error(SD_CARD_HAL_TAG, /* Use log_error */
-                "Path Validation Error",
-                "Path '%s' contains invalid character '%c' (0x%02X)",
-                path, *c, (unsigned char)*c);
-      return false;
-    }
+  if (!priv_check_allowed_characters(path)) {
+    return false;
   }
 
   return true;
@@ -1412,8 +1569,9 @@ static bool priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* 
   if (path[0] == '/') {
     /* Check if the path starts with the configured mount point prefix */
     size_t mount_path_len = strlen(sd_card->mount_path);
-    if (strncmp(path, sd_card->mount_path, mount_path_len) != 0) {
-      log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    if (strncmp(path, sd_card->mount_path, mount_path_len) != 0 ||
+        (strlen(path) > mount_path_len && path[mount_path_len] != '/')) { /* Check next char */
+      log_error(TAG,
                 "Path Validation Error",
                 "Path '%s' does not begin with configured mount point '%s'",
                 path,
@@ -1435,9 +1593,7 @@ static bool priv_is_path_within_mount(const sd_card_hal_t* sd_card, const char* 
 static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, const char* path)
 {
   if (sd_card == NULL || path == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Directory Error",
-              "NULL parameter provided to directory creation");
+    log_error(TAG, "Directory Error", "NULL parameter provided to directory creation");
     return ESP_ERR_INVALID_ARG;
   }
 
@@ -1453,14 +1609,11 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
     /* Path exists, check if it's a directory */
     if (S_ISDIR(st.st_mode)) {
       /* Already a directory, nothing to do */
-      log_debug(SD_CARD_HAL_TAG, /* Use log_debug */
-                "Directory Already Exists",
-                "Path exists and is a directory: %s",
-                path);
+      log_debug(TAG, "Directory Already Exists", "Path exists and is a directory: %s", path);
       return ESP_OK;
     } else {
-      /* Path exists but is not a directory */ /* Use log_error */
-      log_error(SD_CARD_HAL_TAG,
+      /* Path exists but is not a directory */
+      log_error(TAG,
                 "Directory Error",
                 "Path exists but is not a directory: %s (type: %lu)",
                 path,
@@ -1470,25 +1623,19 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
   }
 
   /* Directory doesn't exist, create it */
-  log_info(SD_CARD_HAL_TAG, /* Use log_info */
-           "Creating Directory",
-           "Creating directory: %s",
-           path);
+  log_info(TAG, "Creating Directory", "Creating directory: %s", path);
 
   if (mkdir(path, 0755) != 0) {
     /* Check specific error conditions */
-    if (errno == ENOENT) { /* Use log_error */
-      log_error(SD_CARD_HAL_TAG,
+    if (errno == ENOENT) {
+      log_error(TAG,
                 "Directory Error",
                 "Failed to create directory %s: Parent directory doesn't exist",
                 path);
     } else if (errno == EACCES) {
-      log_error(SD_CARD_HAL_TAG,
-                "Directory Error",
-                "Failed to create directory %s: Permission denied", /* Use log_error */
-                path);
+      log_error(TAG, "Directory Error", "Failed to create directory %s: Permission denied", path);
     } else {
-      log_error(SD_CARD_HAL_TAG,
+      log_error(TAG,
                 "Directory Error",
                 "Failed to create directory %s: %s (errno: %d)",
                 path,
@@ -1498,10 +1645,7 @@ static esp_err_t priv_create_directory_if_needed(const sd_card_hal_t* sd_card, c
     return ESP_FAIL;
   }
 
-  log_info(SD_CARD_HAL_TAG, /* Use log_info */
-           "Directory Created",
-           "Successfully created directory: %s",
-           path);
+  log_info(TAG, "Directory Created", "Successfully created directory: %s", path);
   return ESP_OK;
 }
 
@@ -1539,30 +1683,24 @@ static esp_err_t priv_sd_card_reset(void* context)
   sd_card_hal_t* sd_card     = (sd_card_hal_t*)context;
 
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Reset Error",
-              "Invalid context pointer");
+    log_error(TAG, "Reset Error", "Invalid context pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-           "Reset Started",
-           "Resetting SD card hardware");
+  log_info(sd_card->tag, "Reset Started", "Resetting SD card hardware");
 
   /* Take mutex for thread safety */
   if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) != pdTRUE) {
-    log_error(sd_card->tag, /* Use log_error */
-              "Reset Error",
-              "Failed to take mutex during reset");
+    log_error(sd_card->tag, "Reset Error", "Failed to take mutex during reset");
     return ESP_ERR_TIMEOUT;
   }
   mutex_taken = true;
 
   /* Unmount first if currently mounted */
-  if (sd_card->card_available) {
+  if (atomic_load(&sd_card->card_available)) {
     esp_err_t unmount_result = priv_sd_card_unmount(sd_card);
     if (unmount_result != ESP_OK) {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Reset Error",
                 "Failed to unmount SD card: %s",
                 esp_err_to_name(unmount_result));
@@ -1574,35 +1712,37 @@ static esp_err_t priv_sd_card_reset(void* context)
 
   /* Start interface discovery again */
   sd_card->interface_discovery_complete = false;
-
-  /* Set current interface to the last successful one, if any */
-  sd_card->current_interface = k_sd_interface_count;
+  sd_card->interface_attempt_count      = 0;
+  /* Reset specific interface info error counts */
   for (int i = 0; i < k_sd_interface_count; i++) {
-    if (sd_card->interface_info[i].successful) {
-      if (sd_card->current_interface == k_sd_interface_count ||
-          sd_card->interface_info[i].last_success_time >
-          sd_card->interface_info[sd_card->current_interface].last_success_time) {
-        sd_card->current_interface = (sd_interface_type_t)i;
-      }
-    }
+    sd_card->interface_info[i].error_count = 0;
+    sd_card->interface_info[i].attempted   = false;
   }
 
-  /* If card is inserted, try to mount with preferred interface */
+  /* Set current interface to preferred, will be tried first */
+  sd_card->current_interface = sd_card->preferred_interface;
+
+  /* If card is inserted, try to mount */
   if (priv_sd_card_is_inserted(sd_card)) {
     priv_update_state_machine(sd_card, k_sd_state_interface_discovery);
     esp_err_t mount_result = priv_sd_card_try_interfaces(sd_card);
     if (mount_result != ESP_OK) {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Reset Error",
-                "Failed to initialize SD card interface: %s",
+                "Failed to initialize SD card interface after reset: %s",
                 esp_err_to_name(mount_result));
       result = mount_result;
+      /* Update state machine to error after failed reset attempt */
+      priv_update_state_machine(sd_card, k_sd_state_error);
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
       return result;
     }
     /* If mounted successfully, update state */
-    if (sd_card->card_available) {
+    if (atomic_load(&sd_card->card_available)) {
       priv_update_state_machine(sd_card, k_sd_state_interface_ready);
+    } else {
+      /* Mount failed even after reset */
+      priv_update_state_machine(sd_card, k_sd_state_error);
     }
   } else {
     priv_update_state_machine(sd_card, k_sd_state_idle);
@@ -1611,10 +1751,12 @@ static esp_err_t priv_sd_card_reset(void* context)
   /* Release mutex */
   priv_release_mutex_if_taken(sd_card, &mutex_taken);
 
-  if (result == ESP_OK) {
-    log_info(sd_card->tag, /* Use log_info */
+  if (result == ESP_OK && atomic_load(&sd_card->card_available)) {
+    log_info(sd_card->tag, "Reset Complete", "SD card reset successful and card mounted");
+  } else if (result == ESP_OK) {
+    log_info(sd_card->tag,
              "Reset Complete",
-             "SD card reset successful");
+             "SD card reset successful but card not mounted (not inserted or mount failed)");
   }
 
   return result;
@@ -1632,23 +1774,38 @@ static bool priv_sd_card_is_inserted(sd_card_hal_t* sd_card)
     return false;
   }
 
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+  /* If detection is disabled, assume card is always inserted (or rely on mount success) */
+  /* For safety, let's assume not inserted unless explicitly mounted */
+  /* NOTE: This behavior might need adjustment depending on desired logic when detection is off */
+  return atomic_load(&sd_card->card_available);
+#else
+
+  /* Check if detection pin is valid */
+  if (sd_card->pin_config.gpio_det_pin < 0) {
+    log_warn(sd_card->tag,
+             "Detection Warning",
+             "Card detection enabled but pin is invalid (-1). Assuming card is not inserted.");
+    return false;
+  }
+
   bool card_inserted = false;
   bool mutex_taken   = false;
 
   /* Take mutex for thread-safe access */
   if (sd_card->mutex != NULL &&
       xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
-    mutex_taken = true;
+    mutex_taken     = true;
     uint32_t  level = 0;
     esp_err_t err;
 
     /* Read the card detect pin */
     err = pstar_bus_gpio_get_level(&sd_card->bus_manager,
-                             CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
-                             sd_card->pin_config.gpio_det_pin,
-                             &level);
+                                   CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                                   sd_card->pin_config.gpio_det_pin,
+                                   &level);
 
-    if (err != ESP_OK) { /* Use log_error */
+    if (err != ESP_OK) {
       log_error(sd_card->tag,
                 "Detection Error",
                 "Failed to read card detect pin: %s",
@@ -1675,29 +1832,28 @@ static bool priv_sd_card_is_inserted(sd_card_hal_t* sd_card)
   priv_release_mutex_if_taken(sd_card, &mutex_taken);
 
   return card_inserted;
+#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED */
 }
 
 /**
- * @brief Sets up the SPI interface for SD card communication with specified speed
+ * @brief Sets up the SPI interface for SD card communication
  *
- * @param[in] sd_card       Pointer to the SD card HAL instance
- * @param[in] clock_speed_hz SPI clock speed in Hz
+ * @param[in] sd_card        Pointer to the SD card HAL instance
  * @return ESP_OK if successful, appropriate error code otherwise
  */
-static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
-                                                   uint32_t       clock_speed_hz)
+static esp_err_t priv_sd_card_setup_spi(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "SPI Setup Error",
-              "Invalid SD card HAL pointer");
+    log_error(TAG, "SPI Setup Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-           "SPI Setup",
-           "Setting up SPI interface for SD card at %lu Hz",
-           clock_speed_hz);
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+  log_error(TAG, "SPI Setup Error", "SPI Mode is disabled in Kconfig");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
+
+  log_info(sd_card->tag, "SPI Setup", "Setting up SPI interface for SD card");
 
   /* Create SPI bus configuration */
   pstar_bus_config_t* spi_config   = NULL;
@@ -1705,126 +1861,113 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
   esp_err_t           err          = ESP_OK;
 
   spi_config = pstar_bus_config_create_spi(CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME,
-                                     SPI2_HOST,
-                                     k_pstar_mode_polling);
+                                           SPI2_HOST,
+                                           k_pstar_mode_polling);
   if (spi_config == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
-              "SPI Setup Error",
-              "Failed to create SPI bus configuration");
+    log_error(sd_card->tag, "SPI Setup Error", "Failed to create SPI bus configuration");
     return ESP_ERR_NO_MEM;
   }
 
   /* Configure SPI pins from the pin configuration */
-  spi_config->config.spi.bus_config.miso_io_num     = sd_card->pin_config.spi_di_pin;   /* Data In */
-  spi_config->config.spi.bus_config.mosi_io_num     = sd_card->pin_config.spi_do_pin;   /* Data Out */
-  spi_config->config.spi.bus_config.sclk_io_num     = sd_card->pin_config.spi_sclk_pin; /* Clock */
-  spi_config->config.spi.bus_config.quadwp_io_num   = -1;                               /* Not used */
-  spi_config->config.spi.bus_config.quadhd_io_num   = -1;                               /* Not used */
-  spi_config->config.spi.bus_config.max_transfer_sz = 4092;                             /* Max SPI transfer size */
+  spi_config->config.spi.bus_config.miso_io_num     = sd_card->pin_config.spi_miso_pin; /* MISO */
+  spi_config->config.spi.bus_config.mosi_io_num     = sd_card->pin_config.spi_mosi_pin; /* MOSI */
+  spi_config->config.spi.bus_config.sclk_io_num     = sd_card->pin_config.spi_sclk_pin; /* CLK */
+  spi_config->config.spi.bus_config.quadwp_io_num   = -1;   /* Not used */
+  spi_config->config.spi.bus_config.quadhd_io_num   = -1;   /* Not used */
+  spi_config->config.spi.bus_config.max_transfer_sz = 4092; /* Max SPI transfer size */
 
-  /* Configure SPI device */
-  spi_config->config.spi.dev_config.clock_speed_hz = clock_speed_hz;
-  spi_config->config.spi.dev_config.mode           = 0;                                 /* SPI mode 0 */
-  spi_config->config.spi.dev_config.spics_io_num   = sd_card->pin_config.spi_cs_pin;    /* Chip Select */
-  spi_config->config.spi.dev_config.queue_size     = 7;                                 /* Queue size for transactions */
-  spi_config->config.spi.dev_config.flags          = 0;                                 /* No special flags */
+  /* Configure SPI device - Start with lower speed for initialization */
+  spi_config->config.spi.dev_config.clock_speed_hz = 400 * 1000; /* 400 kHz initial speed */
+  spi_config->config.spi.dev_config.mode           = 0;          /* SPI mode 0 */
+  spi_config->config.spi.dev_config.spics_io_num = sd_card->pin_config.spi_cs_pin; /* Chip Select */
+  spi_config->config.spi.dev_config.queue_size   = 7; /* Queue size for transactions */
+  spi_config->config.spi.dev_config.flags        = 0; /* No special flags */
 
   /* Check if the bus already exists */
-  pstar_bus_config_t* existing_spi = pstar_bus_manager_find_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
+  pstar_bus_config_t* existing_spi =
+    pstar_bus_manager_find_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
   if (existing_spi != NULL) {
-    /* Clean up the existing configuration first */
-    if (existing_spi->initialized) {
-      err = pstar_bus_config_deinit(existing_spi);
-      if (err != ESP_OK) {
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "SPI Cleanup Warning",
-                 "Failed to deinitialize existing SPI bus: %s",
-                 esp_err_to_name(err));
-        /* Proceed despite warning, but be aware this might cause issues */
-      }
+    log_info(sd_card->tag, "SPI Info", "Re-using existing SPI bus configuration.");
+    /* If re-using, remove the old device attached to the bus handle if it exists */
+    if (existing_spi->handle != NULL) {
+      sdspi_host_remove_device(
+        (sdspi_dev_handle_t)(uintptr_t)existing_spi->handle); /* Cast needed */
+      existing_spi->handle = NULL;                            /* Clear the handle */
     }
-    err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
+    /* Free the newly created config as we are using the existing one */
+    pstar_bus_config_destroy(spi_config);
+    spi_config = existing_spi; /* Use existing config */
+  } else {
+    /* Add SPI bus to the manager */
+    err = pstar_bus_manager_add_bus(&sd_card->bus_manager, spi_config);
     if (err != ESP_OK) {
-      log_warn(sd_card->tag, /* Use log_warn */
-               "SPI Cleanup Warning",
-               "Failed to remove existing SPI bus from manager: %s",
-               esp_err_to_name(err));
-      /* Proceed despite warning, but be aware this might cause issues */
+      log_error(sd_card->tag,
+                "SPI Setup Error",
+                "Failed to add SPI bus to manager: %s",
+                esp_err_to_name(err));
+      pstar_bus_config_destroy(spi_config); /* Destroy the newly created config */
+      return err;
     }
-  }
 
-  /* Add SPI bus to the manager */
-  err = pstar_bus_manager_add_bus(&sd_card->bus_manager, spi_config);
-  if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
-              "SPI Setup Error",
-              "Failed to add SPI bus to manager: %s",
-              esp_err_to_name(err));
-    pstar_bus_config_destroy(spi_config);
-    return err;
-  }
-
-  /* Initialize the SPI bus */
-  err = pstar_bus_config_init(spi_config);
-  if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
-              "SPI Setup Error",
-              "Failed to initialize SPI bus: %s",
-              esp_err_to_name(err));
-    /* Properly clean up - first remove from manager, then destroy */
-    esp_err_t remove_err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
-    if (remove_err != ESP_OK) {
-      log_warn(sd_card->tag, /* Use log_warn */
-               "SPI Cleanup Warning",
-               "Failed to remove SPI bus from manager during cleanup: %s",
-               esp_err_to_name(remove_err));
-      /* Continue with cleanup despite the warning */
+    /* Initialize the SPI bus */
+    err = pstar_bus_config_init(spi_config);
+    if (err != ESP_OK) {
+      log_error(sd_card->tag,
+                "SPI Setup Error",
+                "Failed to initialize SPI bus: %s",
+                esp_err_to_name(err));
+      /* Properly clean up - first remove from manager, then destroy */
+      pstar_bus_manager_remove_bus(&sd_card->bus_manager,
+                                   CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
+      return err;
     }
-    pstar_bus_config_destroy(spi_config);
-    return err;
+    /* Initialize default SPI operations */
+    pstar_bus_spi_init_default_ops(&spi_config->config.spi.ops);
   }
-
-  /* Initialize default SPI operations */
-  pstar_bus_spi_init_default_ops(&spi_config->config.spi.ops);
 
   /* Create SDSPI host configuration */
-  sdspi_device_config_t device_config = {
-    .host_id  = spi_config->config.spi.host,
-    .gpio_cs  = spi_config->config.spi.dev_config.spics_io_num,
-    .gpio_cd  = sd_card->pin_config.gpio_det_pin,
-    .gpio_wp  = -1, /* Write protect not used */
-    .gpio_int = -1, /* Interrupt not used */
-  };
+  sdspi_device_config_t device_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+  device_config.host_id               = spi_config->config.spi.host;
+  device_config.gpio_cs               = spi_config->config.spi.dev_config.spics_io_num;
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+  device_config.gpio_cd = sd_card->pin_config.gpio_det_pin;
+#else
+  device_config.gpio_cd = SDSPI_SLOT_NO_CD;
+#endif
+  device_config.gpio_wp  = SDSPI_SLOT_NO_WP;  /* Write protect not used */
+  device_config.gpio_int = SDSPI_SLOT_NO_INT; /* Interrupt not used */
 
-  /* Deinitialize SDSPI host if already initialized */
-  sdspi_host_deinit();
-
-  /* Initialize SD SPI driver */
-  err = sdspi_host_init();
-  if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+  /* Initialize SD SPI driver (only if not already done) */
+  err = sdspi_host_init(); /* Store result of init call */
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    log_error(sd_card->tag,
               "SPI Setup Error",
               "Failed to initialize SDSPI host: %s",
               esp_err_to_name(err));
     /* Clean up properly in reverse order */
-    pstar_bus_config_deinit(spi_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
-    pstar_bus_config_destroy(spi_config);
+    if (existing_spi == NULL) { /* Only cleanup if we created it */
+      pstar_bus_config_deinit(spi_config);
+      pstar_bus_manager_remove_bus(&sd_card->bus_manager,
+                                   CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
+    }
     return err;
   }
 
   /* Initialize the device and get the handle */
   err = sdspi_host_init_device(&device_config, &sdspi_handle);
   if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "SPI Setup Error",
               "Failed to initialize SDSPI device: %s",
               esp_err_to_name(err));
     /* Clean up properly in reverse order */
-    sdspi_host_deinit();
-    pstar_bus_config_deinit(spi_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
-    pstar_bus_config_destroy(spi_config);
+    /* No need to deinit host if it was already initialized */
+    /* sdspi_host_deinit(); */
+    if (existing_spi == NULL) { /* Only cleanup if we created it */
+      pstar_bus_config_deinit(spi_config);
+      pstar_bus_manager_remove_bus(&sd_card->bus_manager,
+                                   CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
+    }
     return err;
   }
 
@@ -1841,25 +1984,22 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
   /* Allocate memory for the card structure */
   sd_card->card = malloc(sizeof(sdmmc_card_t));
   if (sd_card->card == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
-              "SPI Setup Error",
-              "Failed to allocate memory for SD card");
+    log_error(sd_card->tag, "SPI Setup Error", "Failed to allocate memory for SD card");
     /* Clean up properly in reverse order */
     sdspi_host_remove_device(sdspi_handle);
-    sdspi_host_deinit();
-    pstar_bus_config_deinit(spi_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
-    pstar_bus_config_destroy(spi_config);
+    /* sdspi_host_deinit(); */
+    if (existing_spi == NULL) { /* Only cleanup if we created it */
+      pstar_bus_config_deinit(spi_config);
+      pstar_bus_manager_remove_bus(&sd_card->bus_manager,
+                                   CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
+    }
     return ESP_ERR_NO_MEM;
   }
 
   /* Copy host configuration to our card structure */
   memcpy(&sd_card->card->host, &host, sizeof(sdmmc_host_t));
 
-  log_info(sd_card->tag, /* Use log_info */
-           "SPI Setup Complete",
-           "SPI interface configured successfully at %lu Hz",
-           clock_speed_hz);
+  log_info(sd_card->tag, "SPI Setup Complete", "SPI interface configured successfully");
   return ESP_OK;
 }
 
@@ -1872,13 +2012,16 @@ static esp_err_t priv_sd_card_setup_spi_with_speed(sd_card_hal_t* sd_card,
 static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "SDIO Setup Error",
-              "Invalid SD card HAL pointer");
+    log_error(TAG, "SDIO Setup Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+  log_error(TAG, "SDIO Setup Error", "SDIO Mode is disabled in Kconfig");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
+
+  log_info(sd_card->tag,
            "SDIO Setup",
            "Setting up SDIO interface for SD card with %s bus mode",
            priv_sd_bus_width_to_string(sd_card->bus_width));
@@ -1888,26 +2031,28 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
   sd_bus_width_t original_bus_width = sd_card->bus_width;
 
   if (sd_card->bus_width == k_sd_bus_width_4bit) {
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     /* Check if card detect pin conflicts with SDIO D3 */
-    if (sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-      log_warn(sd_card->tag, /* Use log_warn */
-              "Pin Conflict",
-              "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
-              "Falling back to 1-bit mode",
-              sd_card->pin_config.gpio_det_pin);
+    if (sd_card->pin_config.gpio_det_pin >= 0 &&
+        sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
+      log_warn(sd_card->tag,
+               "Pin Conflict",
+               "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
+               "Falling back to 1-bit mode",
+               sd_card->pin_config.gpio_det_pin);
 
       /* Automatically change to 1-bit mode when conflict is detected */
       sd_card->bus_width = k_sd_bus_width_1bit;
-      pin_conflict = true;
+      pin_conflict       = true;
     }
+#endif
 
     /* Also check for other potential pin conflicts or unavailable pins */
-    if (sd_card->pin_config.sdio_d1_pin < 0 ||
-        sd_card->pin_config.sdio_d2_pin < 0 ||
+    if (sd_card->pin_config.sdio_d1_pin < 0 || sd_card->pin_config.sdio_d2_pin < 0 ||
         sd_card->pin_config.sdio_d3_pin < 0) {
-      log_warn(sd_card->tag, /* Use log_warn */
-              "Pin Configuration",
-              "Missing required pins for 4-bit SDIO mode. Falling back to 1-bit mode");
+      log_warn(sd_card->tag,
+               "Pin Configuration",
+               "Missing required pins for 4-bit SDIO mode. Falling back to 1-bit mode");
 
       /* Automatically change to 1-bit mode when pins are unavailable */
       sd_card->bus_width = k_sd_bus_width_1bit;
@@ -1918,186 +2063,74 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
   /* Create SDIO bus configuration with all required parameters */
   sdmmc_host_t sdmmc_host = SDMMC_HOST_DEFAULT();
 
-  /* Configure GPIO pins for SDIO */
-  gpio_config_t io_conf = {0};
-
-  if (sd_card->bus_width == k_sd_bus_width_4bit && !pin_conflict) {
-    /* Set 4-bit mode flag */
-    sdmmc_host.flags |= SDMMC_HOST_FLAG_4BIT;
-
-    /* Configure GPIO pins for 4-bit mode (CMD, CLK, D0-D3) */
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode      = GPIO_MODE_INPUT_OUTPUT_OD; /* Open drain for SDIO pins */
-
-    /* Create bit mask for all SDIO pins */
-    io_conf.pin_bit_mask = (1ULL << sd_card->pin_config.sdio_cmd_pin) |
-                           (1ULL << sd_card->pin_config.sdio_clk_pin) |
-                           (1ULL << sd_card->pin_config.sdio_d0_pin)  |
-                           (1ULL << sd_card->pin_config.sdio_d1_pin)  |
-                           (1ULL << sd_card->pin_config.sdio_d2_pin)  |
-                           (1ULL << sd_card->pin_config.sdio_d3_pin);
-
-    io_conf.pull_up_en   = GPIO_PULLUP_ENABLE;
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-
-    /* Configure all GPIO pins for SDIO */
-    esp_err_t gpio_err = gpio_config(&io_conf);
-    if (gpio_err != ESP_OK) {
-      log_error(sd_card->tag, /* Use log_error */
-                "SDIO Setup Error",
-                "Failed to configure GPIO pins for 4-bit SDIO: %s",
-                esp_err_to_name(gpio_err));
-
-      /* If we failed to configure 4-bit mode, try falling back to 1-bit mode */
-      if (original_bus_width == k_sd_bus_width_4bit) {
-        log_warn(sd_card->tag,
-                "SDIO Setup Fallback",
-                "Falling back to 1-bit mode after GPIO configuration failed");
-        sd_card->bus_width = k_sd_bus_width_1bit;
-        pin_conflict = true;
-      } else {
-        return gpio_err;
-      }
-    } else {
-      log_info(sd_card->tag, /* Use log_info */
-               "SDIO Pin Config",
-               "Configured pins for 4-bit mode: CMD=%d, CLK=%d, D0=%d, D1=%d, D2=%d, D3=%d",
-               sd_card->pin_config.sdio_cmd_pin,
-               sd_card->pin_config.sdio_clk_pin,
-               sd_card->pin_config.sdio_d0_pin,
-               sd_card->pin_config.sdio_d1_pin,
-               sd_card->pin_config.sdio_d2_pin,
-               sd_card->pin_config.sdio_d3_pin);
-    }
-  }
-
-  /* If 1-bit mode is selected or we fell back to it */
-  if (sd_card->bus_width == k_sd_bus_width_1bit) {
-    /* 1-bit mode */
-    sdmmc_host.flags &= ~SDMMC_HOST_FLAG_4BIT; /* Clear 4-bit flag */
-
-    /* Configure GPIO pins for 1-bit mode (CMD, CLK, D0 only) */
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode      = GPIO_MODE_INPUT_OUTPUT_OD;  /* Open drain for SDIO pins */
-
-    /* Create bit mask for 1-bit SDIO pins */
-    io_conf.pin_bit_mask = (1ULL << sd_card->pin_config.sdio_cmd_pin) |
-                           (1ULL << sd_card->pin_config.sdio_clk_pin) |
-                           (1ULL << sd_card->pin_config.sdio_d0_pin);
-
-    io_conf.pull_up_en   = GPIO_PULLUP_ENABLE;
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-
-    /* Configure GPIO pins for SDIO */
-    esp_err_t gpio_err = gpio_config(&io_conf);
-    if (gpio_err != ESP_OK) {
-      log_error(sd_card->tag, /* Use log_error */
-                "SDIO Setup Error",
-                "Failed to configure GPIO pins for 1-bit SDIO: %s",
-                esp_err_to_name(gpio_err));
-      return gpio_err;
-    }
-
-    log_info(sd_card->tag, /* Use log_info */
-             "SDIO Pin Config",
-             "Configured pins for 1-bit mode: CMD=%d, CLK=%d, D0=%d",
-             sd_card->pin_config.sdio_cmd_pin,
-             sd_card->pin_config.sdio_clk_pin,
-             sd_card->pin_config.sdio_d0_pin);
-  }
-
   /* Configure the SDMMC host */
-  sdmmc_host.max_freq_khz = (k_sd_interface_sdio / 1000); /* Convert to kHz */
+  sdmmc_host.max_freq_khz = SDMMC_FREQ_DEFAULT; /* Use default frequency initially */
+  sdmmc_host.flags        = 0;                  /* Start with no flags */
+  if (sd_card->bus_width == k_sd_bus_width_4bit && !pin_conflict) {
+    sdmmc_host.flags |= SDMMC_HOST_FLAG_4BIT;
+  } else {
+    sdmmc_host.flags |= SDMMC_HOST_FLAG_1BIT;
+  }
 
   /* Set up standard SDMMC configuration for ESP32 */
-  sdmmc_host.command_timeout_ms = 1000;
-  sdmmc_host.io_voltage         = 3.3f;
+  sdmmc_host.command_timeout_ms = 5000; /* Increased timeout */
+  /*
+   * Set the expected I/O voltage for the SD card communication.
+   * This value informs the SDMMC driver about the card's operating voltage
+   * standard (typically 3.3V) for correct protocol negotiation and timing.
+   * It does NOT change the actual hardware voltage output by the ESP32 pins,
+   * which is fixed (usually 3.3V). Setting this incorrectly will likely
+   * cause card initialization failures.
+   */
+  sdmmc_host.io_voltage = 3.3f;
 
-  /* Check if the bus already exists */
-  pstar_bus_config_t* existing_sdio = pstar_bus_manager_find_bus(&sd_card->bus_manager,
-                                                                 CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
-  if (existing_sdio != NULL) {
-    /* Clean up the existing configuration first */
-    if (existing_sdio->initialized) {
-      esp_err_t err = pstar_bus_config_deinit(existing_sdio);
-      if (err != ESP_OK) {
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "SDIO Cleanup Warning",
-                 "Failed to deinitialize existing SDIO bus: %s",
-                 esp_err_to_name(err));
-      }
-    }
-    esp_err_t err = pstar_bus_manager_remove_bus(&sd_card->bus_manager,
-                                                CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
-    if (err != ESP_OK) {
-      log_warn(sd_card->tag, /* Use log_warn */
-               "SDIO Cleanup Warning",
-               "Failed to remove existing SDIO bus from manager: %s",
-               esp_err_to_name(err));
-    }
-  }
-
-  /* Create SDIO bus configuration */
-  uint32_t host_flags = sdmmc_host.flags;
-
-  pstar_bus_config_t* sdio_config = pstar_bus_config_create_sdio(CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME,
-                                                                 host_flags,
-                                                                 SDMMC_HOST_SLOT_1,
-                                                                 k_pstar_mode_polling);
-  if (sdio_config == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
+  /* Initialize SDMMC host controller */
+  esp_err_t err = sdmmc_host_init();
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) { /* Allow re-init */
+    log_error(sd_card->tag,
               "SDIO Setup Error",
-              "Failed to create SDIO bus configuration");
-    return ESP_ERR_NO_MEM;
+              "Failed to initialize SDMMC host: %s",
+              esp_err_to_name(err));
+    return err;
   }
 
-  /* Configure SDIO host */
-  sdio_config->config.sdio.host = sdmmc_host;
-
-  /* Create slot configuration using the macro */
+  /* Configure slot */
   sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+  slot_config.clk                 = sd_card->pin_config.sdio_clk_pin;
+  slot_config.cmd                 = sd_card->pin_config.sdio_cmd_pin;
+  slot_config.d0                  = sd_card->pin_config.sdio_d0_pin;
+  slot_config.width               = sd_card->bus_width; /* Set width here */
 
-  /* Customize the slot configuration */
+  if (sd_card->bus_width == k_sd_bus_width_4bit && !pin_conflict) {
+    slot_config.d1 = sd_card->pin_config.sdio_d1_pin;
+    slot_config.d2 = sd_card->pin_config.sdio_d2_pin;
+    slot_config.d3 = sd_card->pin_config.sdio_d3_pin;
+    slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP; /* Enable pullups for 4-bit */
+  } else {
+    /* Ensure 1-bit mode if conflict or configured */
+    slot_config.width = 1;
+    sdmmc_host.flags &= ~SDMMC_HOST_FLAG_4BIT;
+    sdmmc_host.flags |= SDMMC_HOST_FLAG_1BIT;
+    sd_card->bus_width = k_sd_bus_width_1bit; /* Update HAL state */
+  }
+
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
   slot_config.gpio_cd = sd_card->pin_config.gpio_det_pin;
-  slot_config.gpio_wp = -1; /* Write protect not used */
+#else
+  slot_config.gpio_cd = SDMMC_SLOT_NO_CD;
+#endif
+  slot_config.gpio_wp = SDMMC_SLOT_NO_WP; /* Write protect not used */
 
-  /* Set the bus width */
-  slot_config.width = sd_card->bus_width;
-
-  /* Configure D3 as the card detect pin if 1-bit mode (only if not same as the custom card detect) */
-  if (sd_card->bus_width == k_sd_bus_width_1bit &&
-      sd_card->pin_config.sdio_d3_pin != sd_card->pin_config.gpio_det_pin) {
-    slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
-  }
-
-  /* Assign the configured slot_config to the SDIO configuration */
-  sdio_config->config.sdio.slot_config = slot_config;
-
-  /* Add SDIO bus to the manager */
-  esp_err_t err = pstar_bus_manager_add_bus(&sd_card->bus_manager, sdio_config);
+  /* Initialize SDMMC slot */
+  err = sdmmc_host_init_slot(sdmmc_host.slot, &slot_config);
   if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "SDIO Setup Error",
-              "Failed to add SDIO bus to manager: %s",
+              "Failed to initialize SDMMC slot: %s",
               esp_err_to_name(err));
-    pstar_bus_config_destroy(sdio_config);
+    sdmmc_host_deinit(); /* Clean up host init */
     return err;
   }
-
-  /* Initialize the SDIO bus */
-  err = pstar_bus_config_init(sdio_config);
-  if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
-              "SDIO Setup Error",
-              "Failed to initialize SDIO bus: %s",
-              esp_err_to_name(err));
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
-    pstar_bus_config_destroy(sdio_config);
-    return err;
-  }
-
-  /* Initialize default SDIO operations */
-  pstar_bus_sdio_init_default_ops(&sdio_config->config.sdio.ops);
 
   /* Free old card structure if it exists */
   if (sd_card->card != NULL) {
@@ -2108,34 +2141,31 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
   /* Allocate memory for the card structure */
   sd_card->card = malloc(sizeof(sdmmc_card_t));
   if (sd_card->card == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
-              "SDIO Setup Error",
-              "Failed to allocate memory for SD card");
-    pstar_bus_config_deinit(sdio_config);
-    pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME);
-    pstar_bus_config_destroy(sdio_config);
+    log_error(sd_card->tag, "SDIO Setup Error", "Failed to allocate memory for SD card");
+    sdmmc_host_deinit();
     return ESP_ERR_NO_MEM;
   }
 
   /* Copy host configuration to our card structure */
-  memcpy(&sd_card->card->host, &sdio_config->config.sdio.host, sizeof(sdmmc_host_t));
+  memcpy(&sd_card->card->host, &sdmmc_host, sizeof(sdmmc_host_t));
 
   /* If we changed bus width due to conflicts, log it */
-  if (original_bus_width != sd_card->bus_width) { /* Use log_info */
+  if (original_bus_width != sd_card->bus_width) {
     log_info(sd_card->tag,
-            "SDIO Bus Width Changed",
-            "Changed from %s to %s mode due to pin conflicts or configuration issues",
-            priv_sd_bus_width_to_string(original_bus_width),
-            priv_sd_bus_width_to_string(sd_card->bus_width));
+             "SDIO Bus Width Changed",
+             "Changed from %s to %s mode due to pin conflicts or configuration issues",
+             priv_sd_bus_width_to_string(original_bus_width),
+             priv_sd_bus_width_to_string(sd_card->bus_width));
   }
 
-  log_info(sd_card->tag, /* Use log_info */
+  log_info(sd_card->tag,
            "SDIO Setup Complete",
            "SDIO interface configured successfully with %s bus mode",
            priv_sd_bus_width_to_string(sd_card->bus_width));
   return ESP_OK;
 }
 
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
 /**
  * @brief Sets up card detection mechanism using GPIO
  *
@@ -2145,72 +2175,71 @@ static esp_err_t priv_sd_card_setup_sdio(sd_card_hal_t* sd_card)
 static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Detection Setup Error",
-              "Invalid SD card HAL pointer");
+    log_error(TAG, "Detection Setup Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-           "Detection Setup",
-           "Setting up card detection mechanism");
+  /* Check if detection pin is valid */
+  if (sd_card->pin_config.gpio_det_pin < 0) {
+    log_warn(sd_card->tag,
+             "Detection Setup Warning",
+             "Card detection enabled but pin is invalid (-1). Skipping setup.");
+    return ESP_OK; /* Not an error, just can't set up */
+  }
+
+  log_info(sd_card->tag, "Detection Setup", "Setting up card detection mechanism");
 
   /* Check if the card detect pin conflicts with SDIO D3 pin when using 4-bit mode */
-  if (sd_card->bus_width == k_sd_bus_width_4bit &&
-      sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) { /* Use log_warn */
+  if (sd_card->bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
+      sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
     log_warn(sd_card->tag,
              "Pin Conflict",
              "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
-             "Detection may be unreliable and will default to 1-bit mode.",
+             "Detection may be unreliable.",
              sd_card->pin_config.gpio_det_pin);
-
-    /* Note: We'll let the SDIO setup handle the actual mode change, */
-    /* but we log the warning here during detection setup. */
+    /* Note: We proceed, but SDIO setup might force 1-bit mode later */
   }
 
-  /* Check if the bus already exists */
-  pstar_bus_config_t* existing_gpio = pstar_bus_manager_find_bus(&sd_card->bus_manager,
-                                                                 CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
+  /* Check if the GPIO bus already exists */
+  pstar_bus_config_t* existing_gpio =
+    pstar_bus_manager_find_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
   if (existing_gpio != NULL) {
-    /* Clean up the existing configuration first */
-    if (existing_gpio->initialized) {
-      /* Remove ISR handler if it was registered */
-      pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
-                          CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
-                          sd_card->pin_config.gpio_det_pin);
-
-      esp_err_t err = pstar_bus_config_deinit(existing_gpio);
-      if (err != ESP_OK) {
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "GPIO Cleanup Warning",
-                 "Failed to deinitialize existing GPIO bus: %s",
-                 esp_err_to_name(err));
-      }
+    log_info(sd_card->tag,
+             "Detection Setup",
+             "GPIO bus '%s' already exists. Assuming it's configured correctly.",
+             CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
+    /* If bus exists, just add the ISR */
+    esp_err_t isr_err = pstar_bus_gpio_isr_add(&sd_card->bus_manager,
+                                               CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                                               sd_card->pin_config.gpio_det_pin,
+                                               priv_sd_card_detection_isr,
+                                               sd_card);
+    if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE /* Already added */) {
+      log_error(sd_card->tag,
+                "Detection Setup Error",
+                "Failed to add ISR to existing GPIO bus: %s",
+                esp_err_to_name(isr_err));
+      return isr_err;
     }
-    esp_err_t err = pstar_bus_manager_remove_bus(&sd_card->bus_manager,
-                                                 CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
-    if (err != ESP_OK) {
-      log_warn(sd_card->tag, /* Use log_warn */
-               "GPIO Cleanup Warning",
-               "Failed to remove existing GPIO bus from manager: %s",
-               esp_err_to_name(err));
-    }
+    log_info(sd_card->tag,
+             "Detection Setup Complete",
+             "Card detection ISR added to existing GPIO bus.");
+    return ESP_OK;
   }
 
   /* Create GPIO bus configuration */
-  pstar_bus_config_t* gpio_config = pstar_bus_config_create_gpio(CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
-                                                                 k_pstar_mode_interrupt);
+  pstar_bus_config_t* gpio_config =
+    pstar_bus_config_create_gpio(CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                                 k_pstar_mode_interrupt);
   if (gpio_config == NULL) {
-    log_error(sd_card->tag, /* Use log_error */
-              "Detection Setup Error",
-              "Failed to create GPIO bus configuration");
+    log_error(sd_card->tag, "Detection Setup Error", "Failed to create GPIO bus configuration");
     return ESP_ERR_NO_MEM;
   }
 
   /* Configure detection pin */
   gpio_config->config.gpio.config.pin_bit_mask = (1ULL << sd_card->pin_config.gpio_det_pin);
   gpio_config->config.gpio.config.mode         = GPIO_MODE_INPUT;
-  gpio_config->config.gpio.config.pull_up_en   = GPIO_PULLUP_ENABLE;
+  gpio_config->config.gpio.config.pull_up_en   = GPIO_PULLUP_ENABLE; /* Enable pullup by default */
   gpio_config->config.gpio.config.pull_down_en = GPIO_PULLDOWN_DISABLE;
   gpio_config->config.gpio.config.intr_type    = GPIO_INTR_ANYEDGE;
 
@@ -2220,7 +2249,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
   /* Add GPIO bus to the manager */
   esp_err_t err = pstar_bus_manager_add_bus(&sd_card->bus_manager, gpio_config);
   if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Detection Setup Error",
               "Failed to add GPIO bus to manager: %s",
               esp_err_to_name(err));
@@ -2231,33 +2260,31 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
   /* Initialize the GPIO bus */
   err = pstar_bus_config_init(gpio_config);
   if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Detection Setup Error",
               "Failed to initialize GPIO bus: %s",
               esp_err_to_name(err));
     pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
-    pstar_bus_config_destroy(gpio_config);
     return err;
   }
 
   /* Register ISR handler for the detection pin */
   err = pstar_bus_gpio_isr_add(&sd_card->bus_manager,
-                         CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
-                         sd_card->pin_config.gpio_det_pin,
-                         priv_sd_card_detection_isr,
-                         sd_card);
+                               CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
+                               sd_card->pin_config.gpio_det_pin,
+                               priv_sd_card_detection_isr,
+                               sd_card);
   if (err != ESP_OK) {
-    log_error(sd_card->tag, /* Use log_error */
+    log_error(sd_card->tag,
               "Detection Setup Error",
               "Failed to register ISR for card detection pin: %s",
               esp_err_to_name(err));
     pstar_bus_config_deinit(gpio_config);
     pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
-    pstar_bus_config_destroy(gpio_config);
     return err;
   }
 
-  log_info(sd_card->tag, /* Use log_info */
+  log_info(sd_card->tag,
            "Detection Setup Complete",
            "Card detection mechanism configured successfully with %s-active pin %d",
            sd_card->card_detect_low_active ? "low" : "high",
@@ -2298,9 +2325,10 @@ static void IRAM_ATTR priv_sd_card_detection_isr(void* arg)
     portYIELD_FROM_ISR();
   }
 }
+#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED */
 
 /**
- * @brief Try mounting the SD card with all available interfaces in priority order
+ * @brief Try mounting the SD card with available interfaces according to config
  *
  * @param[in] sd_card Pointer to the SD card HAL instance
  * @return ESP_OK if any interface worked, appropriate error code otherwise
@@ -2308,382 +2336,159 @@ static void IRAM_ATTR priv_sd_card_detection_isr(void* arg)
 static esp_err_t priv_sd_card_try_interfaces(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Interface Error",
-              "Invalid SD card HAL pointer");
+    log_error(TAG, "Interface Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
 
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+  log_error(sd_card->tag,
+            "Interface Error",
+            "No SD card interfaces (SDIO or SPI) are enabled in Kconfig.");
+  return ESP_ERR_NOT_SUPPORTED;
+#endif
+#endif
+
   sd_card->interface_attempt_count++;
-  esp_err_t last_error = ESP_OK;
+  esp_err_t     last_error = ESP_FAIL; /* Default to failure */
+  sdmmc_card_t* temp_card  = NULL;     /* For temporary storage if freeing needed */
 
-  /* Keep track of loaded hosts/buses to ensure proper cleanup */
-  bool sdio_host_loaded = false;
-  bool spi_host_loaded = false;
-  sdmmc_card_t* temp_card = NULL;
+  /* Determine the order of interfaces to try */
+  sd_interface_type_t interfaces_to_try[k_sd_interface_count];
+  int                 try_count = 0;
 
-  /* If we have a previously successful interface, try it first */
-  if (sd_card->interface_discovery_complete &&
-      sd_card->current_interface < k_sd_interface_count) {
-    sd_interface_type_t interface_type = sd_card->current_interface;
+  sd_interface_type_t first_interface  = sd_card->preferred_interface;
+  sd_interface_type_t second_interface = k_sd_interface_none;
 
-    log_info(sd_card->tag, /* Use log_info */
-             "Interface",
-             "Using previous successful interface: %s with %s bus width",
-             sd_card_interface_to_string(interface_type),
-             priv_sd_bus_width_to_string(sd_card->bus_width));
-
-    /* Try using the known good interface */
-    esp_err_t err;
-    switch (interface_type) {
-      case k_sd_interface_sdio:
-        err = priv_sd_card_setup_sdio(sd_card);
-        if (err == ESP_OK) {
-          sdio_host_loaded = true;
-        }
-        break;
-      case k_sd_interface_fast_spi:
-      case k_sd_interface_normal_spi:
-      case k_sd_interface_slow_spi:
-        err = priv_sd_card_setup_spi_with_speed(sd_card, (uint32_t)interface_type);
-        if (err == ESP_OK) {
-          spi_host_loaded = true;
-        }
-        break;
-      default: /* Use log_error */
-        log_error(sd_card->tag,
-                  "Interface Error",
-                  "Invalid interface type: %d",
-                  (int)interface_type);
-        return ESP_ERR_INVALID_ARG;
+  if (first_interface == k_sd_interface_sdio && sd_card->sdio_mode_enabled) {
+    interfaces_to_try[try_count++] = k_sd_interface_sdio;
+    if (sd_card->enable_fallback && sd_card->spi_mode_enabled) {
+      second_interface = k_sd_interface_spi;
     }
-
-    if (err == ESP_OK) {
-      err = priv_sd_card_mount(sd_card);
-      if (err == ESP_OK) {
-        /* Update interface info */
-        sd_card->interface_info[interface_type].successful        = true;
-        sd_card->interface_info[interface_type].last_success_time = esp_timer_get_time();
-        sd_card->interface_info[interface_type].error_count       = 0; /* Reset error count on success */
-        return ESP_OK;
-      } else {
-        /* Failed to mount with known good interface, increment error count */
-        sd_card->interface_info[interface_type].error_count++;
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "Interface Warning",
-                 "Failed to mount with previous successful interface: %s (error %s)",
-                 sd_card_interface_to_string(interface_type),
-                 esp_err_to_name(err));
-
-        last_error = err;
-
-        /* Need to rediscover interfaces if error count is too high */
-        if (sd_card->interface_info[interface_type].error_count > 3) {
-          sd_card->interface_discovery_complete = false;
-        }
-
-        /* Clean up resources before trying next interface */
-        if (spi_host_loaded) {
-          /* Clean up SPI resources with error checking */
-          if (sd_card->card != NULL && sd_card->card->host.flags & SDMMC_HOST_FLAG_SPI) {
-            if (sd_card->card->host.slot != 0) {
-              esp_err_t remove_err = sdspi_host_remove_device(sd_card->card->host.slot);
-              if (remove_err != ESP_OK) { /* Use log_warn */
-                log_warn(sd_card->tag,
-                         "Interface Cleanup Warning",
-                         "Failed to remove SDSPI device: %s",
-                         esp_err_to_name(remove_err));
-              }
-            }
-           }
-          esp_err_t deinit_err = sdspi_host_deinit();
-          if (deinit_err != ESP_OK) {
-            log_warn(sd_card->tag,
-                     "Interface Cleanup Warning",
-                     "Failed to deinitialize SDSPI host: %s",
-                     esp_err_to_name(deinit_err));
-          }
-          spi_host_loaded = false;
-        }
-
-        if (sdio_host_loaded) {
-          /* Clean up SDIO resources */
-          esp_err_t sdio_err = sdmmc_host_deinit();
-          if (sdio_err != ESP_OK) { /* Use log_warn */
-            log_warn(sd_card->tag,
-                     "Interface Cleanup Warning",
-                     "Failed to deinitialize SDMMC host: %s",
-                     esp_err_to_name(sdio_err));
-          }
-          sdio_host_loaded = false;
-        }
-
-        /* Free card structure if it was allocated */
-        if (sd_card->card != NULL) {
-          temp_card = sd_card->card;
-          sd_card->card = NULL;
-          free(temp_card);
-          temp_card = NULL;
-        }
-      }
-    } else {
-      /* Failed to setup the interface, increment error count */
-      sd_card->interface_info[interface_type].error_count++;
-      log_warn(sd_card->tag, /* Use log_warn */
-               "Interface Warning",
-               "Failed to setup previously successful interface: %s (error %s)",
-               sd_card_interface_to_string(interface_type),
-               esp_err_to_name(err));
-
-      last_error = err;
-
-      /* Need to rediscover interfaces if error count is too high */
-      if (sd_card->interface_info[interface_type].error_count > 3) {
-        sd_card->interface_discovery_complete = false;
-      }
+  } else if (first_interface == k_sd_interface_spi && sd_card->spi_mode_enabled) {
+    interfaces_to_try[try_count++] = k_sd_interface_spi;
+    if (sd_card->enable_fallback && sd_card->sdio_mode_enabled) {
+      second_interface = k_sd_interface_sdio;
     }
+  } else {
+    /* Preferred interface is disabled, try the other one if enabled */
+    if (sd_card->sdio_mode_enabled) {
+      interfaces_to_try[try_count++] = k_sd_interface_sdio;
+    } else if (sd_card->spi_mode_enabled) {
+      interfaces_to_try[try_count++] = k_sd_interface_spi;
+    }
+    /* Fallback is irrelevant if only one is enabled */
+    second_interface = k_sd_interface_none;
   }
 
-  /* Perform full discovery if needed */
-  if (!sd_card->interface_discovery_complete) {
-    /* Discovery needed - try each interface in order of preference */
-    const sd_interface_type_t interface_order[] = {
-      k_sd_interface_sdio,
-      k_sd_interface_fast_spi,
-      k_sd_interface_normal_spi,
-      k_sd_interface_slow_spi
-    };
+  /* Add the second interface if applicable */
+  if (second_interface != k_sd_interface_none) {
+    interfaces_to_try[try_count++] = second_interface;
+  }
 
-    log_info(sd_card->tag, /* Use log_info */
-             "Interface Discovery",
-             "Starting interface discovery for SD card with %s bus width (attempt %lu)",
-             priv_sd_bus_width_to_string(sd_card->bus_width),
-             sd_card->interface_attempt_count);
+  if (try_count == 0) {
+    log_error(sd_card->tag, "Interface Error", "No enabled SD card interfaces to try.");
+    return ESP_ERR_NOT_SUPPORTED;
+  }
 
-    /* Keep track of the error for each interface attempt */
-    esp_err_t last_errors[k_sd_interface_count] = { ESP_OK };
+  log_info(sd_card->tag,
+           "Interface Discovery",
+           "Starting interface discovery (attempt %lu)",
+           sd_card->interface_attempt_count);
 
-    for (int i = 0; i < k_sd_interface_count; i++) {
-      sd_interface_type_t interface_type = interface_order[i];
+  /* Try interfaces in the determined order */
+  for (int i = 0; i < try_count; i++) {
+    sd_interface_type_t current_try = interfaces_to_try[i];
 
-      /* Ensure we've cleaned up any previous interface resources */
-      if (spi_host_loaded) {
-        /* Clean up SPI resources with error checking */
-        if (sd_card->card != NULL && sd_card->card->host.flags & SDMMC_HOST_FLAG_SPI) {
-          if (sd_card->card->host.slot != 0) {
-            esp_err_t remove_err = sdspi_host_remove_device(sd_card->card->host.slot);
-            if (remove_err != ESP_OK) { /* Use log_warn */
-              log_warn(sd_card->tag,
-                       "Interface Cleanup Warning",
-                       "Failed to remove SDSPI device: %s",
-                       esp_err_to_name(remove_err));
-            }
-          }
-         }
-        esp_err_t deinit_err = sdspi_host_deinit();
-        if (deinit_err != ESP_OK) {
-          log_warn(sd_card->tag,
-                   "Interface Cleanup Warning",
-                   "Failed to deinitialize SDSPI host: %s",
-                   esp_err_to_name(deinit_err));
-        }
-        spi_host_loaded = false;
-      }
+    /* Clean up resources from previous attempt (if any) */
+    if (sd_card->current_interface == k_sd_interface_spi && sd_card->card != NULL) {
+      sdspi_host_remove_device(sd_card->card->host.slot);
+      sdspi_host_deinit();
+    } else if (sd_card->current_interface == k_sd_interface_sdio) {
+      sdmmc_host_deinit();
+    }
+    if (sd_card->card != NULL) {
+      temp_card     = sd_card->card; /* Hold pointer to free after setup */
+      sd_card->card = NULL;
+    }
+    sd_card->current_interface = k_sd_interface_none; /* Reset current */
 
-      if (sdio_host_loaded) {
-        /* Clean up SDIO resources with error checking */
-        esp_err_t sdio_err = sdmmc_host_deinit();
-        if (sdio_err != ESP_OK) { /* Use log_warn */
-          log_warn(sd_card->tag,
-                   "Interface Cleanup Warning",
-                   "Failed to deinitialize SDMMC host: %s",
-                   esp_err_to_name(sdio_err));
-        }
-        sdio_host_loaded = false;
-      }
+    log_info(sd_card->tag,
+             "Interface Try",
+             "Attempting interface: %s",
+             sd_card_interface_to_string(current_try));
 
-      /* Free card structure if it was allocated */
-      if (temp_card != NULL) {
-        free(temp_card);
-        temp_card = NULL;
-      }
-
-      /* Mark this interface as attempted */
-      sd_card->interface_info[interface_type].attempted = true;
-
-      /* Skip if we've had too many errors with this interface */
-      if (sd_card->interface_info[interface_type].error_count > 3) {
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "Interface Skip",
-                 "Skipping %s due to %lu previous errors",
-                 sd_card_interface_to_string(interface_type),
-                 sd_card->interface_info[interface_type].error_count);
-        continue;
-      }
-
-      log_info(sd_card->tag, /* Use log_info */
-               "Interface Try",
-               "Trying interface: %s",
-               sd_card_interface_to_string(interface_type));
-
-      /* Try to set up this interface */
-      esp_err_t err;
-      switch (interface_type) {
-        case k_sd_interface_sdio:
-          err = priv_sd_card_setup_sdio(sd_card);
-          if (err == ESP_OK) {
-            sdio_host_loaded = true;
-          }
-          break;
-        case k_sd_interface_fast_spi:
-        case k_sd_interface_normal_spi:
-        case k_sd_interface_slow_spi:
-          err = priv_sd_card_setup_spi_with_speed(sd_card, (uint32_t)interface_type);
-          if (err == ESP_OK) {
-            spi_host_loaded = true;
-          }
-          break;
-        default:
-          log_warn(sd_card->tag, /* Use log_warn */
-                   "Interface Warning",
-                   "Skipping invalid interface type: %d",
-                   (int)interface_type);
-          continue; /* Skip invalid interface types */
-      }
-
-      if (err != ESP_OK) {
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "Interface Failure",
-                 "Failed to setup %s: %s",
-                 sd_card_interface_to_string(interface_type),
-                 esp_err_to_name(err));
-
-        /* Store the error for this interface */
-        last_errors[interface_type] = err;
-        last_error = err;
-
-        /* Increment error count for this interface */
-        sd_card->interface_info[interface_type].error_count++;
-        continue;
-      }
-
-      /* Try to mount with this interface */
-      err = priv_sd_card_mount(sd_card);
-      if (err != ESP_OK) {
-        log_warn(sd_card->tag, /* Use log_warn */
-                 "Interface Failure",
-                 "Failed to mount with %s: %s",
-                 sd_card_interface_to_string(interface_type),
-                 esp_err_to_name(err));
-
-        /* Store the error for this interface */
-        last_errors[interface_type] = err;
-        last_error = err;
-
-        /* Increment error count for this interface */
-        sd_card->interface_info[interface_type].error_count++;
-        continue;
-      }
-
-      /* Success! */
-      log_info(sd_card->tag, /* Use log_info */
-               "Interface Success",
-               "Successfully mounted SD card with %s and %s bus width",
-               sd_card_interface_to_string(interface_type),
-               priv_sd_bus_width_to_string(sd_card->bus_width));
-
-      /* Update interface info */
-      sd_card->interface_info[interface_type].successful        = true;
-      sd_card->interface_info[interface_type].last_success_time = esp_timer_get_time();
-      sd_card->interface_info[interface_type].error_count       = 0; /* Reset error count on success */
-      sd_card->current_interface                                = interface_type;
-      sd_card->interface_discovery_complete                     = true;
-
-      /* Save the working configuration to NVS */
-      priv_save_working_config(sd_card);
-
-      /* Clear any temporary resources */
-      temp_card = NULL;
-
-      return ESP_OK;
+    esp_err_t setup_err = ESP_FAIL;
+    if (current_try == k_sd_interface_sdio) {
+      setup_err = priv_sd_card_setup_sdio(sd_card);
+    } else if (current_try == k_sd_interface_spi) {
+      setup_err = priv_sd_card_setup_spi(sd_card);
     }
 
-    /* Clean up resources if all interfaces failed */
-    if (spi_host_loaded) {
-      /* Clean up SPI resources with error checking */
-      if (sd_card->card != NULL && sd_card->card->host.flags & SDMMC_HOST_FLAG_SPI) {
-        if (sd_card->card->host.slot != 0) {
-          esp_err_t remove_err = sdspi_host_remove_device(sd_card->card->host.slot);
-          if (remove_err != ESP_OK) { /* Use log_warn */
-            log_warn(sd_card->tag,
-                     "Interface Cleanup Warning",
-                     "Failed to remove SDSPI device: %s",
-                     esp_err_to_name(remove_err));
-          }
-        }
-       }
-      esp_err_t deinit_err = sdspi_host_deinit();
-      if (deinit_err != ESP_OK) {
-        log_warn(sd_card->tag,
-                 "Interface Cleanup Warning",
-                 "Failed to deinitialize SDSPI host: %s",
-                 esp_err_to_name(deinit_err));
-      }
-      spi_host_loaded = false;
-    }
-
-    if (sdio_host_loaded) {
-      /* Clean up SDIO resources with error checking */
-      esp_err_t sdio_err = sdmmc_host_deinit();
-      if (sdio_err != ESP_OK) { /* Use log_warn */
-        log_warn(sd_card->tag,
-                 "Interface Cleanup Warning",
-                 "Failed to deinitialize SDMMC host: %s",
-                 esp_err_to_name(sdio_err));
-      }
-      sdio_host_loaded = false;
-    }
-
-    /* Free card structure if it was temporarily allocated */
+    /* Free the old card structure if setup allocated a new one */
     if (temp_card != NULL) {
       free(temp_card);
       temp_card = NULL;
     }
 
-    /* If we get here, all interfaces failed */
-    /* Find the least-failing interface to return its error code */
-    sd_interface_type_t least_error_interface = k_sd_interface_count;
-    uint32_t            min_error_count       = UINT32_MAX;
-
-    for (int i = 0; i < k_sd_interface_count; i++) {
-      if (sd_card->interface_info[i].attempted &&
-          sd_card->interface_info[i].error_count < min_error_count) {
-        min_error_count       = sd_card->interface_info[i].error_count;
-        least_error_interface = (sd_interface_type_t)i;
-      }
+    if (setup_err != ESP_OK) {
+      log_warn(sd_card->tag,
+               "Interface Failure",
+               "Failed to setup %s: %s",
+               sd_card_interface_to_string(current_try),
+               esp_err_to_name(setup_err));
+      last_error = setup_err;
+      sd_card->interface_info[current_try].error_count++;
+      sd_card->interface_info[current_try].attempted = true; /* Mark as attempted */
+      continue;                                              /* Try next interface */
     }
 
-    if (least_error_interface < k_sd_interface_count) {
-      log_error(sd_card->tag, /* Use log_error */
-                "Interface Error",
-                "All interfaces failed during discovery. Best interface was %s with %lu errors",
-                sd_card_interface_to_string(least_error_interface),
-                min_error_count);
-      return last_errors[least_error_interface];
+    /* Try to mount with this interface */
+    esp_err_t mount_err = priv_sd_card_mount(sd_card);
+    if (mount_err != ESP_OK) {
+      log_warn(sd_card->tag,
+               "Interface Failure",
+               "Failed to mount with %s: %s",
+               sd_card_interface_to_string(current_try),
+               esp_err_to_name(mount_err));
+      last_error = mount_err;
+      sd_card->interface_info[current_try].error_count++;
+      sd_card->interface_info[current_try].attempted = true; /* Mark as attempted */
+      continue;                                              /* Try next interface */
     }
 
-    log_error(sd_card->tag, /* Use log_error */
-              "Interface Error",
-              "All interfaces failed during discovery and none were attempted");
-    return ESP_ERR_NOT_FOUND;
+    /* Success! */
+    log_info(sd_card->tag,
+             "Interface Success",
+             "Successfully mounted SD card with %s",
+             sd_card_interface_to_string(current_try));
+    sd_card->current_interface                             = current_try;
+    sd_card->interface_info[current_try].successful        = true;
+    sd_card->interface_info[current_try].last_success_time = esp_timer_get_time();
+    sd_card->interface_info[current_try].error_count       = 0; /* Reset error count on success */
+    sd_card->interface_info[current_try].attempted         = true; /* Mark as attempted */
+    sd_card->interface_discovery_complete                  = true;
+    return ESP_OK; /* Exit loop on first success */
   }
 
-  /* If we get here, previous interface failed and rediscovery also failed */
-  log_error(sd_card->tag, /* Use log_error */
+  /* If we reach here, all tried interfaces failed */
+  log_error(sd_card->tag,
             "Interface Error",
-            "Failed to find a working interface after %lu attempts",
+            "All enabled interfaces failed after %lu attempts",
             sd_card->interface_attempt_count);
-  return last_error != ESP_OK ? last_error : ESP_ERR_NOT_FOUND;
+  sd_card->current_interface = k_sd_interface_none; /* Ensure no interface is set */
+  /* Clean up resources from the last failed attempt */
+  if (sd_card->current_interface == k_sd_interface_spi && sd_card->card != NULL) {
+    sdspi_host_remove_device(sd_card->card->host.slot);
+    sdspi_host_deinit();
+  } else if (sd_card->current_interface == k_sd_interface_sdio) {
+    sdmmc_host_deinit();
+  }
+  if (sd_card->card != NULL) {
+    free(sd_card->card);
+    sd_card->card = NULL;
+  }
+  return last_error; /* Return the error from the last failed attempt */
 }
 
 /**
@@ -2694,48 +2499,36 @@ static esp_err_t priv_sd_card_try_interfaces(sd_card_hal_t* sd_card)
  */
 static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
 {
-  if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Mount Error",
-              "Invalid SD card HAL pointer");
+  if (sd_card == NULL || sd_card->card == NULL) {
+    log_error(TAG, "Mount Error", "Invalid SD card HAL pointer or card structure");
     return ESP_ERR_INVALID_ARG;
   }
-  /* Use log_info */
   /* Check if already mounted */
-  if (sd_card->card_available) {
-    log_info(sd_card->tag,
-             "Mount Info",
-             "SD card already mounted");
+  if (atomic_load(&sd_card->card_available)) {
+    log_info(sd_card->tag, "Mount Info", "SD card already mounted");
     return ESP_OK;
-   }
-  /* Use log_warn */
+  }
   /* Check if physically inserted */
   if (!priv_sd_card_is_inserted(sd_card)) {
-    log_warn(sd_card->tag,
-             "Mount Warning",
-             "Cannot mount: SD card not inserted");
+    log_warn(sd_card->tag, "Mount Warning", "Cannot mount: SD card not inserted");
     return ESP_ERR_NOT_FOUND;
-   }
-  /* Use log_info */
+  }
   log_info(sd_card->tag,
            "Mount Started",
-           "Mounting SD card at path: %s with %s bus width",
+           "Mounting SD card at path: %s with %s interface",
            sd_card->mount_path,
-           priv_sd_bus_width_to_string(sd_card->bus_width));
+           sd_card_interface_to_string(sd_card->current_interface));
 
   /* Validate mount path using the simpler validation function */
   if (!priv_path_is_safe_simple(sd_card->mount_path)) {
-    log_error(sd_card->tag, /* Use log_error */
-              "Mount Error",
-              "Unsafe mount path: %s",
-              sd_card->mount_path);
+    log_error(sd_card->tag, "Mount Error", "Unsafe mount path: %s", sd_card->mount_path);
     return ESP_ERR_INVALID_ARG;
   }
 
   /* Ensure mount path directory exists */
   esp_err_t dir_result = priv_create_directory_if_needed(sd_card, sd_card->mount_path);
   if (dir_result != ESP_OK) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
+    log_error(TAG,
               "Mount Error",
               "Failed to create or verify mount directory: %s",
               esp_err_to_name(dir_result));
@@ -2749,69 +2542,64 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
     .allocation_unit_size   = sd_card->allocation_unit_size, /* Allocation unit size */
   };
 
-  /* Get slot config based on host flags */
-  sdmmc_slot_config_t default_slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-  if (!(sd_card->card->host.flags & SDMMC_HOST_FLAG_SPI)) {
-    /* SDIO mode - configure the slot */
-    default_slot_config.gpio_cd = sd_card->pin_config.gpio_det_pin;
-    default_slot_config.gpio_wp = -1; /* Write protect not used */
-
-    /* Set the bus width */
-    default_slot_config.width = sd_card->bus_width;
-
-    /* Add flags for 4-bit mode */
-    if (sd_card->bus_width == k_sd_bus_width_4bit) {
-      default_slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
-    }
-  }
-
   /* Try to mount the SD card */
-  sdmmc_card_t* card = NULL;
+  sdmmc_card_t* card_out = NULL; /* Mount function will update this */
   esp_err_t     err;
 
-  /* For SPI mode, slot_config should be NULL */
-  if (sd_card->card->host.flags & SDMMC_HOST_FLAG_SPI) {
-    err = esp_vfs_fat_sdmmc_mount(sd_card->mount_path,
-                                  &sd_card->card->host,
-                                  NULL, /* NULL slot config for SPI mode */
-                                  &mount_config,
-                                  &card);
-  } else {
-    err = esp_vfs_fat_sdmmc_mount(sd_card->mount_path,
-                                  &sd_card->card->host,
-                                  &default_slot_config,
-                                  &mount_config,
-                                  &card);
+  /* Slot config is only used for SDIO, pass NULL for SPI */
+  sdmmc_slot_config_t* slot_config_ptr = NULL;
+  sdmmc_slot_config_t  slot_config     = SDMMC_SLOT_CONFIG_DEFAULT();
+  if (sd_card->current_interface == k_sd_interface_sdio) {
+    slot_config.clk   = sd_card->pin_config.sdio_clk_pin;
+    slot_config.cmd   = sd_card->pin_config.sdio_cmd_pin;
+    slot_config.d0    = sd_card->pin_config.sdio_d0_pin;
+    slot_config.width = sd_card->bus_width; /* Use current HAL bus width */
+
+    if (sd_card->bus_width == k_sd_bus_width_4bit) {
+      slot_config.d1 = sd_card->pin_config.sdio_d1_pin;
+      slot_config.d2 = sd_card->pin_config.sdio_d2_pin;
+      slot_config.d3 = sd_card->pin_config.sdio_d3_pin;
+      slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+    }
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+    slot_config.gpio_cd = sd_card->pin_config.gpio_det_pin;
+#else
+    slot_config.gpio_cd = SDMMC_SLOT_NO_CD;
+#endif
+    slot_config.gpio_wp = SDMMC_SLOT_NO_WP;
+    slot_config_ptr     = &slot_config; /* Point to the local struct */
   }
 
-  /* Handle potential bus width issues */
-  if (err != ESP_OK && sd_card->bus_width == k_sd_bus_width_4bit &&
-      !(sd_card->card->host.flags & SDMMC_HOST_FLAG_SPI)) {
-    /* If 4-bit mode failed, try falling back to 1-bit mode */ /* Use log_warn */
+  err = esp_vfs_fat_sdmmc_mount(sd_card->mount_path,
+                                &sd_card->card->host,
+                                slot_config_ptr,
+                                &mount_config,
+                                &card_out);
+
+  /* Handle potential bus width issues specifically for SDIO */
+  if (err != ESP_OK && sd_card->current_interface == k_sd_interface_sdio &&
+      sd_card->bus_width == k_sd_bus_width_4bit) {
+    /* If 4-bit mode failed, try falling back to 1-bit mode */
     log_warn(sd_card->tag,
              "Mount Warning",
-             "Failed to mount with 4-bit bus width, trying 1-bit mode");
+             "Failed to mount SDIO with 4-bit bus width, trying 1-bit mode");
 
-    /* Create a new slot config with 1-bit mode */
-    sdmmc_slot_config_t one_bit_slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    one_bit_slot_config.gpio_cd = sd_card->pin_config.gpio_det_pin;
-    one_bit_slot_config.gpio_wp = -1; /* Write protect not used */
-    one_bit_slot_config.width = k_sd_bus_width_1bit;
-
-    /* Clear 4-bit flag from host */
+    /* Update the host and slot config for 1-bit */
     sd_card->card->host.flags &= ~SDMMC_HOST_FLAG_4BIT;
+    sd_card->card->host.flags |= SDMMC_HOST_FLAG_1BIT;
+    slot_config.width = 1; /* Use the locally defined slot_config struct */
 
     /* Try mounting again with 1-bit mode */
     err = esp_vfs_fat_sdmmc_mount(sd_card->mount_path,
                                   &sd_card->card->host,
-                                  &one_bit_slot_config,
+                                  &slot_config, /* Use updated 1-bit slot config */
                                   &mount_config,
-                                  &card);
+                                  &card_out);
 
     if (err == ESP_OK) {
       /* Mount succeeded with 1-bit mode, update the setting */
       sd_card->bus_width = k_sd_bus_width_1bit;
-      log_info(sd_card->tag, /* Use log_info */
+      log_info(sd_card->tag,
                "Mount Info",
                "Successfully mounted with 1-bit mode after 4-bit mode failed");
     }
@@ -2820,44 +2608,44 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
   if (err != ESP_OK) {
     /* If failed, log appropriate message */
     if (err == ESP_FAIL) {
-      log_error(sd_card->tag, /* Use log_error */
-                "Mount Error",
-                "Failed to mount FAT filesystem on SD card");
+      log_error(sd_card->tag, "Mount Error", "Failed to mount FAT filesystem on SD card");
     } else if (err == ESP_ERR_INVALID_STATE) {
-      log_error(sd_card->tag,
-                "Mount Error",
-                "SD card already mounted"); /* Use log_error */
+      log_error(sd_card->tag, "Mount Error", "SD card already mounted");
     } else if (err == ESP_ERR_NO_MEM) {
-      log_error(sd_card->tag,
-                "Mount Error",
-                "Memory allocation failed");
+      log_error(sd_card->tag, "Mount Error", "Memory allocation failed");
     } else {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Mount Error",
                 "Failed to initialize SD card: %s",
                 esp_err_to_name(err));
+    }
+    /* Clean up the potentially allocated card_out if mount failed */
+    if (card_out != NULL) {
+      free(card_out);
     }
     return err;
   }
 
   /* Save the card structure returned from the mount function */
-  if (sd_card->card != NULL) {
-    free(sd_card->card);
+  /* We already allocated sd_card->card, but mount might reallocate.
+   * Free the old one IF it's different from the new one */
+  if (sd_card->card != card_out) {
+    if (sd_card->card != NULL) {
+      free(sd_card->card);
+    }
+    sd_card->card = card_out; /* Use the one returned by mount */
   }
-  sd_card->card = card;
 
   /* Create logs directory if not exists */
   char logs_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
   if (snprintf(logs_path, sizeof(logs_path), "%s/logs", sd_card->mount_path) >=
       (int)sizeof(logs_path)) {
-    log_warn(sd_card->tag, /* Use log_warn */
-             "Mount Warning",
-             "Log path truncated");
+    log_warn(sd_card->tag, "Mount Warning", "Log path truncated");
   }
 
   /* Create logs directory if needed - non-critical operation */
   esp_err_t logs_dir_result = priv_create_directory_if_needed(sd_card, logs_path);
-  if (logs_dir_result != ESP_OK) { /* Use log_warn */
+  if (logs_dir_result != ESP_OK) {
     log_warn(sd_card->tag,
              "Mount Warning",
              "Failed to create logs directory: %s",
@@ -2867,19 +2655,22 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
   /* Keep stdout for card info print */
   /* Get and log SD card info */
   sdmmc_card_print_info(stdout, sd_card->card);
-  /* Use log_info */
   log_info(sd_card->tag,
            "Mount Success",
-           "SD card mounted at %s, %lluMB, %s bus width",
+           "SD card mounted at %s, %lluMB, Interface: %s, %s bus width",
            sd_card->mount_path,
            ((uint64_t)sd_card->card->csd.capacity * sd_card->card->csd.sector_size) / (1024 * 1024),
+           sd_card_interface_to_string(sd_card->current_interface),
            priv_sd_bus_width_to_string(sd_card->bus_width));
 
   /* Update state */
-  sd_card->card_available = true;
+  atomic_store(&sd_card->card_available, true);
 
   /* Schedule performance measurement on the new card */
   sd_card->performance.measurement_needed = true;
+
+  /* Notify listeners about availability */
+  priv_notify_availability(sd_card, true);
 
   return ESP_OK;
 }
@@ -2893,20 +2684,14 @@ static esp_err_t priv_sd_card_mount(sd_card_hal_t* sd_card)
 static esp_err_t priv_sd_card_unmount(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
-    log_error(SD_CARD_HAL_TAG, /* Use log_error */
-              "Unmount Error",
-              "Invalid SD card HAL pointer");
+    log_error(TAG, "Unmount Error", "Invalid SD card HAL pointer");
     return ESP_ERR_INVALID_ARG;
   }
-  /* Use log_info */
   /* Check if already unmounted */
-  if (!sd_card->card_available) {
-    log_info(sd_card->tag,
-             "Unmount Info",
-             "SD card already unmounted");
+  if (!atomic_load(&sd_card->card_available)) {
+    log_info(sd_card->tag, "Unmount Info", "SD card already unmounted");
     return ESP_OK;
-   }
-  /* Use log_info */
+  }
   log_info(sd_card->tag,
            "Unmount Started",
            "Unmounting SD card from path: %s",
@@ -2914,23 +2699,35 @@ static esp_err_t priv_sd_card_unmount(sd_card_hal_t* sd_card)
 
   /* Unmount the SD card */
   esp_err_t err = esp_vfs_fat_sdcard_unmount(sd_card->mount_path, sd_card->card);
-  if (err != ESP_OK) { /* Use log_error */
-    log_error(sd_card->tag,
-              "Unmount Error",
-              "Failed to unmount SD card: %s",
-              esp_err_to_name(err));
+  if (err != ESP_OK) {
+    log_error(sd_card->tag, "Unmount Error", "Failed to unmount SD card: %s", esp_err_to_name(err));
+    /* Even if unmount fails, mark as unavailable */
+    atomic_store(&sd_card->card_available, false);
+    priv_notify_availability(sd_card, false); /* Notify listeners */
+    /* Don't nullify sd_card->card here, cleanup needs it */
     return err;
   }
 
-  /* Card pointer is now invalid */
-  sd_card->card = NULL;
+  /* Card pointer is now invalid after successful unmount */
+  /* Let cleanup handle freeing the card structure */
+  /* sd_card->card = NULL; */
 
   /* Update state */
-  sd_card->card_available = false;
+  atomic_store(&sd_card->card_available, false);
 
-  log_info(sd_card->tag, /* Use log_info */
-           "Unmount Success",
-           "SD card unmounted successfully");
+  /* Clean up the specific interface resources */
+  if (sd_card->current_interface == k_sd_interface_spi && sd_card->card != NULL) {
+    sdspi_host_remove_device(sd_card->card->host.slot);
+    sdspi_host_deinit();
+  } else if (sd_card->current_interface == k_sd_interface_sdio) {
+    sdmmc_host_deinit();
+  }
+  sd_card->current_interface = k_sd_interface_none; /* Reset interface */
+
+  /* Notify listeners about unavailability */
+  priv_notify_availability(sd_card, false);
+
+  log_info(sd_card->tag, "Unmount Success", "SD card unmounted successfully");
   return ESP_OK;
 }
 
@@ -2942,22 +2739,25 @@ static esp_err_t priv_sd_card_unmount(sd_card_hal_t* sd_card)
 static void priv_sd_card_mount_task(void* arg)
 {
   sd_card_hal_t* sd_card = (sd_card_hal_t*)arg;
-  if (sd_card == NULL) { /* Keep ESP_LOGE as logger might not be available */
-    log_error(SD_CARD_HAL_TAG,
-              "Mount Task Error",
-              "Invalid task parameter");
+  if (sd_card == NULL) {
+    log_error(TAG, "Mount Task Error", "Invalid task parameter");
     vTaskDelete(NULL);
     return;
   }
-  /* Use log_info */
-  log_info(sd_card->tag,
-           "Mount Task Started",
-           "SD card mount/unmount task is running");
 
-  bool       was_inserted     = false;
-  uint32_t   debounce_counter = 0;
-  TickType_t last_change_time = xTaskGetTickCount();
-  bool       mutex_taken      = false;
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+#ifndef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+  log_warn(sd_card->tag,
+           "Mount Task Info",
+           "SD Card HAL disabled (no interfaces enabled). Exiting mount task.");
+  sd_card->mount_task_handle = NULL; /* Clear handle before exit */
+  vTaskDelete(NULL);                 /* Exit task if HAL is disabled */
+  return;
+#endif
+#endif
+  log_info(sd_card->tag, "Mount Task Started", "SD card mount/unmount task is running");
+
+  bool mutex_taken = false;
 
   /* Initialize state machine */
   sd_card->state                  = k_sd_state_idle;
@@ -2970,11 +2770,15 @@ static void priv_sd_card_mount_task(void* arg)
   priv_load_working_config(sd_card);
 
   /* Initial card check */
-  bool is_inserted = priv_sd_card_is_inserted(sd_card);
+  bool is_inserted;
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+  is_inserted               = priv_sd_card_is_inserted(sd_card);
+  uint32_t debounce_counter = 0; /* Declare here if detection enabled */
+#else
+  is_inserted = true; /* Assume inserted if detection is disabled, rely on mount success */
+#endif
   if (is_inserted) {
-    log_info(sd_card->tag, /* Use log_info */
-             "Initial Detection",
-             "SD card detected at startup");
+    log_info(sd_card->tag, "Initial Detection", "SD card detected at startup");
 
     /* Try to mount the card */
     if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
@@ -2986,13 +2790,13 @@ static void priv_sd_card_mount_task(void* arg)
       /* Try interfaces */
       esp_err_t err = priv_sd_card_try_interfaces(sd_card);
       if (err != ESP_OK) {
-        log_error(sd_card->tag, /* Use log_error */
+        log_error(sd_card->tag,
                   "Initial Mount Error",
                   "Failed to mount SD card at startup: %s",
                   esp_err_to_name(err));
         /* Update state machine to reflect the error */
         priv_update_state_machine(sd_card, k_sd_state_error);
-      } else if (sd_card->card_available) {
+      } else if (atomic_load(&sd_card->card_available)) {
         /* Interface discovery successful, update state */
         priv_update_state_machine(sd_card, k_sd_state_interface_ready);
       }
@@ -3000,16 +2804,13 @@ static void priv_sd_card_mount_task(void* arg)
       /* Always release mutex when done */
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
     } else {
-      log_error(sd_card->tag, /* Use log_error */
+      log_error(sd_card->tag,
                 "Initial Detection Error",
                 "Failed to acquire mutex for initial card detection");
     }
 
-    was_inserted = sd_card->card_available;
   } else {
-    log_info(sd_card->tag, /* Use log_info */
-             "Initial Detection",
-             "No SD card detected at startup");
+    log_info(sd_card->tag, "Initial Detection", "No SD card detected at startup");
   }
 
   /* Main task loop */
@@ -3022,29 +2823,43 @@ static void priv_sd_card_mount_task(void* arg)
       break;
     }
 
-    /* Check card status */
+/* Check card status */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     is_inserted = priv_sd_card_is_inserted(sd_card);
+#else
+    /* If detection is disabled, rely on health check or external events */
+    is_inserted = atomic_load(&sd_card->card_available);
+    /* Assume still inserted if mounted */
+#endif
 
-    /* Debounce the detection */
-    TickType_t current_time = xTaskGetTickCount();
-    if (is_inserted != was_inserted) {
+/* Debounce the detection (only if detection enabled) */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+    if (is_inserted != atomic_load(&sd_card->card_available)) {
       if (debounce_counter == 0) {
         /* First detection of change */
-        last_change_time = current_time;
-        debounce_counter++;
-      } else if ((current_time - last_change_time) >=
-                 pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS)) {
-        /* Debounce period expired, consider it a stable change */ /* Use log_info */
+      }
+      debounce_counter++; /* Increment counter on every check during change */
+
+      if (debounce_counter >= pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_SD_CARD_DEBOUNCE_MS) /
+                                pdMS_TO_TICKS(100)) { /* Check if debounce time passed */
+#else
+    /* If detection is disabled, we only react to mount/unmount failures (handled elsewhere) */
+    /* or explicit requests. No debouncing needed here. */
+    if (false) { /* Dummy condition to keep structure */
+#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED */
+/* Debounce period expired or detection disabled, consider it a stable change */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
         log_info(sd_card->tag,
                  "Card Status Change",
                  "SD card %s",
                  is_inserted ? "inserted" : "removed");
+#endif
 
         /* Take mutex for thread safety */
         mutex_taken = false;
         if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
           mutex_taken = true;
-          if (is_inserted && !sd_card->card_available) {
+          if (is_inserted && !atomic_load(&sd_card->card_available)) {
             /* Card inserted - update state machine */
             priv_update_state_machine(sd_card, k_sd_state_card_inserted);
             priv_update_state_machine(sd_card, k_sd_state_interface_discovery);
@@ -3052,7 +2867,7 @@ static void priv_sd_card_mount_task(void* arg)
             /* Try interfaces in priority order */
             esp_err_t err = priv_sd_card_try_interfaces(sd_card);
             if (err != ESP_OK) {
-              log_error(sd_card->tag, /* Use log_error */
+              log_error(sd_card->tag,
                         "Mount Error",
                         "Failed to mount SD card: %s",
                         esp_err_to_name(err));
@@ -3065,25 +2880,23 @@ static void priv_sd_card_mount_task(void* arg)
 
               /* If we can retry, do so after some delay */
               if (error_handler_can_retry(&sd_card->error_handler)) {
-                log_info(sd_card->tag, /* Use log_info */
-                         "Retry",
-                         "Will retry mounting after delay");
+                log_info(sd_card->tag, "Retry", "Will retry mounting after delay");
                 /* The error handler will call the reset function */
               } else {
                 /* Maximum retries reached */
                 priv_update_state_machine(sd_card, k_sd_state_failed);
               }
-            } else if (sd_card->card_available) {
+            } else if (atomic_load(&sd_card->card_available)) {
               /* Mount successful - update state machine */
               priv_update_state_machine(sd_card, k_sd_state_interface_ready);
               /* Reset error handler */
               error_handler_reset_state(&sd_card->error_handler);
             }
-          } else if (!is_inserted && sd_card->card_available) {
+          } else if (!is_inserted && atomic_load(&sd_card->card_available)) {
             /* Card removed - unmount first */
             esp_err_t err = priv_sd_card_unmount(sd_card);
             if (err != ESP_OK) {
-              log_error(sd_card->tag, /* Use log_error */
+              log_error(sd_card->tag,
                         "Unmount Error",
                         "Failed to unmount SD card: %s",
                         esp_err_to_name(err));
@@ -3098,7 +2911,7 @@ static void priv_sd_card_mount_task(void* arg)
             /* Reset interface discovery state */
             sd_card->interface_discovery_complete = false;
 
-            log_info(sd_card->tag, /* Use log_info */
+            log_info(sd_card->tag,
                      "Card Removed",
                      "SD card has been physically removed and unmounted");
           }
@@ -3106,21 +2919,21 @@ static void priv_sd_card_mount_task(void* arg)
           /* Always release mutex when done */
           priv_release_mutex_if_taken(sd_card, &mutex_taken);
         } else {
-          log_error(sd_card->tag, /* Use log_error */
+          log_error(sd_card->tag,
                     "Card State Change Error",
                     "Failed to acquire mutex for card state change handling");
         }
-        /* Update stable state */
-        was_inserted     = is_inserted;
-        debounce_counter = 0;
-      } else {
-        /* Still within debounce period, increment counter */
-        debounce_counter++;
+/* Update stable state */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+        debounce_counter = 0; /* Reset counter after stable change */
+#endif
       }
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     } else {
-      /* No change in state, reset debounce counter */
+      /* No change detected, reset debounce counter */
       debounce_counter = 0;
     }
+#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED */
 
     /* Check exit flag before potentially long operation */
     if (sd_card->mount_task_exit_requested) {
@@ -3135,21 +2948,43 @@ static void priv_sd_card_mount_task(void* arg)
       if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
         mutex_taken = true;
 
-        log_info(sd_card->tag, /* Use log_info */
-                "Error Recovery",
-                "Attempting to recover from error (retry %lu/%lu)",
-                sd_card->error_handler.current_retry + 1,
-                sd_card->error_handler.max_retries);
+        /* Get delay from error handler */
+        uint32_t delay_ms = sd_card->error_handler.current_retry_delay;
+        priv_release_mutex_if_taken(sd_card, &mutex_taken); /* Release before delay */
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
+        /* Re-acquire mutex */
+        if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) != pdTRUE) {
+          log_error(sd_card->tag,
+                    "Error Retry Error",
+                    "Failed to re-acquire mutex for error retry");
+          continue; /* Skip retry attempt */
+        }
+        mutex_taken = true;
+
+        log_info(sd_card->tag,
+                 "Error Recovery",
+                 "Attempting to recover from error (retry %lu/%lu)",
+                 sd_card->error_handler.current_retry + 1,
+                 sd_card->error_handler.max_retries);
 
         /* Try to reset and mount */
-        esp_err_t err = priv_sd_card_reset(sd_card);
+        esp_err_t err = priv_sd_card_reset(sd_card); /* reset takes/gives mutex */
+                                                     /* Re-acquire mutex after reset */
+        if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) != pdTRUE) {
+          log_error(sd_card->tag, "Error Retry Error", "Failed to acquire mutex after reset");
+          mutex_taken = false; /* Ensure mutex_taken is false */
+          continue;
+        }
+        /* Mutex is already taken by reset, need to release it first? No, reset gives it back. */
+        /* mutex_taken = true; */
+
         if (err != ESP_OK) {
-          log_error(sd_card->tag, /* Use log_error */
+          log_error(sd_card->tag,
                     "Reset Error",
                     "Failed to reset SD card: %s",
                     esp_err_to_name(err));
 
-          /* Record the error */
+          /* Record the error (reset already tried) */
           RECORD_ERROR(&sd_card->error_handler, err, "Failed to reset SD card");
 
           /* Check if we've reached maximum retries */
@@ -3157,24 +2992,28 @@ static void priv_sd_card_mount_task(void* arg)
             /* Update state machine to reflect permanent failure */
             priv_update_state_machine(sd_card, k_sd_state_failed);
           }
-        } else if (sd_card->card_available) {
+        } else if (atomic_load(&sd_card->card_available)) {
           /* Reset successful, we're mounted again */
           priv_update_state_machine(sd_card, k_sd_state_interface_ready);
+          error_handler_reset_state(&sd_card->error_handler);
+        } else {
+          /* Reset OK, but card still not available (e.g. removed during reset) */
+          priv_update_state_machine(sd_card, k_sd_state_idle);
           error_handler_reset_state(&sd_card->error_handler);
         }
 
         /* Always release mutex when done */
         priv_release_mutex_if_taken(sd_card, &mutex_taken);
       } else {
-        log_error(sd_card->tag, /* Use log_error */
+        /* Mutex not acquired initially */
+        log_error(sd_card->tag,
                   "Error Retry Error",
-                  "Failed to acquire mutex for error retry");
+                  "Failed to acquire mutex for error retry check");
       }
     }
 
     /* Perform performance measurements if needed and card is ready */
-    if (sd_card->state == k_sd_state_interface_ready &&
-        sd_card->card_available &&
+    if (sd_card->state == k_sd_state_interface_ready && atomic_load(&sd_card->card_available) &&
         sd_card->performance.measurement_needed) {
       /* Take mutex for thread safety */
       mutex_taken = false;
@@ -3190,7 +3029,7 @@ static void priv_sd_card_mount_task(void* arg)
     }
 
     /* Periodic health check when card is mounted */
-    if (sd_card->state == k_sd_state_interface_ready && sd_card->card_available) {
+    if (sd_card->state == k_sd_state_interface_ready && atomic_load(&sd_card->card_available)) {
       /* Only check every 10 seconds (100 ticks × 100ms) */
       static uint32_t health_check_counter = 0;
       if (++health_check_counter >= 100) {
@@ -3206,24 +3045,19 @@ static void priv_sd_card_mount_task(void* arg)
             /* Just a simple check - try to access the card */
             struct stat st;
             if (stat(sd_card->mount_path, &st) != 0) {
-              log_warn(sd_card->tag, /* Use log_warn */
-                      "Health Check",
-                      "Failed to access SD card mount point - possible file system issue");
+              log_warn(sd_card->tag,
+                       "Health Check",
+                       "Failed to access SD card mount point - possible file system issue");
 
-              /* Reset the card */
-              esp_err_t err = priv_sd_card_reset(sd_card);
-              if (err != ESP_OK) {
-                log_error(sd_card->tag, /* Use log_error */
-                          "Health Reset Error",
-                          "Failed to reset SD card during health check: %s",
-                          esp_err_to_name(err));
+              /* Record the error */
+              RECORD_ERROR(&sd_card->error_handler,
+                           errno, /* Use errno from stat */
+                           "Failed health check (stat failed)");
 
-                /* Record the error */
-                RECORD_ERROR(&sd_card->error_handler, err, "Failed to reset SD card during health check");
+              /* Update state */
+              priv_update_state_machine(sd_card, k_sd_state_error);
 
-                /* Update state */
-                priv_update_state_machine(sd_card, k_sd_state_error);
-              }
+              /* Let the error retry logic handle the reset */
             }
           }
 
@@ -3234,88 +3068,190 @@ static void priv_sd_card_mount_task(void* arg)
     }
   }
 
-  log_info(sd_card->tag, /* Use log_info */
-           "Mount Task Exiting",
-           "SD card mount/unmount task received exit request");
+  log_info(sd_card->tag, "Mount Task Exiting", "SD card mount/unmount task received exit request");
 
+  sd_card->mount_task_handle = NULL; /* Clear handle before deleting */
   vTaskDelete(NULL);
 }
 
 /**
  * @brief Register all SD card pins with the pin validator
+ *        Includes runtime check for shared pin configuration mismatch.
  *
  * @param[in] sd_card Pointer to the SD card HAL instance
  */
 static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
 {
-  esp_err_t err;
+  esp_err_t err               = ESP_OK;
+  esp_err_t first_err         = ESP_OK; /* Track first error encountered */
+  bool      share_common_pins = false;
+  bool      mismatch_found    = false;
 
+  /* Determine if common pins should be marked as shareable */
+  if (sd_card->spi_mode_enabled && sd_card->sdio_mode_enabled) {
+    /* Check for mismatches first */
+    if (sd_card->pin_config.spi_sclk_pin != sd_card->pin_config.sdio_clk_pin) {
+      log_error(sd_card->tag,
+                "Shared Pin Mismatch",
+                "SPI CLK (%d) != SDIO CLK (%d)",
+                (int)sd_card->pin_config.spi_sclk_pin,
+                (int)sd_card->pin_config.sdio_clk_pin);
+      mismatch_found = true;
+    }
+    if (sd_card->pin_config.spi_mosi_pin != sd_card->pin_config.sdio_cmd_pin) {
+      log_error(sd_card->tag,
+                "Shared Pin Mismatch",
+                "SPI MOSI (%d) != SDIO CMD (%d)",
+                (int)sd_card->pin_config.spi_mosi_pin,
+                (int)sd_card->pin_config.sdio_cmd_pin);
+      mismatch_found = true;
+    }
+    if (sd_card->pin_config.spi_miso_pin != sd_card->pin_config.sdio_d0_pin) {
+      log_error(sd_card->tag,
+                "Shared Pin Mismatch",
+                "SPI MISO (%d) != SDIO D0 (%d)",
+                (int)sd_card->pin_config.spi_miso_pin,
+                (int)sd_card->pin_config.sdio_d0_pin);
+      mismatch_found = true;
+    }
+
+    if (mismatch_found) {
+      log_error(
+        sd_card->tag,
+        "Configuration Error",
+        "Shared pins between SPI and SDIO must be configured to the same GPIO. Please correct in menuconfig.");
+      /* Return an error to halt initialization */
+      return ESP_ERR_INVALID_ARG;
+    } else {
+      /* Mismatches checked and passed, pins can be shared */
+      share_common_pins = true;
+    }
+  }
+
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
   /* Register card detection pin */
-  err = pin_validator_register_pin(sd_card->pin_config.gpio_det_pin,
-                                   "SD Card HAL",
-                                   "Card detect pin",
-                                   false);
-  if (err != ESP_OK) return err;
-
-  /* Register SPI pins */
-  err = pin_validator_register_pin(sd_card->pin_config.spi_di_pin,
-                                   "SD Card HAL",
-                                   "SPI MISO",
-                                   false);
-  if (err != ESP_OK) return err;
-  err = pin_validator_register_pin(sd_card->pin_config.spi_do_pin,
-                                   "SD Card HAL",
-                                   "SPI MOSI",
-                                   false);
-  if (err != ESP_OK) return err;
-  err = pin_validator_register_pin(sd_card->pin_config.spi_sclk_pin,
-                                   "SD Card HAL",
-                                   "SPI Clock",
-                                   false);
-  if (err != ESP_OK) return err;
-  err = pin_validator_register_pin(sd_card->pin_config.spi_cs_pin,
-                                   "SD Card HAL",
-                                   "SPI Chip Select",
-                                   false);
-  if (err != ESP_OK) return err;
-
-  /* Register SDIO pins */
-  err = pin_validator_register_pin(sd_card->pin_config.sdio_clk_pin,
-                                   "SD Card HAL",
-                                   "SDIO Clock",
-                                   false);
-  if (err != ESP_OK) return err;
-  err = pin_validator_register_pin(sd_card->pin_config.sdio_cmd_pin,
-                                   "SD Card HAL",
-                                   "SDIO CMD",
-                                   false);
-  if (err != ESP_OK) return err;
-  err = pin_validator_register_pin(sd_card->pin_config.sdio_d0_pin,
-                                   "SD Card HAL",
-                                   "SDIO D0",
-                                   false);
-  if (err != ESP_OK) return err;
-  if (sd_card->pin_config.sdio_d1_pin >= 0) {
-    err = pin_validator_register_pin(sd_card->pin_config.sdio_d1_pin,
+  if (sd_card->pin_config.gpio_det_pin >= 0) {
+    err = pin_validator_register_pin(sd_card->pin_config.gpio_det_pin,
                                      "SD Card HAL",
-                                     "SDIO D1",
-                                     false);
-    if (err != ESP_OK) return err;
+                                     "Card Detect",
+                                     false); /* Card detect usually cannot be shared */
+    if (err != ESP_OK && first_err == ESP_OK)
+      first_err = err;
   }
-  if (sd_card->pin_config.sdio_d2_pin >= 0) {
-    err = pin_validator_register_pin(sd_card->pin_config.sdio_d2_pin,
-                                     "SD Card HAL",
-                                     "SDIO D2",
-                                     false);
-    if (err != ESP_OK) return err;
-  }
-  if (sd_card->pin_config.sdio_d3_pin >= 0) {
-    err = pin_validator_register_pin(sd_card->pin_config.sdio_d3_pin,
-                                     "SD Card HAL",
-                                     "SDIO D3",
-                                     false);
-    if (err != ESP_OK) return err;
+#endif
+
+  /* --- SPI Pins --- */
+  if (sd_card->spi_mode_enabled) {
+    /* Register SPI CS pin (unique to SPI) */
+    if (sd_card->pin_config.spi_cs_pin >= 0) {
+      err = pin_validator_register_pin(sd_card->pin_config.spi_cs_pin,
+                                       "SD Card HAL",
+                                       "SPI Chip Select",
+                                       false);
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
+    /* Register SPI CLK */
+    if (sd_card->pin_config.spi_sclk_pin >= 0) {
+      err = pin_validator_register_pin(
+        sd_card->pin_config.spi_sclk_pin,
+        "SD Card HAL (SPI)", /* Component name indicates mode */
+        "SPI CLK",
+        share_common_pins); /* Shareable only if pins match & both modes enabled */
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
+    /* Register SPI MOSI */
+    if (sd_card->pin_config.spi_mosi_pin >= 0) {
+      err = pin_validator_register_pin(sd_card->pin_config.spi_mosi_pin,
+                                       "SD Card HAL (SPI)",
+                                       "SPI MOSI",
+                                       share_common_pins);
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
+    /* Register SPI MISO */
+    if (sd_card->pin_config.spi_miso_pin >= 0) {
+      err = pin_validator_register_pin(sd_card->pin_config.spi_miso_pin,
+                                       "SD Card HAL (SPI)",
+                                       "SPI MISO",
+                                       share_common_pins);
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
   }
 
-  return ESP_OK;
+  /* --- SDIO Pins --- */
+  if (sd_card->sdio_mode_enabled) {
+    /* Register SDIO CLK */
+    if (!share_common_pins) { /* Register only if not shared (already done if shared) */
+      if (sd_card->pin_config.sdio_clk_pin >= 0) {
+        err = pin_validator_register_pin(sd_card->pin_config.sdio_clk_pin,
+                                         "SD Card HAL (SDIO)", /* Component name indicates mode */
+                                         "SDIO CLK",
+                                         false); /* Not shared if registered here */
+        if (err != ESP_OK && first_err == ESP_OK)
+          first_err = err;
+      }
+    }
+    /* Register SDIO CMD */
+    if (!share_common_pins) {
+      if (sd_card->pin_config.sdio_cmd_pin >= 0) {
+        err = pin_validator_register_pin(sd_card->pin_config.sdio_cmd_pin,
+                                         "SD Card HAL (SDIO)",
+                                         "SDIO CMD",
+                                         false);
+        if (err != ESP_OK && first_err == ESP_OK)
+          first_err = err;
+      }
+    }
+    /* Register SDIO D0 */
+    if (!share_common_pins) {
+      if (sd_card->pin_config.sdio_d0_pin >= 0) {
+        err = pin_validator_register_pin(sd_card->pin_config.sdio_d0_pin,
+                                         "SD Card HAL (SDIO)",
+                                         "SDIO D0",
+                                         false);
+        if (err != ESP_OK && first_err == ESP_OK)
+          first_err = err;
+      }
+    }
+
+/* Register unique SDIO 4-bit pins */
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+    /* Note: bus_width might be forced to 1-bit due to DET conflict,
+    * but we still register the configured pins if SDIO mode is enabled.
+    * The actual usage depends on the final bus_width used in setup_sdio. */
+    if (sd_card->pin_config.sdio_d1_pin >= 0) {
+      err = pin_validator_register_pin(sd_card->pin_config.sdio_d1_pin,
+                                       "SD Card HAL (SDIO)",
+                                       "SDIO D1 (4-bit)",
+                                       false);
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
+    if (sd_card->pin_config.sdio_d2_pin >= 0) {
+      err = pin_validator_register_pin(sd_card->pin_config.sdio_d2_pin,
+                                       "SD Card HAL (SDIO)",
+                                       "SDIO D2 (4-bit)",
+                                       false);
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
+    if (sd_card->pin_config.sdio_d3_pin >= 0) {
+      err = pin_validator_register_pin(sd_card->pin_config.sdio_d3_pin,
+                                       "SD Card HAL (SDIO)",
+                                       "SDIO D3 (4-bit)",
+                                       false);
+      if (err != ESP_OK && first_err == ESP_OK)
+        first_err = err;
+    }
+#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE */
+  }
+
+  /* Return the first pin registration error encountered, or the mismatch error */
+  if (mismatch_found) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  return first_err;
 }

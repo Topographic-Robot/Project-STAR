@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_gpio.h */
+/* components/pstar_bus/include/pstar_bus_gpio.h */
 
 #ifndef PSTAR_BUS_GPIO_H
 #define PSTAR_BUS_GPIO_H
@@ -7,9 +7,13 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include "esp_err.h"
+#include "pstar_bus_common_types.h"
+
 #include "driver/gpio.h"
+
+#include <stdint.h>
+
+#include "esp_err.h"
 
 /* Public Functions ***********************************************************/
 
@@ -72,9 +76,8 @@ esp_err_t pstar_bus_gpio_isr_add(const pstar_bus_manager_t* manager,
  * @param[in] pin_num GPIO pin number.
  * @return esp_err_t ESP_OK on success, or an error code.
  */
-esp_err_t pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manager,
-                                    const char*                name,
-                                    gpio_num_t                 pin_num);
+esp_err_t
+pstar_bus_gpio_isr_remove(const pstar_bus_manager_t* manager, const char* name, gpio_num_t pin_num);
 
 #ifdef __cplusplus
 }

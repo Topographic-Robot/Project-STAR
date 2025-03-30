@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_common_types.h */
+/* components/pstar_bus/include/pstar_bus_common_types.h */
 
 #ifndef PSTAR_BUS_COMMON_TYPES_H
 #define PSTAR_BUS_COMMON_TYPES_H
@@ -7,15 +7,15 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /* Forward Declarations *******************************************************/
 
-/* Forward declare pstar_bus_config_t and pstar_bus_event_t */
 typedef struct pstar_bus_config  pstar_bus_config_t;
 typedef struct pstar_bus_event   pstar_bus_event_t;
 typedef struct pstar_bus_manager pstar_bus_manager_t;
+typedef struct pstar_gpio_ops    pstar_gpio_ops_t;
 
 /* Enums **********************************************************************/
 
@@ -67,7 +67,7 @@ typedef enum : uint32_t {
 
 /**
  * @brief Convert bus type to string.
- * 
+ *
  * @param[in] type Bus type.
  * @return const char* String representation of the bus type.
  */
@@ -75,7 +75,7 @@ const char* pstar_bus_type_to_string(pstar_bus_type_t type);
 
 /**
  * @brief Convert mode to string.
- * 
+ *
  * @param[in] mode Operation mode.
  * @return const char* String representation of the mode.
  */

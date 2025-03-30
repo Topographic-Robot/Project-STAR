@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_protocol_types.h */
+/* components/pstar_bus/include/pstar_bus_protocol_types.h */
 
 #ifndef PSTAR_BUS_PROTOCOL_TYPES_H
 #define PSTAR_BUS_PROTOCOL_TYPES_H
@@ -7,23 +7,26 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "esp_err.h"
-#include "driver/gpio.h"
-#include "driver/i2c.h"
-#include "driver/spi_master.h"
-#include "driver/uart.h"
-#include "driver/sdmmc_host.h"
-#include "sdmmc_cmd.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "driver/spi_common.h"
-#include "driver/sdspi_host.h"
 #include "pstar_bus_common_types.h"
 #include "pstar_bus_event_types.h"
 #include "pstar_bus_function_types.h"
+
+#include "driver/gpio.h"
+#include "driver/i2c.h"
+#include "driver/sdmmc_host.h"
+#include "driver/sdspi_host.h"
+#include "driver/spi_common.h"
+#include "driver/spi_master.h"
+#include "driver/uart.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "esp_err.h"
+#include "sdmmc_cmd.h"
 
 /* Protocol Configuration Structures *******************************************/
 
@@ -72,7 +75,7 @@ typedef struct pstar_spi_ops {
 
 /**
  * @brief SPI bus configuration structure.
- * 
+ *
  * Note: Uses ESP-IDF's spi_bus_config_t internally
  */
 typedef struct pstar_spi_bus_config {
@@ -104,17 +107,17 @@ typedef struct pstar_uart_ops {
  * @brief UART bus configuration structure.
  */
 typedef struct pstar_uart_bus_config {
-  uart_port_t            port;           /**< UART port number to use */
-  uart_config_t          config;         /**< ESP-IDF UART configuration */
-  size_t                 rx_buffer_size; /**< Size of UART RX buffer */
-  size_t                 tx_buffer_size; /**< Size of UART TX buffer */
-  
+  uart_port_t   port;           /**< UART port number to use */
+  uart_config_t config;         /**< ESP-IDF UART configuration */
+  size_t        rx_buffer_size; /**< Size of UART RX buffer */
+  size_t        tx_buffer_size; /**< Size of UART TX buffer */
+
   /* UART runtime data */
-  QueueHandle_t          rx_queue;       /**< UART RX queue handle */
-  QueueHandle_t          tx_queue;       /**< UART TX queue handle */
-  
-  pstar_uart_callbacks_t callbacks;      /**< UART callback functions */
-  pstar_uart_ops_t       ops;            /**< UART operation function pointers */
+  QueueHandle_t rx_queue; /**< UART RX queue handle */
+  QueueHandle_t tx_queue; /**< UART TX queue handle */
+
+  pstar_uart_callbacks_t callbacks; /**< UART callback functions */
+  pstar_uart_ops_t       ops;       /**< UART operation function pointers */
 } pstar_uart_bus_config_t;
 
 /**
@@ -166,22 +169,22 @@ typedef struct pstar_sdio_ops {
  * @brief SDIO bus configuration structure.
  */
 typedef struct pstar_sdio_bus_config {
-  sdmmc_host_t           host;             /**< SDIO host configuration */
-  sdmmc_slot_config_t    slot_config;      /**< SDIO slot configuration */
-  sdmmc_card_t*          card;             /**< SDIO card handle */
-  
+  sdmmc_host_t        host;        /**< SDIO host configuration */
+  sdmmc_slot_config_t slot_config; /**< SDIO slot configuration */
+  sdmmc_card_t*       card;        /**< SDIO card handle */
+
   /* Callbacks and operations */
-  pstar_sdio_callbacks_t callbacks;        /**< SDIO callback functions */
-  pstar_sdio_ops_t       ops;              /**< SDIO operation function pointers */
-  
+  pstar_sdio_callbacks_t callbacks; /**< SDIO callback functions */
+  pstar_sdio_ops_t       ops;       /**< SDIO operation function pointers */
+
   /* Internal state */
-  bool                   card_inserted;    /**< Whether card is currently inserted */
-  bool                   detect_enabled;   /**< Whether card detect is enabled */
-  SemaphoreHandle_t      mutex;            /**< Mutex for thread safety */
-  gpio_num_t             card_detect_pin;  /**< Card detect GPIO pin */
-  
+  bool              card_inserted;   /**< Whether card is currently inserted */
+  bool              detect_enabled;  /**< Whether card detect is enabled */
+  SemaphoreHandle_t mutex;           /**< Mutex for thread safety */
+  gpio_num_t        card_detect_pin; /**< Card detect GPIO pin */
+
   /* SPI mode configuration */
-  sdspi_device_config_t  sdspi_dev_config; /**< SD SPI device configuration for SPI mode */
+  sdspi_device_config_t sdspi_dev_config; /**< SD SPI device configuration for SPI mode */
 } pstar_sdio_bus_config_t;
 
 #ifdef __cplusplus

@@ -1,4 +1,4 @@
-/* components/pstar_managers/include/file_write_manager.h */
+/* components/pstar_managers/include/pstar_file_write_manager.h */
 
 #ifndef PSTAR_FILE_WRITE_MANAGER_H
 #define PSTAR_FILE_WRITE_MANAGER_H
@@ -7,13 +7,15 @@
 extern "C" {
 #endif
 
-#include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "sdkconfig.h"
+#include "freertos/task.h"
+
 #include <stdatomic.h>
+
+#include "esp_err.h"
+#include "sdkconfig.h"
 
 /* Forward declarations */
 #if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
@@ -38,11 +40,12 @@ typedef struct sd_card_hal sd_card_hal_t;
  * - The `data` pointer MUST be freed by the consumer (file write task) after processing.
  */
 typedef struct file_write_request {
-  char     file_path[CONFIG_PSTAR_KCONFIG_FILE_MANAGER_MAX_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
-  void*    data;                                                         /**< Pointer to the dynamically allocated data to write. */
-  uint32_t data_length;                                                  /**< Length of the data in bytes. */
-  bool     is_binary;                                                    /**< Flag indicating if this is a binary write request (true) or text (false). */
-  bool     is_terminate_request;                                         /**< Special flag to signal task termination */
+  char file_path
+    [CONFIG_PSTAR_KCONFIG_FILE_MANAGER_MAX_PATH_LENGTH]; /**< Path to the target file. Must be null-terminated and within the length limit. */
+  void*    data;        /**< Pointer to the dynamically allocated data to write. */
+  uint32_t data_length; /**< Length of the data in bytes. */
+  bool is_binary; /**< Flag indicating if this is a binary write request (true) or text (false). */
+  bool is_terminate_request; /**< Special flag to signal task termination */
 } file_write_request_t;
 
 /**
@@ -63,15 +66,15 @@ typedef struct file_writer_config {
  * queues, tasks, and the associated SD card instance.
  */
 typedef struct file_write_manager {
-  QueueHandle_t        file_write_queue; /**< Queue for file write requests. */
-  TaskHandle_t         file_write_task;  /**< Task handle for the file writer. */
+  QueueHandle_t file_write_queue; /**< Queue for file write requests. */
+  TaskHandle_t  file_write_task;  /**< Task handle for the file writer. */
 #if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
-  sd_card_hal_t*       sd_card;          /**< Pointer to the SD card HAL instance. */
+  sd_card_hal_t* sd_card; /**< Pointer to the SD card HAL instance. */
 #endif
-  _Atomic bool         initialized;      /**< Flag indicating if the manager is initialized. */
-  _Atomic bool         cleanup_requested;/**< Flag to signal cleanup sequence is active */
-  file_writer_config_t config;           /**< Configuration for the file writer. */
-  SemaphoreHandle_t    task_exit_sem;    /**< Semaphore signaled when task exits */
+  _Atomic bool         initialized;       /**< Flag indicating if the manager is initialized. */
+  _Atomic bool         cleanup_requested; /**< Flag to signal cleanup sequence is active */
+  file_writer_config_t config;            /**< Configuration for the file writer. */
+  SemaphoreHandle_t    task_exit_sem;     /**< Semaphore signaled when task exits */
 } file_write_manager_t;
 
 /* Public Functions ***********************************************************/
@@ -101,11 +104,11 @@ typedef struct file_write_manager {
  *       write requests. The HAL pointers (`sd_card`) must remain valid for the
  *       lifetime of the file write manager.
  */
-esp_err_t file_write_manager_init(file_write_manager_t*       manager,
+esp_err_t file_write_manager_init(file_write_manager_t* manager,
 #if CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
-                                  sd_card_hal_t*              sd_card,
+                                  sd_card_hal_t* sd_card,
 #else
-                                  void*                       sd_card,
+                                  void* sd_card,
 #endif
                                   const file_writer_config_t* config);
 

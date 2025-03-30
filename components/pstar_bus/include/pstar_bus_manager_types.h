@@ -1,4 +1,4 @@
-/* components/pstar_bus/include/bus_manager_types.h */
+/* components/pstar_bus/include/pstar_bus_manager_types.h */
 
 #ifndef PSTAR_BUS_MANAGER_TYPES_H
 #define PSTAR_BUS_MANAGER_TYPES_H
@@ -25,29 +25,29 @@ typedef union pstar_bus_config_union {
 
 /**
  * @brief Bus configuration structure.
- * 
+ *
  * This structure contains all the configuration data for a specific bus
  * instance. It serves as a node in a linked list, with each node
  * representing a different bus managed by the bus_manager.
  */
-typedef struct pstar_bus_config {  
-  const char*              name;        /**< Unique name for this bus instance */
-  pstar_bus_type_t         type;        /**< Type of bus */
-  pstar_common_mode_t      mode;        /**< Operation mode */
-  bool                     initialized; /**< Whether this bus has been initialized */
-  void*                    handle;      /**< Device handle (if applicable) */
-  void*                    user_ctx;    /**< User context pointer */
-  
-  pstar_bus_config_union_t config;      /**< Bus-specific configuration */
-  
-  struct pstar_bus_config* next;        /**< Pointer to the next bus in the list */
+typedef struct pstar_bus_config {
+  const char*         name;        /**< Unique name for this bus instance */
+  pstar_bus_type_t    type;        /**< Type of bus */
+  pstar_common_mode_t mode;        /**< Operation mode */
+  bool                initialized; /**< Whether this bus has been initialized */
+  void*               handle;      /**< Device handle (if applicable) */
+  void*               user_ctx;    /**< User context pointer */
+
+  pstar_bus_config_union_t config; /**< Bus-specific configuration */
+
+  struct pstar_bus_config* next; /**< Pointer to the next bus in the list */
 } pstar_bus_config_t;
 
 /**
  * @brief Bus manager structure that maintains a list of bus configurations.
  *
- * @note Thread Safety: The functions managing bus configurations are not 
- *       inherently thread-safe. Users should ensure external locking if 
+ * @note Thread Safety: The functions managing bus configurations are not
+ *       inherently thread-safe. Users should ensure external locking if
  *       multiple tasks may access the manager concurrently.
  */
 typedef struct pstar_bus_manager {

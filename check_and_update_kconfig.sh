@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # check_and_update_kconfig.sh
 
+# check_and_update_kconfig.sh
+
 max_attempts=10
 attempt=0
 
@@ -15,10 +17,10 @@ while [ $attempt -lt $max_attempts ]; do
 
   if [ $exit_code -eq 0 ]; then
     echo "kconfcheck completed successfully!"
-    
+
     # Move Kconfig.new files to replace originals
     find . -name "Kconfig.new" -exec sh -c 'echo "Moving $0 to ${0%.new}"; mv "$0" "${0%.new}"' {} \;
-    
+
     if [ $? -eq 0 ]; then
       echo "All Kconfig files checked and updated successfully."
       exit 0
