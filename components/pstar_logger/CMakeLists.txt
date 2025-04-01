@@ -27,9 +27,6 @@ if(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED)
   list(APPEND logger_priv_requires pstar_storage_hal)
 endif()
 
-# The C code uses #if defined(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED)
-# to guard the actual usage of storage_hal features.
-
 # Ensure no duplicates
 list(REMOVE_DUPLICATES logger_requires)
 list(REMOVE_DUPLICATES logger_priv_requires)

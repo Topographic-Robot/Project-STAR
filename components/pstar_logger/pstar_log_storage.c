@@ -14,9 +14,10 @@
 
 #include "esp_system.h"
 /* Conditionally include zlib.h only when compression is enabled */
-#if defined(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED) &&                                       \
-  defined(CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED)
+#ifdef CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
+#ifdef CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED
 #include <zlib.h>
+#endif
 #endif
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
