@@ -9,7 +9,7 @@
 #include "pstar_bus_sdio.h"
 #include "pstar_bus_spi.h"
 #include "pstar_log_handler.h"
-#include "pstar_pin_validator.h" // Make sure this is included
+#include "pstar_pin_validator.h"
 
 #include "driver/gpio.h"
 #include "driver/sdmmc_host.h"
@@ -545,11 +545,11 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
         xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
       mutex_taken_cleanup = true;
       if (sd_card->pin_config.gpio_det_pin >= 0) {
-        // Use pstar_bus_gpio_isr_remove which checks the bus name
+        /* Use pstar_bus_gpio_isr_remove which checks the bus name */
         pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
                                   CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
                                   sd_card->pin_config.gpio_det_pin);
-        // Unregister the pin as well
+        /* Unregister the pin as well */
         pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
       }
       priv_release_mutex_if_taken(sd_card, &mutex_taken_cleanup);
@@ -582,7 +582,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
       priv_release_mutex_if_taken(sd_card, &mutex_taken);
     }
 #endif
-    // TODO: Unregister other pins if task creation fails?
+    /* TODO: Unregister other pins if task creation fails */
     return ESP_ERR_NO_MEM;
   }
 
@@ -906,7 +906,7 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
                               CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME,
                               sd_card->pin_config.gpio_det_pin);
-    // Unregister the pin from validator
+    /* Unregister the pin from validator */
     pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
   }
 #endif
@@ -1672,7 +1672,8 @@ static const char* priv_sd_bus_width_to_string(sd_bus_width_t bus_width)
 }
 
 /**
- * @brief Resets the SD card hardware and remounts if needed
+ * @brief Resets the SD card hardware and remounts if needed.
+ *        Assumes the caller holds the sd_card->mutex.
  *
  * This function is called by the error handler when an error occurs to try
  * to recover from the error by resetting the SD card hardware and remounting.
@@ -1682,9 +1683,8 @@ static const char* priv_sd_bus_width_to_string(sd_bus_width_t bus_width)
  */
 static esp_err_t priv_sd_card_reset(void* context)
 {
-  esp_err_t      result      = ESP_OK;
-  bool           mutex_taken = false;
-  sd_card_hal_t* sd_card     = (sd_card_hal_t*)context;
+  esp_err_t      result  = ESP_OK;
+  sd_card_hal_t* sd_card = (sd_card_hal_t*)context;
 
   if (sd_card == NULL) {
     log_error(TAG, "Reset Error", "Invalid context pointer");
@@ -1693,25 +1693,21 @@ static esp_err_t priv_sd_card_reset(void* context)
 
   log_info(sd_card->tag, "Reset Started", "Resetting SD card hardware");
 
-  /* Take mutex for thread safety */
-  if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) != pdTRUE) {
-    log_error(sd_card->tag, "Reset Error", "Failed to take mutex during reset");
-    return ESP_ERR_TIMEOUT;
-  }
-  mutex_taken = true;
+  /* --- Mutex is assumed to be held by the caller --- */
 
   /* Unmount first if currently mounted */
   if (atomic_load(&sd_card->card_available)) {
-    esp_err_t unmount_result = priv_sd_card_unmount(sd_card);
+    esp_err_t unmount_result =
+      priv_sd_card_unmount(sd_card); /* unmount handles its own state changes/notifications */
     if (unmount_result != ESP_OK) {
       log_error(sd_card->tag,
                 "Reset Error",
                 "Failed to unmount SD card: %s",
                 esp_err_to_name(unmount_result));
       result = unmount_result;
-      priv_release_mutex_if_taken(sd_card, &mutex_taken);
-      return result;
+      return result; /* Return early on unmount failure */
     }
+    /* If unmount succeeds, card_available is now false, state is idle */
   }
 
   /* Start interface discovery again */
@@ -1727,9 +1723,12 @@ static esp_err_t priv_sd_card_reset(void* context)
   sd_card->current_interface = sd_card->preferred_interface;
 
   /* If card is inserted, try to mount */
-  if (priv_sd_card_is_inserted(sd_card)) {
-    priv_update_state_machine(sd_card, k_sd_state_interface_discovery);
-    esp_err_t mount_result = priv_sd_card_try_interfaces(sd_card);
+  if (priv_sd_card_is_inserted(sd_card)) { /* is_inserted takes+gives its own mutex if needed */
+    priv_update_state_machine(
+      sd_card,
+      k_sd_state_interface_discovery); /* update_state takes+gives its own mutex */
+    esp_err_t mount_result =
+      priv_sd_card_try_interfaces(sd_card); /* try_interfaces handles its own state/mutex */
     if (mount_result != ESP_OK) {
       log_error(sd_card->tag,
                 "Reset Error",
@@ -1737,23 +1736,26 @@ static esp_err_t priv_sd_card_reset(void* context)
                 esp_err_to_name(mount_result));
       result = mount_result;
       /* Update state machine to error after failed reset attempt */
-      priv_update_state_machine(sd_card, k_sd_state_error);
-      priv_release_mutex_if_taken(sd_card, &mutex_taken);
-      return result;
+      priv_update_state_machine(sd_card,
+                                k_sd_state_error); /* update_state takes+gives its own mutex */
+      return result;                               /* Return error */
     }
     /* If mounted successfully, update state */
     if (atomic_load(&sd_card->card_available)) {
-      priv_update_state_machine(sd_card, k_sd_state_interface_ready);
+      priv_update_state_machine(
+        sd_card,
+        k_sd_state_interface_ready); /* update_state takes+gives its own mutex */
     } else {
       /* Mount failed even after reset */
-      priv_update_state_machine(sd_card, k_sd_state_error);
+      priv_update_state_machine(sd_card,
+                                k_sd_state_error); /* update_state takes+gives its own mutex */
     }
   } else {
-    priv_update_state_machine(sd_card, k_sd_state_idle);
+    priv_update_state_machine(sd_card,
+                              k_sd_state_idle); /* update_state takes+gives its own mutex */
   }
 
-  /* Release mutex */
-  priv_release_mutex_if_taken(sd_card, &mutex_taken);
+  /* --- Mutex is released by the caller --- */
 
   if (result == ESP_OK && atomic_load(&sd_card->card_available)) {
     log_info(sd_card->tag, "Reset Complete", "SD card reset successful and card mounted");
@@ -2206,10 +2208,9 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
 
   /* Register the Card Detect pin with the validator */
   esp_err_t reg_err = pin_validator_register_pin(sd_card->pin_config.gpio_det_pin,
-                                                 "SD Card HAL", // Component name
-                                                 "Card Detect", // Usage
-                                                 false          // Card detect cannot be shared
-  );
+                                                 "SD Card HAL",
+                                                 "Card Detect",
+                                                 false);
   if (reg_err != ESP_OK) {
     log_error(sd_card->tag,
               "Detection Pin Registration Error",
@@ -2233,20 +2234,20 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
                                                sd_card->pin_config.gpio_det_pin,
                                                priv_sd_card_detection_isr,
                                                sd_card);
-    // Allow ESP_ERR_INVALID_STATE if ISR service or handler already added
+    /* Allow ESP_ERR_INVALID_STATE if ISR service or handler already added */
     if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
       log_error(sd_card->tag,
                 "Detection Setup Error",
                 "Failed to add ISR to existing GPIO bus: %s",
                 esp_err_to_name(isr_err));
-      // Don't forget to unregister the pin if ISR add fails
+      /* Don't forget to unregister the pin if ISR add fails */
       pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
       return isr_err;
     }
     log_info(sd_card->tag,
              "Detection Setup Complete",
              "Card detection ISR added/verified on existing GPIO bus.");
-    return ESP_OK; // Return success even if ISR already added
+    return ESP_OK; /* Return success even if ISR already added */
   }
 
   /* Create GPIO bus configuration */
@@ -2255,7 +2256,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
                                  k_pstar_mode_interrupt);
   if (gpio_config == NULL) {
     log_error(sd_card->tag, "Detection Setup Error", "Failed to create GPIO bus configuration");
-    // Unregister pin if bus creation fails
+    /* Unregister pin if bus creation fails */
     pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
     return ESP_ERR_NO_MEM;
   }
@@ -2278,7 +2279,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
               "Failed to add GPIO bus to manager: %s",
               esp_err_to_name(err));
     pstar_bus_config_destroy(gpio_config);
-    // Unregister pin if bus add fails
+    /* Unregister pin if bus add fails */
     pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
     return err;
   }
@@ -2291,7 +2292,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
               "Failed to initialize GPIO bus: %s",
               esp_err_to_name(err));
     pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
-    // Unregister pin if bus init fails
+    /* Unregister pin if bus init fails */
     pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
     return err;
   }
@@ -2309,7 +2310,7 @@ static esp_err_t priv_sd_card_setup_detection(sd_card_hal_t* sd_card)
               esp_err_to_name(err));
     pstar_bus_config_deinit(gpio_config);
     pstar_bus_manager_remove_bus(&sd_card->bus_manager, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME);
-    // Unregister pin if ISR add fails
+    /* Unregister pin if ISR add fails */
     pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
     return err;
   }
@@ -2972,75 +2973,89 @@ static void priv_sd_card_mount_task(void* arg)
 
     /* Handle card in error state - check for retries */
     if (sd_card->state == k_sd_state_error && is_inserted &&
-        error_handler_can_retry(&sd_card->error_handler)) {
-      /* Take mutex for thread safety */
+        error_handler_can_retry(&sd_card->error_handler)) { /* This takes+gives mutex */
+
+      /* Get the delay *before* taking the main mutex for the operation */
+      uint32_t delay_ms   = 0;
+      bool     need_delay = false;
+      /* Temporarily take mutex just to get delay value */
+      if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+        /* Only delay if it's not the first retry (retry count > 0) */
+        if (sd_card->error_handler.current_retry > 0) {
+          delay_ms   = sd_card->error_handler.current_retry_delay;
+          need_delay = true;
+        }
+        xSemaphoreGive(sd_card->mutex);
+      } else {
+        log_error(sd_card->tag, "Error Retry Error", "Failed to acquire mutex to get delay");
+        continue; /* Skip retry attempt */
+      }
+
+      /* Perform delay *outside* the main mutex lock if needed */
+      if (need_delay) {
+        log_info(sd_card->tag,
+                 "Error Retry",
+                 "Delaying %lu ms before retry %lu/%lu",
+                 delay_ms,
+                 sd_card->error_handler.current_retry + 1, /* Log the upcoming retry number */
+                 sd_card->error_handler.max_retries);
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
+      }
+
+      /* Now acquire mutex for the actual reset attempt */
       mutex_taken = false;
       if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
         mutex_taken = true;
 
-        /* Get delay from error handler */
-        uint32_t delay_ms = sd_card->error_handler.current_retry_delay;
-        priv_release_mutex_if_taken(sd_card, &mutex_taken); /* Release before delay */
-        vTaskDelay(pdMS_TO_TICKS(delay_ms));
-        /* Re-acquire mutex */
-        if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) != pdTRUE) {
-          log_error(sd_card->tag,
-                    "Error Retry Error",
-                    "Failed to re-acquire mutex for error retry");
-          continue; /* Skip retry attempt */
-        }
-        mutex_taken = true;
+        /* Double-check state and retry condition *after* delay and acquiring mutex */
+        if (sd_card->state == k_sd_state_error && is_inserted &&
+            error_handler_can_retry(&sd_card->error_handler)) {
+          log_info(sd_card->tag,
+                   "Error Recovery",
+                   "Attempting to recover from error (retry %lu/%lu)",
+                   sd_card->error_handler.current_retry + 1, /* Log the upcoming retry number */
+                   sd_card->error_handler.max_retries);
 
-        log_info(sd_card->tag,
-                 "Error Recovery",
-                 "Attempting to recover from error (retry %lu/%lu)",
-                 sd_card->error_handler.current_retry + 1,
-                 sd_card->error_handler.max_retries);
+          /* Call reset function (which now assumes mutex is held) */
+          esp_err_t err = priv_sd_card_reset(sd_card);
 
-        /* Try to reset and mount */
-        esp_err_t err = priv_sd_card_reset(sd_card); /* reset takes/gives mutex */
-                                                     /* Re-acquire mutex after reset */
-        if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) != pdTRUE) {
-          log_error(sd_card->tag, "Error Retry Error", "Failed to acquire mutex after reset");
-          mutex_taken = false; /* Ensure mutex_taken is false */
-          continue;
-        }
-        /* Mutex is already taken by reset, need to release it first? No, reset gives it back. */
-        /* mutex_taken = true; */
+          if (err != ESP_OK) {
+            log_error(sd_card->tag,
+                      "Reset Error",
+                      "Failed to reset SD card: %s",
+                      esp_err_to_name(err));
 
-        if (err != ESP_OK) {
-          log_error(sd_card->tag,
-                    "Reset Error",
-                    "Failed to reset SD card: %s",
-                    esp_err_to_name(err));
+            /* Record the error *after* the reset attempt */
+            /* Note: error_handler_record_error increments the retry count internally */
+            RECORD_ERROR(&sd_card->error_handler, err, "Failed to reset SD card");
 
-          /* Record the error (reset already tried) */
-          RECORD_ERROR(&sd_card->error_handler, err, "Failed to reset SD card");
-
-          /* Check if we've reached maximum retries */
-          if (!error_handler_can_retry(&sd_card->error_handler)) {
-            /* Update state machine to reflect permanent failure */
-            priv_update_state_machine(sd_card, k_sd_state_failed);
+            /* Check if max retries reached *after* recording the error */
+            if (!error_handler_can_retry(&sd_card->error_handler)) {
+              priv_update_state_machine(sd_card, k_sd_state_failed);
+            }
+            /* State remains k_sd_state_error if retries remain */
+          } else if (atomic_load(&sd_card->card_available)) {
+            /* Reset successful, card mounted */
+            priv_update_state_machine(sd_card, k_sd_state_interface_ready);
+            error_handler_reset_state(&sd_card->error_handler); /* Reset error state on success */
+          } else {
+            /* Reset OK, but card still not available (e.g. removed) */
+            priv_update_state_machine(sd_card, k_sd_state_idle);
+            error_handler_reset_state(&sd_card->error_handler); /* Reset error state */
           }
-        } else if (atomic_load(&sd_card->card_available)) {
-          /* Reset successful, we're mounted again */
-          priv_update_state_machine(sd_card, k_sd_state_interface_ready);
-          error_handler_reset_state(&sd_card->error_handler);
         } else {
-          /* Reset OK, but card still not available (e.g. removed during reset) */
-          priv_update_state_machine(sd_card, k_sd_state_idle);
-          error_handler_reset_state(&sd_card->error_handler);
+          log_info(sd_card->tag,
+                   "Error Retry Skip",
+                   "Condition for retry no longer met after delay/mutex acquisition.");
         }
-
-        /* Always release mutex when done */
+        /* Release mutex after operation */
         priv_release_mutex_if_taken(sd_card, &mutex_taken);
       } else {
-        /* Mutex not acquired initially */
         log_error(sd_card->tag,
                   "Error Retry Error",
-                  "Failed to acquire mutex for error retry check");
+                  "Failed to acquire mutex for error retry attempt");
       }
-    }
+    } /* end if can_retry */
 
     /* Perform performance measurements if needed and card is ready */
     if (sd_card->state == k_sd_state_interface_ready && atomic_load(&sd_card->card_available) &&
@@ -3156,7 +3171,7 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
         "Configuration Error",
         "Shared pins between SPI and SDIO must be configured to the same GPIO. "
         "Please correct in menuconfig. Pin registration will proceed, but validation will likely fail.");
-      share_common_pins = false; // Treat as non-shared if mismatched
+      share_common_pins = false; /* Treat as non-shared if mismatched */
     } else {
       share_common_pins = true;
       log_info(sd_card->tag, "Pin Sharing", "SPI/SDIO common pins will be marked as shareable.");
@@ -3172,45 +3187,45 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
   if (sd_card->spi_mode_enabled) {
     log_debug(sd_card->tag, "Pin Registration", "Registering SPI pins...");
 
-    // SPI CS (Unique to SPI)
+    /* SPI CS (Unique to SPI) */
     if (sd_card->pin_config.spi_cs_pin >= 0) {
       err = pin_validator_register_pin(sd_card->pin_config.spi_cs_pin,
                                        "SD Card HAL (SPI)",
                                        "SPI Chip Select",
-                                       false); // CS is never shared
+                                       false); /* CS is never shared */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
 
-    // SPI CLK (Potentially Shared)
+    /* SPI CLK (Potentially Shared) */
     if (sd_card->pin_config.spi_sclk_pin >= 0) {
       err = pin_validator_register_pin(
         sd_card->pin_config.spi_sclk_pin,
         "SD Card HAL (SPI)",
         "SPI CLK",
-        share_common_pins); // Mark shareable if both modes enabled & matched
+        share_common_pins); /* Mark shareable if both modes enabled & matched */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
 
-    // SPI DO (Potentially Shared with SDIO CMD)
+    /* SPI DO (Potentially Shared with SDIO CMD) */
     if (sd_card->pin_config.spi_do_pin >= 0) {
       err = pin_validator_register_pin(
         sd_card->pin_config.spi_do_pin,
         "SD Card HAL (SPI)",
         "SPI DO",
-        share_common_pins); // Mark shareable if both modes enabled & matched
+        share_common_pins); /* Mark shareable if both modes enabled & matched */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
 
-    // SPI DI (Potentially Shared with SDIO D0)
+    /* SPI DI (Potentially Shared with SDIO D0) */
     if (sd_card->pin_config.spi_di_pin >= 0) {
       err = pin_validator_register_pin(
         sd_card->pin_config.spi_di_pin,
         "SD Card HAL (SPI)",
         "SPI DI",
-        share_common_pins); // Mark shareable if both modes enabled & matched
+        share_common_pins); /* Mark shareable if both modes enabled & matched */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
@@ -3220,33 +3235,33 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
   if (sd_card->sdio_mode_enabled) {
     log_debug(sd_card->tag, "Pin Registration", "Registering SDIO pins...");
 
-    // SDIO CLK (Register ONLY if NOT shared or if mismatched)
+    /* SDIO CLK (Register ONLY if NOT shared or if mismatched) */
     if (!share_common_pins || mismatch_found) {
       if (sd_card->pin_config.sdio_clk_pin >= 0) {
-        err = pin_validator_register_pin(sd_card->pin_config.sdio_clk_pin, // Use SDIO pin number
+        err = pin_validator_register_pin(sd_card->pin_config.sdio_clk_pin, /* Use SDIO pin number */
                                          "SD Card HAL (SDIO)",
                                          "SDIO CLK",
-                                         false); // Not shared or mismatched
+                                         false); /* Not shared or mismatched */
         if (err != ESP_OK && first_reg_err == ESP_OK)
           first_reg_err = err;
       }
     } else if (share_common_pins && sd_card->pin_config.sdio_clk_pin >= 0) {
-      // If shared and valid, register usage under SDIO component name but mark shareable
+      /* If shared and valid, register usage under SDIO component name but mark shareable */
       err = pin_validator_register_pin(sd_card->pin_config.sdio_clk_pin,
                                        "SD Card HAL (SDIO)",
                                        "SDIO CLK",
-                                       true); // Mark as shareable
+                                       true); /* Mark as shareable */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
 
-    // SDIO CMD (Register ONLY if NOT shared or if mismatched)
+    /* SDIO CMD (Register ONLY if NOT shared or if mismatched) */
     if (!share_common_pins || mismatch_found) {
       if (sd_card->pin_config.sdio_cmd_pin >= 0) {
-        err = pin_validator_register_pin(sd_card->pin_config.sdio_cmd_pin, // Use SDIO pin number
+        err = pin_validator_register_pin(sd_card->pin_config.sdio_cmd_pin, /* Use SDIO pin number */
                                          "SD Card HAL (SDIO)",
                                          "SDIO CMD",
-                                         false); // Not shared or mismatched
+                                         false); /* Not shared or mismatched */
         if (err != ESP_OK && first_reg_err == ESP_OK)
           first_reg_err = err;
       }
@@ -3254,18 +3269,18 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
       err = pin_validator_register_pin(sd_card->pin_config.sdio_cmd_pin,
                                        "SD Card HAL (SDIO)",
                                        "SDIO CMD",
-                                       true); // Mark as shareable
+                                       true); /* Mark as shareable */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
 
-    // SDIO D0 (Register ONLY if NOT shared or if mismatched)
+    /* SDIO D0 (Register ONLY if NOT shared or if mismatched) */
     if (!share_common_pins || mismatch_found) {
       if (sd_card->pin_config.sdio_d0_pin >= 0) {
-        err = pin_validator_register_pin(sd_card->pin_config.sdio_d0_pin, // Use SDIO pin number
+        err = pin_validator_register_pin(sd_card->pin_config.sdio_d0_pin, /* Use SDIO pin number */
                                          "SD Card HAL (SDIO)",
                                          "SDIO D0",
-                                         false); // Not shared or mismatched
+                                         false); /* Not shared or mismatched */
         if (err != ESP_OK && first_reg_err == ESP_OK)
           first_reg_err = err;
       }
@@ -3273,18 +3288,18 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
       err = pin_validator_register_pin(sd_card->pin_config.sdio_d0_pin,
                                        "SD Card HAL (SDIO)",
                                        "SDIO D0",
-                                       true); // Mark as shareable
+                                       true); /* Mark as shareable */
       if (err != ESP_OK && first_reg_err == ESP_OK)
         first_reg_err = err;
     }
 
-    // SDIO D1, D2, D3 (Unique to SDIO 4-bit mode)
+    /* SDIO D1, D2, D3 (Unique to SDIO 4-bit mode) */
     if (sd_card->bus_width == k_sd_bus_width_4bit) {
       if (sd_card->pin_config.sdio_d1_pin >= 0) {
         err = pin_validator_register_pin(sd_card->pin_config.sdio_d1_pin,
                                          "SD Card HAL (SDIO)",
                                          "SDIO D1 (4-bit)",
-                                         false); // Unique pin
+                                         false); /* Unique pin */
         if (err != ESP_OK && first_reg_err == ESP_OK)
           first_reg_err = err;
       }
@@ -3292,7 +3307,7 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
         err = pin_validator_register_pin(sd_card->pin_config.sdio_d2_pin,
                                          "SD Card HAL (SDIO)",
                                          "SDIO D2 (4-bit)",
-                                         false); // Unique pin
+                                         false); /* Unique pin */
         if (err != ESP_OK && first_reg_err == ESP_OK)
           first_reg_err = err;
       }
@@ -3300,15 +3315,15 @@ static esp_err_t priv_register_sd_card_pins(sd_card_hal_t* sd_card)
         err = pin_validator_register_pin(sd_card->pin_config.sdio_d3_pin,
                                          "SD Card HAL (SDIO)",
                                          "SDIO D3 (4-bit)",
-                                         false); // Unique pin
+                                         false); /* Unique pin */
         if (err != ESP_OK && first_reg_err == ESP_OK)
           first_reg_err = err;
       }
     }
   }
 
-  // Return the first *registration* error encountered, or OK if none.
-  // Configuration mismatch errors were logged but don't cause an early exit here.
+  /* Return the first *registration* error encountered, or OK if none. */
+  /* Configuration mismatch errors were logged but don't cause an early exit here. */
   if (first_reg_err != ESP_OK) {
     log_error(sd_card->tag,
               "Pin Registration Error",

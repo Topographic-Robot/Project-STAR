@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sdkconfig.h" // Needed for Kconfig options
+#include "sdkconfig.h"
 
 /* Constants ******************************************************************/
 
@@ -388,8 +388,8 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
           bool skip_registration = false;
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
-          // Check if this is the SD card GPIO bus and the specific CD pin
-          // Prevent double registration - SD HAL will register it.
+          /* Check if this is the SD card GPIO bus and the specific CD pin */
+          /* Prevent double registration - SD HAL will register it. */
           if (strcmp(config->name, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME) == 0 &&
               pin == CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO) {
             log_debug(
@@ -407,7 +407,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
             result = pin_validator_register_pin(pin,
                                                 config->name,
                                                 "GPIO",
-                                                false); // Default non-shareable for generic GPIO
+                                                false); /* Default non-shareable for generic GPIO */
             if (result != ESP_OK) {
               log_error(TAG,
                         "Pin Registration Error",

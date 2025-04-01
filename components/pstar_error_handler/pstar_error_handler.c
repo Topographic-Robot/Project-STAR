@@ -91,38 +91,19 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
     return ESP_ERR_TIMEOUT; /* Indicate mutex failure */
   }
 
-  /* Construct detailed log message */
-  /* Using a stack buffer, assuming total length won't exceed it. Be cautious. */
-  char
-    log_buffer[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH]; /* Use logger's max msg length */
-  snprintf(log_buffer,
-           sizeof(log_buffer),
-           "Desc: %s | Code: %d (%s) | Loc: %s:%d (%s) | Retry: %lu/%lu",
-           desc,
-           error,
-           esp_err_to_name(error),
-           filename,
-           line,
-           funcname,
-           handler->current_retry,
-           handler->max_retries);
-  log_buffer[sizeof(log_buffer) - 1] = '\0'; /* Ensure null termination */
-
-  log_error(TAG, "Error Recorded", "%s", log_buffer); /* Log the detailed message */
-
-  handler->error_count++;
-  handler->last_error = error;
-
-  esp_err_t recovery_result = ESP_FAIL; /* Default to fail */
-
+  /* Only increment retry count if we haven't reached the max yet */
+  /* This prevents the logged count from exceeding max_retries */
+  uint32_t retry_count_to_log = handler->current_retry;
   if (!handler->in_error_state) {
     /* First error occurrence */
     handler->in_error_state      = true;
-    handler->current_retry       = 0;
+    handler->current_retry       = 0; /* Start at 0 for the first attempt */
     handler->current_retry_delay = handler->base_retry_delay;
-  } else {
-    /* Subsequent error, increment retry */
+    retry_count_to_log           = 0; /* Log as 0/max */
+  } else if (handler->current_retry < handler->max_retries) {
+    /* Subsequent error, increment retry if below max */
     handler->current_retry++;
+    retry_count_to_log = handler->current_retry; /* Log the incremented value */
     /* Apply exponential backoff */
     uint64_t new_delay_64 =
       (uint64_t)handler->current_retry_delay * 2; /* Use 64-bit intermediate */
@@ -135,9 +116,39 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
       handler->current_retry_delay = (uint32_t)new_delay_64;
     }
     log_info(TAG, "Backoff", "Next retry delay: %lu ms", handler->current_retry_delay);
+  } else {
+    /* Retries already exhausted, log the max count */
+    retry_count_to_log = handler->max_retries;
+    /* Keep the max delay */
+    handler->current_retry_delay = handler->max_retry_delay;
+    log_info(TAG, "Backoff", "Next retry delay: %lu ms", handler->current_retry_delay);
   }
 
-  /* Attempt reset only if retries are exhausted or if configured differently (e.g., reset on first error) */
+  /* Construct detailed log message using retry_count_to_log */
+  /* Using a stack buffer, assuming total length won't exceed it. Be cautious. */
+  char
+    log_buffer[CONFIG_PSTAR_KCONFIG_LOGGING_MAX_MESSAGE_LENGTH]; /* Use logger's max msg length */
+  snprintf(log_buffer,
+           sizeof(log_buffer),
+           "Desc: %s | Code: %d (%s) | Loc: %s:%d (%s) | Retry: %lu/%lu", /* Use %lu */
+           desc,
+           error,
+           esp_err_to_name(error),
+           filename,
+           line,
+           funcname,
+           (unsigned long)retry_count_to_log, /* Cast to unsigned long for %lu */
+           (unsigned long)handler->max_retries);
+  log_buffer[sizeof(log_buffer) - 1] = '\0'; /* Ensure null termination */
+
+  log_error(TAG, "Error Recorded", "%s", log_buffer); /* Log the detailed message */
+
+  handler->error_count++;
+  handler->last_error = error;
+
+  esp_err_t recovery_result = ESP_FAIL; /* Default to fail */
+
+  /* Check if retries are exhausted based on the *actual* current_retry */
   if (handler->current_retry >= handler->max_retries) {
     log_error(TAG,
               "Max Retries",

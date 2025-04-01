@@ -4,14 +4,14 @@
 
 #include "esp_log.h"
 #include "esp_system.h"
-#include "sdkconfig.h" // Include sdkconfig for Kconfig options
+#include "sdkconfig.h"
 
 #if defined(CONFIG_PSTAR_KCONFIG_LOGGING_INCLUDE_TIMESTAMP) &&                                     \
   defined(CONFIG_PSTAR_KCONFIG_TIME_MANAGER_ENABLED)
 #include "pstar_time_manager.h"
 #endif
 #include "pstar_log_macros.h"
-#include "pstar_log_storage.h" // Include log storage header
+#include "pstar_log_storage.h"
 
 #include <stdarg.h>
 #include <stdatomic.h>

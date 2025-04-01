@@ -131,9 +131,6 @@ static void priv_initialize_sntp(void)
   /* Check if already initialized */
   if (s_sntp_initialized) {
     log_info(TAG, "SNTP Info", "SNTP service already initialized.");
-    /* Optionally restart if needed, but generally not necessary unless config changes */
-    // esp_sntp_stop();
-    // esp_sntp_init();
     return;
   }
 
@@ -205,12 +202,12 @@ static void priv_time_sync_task(void* pvParameters)
              CONFIG_PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS);
     uxBits = xEventGroupWaitBits(s_time_sync_event_group,
                                  IP_EVENT_BIT,
-                                 pdFALSE, // Don't clear the bit
-                                 pdFALSE, // Wait for just this bit
+                                 pdFALSE, /* Don't clear the bit */
+                                 pdFALSE, /* Wait for just this bit */
                                  network_wait_ticks);
   } else {
     log_error(TAG, "Sync Task Error", "Event group is NULL, cannot wait for IP event.");
-    priv_set_default_time(); // Fallback if group is bad
+    priv_set_default_time(); /* Fallback if group is bad */
     s_time_sync_task_handle = NULL;
     vTaskDelete(NULL);
     return;
@@ -242,7 +239,7 @@ static void priv_time_sync_task(void* pvParameters)
                                  sntp_wait_ticks);
   } else {
     log_error(TAG, "Sync Task Error", "Event group is NULL, cannot wait for SNTP sync bit.");
-    priv_set_default_time(); // Fallback if group is bad
+    priv_set_default_time(); /* Fallback if group is bad */
     s_time_sync_task_handle = NULL;
     vTaskDelete(NULL);
     return;
@@ -336,7 +333,7 @@ esp_err_t time_manager_init(void)
               esp_err_to_name(reg_err));
     esp_event_handler_unregister(IP_EVENT,
                                  IP_EVENT_STA_GOT_IP,
-                                 ip_event_handler); // Unregister STA handler
+                                 ip_event_handler); /* Unregister STA handler */
     vEventGroupDelete(s_time_sync_event_group);
     s_time_sync_event_group = NULL;
     return reg_err;

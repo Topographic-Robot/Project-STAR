@@ -10,18 +10,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "esp_system.h"
-#include "sdkconfig.h" // Must be included for Kconfig options
-
-/* --- Add ESP-IDF Network/Event/NVS/Sleep includes --- */
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "esp_sleep.h" // Include for deep sleep
+#include "esp_sleep.h"
+#include "esp_system.h"
 #include "nvs_flash.h"
-/* --- End Add --- */
+#include "sdkconfig.h"
 
 #ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
-#include "pstar_pin_validator.h" // Include pin validator header
+#include "pstar_pin_validator.h"
 #endif
 
 #ifdef CONFIG_PSTAR_KCONFIG_TIME_MANAGER_ENABLED
@@ -36,7 +33,6 @@
 /* Constants ******************************************************************/
 
 static const char* TAG = "Project Star"; /**< Tag for logging */
-// #define DEEP_SLEEP_WAKEUP_SEC (10) // No longer needed for indefinite sleep
 
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
 static sd_card_hal_t        g_sd_card;      /**< Global static SD card HAL instance */
@@ -49,8 +45,8 @@ static error_handler_t g_heartbeat_error_handler; /**< Global static heartbeat e
 
 static void app_cleanup(void);
 static void app_init(void);
-static void app_halt(const char* reason);       // Keep declaration for potential future use
-static void app_deep_sleep(const char* reason); // Function for deep sleep
+static void app_halt(const char* reason);
+static void app_deep_sleep(const char* reason);
 
 void app_main(void)
 {
@@ -140,7 +136,7 @@ void app_main(void)
     }
   } /* End while(1) */
 
-  app_cleanup(); // This line might not be reached in a typical embedded loop
+  app_cleanup();
 }
 
 /**
@@ -151,12 +147,11 @@ void app_main(void)
 static void app_halt(const char* reason)
 {
   log_error(TAG, "SYSTEM HALTED", "Reason: %s", reason);
-  log_flush(); // Attempt final flush
-  // Optional: Add code here to signal hardware failure (e.g., LED pattern)
+  log_flush();
 
-  // Loop indefinitely, allowing WDT to be fed by idle task
+  /* Loop indefinitely, allowing WDT to be fed by idle task */
   while (1) {
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow other tasks (like idle) to run
+    vTaskDelay(pdMS_TO_TICKS(1000)); /* Delay to allow other tasks (like idle) to run */
   }
 }
 
@@ -166,20 +161,20 @@ static void app_halt(const char* reason)
  */
 static void app_deep_sleep(const char* reason)
 {
-  log_error(TAG, "ENTERING INDEFINITE DEEP SLEEP", "Reason: %s", reason); // Updated log message
-  log_flush(); // Attempt final flush before sleeping
+  log_error(TAG, "ENTERING INDEFINITE DEEP SLEEP", "Reason: %s", reason);
+  log_flush(); /* Attempt final flush before sleeping */
 
-  // --- DO NOT ENABLE ANY WAKEUP SOURCES ---
-  // Ensure no wakeup sources (timer, GPIO, etc.) are enabled here
-  // unless specifically intended for a different recovery mechanism.
+  /* --- DO NOT ENABLE ANY WAKEUP SOURCES --- */
+  /* Ensure no wakeup sources (timer, GPIO, etc.) are enabled here */
+  /* unless specifically intended for a different recovery mechanism. */
 
   log_info(TAG, "Deep Sleep", "Entering indefinite deep sleep now.");
 
-  // Enter deep sleep
+  /* Enter deep sleep */
   esp_deep_sleep_start();
 
-  // Code below this line will not be executed.
-  // The device will remain in deep sleep until power cycle or external reset.
+  /* Code below this line will not be executed. */
+  /* The device will remain in deep sleep until power cycle or external reset. */
 }
 
 /**
@@ -240,36 +235,36 @@ static void app_init(void)
                            NULL);
   if (err != ESP_OK) {
     printf("[%s] CRITICAL: Failed to initialize main error handler: %d. Halting.\n", TAG, err);
-    app_halt("Main error handler init failed"); // Use original halt for this critical failure
+    app_halt("Main error handler init failed");
   }
 
   /* --- Initialize Minimal Logger FIRST --- */
-  err = log_init(NULL, NULL); // Pass NULLs for minimal init
+  err = log_init(NULL, NULL);
   if (err != ESP_OK) {
     printf("[%s] CRITICAL FAILURE: Minimal logging init failed (%d). Halting.\n", TAG, err);
-    app_halt("Minimal logger init failed"); // Use original halt
+    app_halt("Minimal logger init failed");
   }
   log_info(TAG, "Init Start", "Minimal logger initialized.");
 
   /* --- Initialize Core ESP-IDF Services --- */
   log_info(TAG, "Init Core", "Initializing NVS Flash...");
-  err = nvs_flash_init(); // Initialize NVS
+  err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
     log_warn(TAG, "NVS Warning", "NVS requires erase. Erasing...");
-    ESP_ERROR_CHECK(nvs_flash_erase()); // Halt if erase fails
+    ESP_ERROR_CHECK(nvs_flash_erase());
     err = nvs_flash_init();
   }
-  if (err != ESP_OK) { // Check error *after* potential erase/retry
+  if (err != ESP_OK) {
     RECORD_ERROR(&g_main_error_handler, err, "Failed to initialize NVS flash");
     log_error(TAG, "CRITICAL FAILURE", "NVS init failed (%s). Halting.", esp_err_to_name(err));
-    app_halt("NVS init failed"); // Use original halt
+    app_halt("NVS init failed");
   }
 
   log_info(TAG, "Init Core", "Initializing Network Interface...");
-  ESP_ERROR_CHECK(esp_netif_init()); // Halt on failure
+  ESP_ERROR_CHECK(esp_netif_init());
 
   log_info(TAG, "Init Core", "Initializing Event Loop...");
-  ESP_ERROR_CHECK(esp_event_loop_create_default()); // Halt on failure
+  ESP_ERROR_CHECK(esp_event_loop_create_default());
 
   /* --- Initialize Pin Validator --- */
 #ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
@@ -281,16 +276,16 @@ static void app_init(void)
               "CRITICAL FAILURE",
               "Pin Validator init failed (%s). Halting.",
               esp_err_to_name(err));
-    app_halt("Pin validator init failed"); // Use original halt
+    app_halt("Pin validator init failed");
   } else {
-    log_info(TAG, "Init Complete", "Pin validator initialized successfully"); // Log success
+    log_info(TAG, "Init Complete", "Pin validator initialized successfully");
   }
 #endif
 
   /* --- Initialize Other Components --- */
 #ifdef CONFIG_PSTAR_KCONFIG_TIME_MANAGER_ENABLED
   log_info(TAG, "Init Time", "Initializing Time Manager...");
-  err = time_manager_init(); // This now should succeed if event loop is up
+  err = time_manager_init(); /* This now should succeed if event loop is up */
   if (err != ESP_OK) {
     RECORD_ERROR(&g_main_error_handler, err, "Failed to initialize Time Manager");
     log_warn(TAG,
@@ -334,7 +329,7 @@ static void app_init(void)
               "CRITICAL FAILURE",
               "SD HAL struct init failed (%s). Halting.",
               esp_err_to_name(err));
-    app_halt("SD Card HAL structure init failed"); // Use original halt
+    app_halt("SD Card HAL structure init failed");
   }
 
   err = sd_card_set_task_config(sd_card,
@@ -347,7 +342,7 @@ static void app_init(void)
               "CRITICAL FAILURE",
               "SD task config failed (%s). Halting.",
               esp_err_to_name(err));
-    app_halt("SD Card task config failed"); // Use original halt
+    app_halt("SD Card task config failed");
   }
 
   log_info(TAG, "Init SD Hardware", "Initializing SD Card hardware...");
@@ -355,16 +350,16 @@ static void app_init(void)
   if (err != ESP_OK) {
     RECORD_ERROR(&g_main_error_handler, err, "Failed to initialize SD card hardware");
     log_error(TAG,
-              "SD HW Init Warning", // Changed to Warning, might not be fatal yet
+              "SD HW Init Warning",
               "SD HW init failed (%s). Continuing to Pin Validation.",
               esp_err_to_name(err));
-    // Do NOT halt here yet. Let pin validation run.
+    /* Do NOT halt here yet. Let pin validation run. */
   } else {
-    log_info(TAG, "Init Complete", "SD card HAL initialization complete"); // Log success
+    log_info(TAG, "Init Complete", "SD card HAL initialization complete");
   }
 
-  // Initialize File Manager *even if* SD HW init failed,
-  // as the logger might need it (though writes will fail).
+  /* Initialize File Manager *even if* SD HW init failed, */
+  /* as the logger might need it (though writes will fail). */
   file_writer_config_t fm_config = {
     .priority    = CONFIG_PSTAR_KCONFIG_FILE_MANAGER_TASK_PRIORITY,
     .stack_depth = CONFIG_PSTAR_KCONFIG_FILE_MANAGER_TASK_STACK_SIZE,
@@ -381,24 +376,24 @@ static void app_init(void)
               "CRITICAL FAILURE",
               "File Manager init failed (%s). Halting.",
               esp_err_to_name(err));
-    app_halt("File manager init failed"); // Use original halt
+    app_halt("File manager init failed");
   } else {
-    log_info(TAG, "Init Complete", "File write manager initialized successfully"); // Log success
+    log_info(TAG, "Init Complete", "File write manager initialized successfully");
   }
 
   /* Re-Initialize logging system with SD card support */
-  log_cleanup(); // Cleanup minimal logger
+  log_cleanup();
   log_info(TAG, "Init Logging", "Re-initializing Logging System (with SD support)...");
-  err = log_init(file_manager, sd_card); // Init full logger
+  err = log_init(file_manager, sd_card);
   if (err != ESP_OK) {
     log_error(TAG,
               "Full Logger Init Failed",
               "Full Logging init failed (%s). Continuing to Pin Validation.",
               esp_err_to_name(err));
     RECORD_ERROR(&g_main_error_handler, err, "Full logger init failed");
-    // Do NOT call app_halt here.
+    /* Do NOT call app_halt here. */
   } else {
-    log_info(TAG, "Init Complete", "Full logger initialized successfully"); // Log success
+    log_info(TAG, "Init Complete", "Full logger initialized successfully");
   }
 #endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED */
 
@@ -410,12 +405,12 @@ static void app_init(void)
   log_info(TAG, "Pin Validation", "Validating pin assignments...");
 #ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_PRINT_ASSIGNMENTS
   log_info(TAG, "Pin Assignments", "--- Start Pin Assignment Table ---");
-  pin_validator_print_assignments(); // Print assignments registered so far
+  pin_validator_print_assignments(); /* Print assignments registered so far */
   log_info(TAG, "Pin Assignments", "--- End Pin Assignment Table ---");
 #endif
 
-  // --- Call validator ---
-  // The halt_on_conflict parameter passed here is now just informational
+  /* --- Call validator --- */
+  /* The halt_on_conflict parameter passed here is now just informational */
   err = pin_validator_validate_all(
 #ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_HALT_ON_CONFLICT
     true
@@ -424,12 +419,12 @@ static void app_init(void)
 #endif
   );
 
-  // --- Check the result and decide action ---
-  if (err != ESP_OK) { // Conflicts were found
+  /* --- Check the result and decide action --- */
+  if (err != ESP_OK) {
     RECORD_ERROR(&g_main_error_handler, err, "Pin validation failed");
     log_error(TAG, "Pin Error", "Pin validation failed! Check logs for conflicts.");
 
-// --- Always use deep sleep on pin conflict ---
+/* --- Always use deep sleep on pin conflict --- */
 #ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_HALT_ON_CONFLICT
     log_warn(TAG,
              "Pin Error",
@@ -441,9 +436,8 @@ static void app_init(void)
              "Pin validation failed (Kconfig HALT disabled). Entering indefinite deep sleep.");
     app_deep_sleep("Pin validation failed (Kconfig HALT disabled)");
 #endif
-    // --- END MODIFICATION ---
 
-    // Code below this point won't be reached if deep sleep is entered.
+    /* Code below this point won't be reached if deep sleep is entered. */
   } else {
     log_info(TAG, "Pin Success", "Pin validation passed.");
   }
