@@ -2,7 +2,7 @@
 # add_file_header.sh
 #
 # This script processes .c, .h, .v, .py, .go, .sh, CMakeLists.txt, Kconfig, and Kconfig.projbuild files,
-# excluding 'build' and 'managed_components' directories.
+# excluding 'build', 'managed_components', and 'clang_format_backup_*' directories.
 # It first checks whether the file's header (the first non-shebang line for .sh files)
 # matches the expected header (which is based on the file's relative path).
 # If the header is already present, no changes are made.
@@ -20,9 +20,11 @@ fi
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
+# Modified find command to also exclude clang_format_backup_* directories
 find . \
   -path ./build -prune -o \
   -path ./managed_components -prune -o \
+  -path "./clang_format_backup_*" -prune -o \
   -type f \( -name "*.c" -o -name "*.h" -o -name "*.v" -o -name "*.py" -o -name "*.go" -o -name "*.sh" -o -name "CMakeLists.txt" -o -name "Kconfig" -o -name "Kconfig.projbuild" \) -print | \
 while IFS= read -r file; do
 
