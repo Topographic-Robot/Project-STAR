@@ -1,0 +1,31 @@
+# main/Kconfig.projbuild
+
+menu "Project Star Configuration"
+
+    config PSTAR_KCONFIG_PROJECT_VERSION
+        string "Project Version"
+        default "0.1.0"
+        help
+            Version string for the Project Star application.
+
+    config PSTAR_KCONFIG_MEMORY_DEBUG
+        bool "Enable memory debugging"
+        default n
+        help
+            Enable additional memory debugging and tracking.
+
+    config PSTAR_KCONFIG_WDT_ENABLED
+        bool "Enable watchdog timer"
+        default y
+        help
+            Enable the watchdog timer to detect and recover from system hangs.
+
+    config PSTAR_KCONFIG_WDT_TIMEOUT_MS
+        int "Watchdog timeout (ms)"
+        depends on PSTAR_KCONFIG_WDT_ENABLED
+        range 1000 120000
+        default 30000
+        help
+            Timeout in milliseconds for the watchdog timer.
+
+endmenu

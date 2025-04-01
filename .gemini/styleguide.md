@@ -17,7 +17,7 @@ Example:
     /* Set register to zero using ASM */
     mov r0, #0      /* Initialize r0 to 0 */
 
-- **Use Inline ASM Sparingly**: Inline assembly allows you to embed assembly instructions directly in C code. It should only be used when absolutely necessary, such as when interacting with hardware registers or performing CPU-specific optimizations. 
+- **Use Inline ASM Sparingly**: Inline assembly allows you to embed assembly instructions directly in C code. It should only be used when absolutely necessary, such as when interacting with hardware registers or performing CPU-specific optimizations.
 
 - **Constrain the Scope of Inline ASM**: When using inline assembly, constrain its scope to as few lines as possible and avoid intermixing it with complex C logic. This helps isolate potential issues and reduces the risk of bugs.
 
@@ -90,7 +90,7 @@ When to Use ASM and Inline ASM
 General Guidelines
 ------------------
 
-- Avoid ASM unless absolutely necessary. 
+- Avoid ASM unless absolutely necessary.
 
 - Use inline ASM for simple tasks like setting hardware registers, not for optimizations.
 
@@ -363,7 +363,7 @@ General Guidelines
 - Enclose each `case` block in braces `{}`.
 * ** */* */case 3: return 0
 
-      
+
 Breaking Long Lines
 ===================
 
@@ -373,7 +373,7 @@ Guidelines
 ----------
 
 - **Maximum Line Length**: Ensure that no line of code exceeds roughly 80 characters. This includes comments, code, and declarations.
-  
+
 - **Break at Natural Points**: Break lines at natural points, such as after operators (`+`, `-`, `*`, `=`, etc.), commas, or logical groupings to improve readability.
 
 - **Indentation for Continuation Lines**: When breaking lines, ensure the continued line is indented properly for readability. Line up indentation after the line break to maintain visual alignment.
@@ -490,7 +490,7 @@ Since we use Doxygen to generate documentation, **every function** must include 
 **Where to place Doxygen comments:**
 
 - **Header files (`.h` files)**: Doxygen comments should be placed in header files for public functions and any functions that are shared across multiple source files. This allows the comments to be used for API documentation and ensures that users of your code understand the function's purpose and usage.
-  
+
 - **Source files (`.c` files)**: You may include Doxygen comments in source files for private or static functions that are not exposed through header files. If the function is defined in both a header and source file, place the Doxygen comment in the header file only.
 
 **Doxygen Comment Structure:**
@@ -761,29 +761,29 @@ When to Use RTOS Types, Mutexes, Semaphores, or Atomic Operations
 -----------------------------------------------------------------
 
 - **Use RTOS Types** when:
-  
+
   - Developing for embedded systems like ESP32, where efficient task management and low overhead are crucial.
-  
+
   - You need to leverage the real-time operating system's capabilities for task scheduling and synchronization.
 
 - **Use Mutexes** when:
-  
+
   - You need **exclusive access** to a shared resource (e.g., modifying a shared data structure).
-  
+
   - The resource must only be accessed by one thread at a time.
-  
+
   - The operation involves multiple steps that must all be done without interruption.
 
 - **Use Semaphores** when:
-  
+
   - You need to manage **multiple shared resources** that several threads can access concurrently (e.g., a pool of database connections).
-  
+
   - You are implementing **producer-consumer** scenarios where tasks signal each other to proceed.
 
 - **Use Atomic Operations** when:
-  
+
   - You need to perform simple operations (e.g., incrementing a counter, flipping a flag) that need to be **thread-safe** without using locks.
-  
+
   - The performance overhead of mutexes or semaphores is unnecessary due to the simplicity of the operation.
 
 Task Management in ESP32
@@ -969,7 +969,7 @@ General Guidelines for Error Handling
       return 0;
     }
 
-- **Handle Errors at the Point of Failure**: Always handle errors as close as possible to where they occur. If a function returns an error code, the caller should check that value and handle the error appropriately. 
+- **Handle Errors at the Point of Failure**: Always handle errors as close as possible to where they occur. If a function returns an error code, the caller should check that value and handle the error appropriately.
 
   Example:
 
@@ -1111,7 +1111,7 @@ Best Practices
 --------------
 
 - **Consistent Error Handling**: Always return specific error codes and handle them consistently in your code.
-  
+
 - **Use Standard Error Codes**: Where possible, use standard POSIX error codes from `errno.h` to avoid ambiguity.
 
 - **Never Ignore Return Values**: Always check the return values of functions, especially those that can fail (e.g., `malloc`, `fopen`).
@@ -1124,7 +1124,7 @@ General Guidelines
 ------------------
 
 - **Return Error Codes**: Functions should return error codes where applicable.
-  
+
 - **Use `NULL` for Pointer Failures**: Return `NULL` for pointer failures to indicate allocation issues.
 
 - **ESP32 Macros**: Use `ESP_ERROR_CHECK()` for ESP-IDF error handling to log errors and terminate or handle gracefully.
@@ -1219,7 +1219,7 @@ General Function Guidelines
 ----------------------------
 
 - **Use `const` for Parameters**: If a parameter is not going to be modified, always declare it as `const` to ensure clarity and prevent accidental changes.
-  
+
 - **Pass by Reference for Large Data**: When dealing with large data structures, prefer passing by reference to avoid unnecessary copying. However, prioritize readability if passing by reference makes the function less clear.
 
 Example of `const` and Passing by Reference:
@@ -1232,7 +1232,7 @@ Example of `const` and Passing by Reference:
     }
 
 - **Clear Names**: Function names should describe what the function does, and the return type should match the behavior of the function name (e.g., use a boolean return type for predicate functions).
-  
+
 - **Static Functions**: Use `static` for private functions that are only used within a single source file. Public functions should be declared in header files and follow the naming conventions.
 
 - **Exposed Private Functions**: Use the `priv_` prefix for functions that cannot be static but are intended for internal use only.
@@ -1249,8 +1249,8 @@ Example:
 
 .. code-block:: c
 
-    int my_function(int*              param1, 
-                    const int** const param2, 
+    int my_function(int*              param1,
+                    const int** const param2,
                     int               param3)
     {
       /* Function logic */
@@ -1570,7 +1570,7 @@ When to Use Header Guards
 -------------------------
 
 - **Every Header File**: All header files must use header guards to prevent multiple inclusion issues.
-  
+
 - **Use Project/Module Prefixes**: In larger projects, always use a unique prefix to avoid conflicts with third-party libraries.
 
 General Guidelines
@@ -1795,13 +1795,13 @@ Order of Includes
 -----------------
 
 Include statements should be organized in a specific order to improve readability and minimize conflicts:
-  
+
 1. First include the corresponding header file for the source file.
 
 2. Then include any external or system headers.
 
 3. Lastly, include any project-specific headers.
-  
+
 Example:
 
 .. code-block:: c
@@ -1843,9 +1843,9 @@ Bad Example
 .. code-block:: c
 
   /* Incorrect example with 4-space indentation */
-  
+
   static void process_input(int input_value)
-  {    
+  {
     if (input_value > 0) {
       s_threshold = 10;
     } else {
@@ -1863,7 +1863,7 @@ Good Example
   /* Example of good indentation with 2-space rule */
 
   static void process_input(int input_value)
-  {  
+  {
     if (input_value > 0) {
       s_threshold = 10;
     } else {
@@ -1872,7 +1872,7 @@ Good Example
   }
 
   static void calculate_output(void)
-  {  
+  {
     int result = 0;
     result     = s_threshold + 1;
   }
@@ -1918,7 +1918,7 @@ This section covers the coding style for building the topographical robot.
    asm_inline_asm
    header_files
    include_statements
-   error_handling
+   error_handler
    concurrency_and_parllelism
    memory_management
    project_structure
@@ -1960,7 +1960,7 @@ Why Unix Line Endings?
 ----------------------
 
 - **Cross-Platform Compatibility**: Unix-style line endings are standard on most Unix-like systems (Linux, macOS), and maintaining this consistency helps ensure compatibility across all platforms.
-  
+
 - **Version Control**: Using a consistent line ending format prevents unnecessary diffs in version control. Mixing `LF` and `CRLF` line endings can result in changes being flagged that aren't actual code changes.
 
 General Guidelines
@@ -2457,9 +2457,9 @@ Choosing clear and meaningful names for variables, functions, classes, and other
 - **Consistency**: Using a consistent naming convention across the project ensures that all developers follow the same rules, making the codebase uniform. The following conventions should be followed:
 
   - **Static Declarations**: Any variable or function that is only used in a single source file should be declared `static`. Static variables should be prefixed with `s_` for easy identification (e.g., `static bool s_invert`).
-  
+
   - **Namespacing**: Public names (non-static variables and functions) should be namespaced with a per-component or per-unit prefix to avoid naming collisions. For example, use `mycomp_vfs_register()` or `mycomp_console_run()` to clearly indicate the source of the function or variable. If a prefix like `mycomp_` is chosen, it should be consistent across all names within that component.
-  
+
   - **Enum and Struct Typedefs**: All enums and structs should use snake_case and end with `_t` to indicate they are typedefs (e.g., `error_code_t`, `my_struct_t`).
 
   - **Enum Values**: Enum values should start with `k_` to distinguish them from other identifiers (e.g., `k_success`, `k_failure`).
@@ -2490,7 +2490,7 @@ Bad Example
     enum Status { OK, ERROR };  /* Enum without suffix and unclear names */
 
     void doSomething(int a)
-    {  
+    {
       if (a > 0) {
         temp = 10;
       } else {
@@ -2537,7 +2537,7 @@ Good Example
     static int s_threshold = 0;  /* Declare static threshold at file scope */
 
     static void process_input(int input_value)
-    {  
+    {
       /* Clear variable name and static scope for file use */
       if (input_value > 0) {
         s_threshold = 10;
@@ -2547,7 +2547,7 @@ Good Example
     }
 
     static void calculate_output(void)
-    {  
+    {
       int result = 0;  /* Clear, descriptive variable usage */
       result     = s_threshold + 1;
     }
@@ -2815,7 +2815,7 @@ Why Having a Coding Style is Important
 A consistent coding style is essential in projects where multiple people contribute for several reasons:
 
 - **Readability**: When everyone follows the same coding style, the code becomes easier to read and understand for everyone involved. This reduces the cognitive load for new contributors and allows developers to focus on functionality rather than deciphering different styles.
-  
+
 - **Maintainability**: A uniform coding style makes the codebase more maintainable over time. As developers come and go, adhering to a consistent style ensures that future contributors can easily pick up and maintain the project without confusion.
 
 - **Collaboration**: With a shared style guide, teams can collaborate more efficiently. Code reviews, pair programming, and debugging become smoother when everyone is on the same page regarding style conventions.
@@ -3002,7 +3002,7 @@ Using `const` over Macros
 Using `const` globals is generally better than using macros for several reasons:
 
 1. **Type Safety**: `const` variables have a defined type, so the compiler can catch type-related errors, whereas macros are simple text replacements without type checking.
-  
+
 2. **Scoping**: `const` globals respect C scoping rules, whereas macros are globally visible after being defined and can cause naming conflicts or unexpected behavior.
 
 3. **Debugging**: `const` variables appear in debugging information, while macros do not, making it harder to trace issues with macros.
@@ -3564,21 +3564,21 @@ Bad Example
 
   void function1(void)
   {
-  
+
     do_one_thing();
     do_another_thing();
-  
+
   } /* INCORRECT, do not place an empty line here */
 
-  
+
   void function2(void)
   {
-  
+
     int var = 0;
     while (var < c_some_constant) { /* Correct constant naming */
       do_stuff(&var);
     }
-  
+
   } /* INCORRECT, do not use an empty line here */
 
 ---
@@ -3593,9 +3593,9 @@ Good Example
     do_one_thing();
     do_another_thing();
   }
-  
+
   /* Place one empty line between functions */
-  
+
   void function2(void)
   {
     int var = 0;

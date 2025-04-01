@@ -25,7 +25,7 @@ module vgaGen
   begin
     if (!resetN) begin
       line_count <= 0;
-      pix_count  <= 0;	
+      pix_count  <= 0;
     end else if (pix_count == 799) begin
       pix_count <= 0;
       if (line_count == 524) begin
@@ -43,7 +43,7 @@ module vgaGen
   begin
     if (!resetN) begin
       VSync <= 0;
-      HSync <= 0;	
+      HSync <= 0;
     end else begin
       /* VSYNC */
       if ((line_count >= 0) && (line_count <= 1)) begin
@@ -59,7 +59,7 @@ module vgaGen
       end
     end
   end
-   
+
   /* Color bar generator */
   always @(posedge pixClock or negedge resetN)
   begin
@@ -69,9 +69,9 @@ module vgaGen
       blue  <= 0;
     end
     /* VSYNC */
-    else if ((line_count >= 514) || 
-             (line_count <= 34) || 
-             (pix_count >= 783) || 
+    else if ((line_count >= 514) ||
+             (line_count <= 34) ||
+             (pix_count >= 783) ||
              (pix_count <= 143)) begin
       red   <= 0;
       green <= 0;

@@ -6,14 +6,19 @@
 
 ## Table of Contents
 
-- [Project-Star: Survey and Terrain Analysis Robot (STAR)](#project-star-survey-and-terrain-analysis-robot-star)
+- [Project-STAR: Survey and Terrain Analysis Robot (STAR)](#project-star-survey-and-terrain-analysis-robot-star)
   - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Hardware](#hardware)
   - [Software](#software)
   - [Installation](#installation)
-  - [Wiring](#wiring)
-  - [EC11](#ec11)
+  - [Configuration](#configuration)
+    - [Using menuconfig](#using-menuconfig)
+    - [Validating Kconfig Files](#validating-kconfig-files)
+    - [Fixing Kconfig Warnings (Step 2)](#fixing-kconfig-warnings-step-2)
+    - [Kconfig Validation and Update Script](#kconfig-validation-and-update-script)
+    - [ESP-IDF Kconfig Documentation](#esp-idf-kconfig-documentation)
+    - [Additional ESP-IDF Resources](#additional-esp-idf-resources)
   - [JTAG Debugging](#jtag-debugging)
   - [Documentation](#documentation)
   - [Contributing](#contributing)
@@ -91,79 +96,200 @@ The firmware is developed using the **ESP-IDF** framework and written primarily 
 ## Installation
 
 1. **Install ESP-IDF:**
-   Follow the official ESP-IDF installation instructions: [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
 
-2. **Clone the Repository:**
+   Follow the official ESP-IDF installation instructions:  
+   [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
+
+2. **Ensure Latest `clang-format` (Optional but Recommended):**
+
+   If you are contributing to the project and use `clang-format` for formatting code, make sure it is up to date (preferably version 20.1.1 or later).  
+   On macOS, run the following:
+
+   ```bash
+   brew update
+   brew upgrade llvm
+   ```
+
+   You can check the version of `clang-format` installed:
+
+   ```bash
+   clang-format --version
+   ```
+
+   > ⚠️ **Note:** If `clang-format` is not in your path after upgrading LLVM, you may need to link it manually or use the full path (e.g., `/opt/homebrew/opt/llvm/bin/clang-format`).
+
+3. **Clone the Repository:**
 
    ```bash
    git clone https://github.com/Topographic-Robot/Project-Star.git
    cd Project-Star
    ```
 
-3. **Configure Wi-Fi Credentials:**
+4. **Configure Wi-Fi Credentials:**
 
    - Copy the `main/include/tasks/include/wifi_credentials.txt` file to `main/include/tasks/include/wifi_credentials.h`.
    - Edit `wifi_credentials.h` and replace the placeholder values for `wifi_ssid` and `wifi_pass` with your actual Wi-Fi network credentials. **Do not commit this file to Git.**
 
-4. **Configure Webserver URL (Optional):**
+5. **Configure Webserver URL (Optional):**
 
    - If you intend to send sensor data to a web server, copy the `main/include/tasks/include/webserver_info.txt` file to `main/include/tasks/include/webserver_info.h`.
    - Edit `webserver_info.h` and replace the placeholder value for `webserver_url` with your server's URL. **Do not commit this file to Git.**
 
-5. **Build and Flash:**
+6. **Configure Project Settings:**
+
+   ```bash
+   idf.py menuconfig
+   ```
+
+   - Navigate to the "Project STAR Configuration" section to configure sensor settings, sampling rates, and other project-specific options.
+   - Ensure that all necessary features are enabled for your specific hardware configuration.
+
+7. **Build and Flash:**
+
    ```bash
    idf.py set-target esp32
    idf.py build
    idf.py -p /dev/ttyUSB0 flash monitor  # Replace /dev/ttyUSB0 with your ESP32's port
    ```
 
-## Wiring
+## Configuration
 
-The `Wiring.txt` file in the repository provides detailed pin connections between the ESP32 and each component. Here's a summary:
+STAR uses the ESP-IDF's Kconfig system to manage project configuration options. This provides a flexible way to enable/disable features and set various parameters without modifying the code.
 
-**Important:** Always double-check the pin connections in `Wiring.txt` before powering on the robot.
+### Using menuconfig
 
-| Component       | Component Pin | ESP32 Pin         | Notes                                                                                                  |
-| --------------- | ------------- | ----------------- | ------------------------------------------------------------------------------------------------------ |
-| DHT22           | DATA          | GPIO_NUM_4 (D4)   | Temperature and humidity sensor.                                                                       |
-| MPU6050         | SDA           | GPIO_NUM_21 (D21) | Accelerometer and gyroscope. Uses I2C.                                                                 |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | INT           | GPIO_NUM_26 (D26) | Interrupt pin for motion detection, data ready, etc.                                                   |
-| BH1750          | SDA           | GPIO_NUM_21 (D21) | Ambient light sensor. Uses I2C.                                                                        |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-| QMC5883L        | SDA           | GPIO_NUM_21 (D21) | Magnetometer. Uses I2C.                                                                                |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | DRDY          | GPIO_NUM_18 (D18) |                                                                                                        |
-| OV7670          | SDA           | GPIO_NUM_21 (D21) | Camera module. Uses I2C for configuration. Data and control signals are managed by the DE10-Lite FPGA. |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-| Micro-SD Reader | MOSI          | GPIO_NUM_23 (D23) | Uses SPI.                                                                                              |
-|                 | MISO          | GPIO_NUM_19 (D19) |                                                                                                        |
-|                 | CLK           | GPIO_NUM_14 (D14) |                                                                                                        |
-|                 | CS            | GPIO_NUM_5 (D5)   |                                                                                                        |
-| SEN-CCS811      | SDA           | GPIO_NUM_21 (D21) | Air quality sensor (eCO2, TVOC). Uses I2C.                                                             |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | WAKE          | GPIO_NUM_33 (D33) |                                                                                                        |
-|                 | RST           | GPIO_NUM_32 (D32) |                                                                                                        |
-|                 | INT           | GPIO_NUM_25 (D25) |                                                                                                        |
-| MQ135           | A0            | GPIO_NUM_34 (D34) | Air quality sensor (various gases). Analog output.                                                     |
-|                 | D0            | GPIO_NUM_35 (D35) | Digital output (optional).                                                                             |
-| GY-NEO6MV2      | TX            | GPIO_NUM_16 (RX2) | GPS module. Uses UART.                                                                                 |
-|                 | RX            | GPIO_NUM_17 (TX2) |                                                                                                        |
-| PCA9685         | SDA           | GPIO_NUM_21 (D21) | PWM driver (for motor control). Uses I2C.                                                              |
-|                 | SCL           | GPIO_NUM_22 (D22) |                                                                                                        |
-|                 | OE            | GPIO_NUM_15 (D15) | Output Enable.                                                                                         |
+To access the configuration interface:
 
-## EC11
+```bash
+idf.py menuconfig
+```
 
-| Component    | Component Pin | ESP32 Pin         | Notes                                                              |
-| ------------ | ------------- | ----------------- | ------------------------------------------------------------------ |
-| EC11 Encoder | OutA (CLK)    | GPIO_NUM_27 (D27) | Rotary encoder for motor control. Each encoder controls one motor. |
-|              | OutB (DT)     | GPIO_NUM_13 (D13) |                                                                    |
-|              | OutC (GND)    | GND               |                                                                    |
-|              | ButtonA       | GPIO_NUM_14 (D14) | Button signal for resetting motor position.                        |
-|              | ButtonB       | 3V3               | Connect to 3.3V power.                                             |
+This will open a text-based configuration interface where you can navigate through different categories and adjust settings for your specific needs.
 
-- Enable EC11 in `CMakeLists.txt` by adding `add_compile_definitions(EC11_USE_INTERRUPTS=1)`
+### Validating Kconfig Files
+
+To check the syntax and validity of a specific Kconfig file:
+
+```bash
+python -m kconfcheck <path_to_kconfig_file>
+```
+
+To check all Kconfig files in the project:
+
+```bash
+find . -name "Kconfig*" -exec python -m kconfcheck {} \;
+```
+
+### Fixing Kconfig Warnings (Step 2)
+
+**Issue:**
+When loading `sdkconfig.defaults`, warnings like "unknown kconfig symbol 'PSTAR_KCONFIG_BUS_COMPONENT_ENABLED' assigned to 'y'" appear because the defaults file is processed before component Kconfig files are loaded.
+
+**Solution:**
+Create a root‑level `Kconfig` file that sources all your component Kconfig files. This ensures that all configuration symbols are defined before `sdkconfig.defaults` is processed.
+
+**Steps:**
+
+1. **Create the Root‑Level Kconfig File:**
+   Place a file named `Kconfig` in the project's root directory (same level as `CMakeLists.txt`) with the following content:
+
+   ```kconfig
+   # Root Kconfig file for Project-Star
+
+   # Include project-level configuration (if any)
+   source "main/Kconfig.projbuild"
+
+   # Include component Kconfig files to define all custom symbols
+   source "components/pstar_logger/Kconfig"
+   source "components/pstar_bus/Kconfig"
+   source "components/pstar_managers/Kconfig"
+   source "components/pstar_error_handler/Kconfig"
+   source "components/pstar_pin_validator/Kconfig"
+   source "components/pstar_storage_hal/Kconfig"
+   ```
+
+2. **Clean and Reconfigure:**
+   - Run `idf.py fullclean` to remove previous build artifacts.
+   - Then run `idf.py menuconfig` to load the new configuration.
+   - Verify that the warnings about unknown Kconfig symbols no longer appear.
+
+### Kconfig Validation and Update Script
+
+An included shell script (`check_and_update_kconfig.sh`) automates the process of validating your Kconfig files and updating them if necessary. This script performs the following actions:
+
+- **Runs `kconfcheck`:** It scans all Kconfig files in the project to validate their syntax.
+- **Retries if Needed:** It will retry up to a set maximum number of attempts (default is 10) if `kconfcheck` fails.
+- **Updates Files:** Upon successful validation, it moves any generated `Kconfig.new` files to replace the original ones.
+
+**Script Content:**
+
+```bash
+#!/usr/bin/env bash
+# check_and_update_kconfig.sh
+
+max_attempts=10
+attempt=0
+
+while [ $attempt -lt $max_attempts ]; do
+  echo "Attempt $((attempt + 1)) of $max_attempts: Running kconfcheck on all Kconfig files..."
+
+  # Run kconfcheck on all Kconfig files
+  find . -name "Kconfig*" -exec python -m kconfcheck {} \;
+
+  # Capture exit code
+  exit_code=$?
+
+  if [ $exit_code -eq 0 ]; then
+    echo "kconfcheck completed successfully!"
+
+    # Move Kconfig.new files to replace originals
+    find . -name "Kconfig.new" -exec sh -c 'echo "Moving $0 to ${0%.new}"; mv "$0" "${0%.new}"' {} \;
+
+    if [ $? -eq 0 ]; then
+      echo "All Kconfig files checked and updated successfully."
+      exit 0
+    else
+      echo "Error moving Kconfig.new files."
+      exit 1
+    fi
+  fi
+
+  echo "kconfcheck failed (exit code $exit_code), retrying..."
+  attempt=$((attempt + 1))
+done
+
+echo "Reached maximum attempts ($max_attempts). kconfcheck did not succeed."
+exit 1
+```
+
+**Usage:**
+
+1. Make the script executable:
+
+   ```bash
+   chmod +x check_and_update_kconfig.sh
+   ```
+
+2. Run the script from the project's root directory:
+
+   ```bash
+   ./check_and_update_kconfig.sh
+   ```
+
+This script helps ensure that your Kconfig files are valid and that any updates (if `kconfcheck` generates `.new` files) are applied automatically.
+
+### ESP-IDF Kconfig Documentation
+
+For detailed information about the Kconfig system and how to create or modify configuration options, refer to:
+- [ESP-IDF Kconfig Reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig.html)
+- [ESP-IDF Configuration Options Reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/config.html)
+
+### Additional ESP-IDF Resources
+
+- [ESP-IDF Programming Guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html)
+- [ESP32 Technical Reference Manual](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf)
+- [ESP-IDF API Reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/index.html)
+- [ESP-IDF Examples](https://github.com/espressif/esp-idf/tree/master/examples)
 
 ## JTAG Debugging
 
@@ -209,17 +335,7 @@ JTAG (Joint Test Action Group) debugging is crucial for in-depth troubleshooting
      - **`-f board/esp32-wrover-kit-3.3v.cfg`:** This specifies the configuration file for the ESP32-WROVER-KIT board, which has similar JTAG settings. You can adapt this to other ESP32 boards if needed.
      - **`-c "ftdi_vid_pid 0x0403 0x6011"`:** This sets the VID and PID for the CJMCU-4232. Replace `0x0403` and `0x6011` with the values you identified in step 1 if they are different.
 
-   - You should see output indicating that OpenOCD has started successfully and is listening on port 3333 for GDB connections. Example Output:
-     ```
-     Info : clock speed 20000 kHz
-     Info : JTAG tap: esp32.esp32.tap0 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
-     Info : JTAG tap: esp32.esp32.tap1 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
-     Info : esp32.cpu0: Debug controller was reset.
-     Info : esp32.cpu0: Core was reset.
-     Info : esp32.cpu1: Debug controller was reset.
-     Info : esp32.cpu1: Core was reset.
-     Info : Listening on port 3333 for gdb connections
-     ```
+   - You should see output indicating that OpenOCD has started successfully and is listening on port 3333 for GDB connections.
 
 3. **Connect with GDB:**
 

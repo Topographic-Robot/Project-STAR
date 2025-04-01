@@ -1,0 +1,120 @@
+# components/pstar_managers/Kconfig
+
+menu "Project Star Managers Configuration"
+
+    menu "Time Manager Configuration"
+        config PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            bool "Enable Time Manager"
+            default y
+            help
+                Enable the Time Manager component, which synchronizes system time
+                via NTP and provides timestamp services.
+
+        config PSTAR_KCONFIG_TIME_SYNC_TIMEOUT_MS
+            int "Time synchronization timeout (ms)"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            range 1000 60000
+            default 15000
+            help
+                Timeout in milliseconds for NTP time synchronization attempts.
+
+        config PSTAR_KCONFIG_TIME_NTP_SERVER
+            string "NTP Server"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            default "pool.ntp.org"
+            help
+                Default NTP server for time synchronization.
+
+        config PSTAR_KCONFIG_TIME_SYNC_RETRY_COUNT
+            int "Time sync retry count"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            range 1 10
+            default 3
+            help
+                Number of retry attempts for NTP synchronization.
+
+        config PSTAR_KCONFIG_TIME_STRFTIME_BUFFER_SIZE
+            int "Time string format buffer size"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            range 32 128
+            default 64
+            help
+                Size of buffer for formatted time strings.
+
+        config PSTAR_KCONFIG_TIME_SYNC_TASK_STACK_SIZE
+            int "Stack size for time sync task"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            range 2048 8192
+            default 4096
+            help
+                Stack size in bytes for the time synchronization task.
+
+        config PSTAR_KCONFIG_TIME_SYNC_TASK_PRIORITY
+            int "Priority for time sync task"
+            depends on PSTAR_KCONFIG_TIME_MANAGER_ENABLED
+            range 1 24
+            default 5
+            help
+                FreeRTOS priority level for the time synchronization task.
+    endmenu
+
+    menu "File Write Manager Configuration"
+        config PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            bool "Enable File Write Manager (Requires SD Card)"
+            depends on PSTAR_KCONFIG_SD_CARD_ENABLED
+            default y
+            help
+                Enable the File Write Manager component, which provides
+                asynchronous file writing capabilities.
+                *** Requires SD Card support to be enabled in the Storage HAL. ***
+
+        config PSTAR_KCONFIG_FILE_MANAGER_QUEUE_SIZE
+            int "Queue size for file write requests"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            range 5 100
+            default 20
+            help
+                Maximum number of write operations that can be pending at once in the queue.
+
+        config PSTAR_KCONFIG_FILE_MANAGER_TASK_STACK_SIZE
+            int "Stack size for file write task"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            range 2048 8192
+            default 4096
+            help
+                Stack size in bytes for the file write task.
+
+        config PSTAR_KCONFIG_FILE_MANAGER_TASK_PRIORITY
+            int "Priority for file write task"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            range 1 24
+            default 5
+            help
+                FreeRTOS priority level for the file write task.
+
+        config PSTAR_KCONFIG_FILE_MANAGER_MAX_PATH_LENGTH
+            int "Maximum file path length"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            range 64 512
+            default 256
+            help
+                Maximum length for file paths handled by the manager.
+
+        config PSTAR_KCONFIG_FILE_MANAGER_MAX_DATA_LENGTH
+            int "Maximum data length per write"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            range 64 1024
+            default 256
+            help
+                Maximum length of data per write operation.
+
+        config PSTAR_KCONFIG_FILE_MANAGER_TIMESTAMP_BUFFER_SIZE
+            int "Timestamp buffer size"
+            depends on PSTAR_KCONFIG_FILE_MANAGER_ENABLED
+            range 32 128
+            default 64
+            help
+                Size of buffer for timestamp strings in file manager.
+    endmenu
+
+endmenu

@@ -15,29 +15,29 @@ module dataRegistering
     output reg        writeBuff2,
     output reg        buffSelect
   );
-  
-  /* _i means it is stored in a register, the non _i is just an input value and 
+
+  /* _i means it is stored in a register, the non _i is just an input value and
    * is not stored aka pipe stage */
   reg [7:0]  pixData_i;
   reg        camVSYNC_i;
   reg        HREF_i;
   reg        dataValid;
   reg [15:0] pixOutput_i;
-  
+
   always @(posedge camPCLK)
   begin
     pixData_i  <= pixData;
     camVSYNC_i <= camVSYNC;
     HREF_i     <= HREF;
     pixOutput  <= pixOutput_i;
-    
+
     if (!HREF_i) begin
       dataValid <= 0;
     end
     /* HREF is high */
     else begin
       dataValid <= !dataValid;
-      
+
       if (dataValid == 0) begin
         pixOutput_i[15:8] <= pixData_i;
       end else begin
@@ -45,7 +45,7 @@ module dataRegistering
       end
     end
   end
-  
+
   reg [3:0] captureState;
 
   /* state assignments */
@@ -78,7 +78,7 @@ module dataRegistering
             writeBuff2   <= 0;
           end
         end
-        
+
         WAIT_WRITE1: begin
           captureState <= WAIT_WRITE2;
           buffClear1   <= 0;
@@ -86,13 +86,13 @@ module dataRegistering
           writeBuff1   <= 0;
           writeBuff2   <= 0;
         end
-        
+
         WAIT_WRITE2: begin
           captureState <= WRITE_PIX;
           writeBuff1   <= !buffSelect;
           writeBuff2   <= buffSelect;
         end
-        
+
         WRITE_PIX: begin
           writeBuff1   <= 0;
           writeBuff2   <= 0;
@@ -102,18 +102,18 @@ module dataRegistering
             captureState <= WAIT_WRITE2;
           end
         end
-        
+
         NEXT_LINE1: begin
           captureState <= NEXT_LINE2;
         end
-        
+
         NEXT_LINE2: begin
           writeBuff1   <= 0;
           writeBuff2   <= 0;
           captureState <= IDLE;
           buffSelect   <= !buffSelect;
         end
-        
+
         default: begin
           buffClear1   <= 0;
           buffClear2   <= 0;

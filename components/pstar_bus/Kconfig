@@ -1,0 +1,66 @@
+# components/pstar_bus/Kconfig
+
+menu "Project Star Bus Configuration"
+
+    config PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
+        bool "Enable Bus Component"
+        default y
+        help
+            Enable the Project Star Bus component, which provides a unified
+            interface for different bus types.
+
+    menu "Bus Type Configuration"
+        depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
+
+        config PSTAR_KCONFIG_BUS_I2C_ENABLED
+            bool "Enable I2C Bus Support"
+            default y
+            help
+                Enable I2C bus type support in the bus component.
+
+        config PSTAR_KCONFIG_BUS_SPI_ENABLED
+            bool "Enable SPI Bus Support"
+            default y
+            help
+                Enable SPI bus type support in the bus component.
+
+        config PSTAR_KCONFIG_BUS_UART_ENABLED
+            bool "Enable UART Bus Support"
+            default y
+            help
+                Enable UART bus type support in the bus component.
+
+        config PSTAR_KCONFIG_BUS_GPIO_ENABLED
+            bool "Enable GPIO Bus Support"
+            default y
+            help
+                Enable GPIO bus type support in the bus component.
+
+        config PSTAR_KCONFIG_BUS_SDIO_ENABLED
+            bool "Enable SDIO Bus Support (for SD Cards in SDIO mode)"
+            default y # Default to enabled if SD card might use it
+            help
+                Enable SDIO bus type support in the bus component.
+                This is required if the Storage HAL is configured to use
+                SD cards in SDIO (SDMMC) mode.
+    endmenu
+
+    menu "Bus Manager Configuration"
+        depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
+
+        config PSTAR_KCONFIG_BUS_MAX_BUSES
+            int "Maximum number of buses"
+            range 1 32
+            default 10
+            help
+                Maximum number of buses that can be managed by the bus manager.
+
+        config PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS
+            int "Bus mutex timeout (ms)"
+            range 10 10000
+            default 1000
+            help
+                Timeout in milliseconds for acquiring bus mutexes.
+    endmenu
+
+endmenu
