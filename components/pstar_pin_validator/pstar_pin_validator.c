@@ -51,10 +51,11 @@ esp_err_t pin_validator_init(void)
   return ESP_OK;
 }
 
-esp_err_t pin_validator_register_pin(gpio_num_t  pin,
-                                     const char* component_name,
-                                     const char* usage_desc,
-                                     bool        can_share)
+esp_err_t
+pin_validator_register_pin(gpio_num_t  pin,
+                           const char* component_name,
+                           const char* usage_desc,
+                           bool        can_share) // This is the shareability of THIS registration
 {
   if (!s_initialized) {
     log_error(TAG, "Not Init", "Pin validator not initialized");
@@ -86,7 +87,7 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
     pin_info->in_use            = true;
     pin_info->num_registrations = 1;
     pin_info->usage_count       = 1;
-    pin_info->can_share         = can_share; /* Initial overall shareability */
+    // Overall shareability will be set by priv_update_overall_shareability below
 
     /* Initialize first registration */
     strncpy(pin_info->registrations[0].component_name,
@@ -99,8 +100,10 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
     pin_info->registrations[0].usage_desc[PIN_VALIDATOR_MAX_USAGE_DESC_LEN - 1] = '\0';
     pin_info->registrations[0].count                                            = 1;
     pin_info->registrations[0].can_share =
-      can_share; /* Shareability of this specific registration */
+      can_share; // Store shareability of this specific registration
 
+    /* Update overall shareability based on this first registration */
+    priv_update_overall_shareability(pin);
     /* Rebuild aggregated strings (will just copy the first one) */
     priv_rebuild_aggregated_strings(pin);
 
@@ -112,15 +115,16 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
              usage_desc,
              can_share ? "Yes" : "No");
   } else {
-    /* Pin already registered: check if this component is already present */
+    /* Pin already registered: check if this component/usage combo is already present */
     bool found = false;
     for (uint32_t i = 0; i < pin_info->num_registrations; i++) {
-      if (strcmp(pin_info->registrations[i].component_name, component_name) == 0) {
-        /* Found existing registration; increment count */
+      // Check both component name and usage description for uniqueness
+      if (strcmp(pin_info->registrations[i].component_name, component_name) == 0 &&
+          strcmp(pin_info->registrations[i].usage_desc, usage_desc) == 0) {
+        /* Found exact existing registration; increment count */
         pin_info->registrations[i].count++;
         pin_info->usage_count++;
-        /* Update shareability for this registration if necessary */
-        /* If the new registration says it can't share, update the existing one */
+        /* Update shareability for this specific registration ONLY if the new one is FALSE */
         if (!can_share) {
           pin_info->registrations[i].can_share = false;
         }
@@ -129,7 +133,7 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
                   "Incremented usage count for pin %d by %s: %s (count: %d, Shareable: %s)",
                   pin,
                   component_name,
-                  pin_info->registrations[i].usage_desc, /* Log existing desc */
+                  pin_info->registrations[i].usage_desc,
                   pin_info->registrations[i].count,
                   pin_info->registrations[i].can_share ? "Yes" : "No");
         found = true;
@@ -137,7 +141,7 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
       }
     }
     if (!found) {
-      /* New registration for an additional component */
+      /* New registration (different component or different usage by same component) */
       if (pin_info->num_registrations < PIN_VALIDATOR_MAX_REGISTRATIONS) {
         uint32_t idx = pin_info->num_registrations;
         strncpy(pin_info->registrations[idx].component_name,
@@ -154,7 +158,7 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
         pin_info->usage_count++;
 
         log_info(TAG,
-                 "Pin Shared",
+                 "Pin Shared/Added", // Log message adjusted
                  "Pin %d now also used by %s: %s (Shareable: %s)",
                  pin,
                  component_name,
@@ -228,8 +232,9 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict)
   /* Check each pin for multiple registrations when overall shareability is false */
   for (int pin = 0; pin < PIN_VALIDATOR_MAX_PINS; pin++) {
     pin_usage_info_t* pin_info = &s_pin_registry[pin];
-    if (pin_info->in_use && pin_info->usage_count > 1 && !pin_info->can_share) {
-      /* Conflict: Pin used multiple times but not shareable */
+    // Conflict condition: More than one *unique registration* AND overall shareability is false
+    if (pin_info->in_use && pin_info->num_registrations > 1 && !pin_info->can_share) {
+      /* Conflict: Pin used by multiple components/usages but not shareable */
       log_error(TAG,
                 "Pin Conflict",
                 "GPIO %d used by multiple components but marked non-shareable by at least one:",
@@ -248,22 +253,14 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict)
     }
   }
 
+  priv_release_mutex_if_taken(&mutex_taken); // Release mutex before potentially halting
+
   if (has_conflicts) {
     log_error(TAG, "Validation Failed", "PIN VALIDATION FAILED: Conflicts detected!");
-    if (halt_on_conflict) {
-      log_error(TAG,
-                "System Halted",
-                "System halted due to pin conflicts. Please fix your configuration.");
-      priv_release_mutex_if_taken(&mutex_taken);
-      while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-      }
-    }
-    priv_release_mutex_if_taken(&mutex_taken);
-    return ESP_ERR_INVALID_STATE; /* Use specific error? Or just state? State seems ok */
+    // The function now just reports the error state.
+    return ESP_ERR_INVALID_STATE; // Indicate conflicts were found
   } else {
     log_info(TAG, "Validation Passed", "No conflicts detected in pin assignments");
-    priv_release_mutex_if_taken(&mutex_taken);
     return ESP_OK;
   }
 }
@@ -286,13 +283,13 @@ esp_err_t pin_validator_print_assignments(void)
 
   /* Define column widths */
   const int gpio_width   = 4;
-  const int comp_width   = 20;
-  const int usage_width  = 28;
+  const int comp_width   = 50;
+  const int usage_width  = 50;
   const int shared_width = 7;
   const int count_width  = 5;
 
   /* Build header row */
-  char header_row[128];
+  char header_row[256];
   int  header_len = snprintf(header_row,
                             sizeof(header_row),
                             "| %-*s | %-*s | %-*s | %-*s | %-*s |",
@@ -308,7 +305,7 @@ esp_err_t pin_validator_print_assignments(void)
                             "Count");
 
   /* Build a separator line for the header */
-  char sep_line[128];
+  char sep_line[256];
   if (header_len > 0 && header_len < sizeof(sep_line)) {
     memset(sep_line, '=', header_len);
     sep_line[header_len] = '\0';
@@ -323,7 +320,7 @@ esp_err_t pin_validator_print_assignments(void)
       heading_text_len = header_len;
     }
     int  left_equals = (header_len - heading_text_len) / 2;
-    char heading_line[128];
+    char heading_line[256];
     memset(heading_line, '=', header_len);
     heading_line[header_len] = '\0';
     /* Replace the center part with heading text */
@@ -348,7 +345,7 @@ esp_err_t pin_validator_print_assignments(void)
     pin_usage_info_t* pin_info = &s_pin_registry[pin];
     if (pin_info->in_use) {
       any_pins_used = true;
-      char pin_row[256];
+      char pin_row[512];
       snprintf(pin_row,
                sizeof(pin_row),
                "| %-*d | %-*.*s | %-*.*s | %-*s | %-*d |",
@@ -361,7 +358,7 @@ esp_err_t pin_validator_print_assignments(void)
                usage_width,
                pin_info->aggregated_usage_desc,
                shared_width,
-               pin_info->can_share ? "Yes" : "No",
+               pin_info->can_share ? "Yes" : "No", // Use the overall shareability flag
                count_width,
                pin_info->usage_count);
       printf("%s\n", pin_row);
@@ -653,11 +650,12 @@ static void priv_rebuild_aggregated_strings(int pin)
 static void priv_update_overall_shareability(int pin)
 {
   pin_usage_info_t* pin_info = &s_pin_registry[pin];
-  pin_info->can_share        = true; /* Assume shareable initially */
-  for (uint32_t i = 0; i < pin_info->num_registrations; i++) {
+  pin_info->can_share        = true; // Assume shareable initially
+  // Corrected loop: Iterate through all *valid* registrations.
+  for (uint32_t i = 0; i < pin_info->num_registrations; i++) { // Iterate up to num_registrations
     if (!pin_info->registrations[i].can_share) {
-      pin_info->can_share = false; /* If any registration is not shareable, the pin isn't */
-      break;
+      pin_info->can_share = false; // If *any* registration is not shareable, the pin isn't
+      break;                       // No need to check further
     }
   }
 }

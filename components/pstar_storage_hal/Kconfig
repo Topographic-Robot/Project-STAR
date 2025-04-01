@@ -153,10 +153,9 @@ menu "Project Star Storage HAL Configuration"
 
         config PSTAR_KCONFIG_SD_CARD_DET_GPIO
             int "Card detect GPIO pin"
-            default -1 # Default to -1 (disabled)
+            default 13 # Default to 13 (safe with D3=32)
             depends on PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
             range 0 39
-            default 13
             help
                 GPIO pin number for SD card detection.
                 *** WARNING: If using 4-bit SDIO mode, ensure this does not conflict with SDIO D3. ***
@@ -168,33 +167,33 @@ menu "Project Star Storage HAL Configuration"
             config PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO
                 int "SPI Chip Select (CS) GPIO Pin"
                 range 0 39
-                default 5
+                default 5 # Default CS pin
                 help
                     GPIO pin number for SPI Chip Select (CS/SS). This pin is unique to SPI mode.
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO
 
-            config PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO
-                int "SPI MOSI / Shared CMD GPIO Pin"
+            config PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
+                int "SPI DO / Shared CMD GPIO Pin"
                 range 0 39
-                default 15
+                default 15 # Default DO, shared with CMD
                 help
-                    GPIO pin for SPI MOSI (Master Out Slave In).
+                    GPIO pin for SPI DO (Data Out).
                     *** If sharing with SDIO CMD on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO. ***
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO
+                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
 
-            config PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO
-                int "SPI MISO / Shared D0 GPIO Pin"
+            config PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
+                int "SPI DI / Shared D0 GPIO Pin"
                 range 0 39
-                default 2
+                default 2 # Default DI, shared with D0
                 help
-                    GPIO pin for SPI MISO (Master In Slave Out).
+                    GPIO pin for SPI DI (Data In).
                     *** If sharing with SDIO D0 on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO. ***
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO
+                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO
                 int "SPI CLK / Shared CLK GPIO Pin"
                 range 0 39
-                default 14
+                default 14 # Default CLK, shared with SDIO CLK
                 help
                     GPIO pin for SPI Clock (SCLK).
                     *** If sharing with SDIO CLK on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO. ***
@@ -207,35 +206,35 @@ menu "Project Star Storage HAL Configuration"
             config PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO
                 int "SDIO CLK / Shared CLK GPIO pin"
                 range 0 39
-                default 14
+                default 14 # Default SDIO CLK, shared with SPI CLK
                 help
                     GPIO pin number for SDIO Clock.
                     *** If sharing with SPI CLK on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO. ***
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO
-                int "SDIO CMD / Shared MOSI GPIO pin"
+                int "SDIO CMD / Shared DO GPIO pin"
                 range 0 39
-                default 15
+                default 15 # Default SDIO CMD, shared with SPI DO
                 help
                     GPIO pin number for SDIO Command.
-                    *** If sharing with SPI MOSI on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_MOSI_GPIO. ***
+                    *** If sharing with SPI DO on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO. ***
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO
-                int "SDIO D0 / Shared MISO GPIO pin"
+                int "SDIO D0 / Shared DI GPIO pin"
                 range 0 39
-                default 2
+                default 2 # Default SDIO D0, shared with SPI DI
                 help
                     GPIO pin number for SDIO Data 0.
-                    *** If sharing with SPI MISO on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_MISO_GPIO. ***
+                    *** If sharing with SPI DI on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO. ***
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO
                 int "SDIO D1 GPIO pin (4-bit mode)"
                 depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
                 range 0 39
-                default 4
+                default 4 # Default D1
                 help
                     GPIO pin number for SDIO Data 1 (only used in 4-bit SDIO mode).
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO
@@ -244,7 +243,7 @@ menu "Project Star Storage HAL Configuration"
                 int "SDIO D2 GPIO pin (4-bit mode)"
                 depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
                 range 0 39
-                default 12
+                default 12 # Default D2
                 help
                     GPIO pin number for SDIO Data 2 (only used in 4-bit SDIO mode).
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO
@@ -253,7 +252,7 @@ menu "Project Star Storage HAL Configuration"
                 int "SDIO D3 GPIO pin (4-bit mode)"
                 depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
                 range 0 39
-                default 32
+                default 32 # Default D3 (Changed from 13 to avoid conflict with DET=13)
                 help
                     GPIO pin number for SDIO Data 3 (only used in 4-bit SDIO mode).
                     *** WARNING: May conflict with Card Detect pin if PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED is set. ***

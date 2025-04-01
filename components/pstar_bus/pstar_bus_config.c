@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "sdkconfig.h" // Needed for Kconfig options
+
 /* Constants ******************************************************************/
 
 static const char* TAG = "Bus Config";
@@ -287,12 +289,12 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       if (config->config.spi.bus_config.mosi_io_num != -1) {
         result = pin_validator_register_pin(config->config.spi.bus_config.mosi_io_num,
                                             config->name,
-                                            "SPI MOSI",
+                                            "SPI DO",
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
-                    "Failed to register MOSI pin for SPI bus '%s': %s",
+                    "Failed to register DO pin for SPI bus '%s': %s",
                     config->name,
                     esp_err_to_name(result));
           return result;
@@ -302,12 +304,12 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       if (config->config.spi.bus_config.miso_io_num != -1) {
         result = pin_validator_register_pin(config->config.spi.bus_config.miso_io_num,
                                             config->name,
-                                            "SPI MISO",
+                                            "SPI DI",
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
-                    "Failed to register MISO pin for SPI bus '%s': %s",
+                    "Failed to register DI pin for SPI bus '%s': %s",
                     config->name,
                     esp_err_to_name(result));
           return result;
@@ -383,16 +385,38 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       uint64_t pin_mask = config->config.gpio.config.pin_bit_mask;
       for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
         if ((pin_mask >> pin) & 0x1) {
-          /* This pin is used, register it */
-          result = pin_validator_register_pin(pin, config->name, "GPIO", false);
-          if (result != ESP_OK) {
-            log_error(TAG,
-                      "Pin Registration Error",
-                      "Failed to register GPIO pin %d for bus '%s': %s",
-                      pin,
-                      config->name,
-                      esp_err_to_name(result));
-            return result;
+          bool skip_registration = false;
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+          // Check if this is the SD card GPIO bus and the specific CD pin
+          // Prevent double registration - SD HAL will register it.
+          if (strcmp(config->name, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME) == 0 &&
+              pin == CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO) {
+            log_debug(
+              TAG,
+              "Skip Registration",
+              "Skipping registration of SD Card Detect pin %d in GPIO bus config (handled by SD HAL)",
+              pin);
+            skip_registration = true;
+          }
+#endif /* DETECTION_ENABLED */
+#endif /* SD_CARD_ENABLED */
+
+          if (!skip_registration) {
+            /* This pin is used, register it */
+            result = pin_validator_register_pin(pin,
+                                                config->name,
+                                                "GPIO",
+                                                false); // Default non-shareable for generic GPIO
+            if (result != ESP_OK) {
+              log_error(TAG,
+                        "Pin Registration Error",
+                        "Failed to register GPIO pin %d for bus '%s': %s",
+                        pin,
+                        config->name,
+                        esp_err_to_name(result));
+              return result;
+            }
           }
         }
       }

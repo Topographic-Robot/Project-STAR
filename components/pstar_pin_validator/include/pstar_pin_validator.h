@@ -15,9 +15,9 @@ extern "C" {
 
 /* Constants ******************************************************************/
 
-#define PIN_VALIDATOR_MAX_USAGE_DESC_LEN (64) /**< Maximum length of pin usage description */
-#define PIN_VALIDATOR_MAX_PINS (GPIO_NUM_MAX) /**< Maximum number of pins that can be registered */
-#define PIN_VALIDATOR_MAX_REGISTRATIONS (4)   /**< Maximum number of unique registrations per pin */
+#define PIN_VALIDATOR_MAX_USAGE_DESC_LEN (128) /**< Maximum length of pin usage description */
+#define PIN_VALIDATOR_MAX_PINS (GPIO_NUM_MAX)  /**< Maximum number of pins that can be registered */
+#define PIN_VALIDATOR_MAX_REGISTRATIONS (4) /**< Maximum number of unique registrations per pin */
 
 /**
  * @brief Error when the maximum number of registrations for a pin has been reached.

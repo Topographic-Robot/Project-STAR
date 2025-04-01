@@ -4,13 +4,14 @@
 
 #include "esp_log.h"
 #include "esp_system.h"
-#include "sdkconfig.h"
+#include "sdkconfig.h" // Include sdkconfig for Kconfig options
+
 #if defined(CONFIG_PSTAR_KCONFIG_LOGGING_INCLUDE_TIMESTAMP) &&                                     \
   defined(CONFIG_PSTAR_KCONFIG_TIME_MANAGER_ENABLED)
 #include "pstar_time_manager.h"
 #endif
 #include "pstar_log_macros.h"
-#include "pstar_log_storage.h"
+#include "pstar_log_storage.h" // Include log storage header
 
 #include <stdarg.h>
 #include <stdatomic.h>
@@ -18,6 +19,7 @@
 #include <string.h>
 #include <time.h>
 
+/* Conditionally include SD card related headers only when SD logging is enabled */
 #ifdef CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
 #include "pstar_file_write_manager.h"
 #include "pstar_sd_card_hal.h"
@@ -222,12 +224,8 @@ esp_err_t log_init(void* file_manager, /* Parameters ignored */
     /* Minimal init requested (or called before SD HAL is ready) */
     /* Console logging already works. No storage init possible yet. */
     ESP_LOGI(TAG, "Performing minimal log handler initialization (SD storage deferred).");
-    /* Call storage init with NULLs for minimal setup (mutex) */
-    esp_err_t ret = log_storage_init(NULL, NULL);
-    if (ret != ESP_OK) {
-      ESP_LOGW(TAG, "Minimal storage init failed: %s", esp_err_to_name(ret));
-      /* Continue anyway since console logging works without storage */
-    }
+    /* Do NOT call log_storage_init here for minimal setup. */
+    /* The mutex for the handler itself is created on first write if needed. */
     /* Do NOT set s_logger_fully_initialized = true yet. */
     return ESP_OK;
   } else if (file_manager == NULL || sd_card == NULL) {
@@ -240,6 +238,7 @@ esp_err_t log_init(void* file_manager, /* Parameters ignored */
     /* Both pointers provided, attempt full initialization including storage */
     ESP_LOGI(TAG, "Attempting full log handler initialization (including SD storage)...");
 
+    /* Call log_storage_init ONLY during full init */
     esp_err_t ret = log_storage_init(file_manager, sd_card);
     if (ret != ESP_OK) {
       ESP_LOGE(TAG, "Failed to initialize log storage: %s", esp_err_to_name(ret));
