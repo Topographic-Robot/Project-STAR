@@ -13,7 +13,7 @@ extern "C" {
 
 /**
  * @brief Forward declaration of pstar_bus_manager_t structure
- * 
+ *
  * This forward declaration allows other modules to reference the bus manager
  * without including the full definition, helping to avoid circular dependencies.
  */
@@ -26,7 +26,7 @@ typedef struct pstar_bus_config pstar_bus_config_t;
 
 /**
  * @brief Function declarations for bus manager operations
- * 
+ *
  * These declarations allow code to reference the bus manager functions
  * without including the full implementation, helping to avoid circular dependencies.
  */

@@ -96,7 +96,7 @@ bool error_handler_can_retry(error_handler_t* handler);
  * a new operational phase.
  *
  * @param[in,out] handler Pointer to error handler structure to reset
- * @return ESP_OK if successful, ESP_ERR_TIMEOUT if mutex couldn't be acquired, 
+ * @return ESP_OK if successful, ESP_ERR_TIMEOUT if mutex couldn't be acquired,
  *         ESP_ERR_INVALID_STATE if mutex not init.
  */
 esp_err_t error_handler_reset_state(error_handler_t* handler);

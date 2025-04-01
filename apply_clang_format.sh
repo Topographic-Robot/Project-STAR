@@ -120,13 +120,13 @@ done
 if $PURGE_BACKUPS; then
     echo "Looking for clang-format backup directories to purge..."
     backup_dirs=$(find . -maxdepth 1 -type d -name "clang_format_backup_*" 2>/dev/null)
-    
+
     if [[ -z "$backup_dirs" ]]; then
         echo -e "${YELLOW}No clang-format backup directories found.${NC}"
     else
         backup_count=$(echo "$backup_dirs" | wc -l)
         echo -e "${YELLOW}Found $backup_count backup directories to remove.${NC}"
-        
+
         if $INTERACTIVE; then
             echo "$backup_dirs"
             read -p "Are you sure you want to remove these directories? [y/N] " confirm
@@ -143,7 +143,7 @@ if $PURGE_BACKUPS; then
             echo "$backup_dirs" | xargs rm -rf
             echo -e "${GREEN}Successfully removed $backup_count backup directories.${NC}"
         fi
-        
+
         # Exit if purge was the only operation requested
         if $CHECK_ONLY && [ "$TARGET_DIR" = "." ]; then
             exit 0
@@ -289,21 +289,21 @@ prompt_user() {
     local temp_file="$2"
     local original_size="$3"
     local formatted_size="$4"
-    
+
     # Calculate percentage
     local percentage=$((formatted_size * 100 / original_size))
     local reduction=$((100 - percentage))
-    
+
     echo -e "\n${YELLOW}================ MANUAL REVIEW REQUIRED =================${NC}"
     echo -e "File: ${BOLD}$file${NC}"
     echo "Original size: $original_size bytes, Formatted size: $formatted_size bytes"
     echo "This represents a $reduction% reduction in size."
     echo -e "${YELLOW}Formatting would significantly reduce the file size. This could be valid${NC}"
     echo -e "${YELLOW}reformatting or could indicate potential content loss.${NC}"
-    
+
     # Create diff for display
     diff -u "$file" "$temp_file" > "$TEMP_DIR/diff_output.txt"
-    
+
     echo -e "\n${BLUE}Options for handling this file:${NC}"
     echo "  1) View text diff (using 'less')"
     if [[ -n "$DIFF_TOOL" ]]; then
@@ -313,10 +313,10 @@ prompt_user() {
     echo "  4) Skip this file (default)"
     echo "  5) View original file"
     echo "  6) View formatted file"
-    
+
     local choice
     read -p "Enter choice [1-6]: " choice
-    
+
     case "$choice" in
         1)
             less "$TEMP_DIR/diff_output.txt"
@@ -368,22 +368,22 @@ while IFS= read -r file; do
         # File has relative path
         filepath="${file#./}"
     fi
-    
+
     CHECKED_COUNT=$((CHECKED_COUNT + 1))
-    
+
     # Save original file permissions
     if [[ "$(uname)" == "Darwin" ]]; then
         original_perms=$(stat -f "%p" "$file" | tail -c 4)  # Extract last 3 digits
     else
         original_perms=$(stat --format "%a" "$file")
     fi
-    
+
     # Create temporary file for formatted output
     temp_file=$(mktemp "$TEMP_DIR/XXXXXXXX")
-    
+
     # Run clang-format and save to temp file
     clang-format -style=file "$file" > "$temp_file" 2> "$TEMP_DIR/format_error.log"
-    
+
     # Check for errors and if temp file is empty
     if [ $? -ne 0 ] || [ ! -s "$temp_file" ]; then
         echo -e "${RED}Error formatting file: $filepath${NC}"
@@ -391,14 +391,14 @@ while IFS= read -r file; do
         ERROR_COUNT=$((ERROR_COUNT + 1))
         continue
     fi
-    
+
     # Safety check: don't replace with empty or significantly smaller file
     original_size=$(wc -c < "$file")
     formatted_size=$(wc -c < "$temp_file")
-    
+
     # Calculate percentage using integer arithmetic
     percentage=$((formatted_size * 100 / original_size))
-    
+
     # Alert if the formatted file is much smaller (more than threshold reduction)
     if (( percentage < SIZE_THRESHOLD )); then
         if $INTERACTIVE && ! $CHECK_ONLY; then
@@ -406,19 +406,19 @@ while IFS= read -r file; do
                 # User chose to apply changes despite the warning
                 # First, create backup directory if it hasn't been created yet
                 create_backup_dir_if_needed
-                
+
                 # Create backup directory structure and backup the file
                 backup_file_path="$BACKUP_DIR/$filepath"
                 backup_dir=$(dirname "$backup_file_path")
                 mkdir -p "$backup_dir"
                 cp "$file" "$backup_file_path"
-                
+
                 # Copy the formatted content back to the original file
                 cp "$temp_file" "$file"
-                
+
                 # Restore original file permissions
                 chmod "$original_perms" "$file"
-                
+
                 echo -e "${GREEN}Applied clang-format to: $filepath${NC} (after manual review)"
                 MODIFIED_COUNT=$((MODIFIED_COUNT + 1))
             else
@@ -438,29 +438,29 @@ while IFS= read -r file; do
         # Compare original and formatted files
         if ! cmp -s "$file" "$temp_file"; then
             MODIFIED_COUNT=$((MODIFIED_COUNT + 1))
-            
+
             if $CHECK_ONLY; then
                 echo "File would be modified: $filepath"
             else
                 # First, create backup directory if it hasn't been created yet
                 create_backup_dir_if_needed
-                
+
                 # Create backup directory structure and backup the file
                 backup_file_path="$BACKUP_DIR/$filepath"
                 backup_dir=$(dirname "$backup_file_path")
                 mkdir -p "$backup_dir"
                 cp "$file" "$backup_file_path"
-                
+
                 # Copy the formatted content back to the original file
                 cp "$temp_file" "$file"
-                
+
                 # Restore original file permissions
                 chmod "$original_perms" "$file"
                 echo -e "${GREEN}Applied clang-format to: $filepath${NC}"
             fi
         fi
     fi
-    
+
     # Progress indicator for larger projects
     if [ $CHECKED_COUNT -gt 0 ] && [ $((CHECKED_COUNT % 10)) -eq 0 ]; then
         echo -e "${YELLOW}Progress: $CHECKED_COUNT/$FILE_COUNT files processed${NC}"
@@ -501,11 +501,11 @@ else
         echo "  3. Compare diff:    clang-format <filename> | diff -u <filename> -"
         echo "  4. Apply manually:  clang-format -i <filename>"
     fi
-    
+
     # Only show backup information if a backup was created
     if $BACKUP_CREATED; then
         echo -e "Backups saved to: ${GREEN}$BACKUP_DIR${NC}"
-        
+
         # Instructions for restoring from backup if needed
         if [ $MODIFIED_COUNT -gt 0 ]; then
             echo ""

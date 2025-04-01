@@ -2,7 +2,7 @@
 # display_files_markdown.sh
 #
 # This script finds and displays files matching specific patterns (.c, .h, CMakeLists.txt, Kconfig)
-# with markdown formatting (triple backticks), excluding build, managed_components, 
+# with markdown formatting (triple backticks), excluding build, managed_components,
 # and clang_format_backup_* directories/files.
 # In normal mode, the output is displayed in the terminal and also copied to the clipboard (on macOS).
 # In silent mode (--silent), output is only copied to the clipboard without terminal display.
@@ -82,11 +82,11 @@ process_files() {
         -type f \( $FIND_PATTERN \) \
         -not -path '*/clang_format_backup_*/*' \
         -print" | sort | while read -r file; do
-        
+
         # Get file extension for language specification in markdown
         filename=$(basename "$file")
         extension="${filename##*.}"
-        
+
         # Set language for markdown code block based on file type
         case "$filename" in
             *.c)
@@ -105,7 +105,7 @@ process_files() {
                 lang=""
                 ;;
         esac
-        
+
         # Display file header and content with markdown formatting
         echo
         echo "# $file"

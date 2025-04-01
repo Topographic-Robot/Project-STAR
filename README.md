@@ -97,12 +97,12 @@ The firmware is developed using the **ESP-IDF** framework and written primarily 
 
 1. **Install ESP-IDF:**
 
-   Follow the official ESP-IDF installation instructions:  
+   Follow the official ESP-IDF installation instructions:
    [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
 
 2. **Ensure Latest `clang-format` (Optional but Recommended):**
 
-   If you are contributing to the project and use `clang-format` for formatting code, make sure it is up to date (preferably version 20.1.1 or later).  
+   If you are contributing to the project and use `clang-format` for formatting code, make sure it is up to date (preferably version 20.1.1 or later).
    On macOS, run the following:
 
    ```bash
