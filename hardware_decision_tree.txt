@@ -1,0 +1,116 @@
+(base) bsikar@Brightons-MacBook-Air-3 Project-Star % python3 hardware_decision_tree.py
+================================================================================
+HARDWARE SELECTION DECISION TREE
+This tool will help you select the optimal hardware for your project
+================================================================================
+
+What is your primary hardware requirement?
+1. Full operating system (Linux) with high processing power
+2. Custom digital logic and hardware parallelism
+3. Microcontroller for embedded applications
+
+Enter your choice (number): 3
+
+What is your power constraint?
+1. Ultra-low power (battery for months/years)
+2. Low power (battery for days/weeks)
+3. Standard power (regular charging or mains power)
+
+Enter your choice (number): 3
+
+Do you need wireless connectivity?
+1. Yes, Wi-Fi and/or Bluetooth is essential
+2. No, don't need wireless or will add external module
+
+Enter your choice (number): 1
+
+What level of analog interface do you need?
+1. High-precision analog (14-bit+ ADC)
+2. Standard analog (12-bit ADC)
+3. Basic/minimal analog
+4. No analog needed
+
+Enter your choice (number): 3
+
+Do you need real-time processing capabilities?
+1. Yes, hard real-time requirements
+2. Soft real-time is sufficient
+3. No real-time requirements
+
+Enter your choice (number): 2
+
+How important is development simplicity?
+1. Very important (prefer high-level languages/frameworks)
+2. Balanced (moderate learning curve acceptable)
+3. Not important (willing to learn complex tools)
+
+Enter your choice (number): 3
+
+What's your processing requirement?
+1. Very high (compute-intensive tasks, AI, etc.)
+2. High (complex algorithms, graphics)
+3. Medium (typical embedded applications)
+4. Low (simple sensing, control tasks)
+
+Enter your choice (number): 3
+
+================================================================================
+RECOMMENDED HARDWARE BASED ON YOUR REQUIREMENTS:
+================================================================================
+
+1. ESP32-WROOM-32 (Score: 22)
+   Dual-core 240MHz microcontroller with Wi-Fi/BT
+
+   Key Strengths:
+   • Built-in Wi-Fi and Bluetooth
+   • Dual-core performance up to 240MHz
+   • Large community and support
+   • Low cost
+   • Good battery life with sleep modes
+
+   Ideal Applications:
+   • IoT devices requiring wireless connectivity
+   • Smart home sensors and controllers
+   • Wireless data loggers
+   • Battery-powered devices with periodic connectivity
+   • Prototyping and hobby projects
+
+
+2. NUCLEO-F767ZI (Score: 21)
+   216MHz ARM Cortex-M7 MCU with Ethernet and advanced peripherals
+
+   Key Strengths:
+   • High-performance Cortex-M7 core
+   • Built-in Ethernet
+   • Camera interface and graphics acceleration
+   • Large flash and RAM
+   • Multiple high-speed interfaces
+
+   Ideal Applications:
+   • High-performance embedded systems
+   • Industrial control with networking
+   • Camera/imaging applications
+   • User interfaces with graphics
+   • Complex real-time systems
+
+
+3. NUCLEO-F446RE (Score: 16)
+   180MHz ARM Cortex-M4F MCU with rich peripherals
+
+   Key Strengths:
+   • Excellent real-time performance
+   • Multiple timers and communication interfaces
+   • DSP instructions and floating-point unit
+   • Precise ADCs (12-bit)
+   • Arduino shield compatibility
+
+   Ideal Applications:
+   • Real-time control systems
+   • Precision sensing and control
+   • Motor control and robotics
+   • Industrial automation
+   • Wired communication interfaces
+
+
+Thank you for using the Hardware Selection Tool!
+(base) bsikar@Brightons-MacBook-Air-3 Project-Star %
