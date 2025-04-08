@@ -1,8 +1,9 @@
 /* components/pstar_storage_hal/pstar_storage_sdio_hal.c */
 
 #include "pstar_storage_sdio_hal.h"
-#include "pstar_storage_common.h"
+
 #include "pstar_log_handler.h"
+#include "pstar_storage_common.h"
 
 #include "driver/sdmmc_host.h"
 
@@ -14,9 +15,9 @@ static const char* TAG = "Storage SDIO HAL";
 bool storage_sdio_is_supported(void)
 {
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    return true;
+  return true;
 #else
-    return false;
+  return false;
 #endif
 }
 

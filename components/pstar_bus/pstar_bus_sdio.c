@@ -6,9 +6,10 @@
 #include "pstar_bus_manager.h"
 #include "pstar_bus_types.h"
 #include "pstar_log_handler.h"
-#include "pstar_sd_card_hal.h"
-
+// #include "pstar_sd_card_hal.h" // <-- REMOVE this line
 #include <string.h>
+
+#include "sdmmc_cmd.h" // <-- ADD this line to include sdmmc types directly
 
 /* Constants ******************************************************************/
 
@@ -467,7 +468,7 @@ priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager, const char* name, 
   }
 
   /* Handle IOCTL command */
-  switch (cmd) {
+  switch ((pstar_sdio_ioctl_cmd_t)cmd) { // Cast cmd to the enum type for clarity
     case k_pstar_sdio_ioctl_get_card_info:
       if (!arg) {
         log_error(TAG, "IOCTL Error", "Argument is NULL for get_card_info");
@@ -513,9 +514,9 @@ priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager, const char* name, 
         return ESP_ERR_INVALID_ARG;
       }
       /* Card pointer is already validated above */
-      if (card->scr.sd_spec == 0) {
-        log_error(TAG, "IOCTL Error", "SCR register not available");
-        return ESP_ERR_NOT_SUPPORTED;
+      if (card->ocr == 0) { // Check OCR instead of sd_spec which might not be set reliably early
+        log_error(TAG, "IOCTL Error", "SCR register not available (card not fully probed?)");
+        return ESP_ERR_NOT_SUPPORTED; // Or maybe ESP_ERR_INVALID_STATE?
       }
       memcpy(arg, &card->scr, sizeof(sdmmc_scr_t));
       break;
@@ -547,7 +548,6 @@ priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager, const char* name, 
         return ESP_ERR_INVALID_ARG;
       }
       /* Card pointer is already validated above */
-      /* Fixed bug: Return actual bus width instead of frequency */
       if (card->host.flags & SDMMC_HOST_FLAG_4BIT) {
         *(uint8_t*)arg = 4; /* 4-bit bus width */
       } else {
@@ -556,8 +556,10 @@ priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager, const char* name, 
       break;
 
     case k_pstar_sdio_ioctl_set_bus_width:
-      /* Set bus width - not supported */
-      log_error(TAG, "IOCTL Error", "Setting bus width not supported");
+      /* Set bus width - not supported directly via bus IOCTL */
+      log_error(TAG,
+                "IOCTL Error",
+                "Setting bus width via IOCTL not supported, use sd_card_set_bus_width()");
       return ESP_ERR_NOT_SUPPORTED;
 
     case k_pstar_sdio_ioctl_get_bus_freq:
@@ -567,7 +569,7 @@ priv_pstar_bus_sdio_ioctl(const pstar_bus_manager_t* manager, const char* name, 
         return ESP_ERR_INVALID_ARG;
       }
       /* Card pointer is already validated above */
-      *(uint32_t*)arg = card->max_freq_khz;
+      *(uint32_t*)arg = card->max_freq_khz * 1000; // Convert kHz to Hz
       break;
 
     case k_pstar_sdio_ioctl_set_bus_freq:

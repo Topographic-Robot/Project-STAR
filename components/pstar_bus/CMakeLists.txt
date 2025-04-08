@@ -18,13 +18,12 @@ idf_component_register(
   SRCS ${bus_srcs}
   INCLUDE_DIRS
     "include"
-  REQUIRES
+  REQUIRES # <-- Removed pstar_storage_hal from here
     driver
     esp_common
     freertos
     esp_timer
     pstar_pin_validator
     pstar_logger
-    pstar_storage_hal
     sdmmc # Needed for sdmmc types used in pstar_bus_protocol_types.h
 )

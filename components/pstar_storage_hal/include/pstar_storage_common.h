@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "pstar_storage_types.h"
+
 #include "esp_err.h"
 
 /**
@@ -60,7 +61,7 @@ void storage_notify_availability(sd_card_hal_t* sd_card, bool available);
 
 /**
  * @brief Get string representation of bus width
- * 
+ *
  * @param bus_width The bus width value to convert to string
  * @return const char* String representation
  */
@@ -110,7 +111,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card);
 
 /**
  * @brief Resets the SD card hardware and remounts if needed
- * 
+ *
  * @param context Pointer to the SD card HAL instance
  * @return esp_err_t ESP_OK if successful, error code otherwise
  */
@@ -118,7 +119,7 @@ esp_err_t storage_sd_card_reset(void* context);
 
 /**
  * @brief Register all SD card pins with the pin validator
- * 
+ *
  * @param sd_card Pointer to the SD card HAL instance
  * @return esp_err_t ESP_OK if successful, error code otherwise
  */

@@ -102,7 +102,7 @@ def create_dataset():
             'video_capability': 0,
             'linux_capable': 0,
         },
-        
+
         # FPGA Boards
         'DE10-LITE': {
             'type': 'FPGA',
@@ -149,7 +149,7 @@ def create_dataset():
             'video_capability': 1,
             'linux_capable': 0,
         },
-        
+
         # Mini PCs
         'Raspberry Pi 5': {
             'type': 'Mini PC',
@@ -197,7 +197,7 @@ def create_dataset():
             'linux_capable': 1,
         },
     }
-    
+
     # Convert dictionary to DataFrame
     df = pd.DataFrame.from_dict(data, orient='index')
     return df
@@ -206,11 +206,11 @@ def train_decision_tree(df):
     # Features for decision making
     X = df.drop(['type'], axis=1)
     y = df.index  # The recommended device is the target
-    
+
     # Create and train the decision tree classifier
     clf = tree.DecisionTreeClassifier(max_depth=5)
     clf = clf.fit(X, y)
-    
+
     return clf, X.columns
 
 def visualize_tree(clf, feature_names, class_names):
@@ -228,7 +228,7 @@ def visualize_tree(clf, feature_names, class_names):
 
 def interactive_selector():
     """Interactive hardware selection based on project requirements"""
-    
+
     # Dictionary mapping device types to their specific information
     device_info = {
         'ESP32-WROOM-32': {
@@ -436,12 +436,12 @@ def interactive_selector():
             ]
         }
     }
-    
+
     print("\033[1;36m" + "="*80)
     print("HARDWARE SELECTION DECISION TREE")
     print("This tool will help you select the optimal hardware for your project")
     print("="*80 + "\033[0m")
-    
+
     # Series of questions to determine the best device
     questions = [
         {
@@ -505,12 +505,12 @@ def interactive_selector():
 
     # Score system for each device
     scores = {device: 0 for device in device_info.keys()}
-    
+
     # Process the first question to determine category
     print(f"\n\033[1;33m{questions[0]['text']}\033[0m")
     for i, option in enumerate(questions[0]['options'], 1):
         print(f"{i}. {option}")
-    
+
     while True:
         try:
             choice = int(input("\nEnter your choice (number): "))
@@ -519,32 +519,32 @@ def interactive_selector():
             print("Invalid choice. Please try again.")
         except ValueError:
             print("Please enter a number.")
-    
+
     # Filter devices based on first choice
     filtered_devices = []
-    
+
     if choice == 1:  # Linux/OS
         filtered_devices = ['Raspberry Pi 5', 'Raspberry Pi 4', 'Raspberry Pi Zero 2W', 'PYNQ-Z2']
     elif choice == 2:  # FPGA
         filtered_devices = ['DE10-LITE', 'PYNQ-Z2', 'BAYS 3']
     else:  # MCU
-        filtered_devices = ['ESP32-WROOM-32', 'NUCLEO-F446RE', 'NUCLEO-F767ZI', 
+        filtered_devices = ['ESP32-WROOM-32', 'NUCLEO-F446RE', 'NUCLEO-F767ZI',
                            'MSP-EXP430FR5994', 'MSP-EXP432P401R', 'MSP-EXP432P4111']
-    
+
     # Process remaining questions
     for q_index in range(1, len(questions)):
         q = questions[q_index]
-        
+
         # Skip questions that aren't relevant for our filtered devices
         if q_index == 1 and choice == 1:  # Skip power question for SBCs
             continue
         if q_index == 4 and choice == 1:  # Skip real-time question for SBCs
             continue
-            
+
         print(f"\n\033[1;33m{q['text']}\033[0m")
         for i, option in enumerate(q['options'], 1):
             print(f"{i}. {option}")
-        
+
         while True:
             try:
                 user_choice = int(input("\nEnter your choice (number): "))
@@ -553,7 +553,7 @@ def interactive_selector():
                 print("Invalid choice. Please try again.")
             except ValueError:
                 print("Please enter a number.")
-        
+
         # Update scores based on answers
         for device in filtered_devices:
             # Power constraint scoring
@@ -582,7 +582,7 @@ def interactive_selector():
                     # Ultra-low power MCUs get lower score for standard power
                     elif device in ['MSP-EXP430FR5994', 'MSP-EXP432P401R', 'MSP-EXP432P4111']:
                         scores[device] += 1
-            
+
             # Wireless connectivity
             elif q_index == 2:
                 if user_choice == 1:  # Wireless needed
@@ -594,7 +594,7 @@ def interactive_selector():
                 else:  # Wireless not needed
                     if device not in ['ESP32-WROOM-32', 'Raspberry Pi 5', 'Raspberry Pi 4', 'Raspberry Pi Zero 2W']:
                         scores[device] += 2  # Small bonus for not needing wireless
-            
+
             # Analog interface
             elif q_index == 3:
                 if user_choice == 1:  # High-precision
@@ -616,18 +616,18 @@ def interactive_selector():
                 elif user_choice == 3:  # Basic analog
                     if device in ['NUCLEO-F446RE', 'NUCLEO-F767ZI', 'ESP32-WROOM-32']:
                         scores[device] += 4
-                    elif device in ['MSP-EXP430FR5994', 'MSP-EXP432P401R', 'MSP-EXP432P4111', 
+                    elif device in ['MSP-EXP430FR5994', 'MSP-EXP432P401R', 'MSP-EXP432P4111',
                                    'DE10-LITE', 'PYNQ-Z2', 'BAYS 3']:
                         scores[device] += 3
                     # Raspberry Pis get 0
                 else:  # No analog needed
                     if device in ['Raspberry Pi 5', 'Raspberry Pi 4', 'Raspberry Pi Zero 2W']:
                         scores[device] += 3  # Bonus for RPis as they don't have analog anyway
-            
+
             # Real-time processing
             elif q_index == 4:
                 if user_choice == 1:  # Hard real-time
-                    if device in ['NUCLEO-F446RE', 'NUCLEO-F767ZI', 'MSP-EXP430FR5994', 
+                    if device in ['NUCLEO-F446RE', 'NUCLEO-F767ZI', 'MSP-EXP430FR5994',
                                 'MSP-EXP432P401R', 'MSP-EXP432P4111']:
                         scores[device] += 5
                     elif device in ['DE10-LITE', 'PYNQ-Z2', 'BAYS 3']:
@@ -638,7 +638,7 @@ def interactive_selector():
                 elif user_choice == 2:  # Soft real-time
                     if device == 'ESP32-WROOM-32':
                         scores[device] += 5
-                    elif device in ['NUCLEO-F446RE', 'NUCLEO-F767ZI', 'MSP-EXP430FR5994', 
+                    elif device in ['NUCLEO-F446RE', 'NUCLEO-F767ZI', 'MSP-EXP430FR5994',
                                    'MSP-EXP432P401R', 'MSP-EXP432P4111']:
                         scores[device] += 4
                     elif device in ['DE10-LITE', 'PYNQ-Z2', 'BAYS 3']:
@@ -651,7 +651,7 @@ def interactive_selector():
                     elif device == 'ESP32-WROOM-32':
                         scores[device] += 3
                     # MCUs and FPGAs get lower scores as they're overkill for non-real-time
-            
+
             # Development simplicity
             elif q_index == 5:
                 if user_choice == 1:  # Very important
@@ -680,7 +680,7 @@ def interactive_selector():
                         scores[device] += 5  # Reward FPGAs for complex users
                     elif device == 'NUCLEO-F767ZI':
                         scores[device] += 4  # Reward complex MCUs
-            
+
             # Processing requirement
             elif q_index == 6:
                 if user_choice == 1:  # Very high
@@ -721,18 +721,18 @@ def interactive_selector():
                     elif device in ['ESP32-WROOM-32', 'NUCLEO-F446RE']:
                         scores[device] += 3
                     # Everything else is overkill and gets 0-1
-    
+
     # Filter only the original filtered devices
     filtered_scores = {device: score for device, score in scores.items() if device in filtered_devices}
-    
+
     # Sort by score
     sorted_devices = sorted(filtered_scores.items(), key=lambda x: x[1], reverse=True)
-    
+
     # Show top 3 recommendations
     print("\n\033[1;32m" + "="*80)
     print("RECOMMENDED HARDWARE BASED ON YOUR REQUIREMENTS:")
     print("="*80 + "\033[0m")
-    
+
     for i, (device, score) in enumerate(sorted_devices[:3], 1):
         print(f"\n\033[1;36m{i}. {device} (Score: {score})\033[0m")
         print(f"   {device_info[device]['description']}")
@@ -743,18 +743,18 @@ def interactive_selector():
         for app in device_info[device]['ideal_for']:
             print(f"   • {app}")
         print()
-    
+
     return sorted_devices[0][0]  # Return the top recommendation
 
 if __name__ == "__main__":
     # Create dataset from hardware specifications
     df = create_dataset()
-    
+
     # Train a decision tree model
     clf, feature_names = train_decision_tree(df)
-    
+
     # Visualize the tree (would output a graphviz visualization)
     # For console application, we'll use an interactive approach instead
     recommended_device = interactive_selector()
-    
+
     print("\n\033[1;33mThank you for using the Hardware Selection Tool!\033[0m")

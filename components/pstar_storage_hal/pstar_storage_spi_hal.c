@@ -1,16 +1,17 @@
 /* components/pstar_storage_hal/pstar_storage_spi_hal.c */
 
 #include "pstar_storage_spi_hal.h"
-#include "pstar_storage_common.h"
-#include "pstar_log_handler.h"
-#include "pstar_bus_spi.h"
-#include "pstar_bus_manager.h"
-#include "pstar_bus_config.h"
 
-#include <string.h>  /* Add for memcpy */
+#include "pstar_bus_config.h"
+#include "pstar_bus_manager.h"
+#include "pstar_bus_spi.h"
+#include "pstar_log_handler.h"
+#include "pstar_storage_common.h"
 
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
+
+#include <string.h> /* Add for memcpy */
 
 /* Constants ******************************************************************/
 static const char* TAG = "Storage SPI HAL";
@@ -20,9 +21,9 @@ static const char* TAG = "Storage SPI HAL";
 bool storage_spi_is_supported(void)
 {
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
-    return true;
+  return true;
 #else
-    return false;
+  return false;
 #endif
 }
 

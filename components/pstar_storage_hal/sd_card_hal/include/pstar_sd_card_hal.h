@@ -2,7 +2,7 @@
 /**
  * @file pstar_sd_card_hal.h
  * @brief Backward compatibility header for SD card HAL
- * 
+ *
  * This file provides backward compatibility with previous implementations.
  * New code should use pstar_storage_hal.h directly.
  */
@@ -19,14 +19,14 @@ extern "C" {
 #include "pstar_storage_types.h"
 
 /* Directly map old types to new types for backward compatibility */
-typedef sd_card_hal_t pstar_sd_card_hal_t;
-typedef sd_card_pin_config_t pstar_sd_card_pin_config_t;
+typedef sd_card_hal_t         pstar_sd_card_hal_t;
+typedef sd_card_pin_config_t  pstar_sd_card_pin_config_t;
 typedef sd_card_task_config_t pstar_sd_card_task_config_t;
 typedef sd_card_performance_t pstar_sd_card_performance_t;
-typedef sd_interface_type_t pstar_sd_interface_type_t;
-typedef sd_bus_width_t pstar_sd_bus_width_t;
-typedef sd_state_t pstar_sd_state_t;
-typedef sd_availability_cb_t pstar_sd_availability_cb_t;
+typedef sd_interface_type_t   pstar_sd_interface_type_t;
+typedef sd_bus_width_t        pstar_sd_bus_width_t;
+typedef sd_state_t            pstar_sd_state_t;
+typedef sd_availability_cb_t  pstar_sd_availability_cb_t;
 
 /* Define old enum values using new ones */
 #define PSTAR_SD_INTERFACE_NONE k_sd_interface_none

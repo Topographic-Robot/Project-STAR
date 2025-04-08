@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "pstar_storage_types.h"
+
 #include "esp_err.h"
 
 /**
@@ -20,7 +21,7 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card);
 
 /**
  * @brief Checks if SPI mode is supported on this system
- * 
+ *
  * @return true if SPI mode is supported, false otherwise
  */
 bool storage_spi_is_supported(void);
