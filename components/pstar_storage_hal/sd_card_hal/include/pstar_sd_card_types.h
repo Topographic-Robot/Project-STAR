@@ -7,16 +7,18 @@
 extern "C" {
 #endif
 
-#include "pstar_bus_manager_types.h"
+#include "pstar_bus_manager_types.h" // Needed for pstar_bus_manager_t
 #include "pstar_error_handler.h"
 
-#include "driver/gpio.h" /* Add this include for gpio_num_t */
+#include "driver/gpio.h" // Include for gpio_num_t
+#include "driver/sdspi_host.h" // Include for sdspi_dev_handle_t
 #include "driver/spi_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
 #include "esp_err.h"
 #include "sdmmc_cmd.h"
+#include "sdkconfig.h" // Include sdkconfig for conditional compilation
 
 /* Enums **********************************************************************/
 
@@ -163,6 +165,10 @@ typedef struct sd_card_hal {
   error_handler_t     error_handler; /**< Error handler for fault detection and recovery */
   const char*         component_id;  /**< Component ID for error handler registration */
   pstar_bus_manager_t bus_manager;   /**< Bus manager for SPI and GPIO */
+
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+  sdspi_dev_handle_t spi_slot_handle; /**< Handle for the specific SPI device/slot */ // <-- ADDED THIS LINE
+#endif
 
   /* Performance monitoring */
   sd_card_performance_t performance; /**< Performance metrics for the SD card */
