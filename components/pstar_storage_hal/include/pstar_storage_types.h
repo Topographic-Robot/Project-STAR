@@ -1,24 +1,22 @@
-/* components/pstar_storage_hal/sd_card_hal/include/pstar_sd_card_types.h */
+/* components/pstar_storage_hal/include/pstar_storage_types.h */
 
-#ifndef PSTAR_SD_CARD_TYPES_H
-#define PSTAR_SD_CARD_TYPES_H
+#ifndef PSTAR_STORAGE_TYPES_H
+#define PSTAR_STORAGE_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "pstar_bus_manager_types.h" // Needed for pstar_bus_manager_t
+#include "pstar_bus_manager_types.h"
 #include "pstar_error_handler.h"
 
-#include "driver/gpio.h" // Include for gpio_num_t
-#include "driver/sdspi_host.h" // Include for sdspi_dev_handle_t
+#include "driver/gpio.h"
 #include "driver/spi_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
 #include "esp_err.h"
 #include "sdmmc_cmd.h"
-#include "sdkconfig.h" // Include sdkconfig for conditional compilation
 
 /* Enums **********************************************************************/
 
@@ -166,10 +164,6 @@ typedef struct sd_card_hal {
   const char*         component_id;  /**< Component ID for error handler registration */
   pstar_bus_manager_t bus_manager;   /**< Bus manager for SPI and GPIO */
 
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
-  sdspi_dev_handle_t spi_slot_handle; /**< Handle for the specific SPI device/slot */ // <-- ADDED THIS LINE
-#endif
-
   /* Performance monitoring */
   sd_card_performance_t performance; /**< Performance metrics for the SD card */
 
@@ -181,4 +175,4 @@ typedef struct sd_card_hal {
 }
 #endif
 
-#endif /* PSTAR_SD_CARD_TYPES_H */
+#endif /* PSTAR_STORAGE_TYPES_H */

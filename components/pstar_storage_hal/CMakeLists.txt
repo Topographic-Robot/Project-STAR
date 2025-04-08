@@ -1,12 +1,28 @@
 # components/pstar_storage_hal/CMakeLists.txt
 
-set(hal_srcs "")
-set(hal_includes "")
+set(hal_srcs
+    "pstar_storage_hal.c"
+    "pstar_storage_common.c"
+)
 
-# Conditionally add SD card sources and includes
+set(hal_includes
+    "include"
+    "sd_card_hal/include"  # Add this for backward compatibility
+)
+
+# Conditionally add SPI implementation if enabled
+if(CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED)
+  list(APPEND hal_srcs "pstar_storage_spi_hal.c")
+endif()
+
+# Conditionally add SDIO implementation if enabled
+if(CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED)
+  list(APPEND hal_srcs "pstar_storage_sdio_hal.c")
+endif()
+
+# Conditionally add SD card sources
 if(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED)
-  list(APPEND hal_srcs "sd_card_hal/pstar_sd_card_hal.c")
-  list(APPEND hal_includes "sd_card_hal/include") # Keep conditional include dir
+  list(APPEND hal_srcs "pstar_storage_sd_card_hal.c")
 endif()
 
 # Base requirements for the storage HAL
@@ -29,7 +45,7 @@ list(APPEND storage_hal_requires pstar_bus)
 # Register the component
 idf_component_register(
   SRCS ${hal_srcs}
-  INCLUDE_DIRS ${hal_includes} # Use potentially conditional list
+  INCLUDE_DIRS ${hal_includes}
   REQUIRES ${storage_hal_requires}
 )
 

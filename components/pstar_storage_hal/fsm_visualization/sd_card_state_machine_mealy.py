@@ -1,4 +1,4 @@
-# components/pstar_storage_hal/sd_card_hal/fsm_visualization/sd_card_state_machine_mealy.py
+# components/pstar_storage_hal/fsm_visualization/sd_card_state_machine_mealy.py
 
 from graphviz import Digraph
 import os
