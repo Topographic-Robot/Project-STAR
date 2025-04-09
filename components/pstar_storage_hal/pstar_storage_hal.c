@@ -1,5 +1,4 @@
-/* components/pstar_storage_hal/pstar_storage_hal.c */
-
+/* ./components/pstar_storage_hal/pstar_storage_hal.c */
 #include "pstar_storage_hal.h"
 
 #include "pstar_bus_gpio.h"    // Include Bus GPIO header
@@ -165,7 +164,7 @@ esp_err_t sd_card_write(const char* filename, const void* data, size_t len, bool
   }
 
   // Open file
-  FILE* f = fopen(full_path, append ? "ab" : "wb");
+  FILE* f = fopen(full_path, append ? "ab" : "wb"); // Use binary mode for generic write
   if (f == NULL) {
     log_error(TAG, "Write Error", "Failed to open file: %s (%s)", full_path, strerror(errno));
     return ESP_FAIL; // Changed from NOT_FOUND, as failure could be other reasons
@@ -487,7 +486,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     .measurement_needed = false,
   };
 
-  // --- FIX: Use designated initializers for the whole struct first ---
+  // --- Use designated initializers for the whole struct first ---
   sd_card_hal_t default_config = {
     .tag        = tag,
     .mount_path = mount_path,
@@ -514,6 +513,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     .interface_attempt_count      = 0,
     .card                         = NULL, // Initialize pointers to NULL
     .mutex                        = NULL,
+    .mount_task_exit_sem          = NULL, // Initialize new semaphore handle
     .initialized                  = false,
     .mount_task_exit_requested    = false,
     .mount_task_handle            = NULL,
@@ -524,7 +524,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     .performance                  = performance,
     .availability_callback        = NULL};
   // Initialize atomic flag separately if needed (or rely on struct init to 0)
-  // atomic_init(&default_config.card_available, false); // Redundant if struct is zeroed
+  atomic_init(&default_config.card_available, false); // Initialize atomic flag
 
   // --- Copy the initialized default config to the output struct ---
   memcpy(sd_card, &default_config, sizeof(sd_card_hal_t));
@@ -907,28 +907,48 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
   esp_err_t result = ESP_OK;
 
   // --- Stop the Mount Task ---
-  if (sd_card->mount_task_handle != NULL) {
+  if (sd_card->mount_task_handle != NULL &&
+      sd_card->mount_task_exit_sem != NULL) { // Check semaphore too
     log_info(sd_card->tag, "Cleanup", "Requesting mount task exit...");
     sd_card->mount_task_exit_requested = true;
-    // Wait briefly for task to exit. It should check the flag and exit.
-    // Using a timeout is safer than indefinite blocking during cleanup.
-    TickType_t       start_time    = xTaskGetTickCount();
+
+    // --- Wait for the task to signal exit via semaphore ---
     const TickType_t max_wait_time = pdMS_TO_TICKS(2000); // 2 seconds max wait
-    // Check task handle status periodically
-    while (eTaskGetState(sd_card->mount_task_handle) != eDeleted &&
-           (xTaskGetTickCount() - start_time) < max_wait_time) {
-      vTaskDelay(pdMS_TO_TICKS(50));
-    }
-    // Check again if task deleted itself
-    if (eTaskGetState(sd_card->mount_task_handle) != eDeleted) {
+    log_info(sd_card->tag, "Cleanup", "Waiting for mount task to signal exit...");
+    if (xSemaphoreTake(sd_card->mount_task_exit_sem, max_wait_time) == pdTRUE) {
+      log_info(sd_card->tag, "Cleanup", "Mount task signaled exit.");
+      // Task should have deleted itself now.
+    } else {
       log_warn(sd_card->tag,
                "Cleanup Warning",
-               "Mount task did not exit cleanly within timeout, forcing deletion.");
-      vTaskDelete(sd_card->mount_task_handle);
-    } else {
-      log_info(sd_card->tag, "Cleanup", "Mount task exited cleanly.");
+               "Mount task did not signal exit within timeout, forcing deletion.");
+      // Check state just in case before deleting
+      // Use temporary handle to avoid race condition if task deletes itself between check and delete
+      TaskHandle_t temp_handle = sd_card->mount_task_handle;
+      if (temp_handle != NULL && eTaskGetState(temp_handle) != eDeleted) {
+        vTaskDelete(temp_handle);
+      }
+      if (result == ESP_OK)
+        result = ESP_ERR_TIMEOUT; // Record timeout error
     }
-    sd_card->mount_task_handle = NULL; // Mark handle as invalid
+    sd_card->mount_task_handle = NULL; // Mark handle as invalid regardless
+  } else if (sd_card->mount_task_handle != NULL) {
+    log_warn(sd_card->tag,
+             "Cleanup Warning",
+             "Mount task handle exists but exit semaphore is NULL. Forcing deletion.");
+    TaskHandle_t temp_handle = sd_card->mount_task_handle; // Use temporary handle
+    if (temp_handle != NULL) {                             // Check if handle is still valid
+      vTaskDelete(temp_handle);
+    }
+    sd_card->mount_task_handle = NULL;
+    if (result == ESP_OK)
+      result = ESP_FAIL; // Indicate unclean shutdown
+  }
+
+  // --- Delete the exit semaphore ---
+  if (sd_card->mount_task_exit_sem != NULL) {
+    vSemaphoreDelete(sd_card->mount_task_exit_sem);
+    sd_card->mount_task_exit_sem = NULL; // Set to NULL after deleting
   }
 
   // --- Unmount Card (if mounted) ---
@@ -941,7 +961,8 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
               "Cleanup Error",
               "Failed to unmount SD card during cleanup: %s",
               esp_err_to_name(unmount_err));
-    result = unmount_err; // Record first error
+    if (result == ESP_OK)
+      result = unmount_err; // Record first error
   }
 
   // --- Cleanup Detection ISR and GPIO Bus (if enabled) ---
@@ -971,8 +992,17 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
 #endif
 
   // --- Cleanup Remaining Bus Manager Resources ---
-  // CRITICAL FIX: Removed bus manager deinit here. Buses are cleaned individually during unmount.
-  // pstar_bus_manager_deinit(&sd_card->bus_manager);
+  // Buses are cleaned individually during unmount or here if unmount failed.
+  // Deinit the manager itself.
+  esp_err_t bm_deinit_err = pstar_bus_manager_deinit(&sd_card->bus_manager);
+  if (bm_deinit_err != ESP_OK) {
+    log_warn(sd_card->tag,
+             "Cleanup Warning",
+             "Bus manager deinit failed: %s",
+             esp_err_to_name(bm_deinit_err));
+    if (result == ESP_OK)
+      result = bm_deinit_err;
+  }
 
   // --- Cleanup Mutex and Error Handler ---
   if (sd_card->mutex != NULL) {
@@ -980,9 +1010,6 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     sd_card->mutex = NULL;
   }
   error_handler_deinit(&sd_card->error_handler);
-
-  // CRITICAL FIX: Removed redundant free of sd_card->card here.
-  // if (sd_card->card != NULL) { ... free ... } // REMOVED
 
   // --- Reset HAL State ---
   sd_card->initialized = false;

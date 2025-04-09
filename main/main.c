@@ -1,5 +1,4 @@
-/* main/main.c */
-
+/* ./main/main.c */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -58,8 +57,8 @@ static const sd_card_pin_config_t second_card_pins = {
   // SPI pins for second SD card (using SPI3_HOST, HSPI)
   .spi_cs_pin   = 26, // GPIO26 for CS
   .spi_sclk_pin = 25, // GPIO25 for SCLK
-  .spi_di_pin   = 33, // GPIO33 for MISO (DI for ESP32)
-  .spi_do_pin   = 32, // GPIO32 for MOSI (DO for ESP32)
+  .spi_di_pin   = 33, // GPIO33 for MISO (DI for ESP32) -> Should be MOSI (DI for Card)
+  .spi_do_pin   = 32, // GPIO32 for MOSI (DO for ESP32) -> Should be MISO (DO for Card)
 
   // SDIO pins - not used but initialize to -1
   .sdio_clk_pin = -1,
@@ -101,6 +100,32 @@ void test_sd_card(const char* card_name, const char* mount_path)
   snprintf(filename_full, sizeof(filename_full), "%s/test_%s.txt", mount_path, card_name);
 
   log_info(TAG, "Test Start", "Testing %s (Path: %s)", card_name, filename_full);
+
+  // --- Ensure directory exists before writing ---
+  char dir_path[sizeof(filename_full)];
+  strncpy(dir_path, filename_full, sizeof(dir_path) - 1);
+  dir_path[sizeof(dir_path) - 1] = '\0';
+  char* last_slash               = strrchr(dir_path, '/');
+  if (last_slash != NULL && last_slash != dir_path) {
+    *last_slash = '\0'; // Terminate to get directory path
+    struct stat st;
+    if (stat(dir_path, &st) != 0) { // Check if directory exists
+      log_info(TAG, "Test Dir Create", "Creating directory: %s", dir_path);
+      if (mkdir(dir_path, 0755) != 0) {
+        log_error(TAG,
+                  "Test Dir Error",
+                  "Failed to create directory '%s': %s (errno %d)",
+                  dir_path,
+                  strerror(errno),
+                  errno);
+        return; // Cannot proceed if directory creation fails
+      }
+    } else if (!S_ISDIR(st.st_mode)) {
+      log_error(TAG, "Test Dir Error", "'%s' exists but is not a directory", dir_path);
+      return; // Cannot proceed if path exists but isn't a directory
+    }
+  }
+  // --- End Directory Creation ---
 
   // --- Write Test ---
   for (int i = 0; i < num_writes; ++i) {

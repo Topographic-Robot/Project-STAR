@@ -1,5 +1,4 @@
-/* components/pstar_storage_hal/include/pstar_storage_types.h */
-
+/* ./components/pstar_storage_hal/include/pstar_storage_types.h */
 #ifndef PSTAR_STORAGE_TYPES_H
 #define PSTAR_STORAGE_TYPES_H
 
@@ -156,8 +155,10 @@ typedef struct sd_card_hal {
   uint32_t interface_attempt_count; /**< Number of interface discovery attempts */
 
   /* State variables */
-  sdmmc_card_t*       card;           /**< SD card descriptor for ESP-IDF SD card API */
-  SemaphoreHandle_t   mutex;          /**< Mutex for thread-safe access to card state */
+  sdmmc_card_t*     card;  /**< SD card descriptor for ESP-IDF SD card API */
+  SemaphoreHandle_t mutex; /**< Mutex for thread-safe access to card state */
+  SemaphoreHandle_t mount_task_exit_sem;
+  /**< Semaphore signaled by mount task on exit */ // <-- ADDED
   _Atomic bool        card_available; /**< Atomic: Indicates if card is mounted and ready */
   bool                initialized;    /**< Indicates if the HAL has been initialized */
   volatile bool       mount_task_exit_requested; /**< Flag to request exit from mount task */

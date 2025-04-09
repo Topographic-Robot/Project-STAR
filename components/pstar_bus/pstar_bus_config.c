@@ -112,7 +112,7 @@ pstar_bus_config_t* pstar_bus_config_create_uart(const char*         name,
   config->config.uart.config.stop_bits           = UART_STOP_BITS_1;
   config->config.uart.config.flow_ctrl           = UART_HW_FLOWCTRL_DISABLE;
   config->config.uart.config.rx_flow_ctrl_thresh = 0; /* Not used without flow control */
-  config->config.uart.config.source_clk          = UART_SCLK_APB;
+  config->config.uart.config.source_clk          = UART_SCLK_DEFAULT; // Use UART_SCLK_DEFAULT
 
   log_info(TAG,
            "UART Created",
@@ -296,7 +296,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
       /* Register SPI pins with pin validator */
       if (config->config.spi.bus_config.mosi_io_num != -1) {
-        // --- FIX --- MOSI (Master Out) is DI (Data In) for the peripheral
+        // MOSI (Master Out) is DI (Data In) for the peripheral
         result = pin_validator_register_pin(config->config.spi.bus_config.mosi_io_num,
                                             config->name ? config->name : "UNKNOWN",
                                             "SPI DI (MOSI)", // Updated comment
@@ -312,7 +312,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       }
 
       if (config->config.spi.bus_config.miso_io_num != -1) {
-        // --- FIX --- MISO (Master In) is DO (Data Out) for the peripheral
+        // MISO (Master In) is DO (Data Out) for the peripheral
         result = pin_validator_register_pin(config->config.spi.bus_config.miso_io_num,
                                             config->name ? config->name : "UNKNOWN",
                                             "SPI DO (MISO)", // Updated comment
@@ -558,19 +558,25 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                                      config->name ? config->name : "UNKNOWN");
       }
 
+      // --- FIX: Remove device BEFORE freeing bus ---
+      // The handle stored in config->handle might be the sdspi_dev_handle_t
+      // or a generic spi_device_handle_t. VFS manages the SD card device.
+      // We should rely on VFS unmount to remove the device.
+      // spi_bus_free should be called AFTER VFS unmount.
+      // If config->handle was used for a *different* SPI device (not SD card),
+      // it should be removed here. Assuming it's only for SD card now.
       if (config->handle != NULL) {
-        esp_err_t dev_result = spi_bus_remove_device((spi_device_handle_t)config->handle);
-        if (dev_result != ESP_OK) {
-          log_warn(TAG,
-                   "SPI Device Warning",
-                   "Failed to remove SPI device during deinit: %s",
-                   esp_err_to_name(dev_result));
-          /* Continue with bus deinitialization despite the warning */
-        } else {
-          log_debug(TAG, "SPI Device Removed", "Successfully removed SPI device during deinit");
-        }
-        config->handle = NULL; /* Clear handle regardless of removal result */
+        // This handle likely belongs to the SD card device managed by VFS.
+        // VFS unmount should handle its removal.
+        // Let's log a warning if the handle is still present here.
+        log_warn(
+          TAG,
+          "SPI Deinit Warning",
+          "Bus config handle is non-NULL during deinit. VFS unmount should have cleared it.");
+        // We won't call spi_bus_remove_device here to avoid conflicts with VFS.
+        config->handle = NULL; // Clear the handle anyway.
       }
+      // --- End FIX ---
 
       /* Then free the entire bus */
       result = spi_bus_free(config->config.spi.host);
@@ -595,9 +601,9 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                config->name ? config->name : "UNKNOWN");
 
       /* Unregister GPIO pins from pin validator */
-      uint64_t pin_mask = config->config.gpio.config.pin_bit_mask;
+      uint64_t pin_mask_gpio = config->config.gpio.config.pin_bit_mask;
       for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
-        if ((pin_mask >> pin) & 0x1) {
+        if ((pin_mask_gpio >> pin) & 0x1) {
           /* This pin is used, unregister it */
           pin_validator_unregister_pin(pin, config->name ? config->name : "UNKNOWN");
         }
@@ -635,18 +641,20 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
               "Failed to deinitialize bus '%s': %s",
               config->name ? config->name : "UNKNOWN",
               esp_err_to_name(result));
-    return result;
+    // Do not return early, mark as uninitialized anyway
   }
 
   /* Mark as not initialized */
   config->initialized = false;
 
-  log_info(TAG,
-           "Deinit Success",
-           "Successfully deinitialized bus '%s'",
-           config->name ? config->name : "UNKNOWN");
+  if (result == ESP_OK) {
+    log_info(TAG,
+             "Deinit Success",
+             "Successfully deinitialized bus '%s'",
+             config->name ? config->name : "UNKNOWN");
+  }
 
-  return ESP_OK;
+  return result; // Return the result of the deinit operation
 }
 
 /* Private Functions **********************************************************/

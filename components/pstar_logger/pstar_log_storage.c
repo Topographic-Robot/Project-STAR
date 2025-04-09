@@ -1,5 +1,4 @@
-/* components/pstar_logger/pstar_log_storage.c */
-
+/* ./components/pstar_logger/pstar_log_storage.c */
 #include "pstar_log_storage.h"
 
 #include "pstar_log_macros.h"
@@ -665,32 +664,27 @@ static esp_err_t priv_write_log_data(const char* const file_path_relative, const
 
 #ifdef CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_ENABLED
   size_t data_len = strlen(data);
-  /* Use a dynamically sized buffer for compression output, based on input size */
-  size_t compress_buf_size_needed = deflateBound(NULL, data_len); /* zlib's worst-case estimate */
-  if (compress_buf_size_needed > PSTAR_LOGGING_MAX_COMPRESSION_INPUT_SIZE) {
-    ESP_LOGE(TAG,
-             "Compression Error: Input data size (%zu) exceeds reasonable limit (%d)",
-             data_len,
-             PSTAR_LOGGING_MAX_COMPRESSION_INPUT_SIZE);
-    return ESP_ERR_NO_MEM; /* Indicate size issue */
+  // Use a dynamically sized buffer for compression output, based on input size
+  size_t compress_buf_size_needed = deflateBound(NULL, data_len); // zlib's worst-case estimate
+
+  // --- FIX: More robust buffer size calculation ---
+  size_t alloc_size = compress_buf_size_needed + 128; // Start with estimate + margin
+  // Clamp allocation size between a minimum (e.g., Kconfig buffer) and a maximum reasonable limit
+  const size_t min_alloc = CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE;
+  const size_t max_alloc = PSTAR_LOGGING_MAX_COMPRESSION_INPUT_SIZE; // Use defined max
+
+  if (alloc_size < min_alloc) {
+    alloc_size = min_alloc;
   }
-  /* Use a slightly larger buffer than strictly needed just in case */
-  size_t alloc_size = compress_buf_size_needed + 128;
-  if (alloc_size > CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE) {
-    /* If estimate exceeds configured buffer, use estimate + margin, up to a max */
-    alloc_size = compress_buf_size_needed + 1024; /* Add more margin */
-    if (alloc_size > PSTAR_LOGGING_MAX_COMPRESSION_INPUT_SIZE) {
-      alloc_size = PSTAR_LOGGING_MAX_COMPRESSION_INPUT_SIZE;
-    }
-    ESP_LOGW(TAG,
-             "Compression buffer estimate %zu exceeds Kconfig %d, using %zu",
-             compress_buf_size_needed,
-             CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE,
-             alloc_size);
-  } else {
-    alloc_size =
-      CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE; /* Use Kconfig size if sufficient */
+  if (alloc_size > max_alloc) {
+    ESP_LOGW(
+      TAG,
+      "Compression Size Warning - Estimated compression buffer size %zu exceeds max %zu, clamping.",
+      alloc_size,
+      max_alloc);
+    alloc_size = max_alloc;
   }
+  // --- End FIX ---
 
   char* compress_buffer = NULL;
   compress_buffer       = malloc(alloc_size);
@@ -699,14 +693,16 @@ static esp_err_t priv_write_log_data(const char* const file_path_relative, const
     return ESP_ERR_NO_MEM;
   }
 
-  size_t output_len = alloc_size; /* Pass the actual allocated size */
+  size_t output_len = alloc_size; // Pass the actual allocated size
 
   esp_err_t ret = priv_compress_data(data, data_len, compress_buffer, &output_len);
   if (ret != ESP_OK) {
+    // --- FIX: Ensure buffer is freed on error ---
     if (compress_buffer != NULL) {
       free(compress_buffer);
       compress_buffer = NULL; // Set to NULL after freeing
     }
+    // --- End FIX ---
     return ret;
   }
 
@@ -770,7 +766,7 @@ static esp_err_t priv_flush_log_buffer(void)
     if (write_ret != ESP_OK) {
       ESP_LOGE(TAG,
                "Flush Write Failed: Failed to write/enqueue log entry %lu: %s",
-               i,
+               (unsigned long)i, // Use %lu for uint32_t
                esp_err_to_name(write_ret));
       /* Do NOT reset buffer index if write failed, stop flushing */
       /* Shift remaining logs? Or just leave them for next flush? Leave for now. */
@@ -778,11 +774,12 @@ static esp_err_t priv_flush_log_buffer(void)
         /* Shift the remaining entries down */
         memmove(&s_log_buffer[0], &s_log_buffer[i], sizeof(log_entry_t) * (s_log_buffer_index - i));
         s_log_buffer_index -= i; /* Update index */
-        ESP_LOGW(TAG, "Partial Flush: Flushed %lu entries before error.", i);
+        ESP_LOGW(TAG, "Partial Flush: Flushed %lu entries before error.", (unsigned long)i);
       } else {
         /* Error on the very first entry */
         ESP_LOGE(TAG, "Flush Error: Failed on first log entry, no entries flushed.");
-        s_log_buffer_index = CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE; /* Keep buffer full */
+        // Keep buffer full? Or clear? Let's keep it for next attempt.
+        // s_log_buffer_index = CONFIG_PSTAR_KCONFIG_LOGGING_BUFFER_SIZE;
       }
       return write_ret; /* Return the error */
     }
@@ -790,7 +787,7 @@ static esp_err_t priv_flush_log_buffer(void)
   }
 
   /* Reset buffer index ONLY if all writes were successful */
-  ESP_LOGI(TAG, "Successfully flushed %lu log entries.", flushed_count);
+  ESP_LOGI(TAG, "Successfully flushed %lu log entries.", (unsigned long)flushed_count);
   s_log_buffer_index = 0;
   memset(s_log_buffer, 0, sizeof(s_log_buffer)); /* Clear buffer contents */
 

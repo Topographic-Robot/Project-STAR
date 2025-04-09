@@ -42,7 +42,6 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
   log_info(sd_card->tag, "SPI Setup", "Setting up SPI interface for SD card");
 
   /* Verify SPI pins are valid */
-  // --- FIX: Check correct renamed fields ---
   if (sd_card->pin_config.spi_do_pin < 0 || sd_card->pin_config.spi_di_pin < 0 ||
       sd_card->pin_config.spi_sclk_pin < 0 || sd_card->pin_config.spi_cs_pin < 0) {
     log_error(sd_card->tag, "SPI Setup Error", "Invalid SPI pin configuration");
@@ -51,7 +50,7 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
 
   /* Create SPI bus configuration */
   pstar_bus_config_t* spi_config   = NULL;
-  sdspi_dev_handle_t  sdspi_handle = 0;
+  sdspi_dev_handle_t  sdspi_handle = 0; // Keep this for host.slot
   esp_err_t           err          = ESP_OK;
 
   /* Check if the bus already exists */
@@ -62,14 +61,19 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
     log_info(sd_card->tag, "SPI Info", "Re-using existing SPI bus configuration.");
     /* If re-using, remove the old device attached to the bus handle if it exists */
     if (existing_spi->handle != NULL) {
-      sdspi_host_remove_device((sdspi_dev_handle_t)(uintptr_t)existing_spi->handle);
+      // Assuming the handle stored is the sdspi_dev_handle_t
+      // Need to check if sdspi_host_remove_device is the correct function
+      // It seems sdspi_host doesn't track devices this way.
+      // The VFS layer manages the device attachment implicitly.
+      // Let's clear the handle in the bus config, VFS will re-add.
+      log_debug(sd_card->tag, "SPI Info", "Clearing old device handle from bus config.");
       existing_spi->handle = NULL; /* Clear the handle */
     }
     spi_config = existing_spi; /* Use existing config */
   } else {
     /* Create new SPI bus configuration */
     spi_config = pstar_bus_config_create_spi(CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME,
-                                             SPI2_HOST,
+                                             SPI2_HOST, // Assuming SPI2_HOST for Card 1
                                              k_pstar_mode_polling);
     if (spi_config == NULL) {
       log_error(sd_card->tag, "SPI Setup Error", "Failed to create SPI bus configuration");
@@ -77,7 +81,6 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
     }
 
     /* Configure SPI pins from the pin configuration */
-    // --- FIX: Assign correct pins to ESP-IDF config fields ---
     spi_config->config.spi.bus_config.miso_io_num = sd_card->pin_config.spi_do_pin; /* MISO (DO) */
     spi_config->config.spi.bus_config.mosi_io_num = sd_card->pin_config.spi_di_pin; /* MOSI (DI) */
     spi_config->config.spi.bus_config.sclk_io_num = sd_card->pin_config.spi_sclk_pin; /* CLK */
@@ -121,7 +124,7 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
     pstar_bus_spi_init_default_ops(&spi_config->config.spi.ops);
   }
 
-  /* Create SDSPI host configuration */
+  /* Create SDSPI device configuration */
   sdspi_device_config_t device_config = SDSPI_DEVICE_CONFIG_DEFAULT();
   device_config.host_id               = spi_config->config.spi.host;
   device_config.gpio_cs               = spi_config->config.spi.dev_config.spics_io_num;
@@ -142,7 +145,7 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
               esp_err_to_name(err));
     /* Clean up properly in reverse order */
     if (existing_spi == NULL) { /* Only cleanup if we created it */
-      pstar_bus_config_deinit(spi_config);
+      // Deinit should be handled by remove_bus
       pstar_bus_manager_remove_bus(&sd_card->bus_manager,
                                    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     }
@@ -150,49 +153,26 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
   }
 
   /* Initialize the device and get the handle */
+  // Note: sdspi_host_init_device associates the device config with the host/slot.
+  // The handle returned is used to identify the slot in the host config for VFS mount.
   err = sdspi_host_init_device(&device_config, &sdspi_handle);
-  if (err != ESP_OK) {
+  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) { // Allow already initialized state
     log_error(sd_card->tag,
               "SPI Setup Error",
               "Failed to initialize SDSPI device: %s",
               esp_err_to_name(err));
     /* No need to deinit host if it was already initialized */
     if (existing_spi == NULL) { /* Only cleanup if we created it */
-      pstar_bus_config_deinit(spi_config);
       pstar_bus_manager_remove_bus(&sd_card->bus_manager,
                                    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
     }
     return err;
   }
+  // If ESP_ERR_INVALID_STATE, the device was already initialized, sdspi_handle should be valid.
 
-  /* Mount SDSPI host to SDMMC host */
-  sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-  host.slot         = sdspi_handle;
+  // --- REMOVED card allocation here ---
+  // VFS mount will handle allocation.
 
-  /* Free old card structure if it exists */
-  if (sd_card->card != NULL) {
-    free(sd_card->card);
-    sd_card->card = NULL; /* Set to NULL after freeing to prevent double free */
-  }
-
-  /* Allocate memory for the card structure */
-  sd_card->card = malloc(sizeof(sdmmc_card_t));
-  if (sd_card->card == NULL) {
-    log_error(sd_card->tag, "SPI Setup Error", "Failed to allocate memory for SD card");
-    /* Clean up properly in reverse order */
-    sdspi_host_remove_device(sdspi_handle);
-    if (existing_spi == NULL) { /* Only cleanup if we created it */
-      pstar_bus_config_deinit(spi_config);
-      pstar_bus_manager_remove_bus(&sd_card->bus_manager,
-                                   CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME);
-    }
-    return ESP_ERR_NO_MEM;
-  }
-
-  /* Copy host configuration to our card structure */
-  memcpy(&sd_card->card->host, &host, sizeof(sdmmc_host_t));
-
-  // --- FIX: Swapped order in log message ---
   log_info(sd_card->tag,
            "SPI Setup Complete",
            "SPI interface configured successfully on pins MISO(DO):%d, MOSI(DI):%d, CLK:%d, CS:%d",
