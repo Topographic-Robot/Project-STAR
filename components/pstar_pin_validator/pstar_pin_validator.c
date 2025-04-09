@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h> // Needed for malloc/free
 #include <string.h>
 
 /* Constants ******************************************************************/
@@ -279,7 +280,7 @@ esp_err_t pin_validator_print_assignments(void)
   }
   mutex_taken = true;
 
-  log_info(TAG, "Assignment Table", "Printing pin assignments...");
+  log_info(TAG, "Assignment Table", "Building pin assignment table...");
 
   /* Define column widths */
   const int gpio_width   = 4;
@@ -287,6 +288,23 @@ esp_err_t pin_validator_print_assignments(void)
   const int usage_width  = 50;
   const int shared_width = 7;
   const int count_width  = 5;
+  const int max_line_len = gpio_width + comp_width + usage_width + shared_width + count_width +
+                           15; // Base width + separators + newline + null
+
+  /* Estimate buffer size: Header(3) + Separators(3) + MaxPins + Footer(1) lines */
+  size_t buffer_size  = (3 + 3 + PIN_VALIDATOR_MAX_PINS + 1) * max_line_len;
+  char*  table_buffer = malloc(buffer_size);
+  if (table_buffer == NULL) {
+    log_error(TAG, "Memory Error", "Failed to allocate buffer for pin assignment table");
+    priv_release_mutex_if_taken(&mutex_taken);
+    return ESP_ERR_NO_MEM;
+  }
+
+  char*  buf_ptr        = table_buffer;
+  size_t remaining_size = buffer_size;
+  int    written        = 0;
+
+  /* --- Build the table string --- */
 
   /* Build header row */
   char header_row[256];
@@ -309,7 +327,12 @@ esp_err_t pin_validator_print_assignments(void)
   if (header_len > 0 && header_len < sizeof(sep_line)) {
     memset(sep_line, '=', header_len);
     sep_line[header_len] = '\0';
-    printf("%s\n", sep_line);
+    // Add top separator
+    written = snprintf(buf_ptr, remaining_size, "%s\n", sep_line);
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
   }
 
   /* Centered heading text */
@@ -327,90 +350,108 @@ esp_err_t pin_validator_print_assignments(void)
     if (left_equals >= 0 && left_equals + heading_text_len <= header_len) {
       memcpy(heading_line + left_equals, heading_text, heading_text_len);
     }
-    printf("%s\n", heading_line);
-    printf("%s\n", sep_line); /* Bottom of header */
+    // Add heading line
+    written = snprintf(buf_ptr, remaining_size, "%s\n", heading_line);
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
+    // Add bottom separator for heading
+    written = snprintf(buf_ptr, remaining_size, "%s\n", sep_line);
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
   }
 
-  /* Print table header row and separator */
+  /* Add table header row and separator */
   if (header_len > 0) {
-    printf("%s\n", header_row);
+    written = snprintf(buf_ptr, remaining_size, "%s\n", header_row);
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
+
     memset(sep_line, '-', header_len);
     sep_line[header_len] = '\0';
-    printf("%s\n", sep_line);
+    written              = snprintf(buf_ptr, remaining_size, "%s\n", sep_line);
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
   }
 
-  /* Print each in-use pin row using the same column widths */
+  /* Add each in-use pin row using the same column widths */
   bool any_pins_used = false;
   for (int pin = 0; pin < PIN_VALIDATOR_MAX_PINS; pin++) {
     pin_usage_info_t* pin_info = &s_pin_registry[pin];
     if (pin_info->in_use) {
       any_pins_used = true;
-      char pin_row[512];
-      snprintf(pin_row,
-               sizeof(pin_row),
-               "| %-*d | %-*.*s | %-*.*s | %-*s | %-*d |",
-               gpio_width,
-               pin,
-               comp_width,
-               comp_width,
-               pin_info->aggregated_component_name,
-               usage_width,
-               usage_width,
-               pin_info->aggregated_usage_desc,
-               shared_width,
-               pin_info->can_share ? "Yes" : "No", /* Use the overall shareability flag */
-               count_width,
-               pin_info->usage_count);
-      printf("%s\n", pin_row);
+      written       = snprintf(buf_ptr,
+                         remaining_size,
+                         "| %-*d | %-*.*s | %-*.*s | %-*s | %-*d |\n",
+                         gpio_width,
+                         pin,
+                         comp_width,
+                         comp_width,
+                         pin_info->aggregated_component_name,
+                         usage_width,
+                         usage_width,
+                         pin_info->aggregated_usage_desc,
+                         shared_width,
+                         pin_info->can_share ? "Yes" : "No", /* Use the overall shareability flag */
+                         count_width,
+                         pin_info->usage_count);
+      if (written < 0 || (size_t)written >= remaining_size)
+        goto buffer_full;
+      buf_ptr += written;
+      remaining_size -= written;
     }
   }
 
   if (!any_pins_used) {
     const char* msg         = "No pins registered yet.";
     int         msg_len     = strlen(msg);
-    int         inner_width = header_len - 2; /* Account for border '|' characters */
-    if (inner_width < 1) {
-      inner_width = 1;
-    }
-    int pad_before = (inner_width - msg_len) / 2;
-    if (pad_before < 0) {
+    int         inner_width = header_len > 2 ? header_len - 2 : 1;
+    int         pad_before  = (inner_width - msg_len) / 2;
+    if (pad_before < 0)
       pad_before = 0;
-    }
     int pad_after = inner_width - msg_len - pad_before;
-    if (pad_after < 0) {
+    if (pad_after < 0)
       pad_after = 0;
-    }
-    char no_pins_line[256];
-    int  offset            = 0;
-    no_pins_line[offset++] = '|';
-    for (int i = 0; i < pad_before; i++) {
-      if (offset < sizeof(no_pins_line) - 1) {
-        no_pins_line[offset++] = ' ';
-      }
-    }
-    if (offset + msg_len < sizeof(no_pins_line) - 1) {
-      memcpy(no_pins_line + offset, msg, msg_len);
-      offset += msg_len;
-    }
-    for (int i = 0; i < pad_after; i++) {
-      if (offset < sizeof(no_pins_line) - 1) {
-        no_pins_line[offset++] = ' ';
-      }
-    }
-    if (offset < sizeof(no_pins_line) - 1) {
-      no_pins_line[offset++] = '|';
-    }
-    no_pins_line[offset] = '\0';
-    printf("%s\n", no_pins_line);
+
+    written = snprintf(buf_ptr, remaining_size, "|%*s%s%*s|\n", pad_before, "", msg, pad_after, "");
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
   }
 
-  /* Print final separator line */
+  /* Add final separator line */
   if (header_len > 0) {
     memset(sep_line, '-', header_len);
     sep_line[header_len] = '\0';
-    printf("%s\n", sep_line);
+    written              = snprintf(buf_ptr, remaining_size, "%s\n", sep_line);
+    if (written < 0 || (size_t)written >= remaining_size)
+      goto buffer_full;
+    buf_ptr += written;
+    remaining_size -= written;
   }
 
+buffer_full:
+  if (remaining_size <= 1) { // Check if buffer became full during construction
+    log_warn(TAG, "Buffer Full", "Pin assignment table truncated due to buffer size limit.");
+    // Ensure null termination even if truncated
+    if (buffer_size > 0) {
+      table_buffer[buffer_size - 1] = '\0';
+    }
+  }
+
+  /* --- Print the entire buffered table --- */
+  printf("%s", table_buffer); // Use printf for potentially large string
+
+  /* --- Cleanup --- */
+  free(table_buffer);
   priv_release_mutex_if_taken(&mutex_taken);
   return ESP_OK;
 }

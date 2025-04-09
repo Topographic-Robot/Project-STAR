@@ -738,10 +738,10 @@ def interactive_selector():
         print(f"   {device_info[device]['description']}")
         print("\n   \033[1;33mKey Strengths:\033[0m")
         for strength in device_info[device]['strengths']:
-            print(f"   • {strength}")
+            print(f"   ‚Ä¢ {strength}")
         print("\n   \033[1;33mIdeal Applications:\033[0m")
         for app in device_info[device]['ideal_for']:
-            print(f"   • {app}")
+            print(f"   ‚Ä¢ {app}")
         print()
 
     return sorted_devices[0][0]  # Return the top recommendation

@@ -950,7 +950,7 @@ Effective error handling is critical for building robust and maintainable softwa
 General Guidelines for Error Handling
 -------------------------------------
 
-- **Return Error Codes**: Functions should return error codes whenever an error occurs. Use negative values for failure and zero for success. Avoid returning `-1` or `1` generically—use specific error codes to indicate the nature of the failure.
+- **Return Error Codes**: Functions should return error codes whenever an error occurs. Use negative values for failure and zero for success. Avoid returning `-1` or `1` generically‚Äîuse specific error codes to indicate the nature of the failure.
 
 - **Use `errno.h` Error Codes**: Where appropriate, use standard POSIX error codes from `errno.h` (e.g., `EINVAL`, `ENOMEM`, `EIO`). These standardized codes help communicate common error conditions clearly.
 
@@ -2721,19 +2721,19 @@ The following is an example of a modular ESP32 project structure:
 .. code-block::
 
     project_root/
-    ├── components/
-    │   └── pstar_hal/
-    │       ├── bh1750/
-    │       │   ├── include/          # Header files for bh1750 module
-    │       │   │   └── bh1750.h
-    │       │   ├── bh1750.c          # Source file for bh1750
-    │       │   └── CMakeLists.txt    # CMake file for bh1750 module
-    │       └── CMakeLists.txt        # CMake file for pstar_hal module
-    ├── main/
-    │   ├── main.c                    # Main entry point of the application
-    │   └── CMakeLists.txt            # CMake file for main module
-    ├── CMakeLists.txt                # Top-level CMake file for the entire project
-    └── sdkconfig                     # ESP-IDF SDK configuration file
+    ‚îú‚îÄ‚îÄ components/
+    ‚îÇ   ‚îî‚îÄ‚îÄ pstar_hal/
+    ‚îÇ       ‚îú‚îÄ‚îÄ bh1750/
+    ‚îÇ       ‚îÇ   ‚îú‚îÄ‚îÄ include/          # Header files for bh1750 module
+    ‚îÇ       ‚îÇ   ‚îÇ   ‚îî‚îÄ‚îÄ bh1750.h
+    ‚îÇ       ‚îÇ   ‚îú‚îÄ‚îÄ bh1750.c          # Source file for bh1750
+    ‚îÇ       ‚îÇ   ‚îî‚îÄ‚îÄ CMakeLists.txt    # CMake file for bh1750 module
+    ‚îÇ       ‚îî‚îÄ‚îÄ CMakeLists.txt        # CMake file for pstar_hal module
+    ‚îú‚îÄ‚îÄ main/
+    ‚îÇ   ‚îú‚îÄ‚îÄ main.c                    # Main entry point of the application
+    ‚îÇ   ‚îî‚îÄ‚îÄ CMakeLists.txt            # CMake file for main module
+    ‚îú‚îÄ‚îÄ CMakeLists.txt                # Top-level CMake file for the entire project
+    ‚îî‚îÄ‚îÄ sdkconfig                     # ESP-IDF SDK configuration file
 
 CMake Build System (ESP-IDF)
 ----------------------------

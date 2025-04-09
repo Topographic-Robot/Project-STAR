@@ -35,29 +35,30 @@ static const sd_card_pin_config_t sd_card_default_pins = {
 #endif
 
   /* SPI pins */
-  .spi_di_pin =
+  // --- FIX: Assign correct Kconfig option to the renamed struct fields ---
+  .spi_do_pin = // MISO (Data Out)
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO,
+  CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO,
 #else
-    -1,
+  -1,
 #endif
-  .spi_do_pin =
+  .spi_di_pin = // MOSI (Data In)
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO,
+  CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO,
 #else
-    -1,
+  -1,
 #endif
-  .spi_sclk_pin =
+  .spi_sclk_pin = // CLK
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO,
+  CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO,
 #else
-    -1,
+  -1,
 #endif
-  .spi_cs_pin =
+  .spi_cs_pin = // CS
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO,
+  CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO,
 #else
-    -1,
+  -1,
 #endif
 
   /* SDIO pins - keeping for future but not using now */

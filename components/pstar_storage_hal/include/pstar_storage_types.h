@@ -81,8 +81,9 @@ typedef struct sd_card_pin_config {
   gpio_num_t gpio_det_pin; /* Card detect pin */
 
   /* SPI pins */
-  gpio_num_t spi_di_pin;   /* SPI DI (Data In) */
-  gpio_num_t spi_do_pin;   /* SPI DO (Data Out) */
+  // --- FIX: Swapped DI/DO names ---
+  gpio_num_t spi_do_pin;   /* SPI DO (MISO - Data Out) */
+  gpio_num_t spi_di_pin;   /* SPI DI (MOSI - Data In) */
   gpio_num_t spi_sclk_pin; /* SPI SCLK (Clock) */
   gpio_num_t spi_cs_pin;   /* SPI CS (Chip Select) */
 

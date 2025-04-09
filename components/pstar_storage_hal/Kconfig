@@ -163,21 +163,23 @@ menu "Project Star Storage HAL Configuration"
                     GPIO pin number for SPI Chip Select (CS/SS).
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO
 
-            config PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
-                int "SPI DO (MOSI) GPIO Pin"
+            # --- FIX: Renamed DO to DI (MOSI) ---
+            config PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
+                int "SPI DI (MOSI) GPIO Pin"
                 range 0 39
                 default 15
                 help
-                    GPIO pin for SPI DO/MOSI (Data Out/Master Out Slave In).
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
+                    GPIO pin for SPI DI (Data In / Master Out Slave In).
+                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
 
-            config PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
-                int "SPI DI (MISO) GPIO Pin"
+            # --- FIX: Renamed DI to DO (MISO) ---
+            config PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
+                int "SPI DO (MISO) GPIO Pin"
                 range 0 39
                 default 2
                 help
-                    GPIO pin for SPI DI/MISO (Data In/Master In Slave Out).
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
+                    GPIO pin for SPI DO (Data Out / Master In Slave Out).
+                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO
                 int "SPI CLK GPIO Pin"

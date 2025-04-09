@@ -21,8 +21,8 @@
 #include "pstar_error_handler.h"
 #include "pstar_file_write_manager.h" // Needed for SD logging
 #include "pstar_log_handler.h"
-#include "pstar_pin_validator.h"
-#include "pstar_time_manager.h" // For logger timestamps
+#include "pstar_pin_validator.h" // <-- Include Pin Validator header
+#include "pstar_time_manager.h"  // For logger timestamps
 
 /* Storage HAL Includes */
 #include "pstar_storage_common.h" // For storage_bus_width_to_string
@@ -44,7 +44,7 @@ static const char* TAG = "DUAL_SD_EXAMPLE";
 // --- Conditionally define variables based on the MACRO ---
 
 #if defined(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED)
-// Declare HAL instances only if SD card support is enabled
+// Declare HAL instances only if SD card support is enabled globally
 #if (WHAT_SD_CARD_TO_USE == 1 || WHAT_SD_CARD_TO_USE == 3)
 static sd_card_hal_t g_sd_card_1; // Instance for Card 1
 #endif
@@ -433,6 +433,18 @@ void app_main(void)
   }
 
 #endif // End Logger/FM Init block
+
+  /************************************************************************
+     * PRINT PIN ASSIGNMENTS (if validator enabled)
+     ************************************************************************/
+#ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+  log_info(TAG, "Pin Assignments", "Printing final pin assignments...");
+  err = pin_validator_print_assignments();
+  if (err != ESP_OK) {
+    log_error(TAG, "Pin Print Error", "Failed to print pin assignments: %s", esp_err_to_name(err));
+    // Continue execution even if printing fails
+  }
+#endif // CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
 
   /************************************************************************
      * WAIT FOR CARDS TO BE READY

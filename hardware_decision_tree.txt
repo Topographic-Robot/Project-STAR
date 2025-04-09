@@ -62,54 +62,54 @@ RECOMMENDED HARDWARE BASED ON YOUR REQUIREMENTS:
    Dual-core 240MHz microcontroller with Wi-Fi/BT
 
    Key Strengths:
-   • Built-in Wi-Fi and Bluetooth
-   • Dual-core performance up to 240MHz
-   • Large community and support
-   • Low cost
-   • Good battery life with sleep modes
+   ‚Ä¢ Built-in Wi-Fi and Bluetooth
+   ‚Ä¢ Dual-core performance up to 240MHz
+   ‚Ä¢ Large community and support
+   ‚Ä¢ Low cost
+   ‚Ä¢ Good battery life with sleep modes
 
    Ideal Applications:
-   • IoT devices requiring wireless connectivity
-   • Smart home sensors and controllers
-   • Wireless data loggers
-   • Battery-powered devices with periodic connectivity
-   • Prototyping and hobby projects
+   ‚Ä¢ IoT devices requiring wireless connectivity
+   ‚Ä¢ Smart home sensors and controllers
+   ‚Ä¢ Wireless data loggers
+   ‚Ä¢ Battery-powered devices with periodic connectivity
+   ‚Ä¢ Prototyping and hobby projects
 
 
 2. NUCLEO-F767ZI (Score: 21)
    216MHz ARM Cortex-M7 MCU with Ethernet and advanced peripherals
 
    Key Strengths:
-   • High-performance Cortex-M7 core
-   • Built-in Ethernet
-   • Camera interface and graphics acceleration
-   • Large flash and RAM
-   • Multiple high-speed interfaces
+   ‚Ä¢ High-performance Cortex-M7 core
+   ‚Ä¢ Built-in Ethernet
+   ‚Ä¢ Camera interface and graphics acceleration
+   ‚Ä¢ Large flash and RAM
+   ‚Ä¢ Multiple high-speed interfaces
 
    Ideal Applications:
-   • High-performance embedded systems
-   • Industrial control with networking
-   • Camera/imaging applications
-   • User interfaces with graphics
-   • Complex real-time systems
+   ‚Ä¢ High-performance embedded systems
+   ‚Ä¢ Industrial control with networking
+   ‚Ä¢ Camera/imaging applications
+   ‚Ä¢ User interfaces with graphics
+   ‚Ä¢ Complex real-time systems
 
 
 3. NUCLEO-F446RE (Score: 16)
    180MHz ARM Cortex-M4F MCU with rich peripherals
 
    Key Strengths:
-   • Excellent real-time performance
-   • Multiple timers and communication interfaces
-   • DSP instructions and floating-point unit
-   • Precise ADCs (12-bit)
-   • Arduino shield compatibility
+   ‚Ä¢ Excellent real-time performance
+   ‚Ä¢ Multiple timers and communication interfaces
+   ‚Ä¢ DSP instructions and floating-point unit
+   ‚Ä¢ Precise ADCs (12-bit)
+   ‚Ä¢ Arduino shield compatibility
 
    Ideal Applications:
-   • Real-time control systems
-   • Precision sensing and control
-   • Motor control and robotics
-   • Industrial automation
-   • Wired communication interfaces
+   ‚Ä¢ Real-time control systems
+   ‚Ä¢ Precision sensing and control
+   ‚Ä¢ Motor control and robotics
+   ‚Ä¢ Industrial automation
+   ‚Ä¢ Wired communication interfaces
 
 
 Thank you for using the Hardware Selection Tool!

@@ -42,7 +42,8 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
   log_info(sd_card->tag, "SPI Setup", "Setting up SPI interface for SD card");
 
   /* Verify SPI pins are valid */
-  if (sd_card->pin_config.spi_di_pin < 0 || sd_card->pin_config.spi_do_pin < 0 ||
+  // --- FIX: Check correct renamed fields ---
+  if (sd_card->pin_config.spi_do_pin < 0 || sd_card->pin_config.spi_di_pin < 0 ||
       sd_card->pin_config.spi_sclk_pin < 0 || sd_card->pin_config.spi_cs_pin < 0) {
     log_error(sd_card->tag, "SPI Setup Error", "Invalid SPI pin configuration");
     return ESP_ERR_INVALID_ARG;
@@ -76,11 +77,12 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
     }
 
     /* Configure SPI pins from the pin configuration */
-    spi_config->config.spi.bus_config.miso_io_num     = sd_card->pin_config.spi_di_pin;   /* DI */
-    spi_config->config.spi.bus_config.mosi_io_num     = sd_card->pin_config.spi_do_pin;   /* DO */
-    spi_config->config.spi.bus_config.sclk_io_num     = sd_card->pin_config.spi_sclk_pin; /* CLK */
-    spi_config->config.spi.bus_config.quadwp_io_num   = -1;   /* Not used */
-    spi_config->config.spi.bus_config.quadhd_io_num   = -1;   /* Not used */
+    // --- FIX: Assign correct pins to ESP-IDF config fields ---
+    spi_config->config.spi.bus_config.miso_io_num = sd_card->pin_config.spi_do_pin; /* MISO (DO) */
+    spi_config->config.spi.bus_config.mosi_io_num = sd_card->pin_config.spi_di_pin; /* MOSI (DI) */
+    spi_config->config.spi.bus_config.sclk_io_num = sd_card->pin_config.spi_sclk_pin; /* CLK */
+    spi_config->config.spi.bus_config.quadwp_io_num   = -1;                           /* Not used */
+    spi_config->config.spi.bus_config.quadhd_io_num   = -1;                           /* Not used */
     spi_config->config.spi.bus_config.max_transfer_sz = 4092; /* Max SPI transfer size */
 
     /* Configure SPI device - Start with lower speed for initialization */
@@ -190,12 +192,14 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
   /* Copy host configuration to our card structure */
   memcpy(&sd_card->card->host, &host, sizeof(sdmmc_host_t));
 
+  // --- FIX: Swapped order in log message ---
   log_info(sd_card->tag,
            "SPI Setup Complete",
-           "SPI interface configured successfully on pins MISO:%d, MOSI:%d, CLK:%d, CS:%d",
-           sd_card->pin_config.spi_di_pin,
-           sd_card->pin_config.spi_do_pin,
-           sd_card->pin_config.spi_sclk_pin,
-           sd_card->pin_config.spi_cs_pin);
+           "SPI interface configured successfully on pins MISO(DO):%d, MOSI(DI):%d, CLK:%d, CS:%d",
+           sd_card->pin_config.spi_do_pin,   // MISO is DO
+           sd_card->pin_config.spi_di_pin,   // MOSI is DI
+           sd_card->pin_config.spi_sclk_pin, // CLK
+           sd_card->pin_config.spi_cs_pin    // CS
+  );
   return ESP_OK;
 }

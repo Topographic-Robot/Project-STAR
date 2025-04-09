@@ -287,14 +287,15 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
       /* Register SPI pins with pin validator */
       if (config->config.spi.bus_config.mosi_io_num != -1) {
+        // --- FIX --- MOSI (Master Out) is DI (Data In) for the peripheral
         result = pin_validator_register_pin(config->config.spi.bus_config.mosi_io_num,
                                             config->name,
-                                            "SPI DO",
+                                            "SPI DI (MOSI)", // Updated comment
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
-                    "Failed to register DO pin for SPI bus '%s': %s",
+                    "Failed to register DI (MOSI) pin for SPI bus '%s': %s", // Updated log
                     config->name,
                     esp_err_to_name(result));
           return result;
@@ -302,14 +303,15 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       }
 
       if (config->config.spi.bus_config.miso_io_num != -1) {
+        // --- FIX --- MISO (Master In) is DO (Data Out) for the peripheral
         result = pin_validator_register_pin(config->config.spi.bus_config.miso_io_num,
                                             config->name,
-                                            "SPI DI",
+                                            "SPI DO (MISO)", // Updated comment
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
-                    "Failed to register DI pin for SPI bus '%s': %s",
+                    "Failed to register DO (MISO) pin for SPI bus '%s': %s", // Updated log
                     config->name,
                     esp_err_to_name(result));
           return result;
