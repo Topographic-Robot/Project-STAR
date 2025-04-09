@@ -640,28 +640,13 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                                      config->name ? config->name : "UNKNOWN");
       }
 
-      // --- FIX: Remove device BEFORE freeing bus ---
-      // The handle stored in config->handle might be the sdspi_dev_handle_t
-      // or a generic spi_device_handle_t. VFS manages the SD card device.
-      // We should rely on VFS unmount to remove the device.
-      // spi_bus_free should be called AFTER VFS unmount.
-      // If config->handle was used for a *different* SPI device (not SD card),
-      // it should be removed here. Assuming it's only for SD card now.
-      if (config->handle != NULL) {
-        // This handle likely belongs to the SD card device managed by VFS.
-        // VFS unmount should handle its removal.
-        // Let's log a warning if the handle is still present here.
-        log_warn(
-          TAG,
-          "SPI Deinit Warning",
-          "Bus config handle is non-NULL during deinit. VFS unmount should have cleared it.");
-        // We won't call spi_bus_remove_device here to avoid conflicts with VFS.
-        config->handle = NULL; // Clear the handle anyway.
-      }
-      // --- End FIX ---
-
-      /* Then free the entire bus */
-      result = spi_bus_free(config->config.spi.host);
+      // --- REMOVED spi_bus_free CALL ---
+      // Rationale: VFS unmount handles the device removal.
+      // Freeing the bus here causes conflicts ("CS not freed").
+      // The bus should be freed only when completely unused,
+      // perhaps in sd_card_cleanup or by explicit manager call.
+      // For now, rely on higher layers or explicit cleanup.
+      result = ESP_OK; // Assume success for deinit structure itself
       break;
 
     case k_pstar_bus_type_uart:

@@ -46,6 +46,7 @@ static void priv_sd_card_mount_task(void* arg);
 
 /* Public API Functions (Implementation) **************************************/
 
+// --- Restored sd_card_mount ---
 esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) { // Check sd_card first
@@ -91,7 +92,7 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
 
   // Determine mount function based on interface (only SPI for now)
   if (sd_card->current_interface == k_sd_interface_spi) {
-    // --- Reconstruct host and device config needed for mount ---
+    // --- Get bus config ---
     const char*         spi_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME;
     pstar_bus_config_t* spi_bus_config =
       pstar_bus_manager_find_bus(&sd_card->bus_manager, spi_bus_name);
@@ -103,7 +104,7 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
       return ESP_ERR_INVALID_STATE;
     }
 
-    // Re-initialize device to get handle (or confirm it exists)
+    // --- Construct device_config (NEEDED by VFS mount) ---
     sdspi_device_config_t device_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     device_config.host_id               = spi_bus_config->config.spi.host;
     device_config.gpio_cs               = spi_bus_config->config.spi.dev_config.spics_io_num;
@@ -115,25 +116,14 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
     device_config.gpio_wp  = SDSPI_SLOT_NO_WP;
     device_config.gpio_int = SDSPI_SLOT_NO_INT;
 
-    sdspi_dev_handle_t sdspi_handle;
-    esp_err_t          init_dev_err = sdspi_host_init_device(&device_config, &sdspi_handle);
-    if (init_dev_err != ESP_OK && init_dev_err != ESP_ERR_INVALID_STATE) {
-      log_error(sd_card->tag,
-                "Mount Error",
-                "Failed to re-init SDSPI device to get handle: %s",
-                esp_err_to_name(init_dev_err));
-      return init_dev_err; // Propagate error if it wasn't just 'already init'
-    }
-    // ESP_ERR_INVALID_STATE is okay here, means device already exists, handle is likely valid
-
+    // --- Construct host_config (Pass only host ID, VFS will handle slot init) ---
     sdmmc_host_t host_config = SDSPI_HOST_DEFAULT();
-    host_config.slot         = sdspi_handle; // Use the retrieved/re-initialized handle
+    host_config.slot         = spi_bus_config->config.spi.host; // Use host ID (SPI2_HOST, etc.)
 
-    // --- Let VFS allocate the card structure ---
-    // sd_card->card should be NULL here or will be replaced.
+    // --- Let VFS allocate the card structure AND initialize the device ---
     err = esp_vfs_fat_sdspi_mount(sd_card->mount_path,
-                                  &host_config, // Pass the host config directly
-                                  &device_config,
+                                  &host_config,
+                                  &device_config, // Pass device config for VFS to use
                                   &mount_config,
                                   &card_out); // VFS allocates and returns via card_out
   } else {
@@ -160,7 +150,6 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
                 esp_err_to_name(err),
                 err);
     }
-    // VFS handles cleanup of card_out on error. Do not free sd_card->card.
     return err;
   }
 
@@ -168,8 +157,6 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
 
   // --- Correctly handle the returned pointer ---
   if (sd_card->card != NULL && sd_card->card != card_out) {
-    // This case should ideally not happen if we didn't pre-allocate.
-    // If it does, it indicates a potential leak from a previous failed attempt.
     log_warn(sd_card->tag,
              "Mount Warning",
              "Pointer mismatch: sd_card->card (%p) was not NULL, VFS returned %p. Freeing old one.",
@@ -178,12 +165,10 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
     free(sd_card->card); // Free the old dangling pointer
   }
   sd_card->card = card_out; // Assign the pointer returned by VFS
-  // --- End Pointer Handling ---
 
   if (sd_card->card == NULL) { // Defensive check
     log_error(sd_card->tag, "Mount Error", "Mount OK but VFS returned NULL card pointer!");
-    // Attempt to unmount VFS just in case something is half-mounted
-    esp_vfs_fat_sdcard_unmount(sd_card->mount_path, NULL); // Pass NULL as card is NULL
+    esp_vfs_fat_sdcard_unmount(sd_card->mount_path, NULL);
     return ESP_FAIL;
   }
 
@@ -204,14 +189,14 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
       log_info(sd_card->tag, "Mount Info", "Ensured /logs directory exists at '%s'", logs_path);
     }
   }
-  // --- End directory creation ---
 
-  sdmmc_card_print_info(stdout, sd_card->card);
+  // --- Keep sdmmc_card_print_info commented out for now ---
+  // sdmmc_card_print_info(stdout, sd_card->card);
+
   log_info(sd_card->tag,
            "Mount Success",
-           "SD card mounted at %s, %lluMB, Interface: %s",
+           "SD card mounted at %s, Interface: %s",
            sd_card->mount_path,
-           ((uint64_t)sd_card->card->csd.capacity * sd_card->card->csd.sector_size) / (1024 * 1024),
            sd_card_interface_to_string(sd_card->current_interface));
 
   atomic_store(&sd_card->card_available, true);
@@ -221,6 +206,7 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
   return ESP_OK;
 }
 
+// --- Restored sd_card_unmount ---
 esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
@@ -273,7 +259,6 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
     // --- Assume esp_vfs_fat_sdcard_unmount frees card_to_unmount ---
 
     if (vfs_err != ESP_OK) {
-      // --- FIX: Log the actual error from VFS unmount ---
       log_error(sd_card->tag,
                 "VFS Unmount Failed",
                 "esp_vfs_fat_sdcard_unmount returned: %s",
@@ -285,7 +270,6 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
                "VFS unmount successful for %s",
                sd_card->mount_path);
     }
-    // --- REMOVED the explicit free here ---
   } else {
     log_warn(sd_card->tag, "Unmount Warning", "Card pointer was NULL during VFS unmount");
     // Attempt VFS unmount with NULL card pointer just in case
@@ -339,6 +323,7 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
   return (vfs_err != ESP_OK) ? vfs_err : bus_err;
 }
 
+// --- Restored sd_card_setup_detection ---
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
 esp_err_t sd_card_setup_detection(sd_card_hal_t* sd_card)
 {
@@ -483,6 +468,7 @@ static void IRAM_ATTR priv_sd_card_detection_isr(void* arg)
 }
 #endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED */
 
+// --- Restored sd_card_try_interfaces ---
 esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
 {
   if (sd_card == NULL) {
@@ -511,11 +497,9 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
            sd_card->interface_attempt_count);
 
   // --- Cleanup previous interface attempt if any ---
-  // Reset the current interface. Unmount handles freeing card struct if needed.
   if (atomic_load(&sd_card->card_available)) {
     sd_card_unmount(sd_card); // Unmount handles bus cleanup and freeing card
   } else if (sd_card->card != NULL) {
-    // If not available but card struct exists (e.g., failed mount), free it
     free(sd_card->card);
     sd_card->card = NULL;
   }
@@ -534,7 +518,6 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
              esp_err_to_name(setup_err));
     last_error = setup_err;
     sd_card->interface_info[k_sd_interface_spi].error_count++;
-    // No card struct to free here
     return last_error;
   }
 
@@ -550,8 +533,6 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
     last_error = mount_err;
     sd_card->interface_info[k_sd_interface_spi].error_count++;
     sd_card->current_interface = k_sd_interface_none;
-    // Clean up the SPI bus if mount fails (unmount handles this)
-    // sd_card->card should be NULL already or freed by mount failure path
     sd_card_unmount(sd_card); // Call unmount to ensure bus is cleaned up
     return last_error;
   }
@@ -564,6 +545,7 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
   return ESP_OK;
 }
 
+// --- Restored sd_card_init ---
 esp_err_t sd_card_init(sd_card_hal_t* sd_card)
 {
   /* Validate arguments */
@@ -700,6 +682,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
   return ESP_OK;
 }
 
+// --- Restored priv_sd_card_mount_task ---
 /**
  * @brief FreeRTOS task for monitoring SD card insertion/removal and mounting/unmounting
  */

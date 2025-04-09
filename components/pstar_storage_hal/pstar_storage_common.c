@@ -571,8 +571,8 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
     buffer[i] = (uint8_t)(i & 0xFF);
   }
 
-  /* Define system subdirectory and compute its length dynamically */
-  const char* system_subdir     = "/.system";
+  // --- CHANGED directory name ---
+  const char* system_subdir     = "/system_test"; // Changed from "/.system"
   size_t      system_subdir_len = strlen(system_subdir);
 
   /* Ensure the combined path (mount path + system_subdir) fits in the buffer */
@@ -610,15 +610,26 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
 
   /* Create the system directory if it does not exist */
   esp_err_t dir_err = storage_create_directory_if_needed(sd_card, system_dir);
+  // --- FIX: Handle EEXIST correctly ---
   if (dir_err != ESP_OK) {
-    log_error(sd_card->tag,
-              "Performance Error",
-              "Failed to create system directory: %s",
-              esp_err_to_name(dir_err));
-    free(buffer);
-    buffer = NULL; // Set to NULL after freeing
-    return;
+    if (errno == EEXIST) { // Check if it failed because it already exists
+      log_warn(sd_card->tag,
+               "Performance Info",
+               "System directory '%s' already exists.",
+               system_dir);
+      // Continue if it exists
+    } else {
+      log_error(sd_card->tag,
+                "Performance Error",
+                "Failed to create system directory '%s': %s",
+                system_dir,
+                esp_err_to_name(dir_err));
+      free(buffer);
+      buffer = NULL;
+      return;
+    }
   }
+  // --- End FIX ---
 
   /* Define test file name and construct its full path dynamically */
   const char* test_filename     = "/perf_test";

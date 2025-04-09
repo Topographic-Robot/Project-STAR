@@ -11,6 +11,7 @@ extern "C" {
 #include "pstar_error_handler.h"
 
 #include "driver/gpio.h"
+// #include "driver/sdspi_host.h" // No longer needed here
 #include "driver/spi_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -81,7 +82,6 @@ typedef struct sd_card_pin_config {
   gpio_num_t gpio_det_pin; /* Card detect pin */
 
   /* SPI pins */
-  // --- FIX: Swapped DI/DO names ---
   gpio_num_t spi_do_pin;   /* SPI DO (MISO - Data Out) */
   gpio_num_t spi_di_pin;   /* SPI DI (MOSI - Data In) */
   gpio_num_t spi_sclk_pin; /* SPI SCLK (Clock) */
@@ -159,7 +159,7 @@ typedef struct sd_card_hal {
   sdmmc_card_t*     card;  /**< SD card descriptor for ESP-IDF SD card API */
   SemaphoreHandle_t mutex; /**< Mutex for thread-safe access to card state */
   SemaphoreHandle_t mount_task_exit_sem;
-  /**< Semaphore signaled by mount task on exit */ // <-- ADDED
+  /**< Semaphore signaled by mount task on exit */
   _Atomic bool        card_available; /**< Atomic: Indicates if card is mounted and ready */
   bool                initialized;    /**< Indicates if the HAL has been initialized */
   volatile bool       mount_task_exit_requested; /**< Flag to request exit from mount task */

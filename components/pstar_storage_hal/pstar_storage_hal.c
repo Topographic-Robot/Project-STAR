@@ -9,6 +9,7 @@
 #include "pstar_storage_common.h"
 #include "pstar_storage_spi_hal.h" // Include SPI HAL header
 
+#include "driver/spi_master.h" // Include for spi_bus_free
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -526,6 +527,7 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     .availability_callback        = NULL};
   // Initialize atomic flag separately if needed (or rely on struct init to 0)
   atomic_init(&default_config.card_available, false); // Initialize atomic flag
+  // --- REMOVED spi_device_handle initialization ---
 
   // --- Copy the initialized default config to the output struct ---
   memcpy(sd_card, &default_config, sizeof(sd_card_hal_t));
@@ -991,6 +993,39 @@ esp_err_t sd_card_cleanup(sd_card_hal_t* sd_card)
     pin_validator_unregister_pin(sd_card->pin_config.gpio_det_pin, "SD Card HAL");
   }
 #endif
+
+  // --- Explicitly free the SPI bus if it was used ---
+  // Check if SPI bus config still exists in the manager
+  const char*         spi_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME;
+  pstar_bus_config_t* spi_bus_config =
+    pstar_bus_manager_find_bus(&sd_card->bus_manager, spi_bus_name);
+  if (spi_bus_config != NULL && spi_bus_config->type == k_pstar_bus_type_spi) {
+    log_info(sd_card->tag, "Cleanup", "Freeing SPI bus '%s'.", spi_bus_name);
+    // Directly call spi_bus_free AFTER ensuring VFS is unmounted
+    // and assuming no other devices are on this bus managed by this HAL.
+    esp_err_t free_err = spi_bus_free(spi_bus_config->config.spi.host);
+    if (free_err != ESP_OK) {
+      log_warn(sd_card->tag,
+               "Cleanup Warning",
+               "spi_bus_free failed: %s",
+               esp_err_to_name(free_err));
+      if (result == ESP_OK)
+        result = free_err; // Record error
+    }
+    // We still need to remove the config from the manager after freeing the bus
+    // Note: remove_bus calls deinit which we modified to NOT free the bus.
+    // Maybe just destroy the config directly? Let's stick to remove_bus for now.
+    esp_err_t remove_err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, spi_bus_name);
+    if (remove_err != ESP_OK && remove_err != ESP_ERR_NOT_FOUND) {
+      log_warn(sd_card->tag,
+               "Cleanup Warning",
+               "Failed to remove SPI bus config '%s' after freeing: %s",
+               spi_bus_name,
+               esp_err_to_name(remove_err));
+      if (result == ESP_OK)
+        result = remove_err;
+    }
+  }
 
   // --- Cleanup Remaining Bus Manager Resources ---
   // Buses are cleaned individually during unmount or here if unmount failed.
