@@ -562,6 +562,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               "Performance Error",
               "Mount path too long for creating system directory");
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
@@ -571,6 +572,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
   if (ret < 0 || (size_t)ret >= sizeof(system_dir)) {
     log_error(sd_card->tag, "System Dir Error", "Failed to construct system directory path");
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
@@ -582,6 +584,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               "System directory path '%s' is not valid",
               system_dir);
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
@@ -593,6 +596,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               "Failed to create system directory: %s",
               esp_err_to_name(dir_err));
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
@@ -604,6 +608,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               "Performance Error",
               "System directory path too long, cannot append test filename");
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
   char test_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
@@ -611,6 +616,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
   if (ret < 0 || (size_t)ret >= sizeof(test_path)) {
     log_error(sd_card->tag, "Test File Path Error", "Failed to construct test file path");
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
@@ -620,6 +626,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
   if (f == NULL) {
     log_error(sd_card->tag, "Performance Error", "Failed to create test file: %s", strerror(errno));
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
@@ -636,6 +643,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               bytes_written,
               buffer_size);
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     unlink(test_path);
     return;
   }
@@ -649,6 +657,7 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               "Failed to open test file for reading: %s",
               strerror(errno));
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     unlink(test_path);
     return;
   }
@@ -669,11 +678,13 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
               bytes_read,
               buffer_size);
     free(buffer);
+    buffer = NULL; // Set to NULL after freeing
     return;
   }
 
   /* Free the temporary buffer */
   free(buffer);
+  buffer = NULL; // Set to NULL after freeing
 
   /* Calculate speeds in kilobits per second (kbps) */
   float write_time_sec = (float)(write_end - write_start) / 1000000.0f;

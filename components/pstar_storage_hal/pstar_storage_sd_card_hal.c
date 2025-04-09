@@ -87,11 +87,12 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
     .allocation_unit_size   = sd_card->allocation_unit_size,
   };
 
-  sdmmc_card_t* card_out = NULL;     // Use a temporary pointer for the mount result
+  sdmmc_card_t* card_out = NULL;     // Pointer for the VFS mount function output
   esp_err_t     err      = ESP_FAIL; // Initialize error state
 
   // Determine mount function based on interface (only SPI for now)
   if (sd_card->current_interface == k_sd_interface_spi) {
+    // Ensure the card structure was allocated by storage_spi_setup
     if (sd_card->card == NULL) {
       log_error(sd_card->tag, "Mount Error", "SPI setup did not allocate card structure");
       return ESP_ERR_INVALID_STATE;
@@ -99,10 +100,8 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
 
     // --- Create the SDSPI device config needed for mount ---
     sdspi_device_config_t device_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-    // Find the SPI bus config to get host_id and CS pin
-    const char* spi_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME; // Default name
-    // This assumes the correct bus name is used based on the instance.
-    // If multiple instances use different bus names, this needs context.
+    const char* spi_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME; // Assume default
+    // If multi-instance, this name needs context
     pstar_bus_config_t* spi_bus_config =
       pstar_bus_manager_find_bus(&sd_card->bus_manager, spi_bus_name);
     if (spi_bus_config == NULL || spi_bus_config->type != k_pstar_bus_type_spi) {
@@ -120,14 +119,15 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
     device_config.gpio_cd = SDSPI_SLOT_NO_CD;
 #endif
     device_config.gpio_wp = SDSPI_SLOT_NO_WP;
-    // --- End SDSPI device config creation ---
 
     // Use the correct mount function for SPI, passing the created device_config
+    // Note: esp_vfs_fat_sdspi_mount populates the sd_card->card structure via the host config.
+    // The 'card_out' pointer returned should point to sd_card->card on success.
     err = esp_vfs_fat_sdspi_mount(sd_card->mount_path,
                                   &sd_card->card->host, // Use host config from sd_card->card
                                   &device_config, // Pass the pointer to the local device_config
                                   &mount_config,
-                                  &card_out);
+                                  &card_out); // VFS function outputs the card struct pointer
   } else {
     log_error(sd_card->tag,
               "Mount Error",
@@ -152,19 +152,43 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
                 esp_err_to_name(err),
                 err);
     }
-    if (card_out != NULL) {
-      free(card_out);
-      card_out = NULL; // Prevent potential double free
-    }
+    // CRITICAL FIX: Do NOT free sd_card->card here on mount failure.
+    // Let sd_card_unmount or sd_card_cleanup handle freeing the structure
+    // allocated in storage_spi_setup.
+    // We also assume esp_vfs_fat_sdspi_mount does not allocate card_out on failure.
     return err;
   }
 
   // --- Mount successful ---
-  if (sd_card->card != NULL && sd_card->card != card_out) {
-    free(sd_card->card);
-    sd_card->card = NULL; // Set to NULL before reassigning to prevent memory leaks
+
+  // CRITICAL FIX: Removed the suspicious check and free:
+  // if (sd_card->card != NULL && sd_card->card != card_out) {
+  //     free(sd_card->card); // <--- REMOVED THIS POTENTIAL DOUBLE FREE
+  //     sd_card->card = NULL;
+  // }
+  // sd_card->card = card_out; // This assignment is likely redundant now, but safe.
+  // Ensure sd_card->card points to the structure populated by VFS mount
+  if (sd_card->card != card_out) {
+    log_warn(
+      sd_card->tag,
+      "Mount Warning",
+      "VFS mount returned a different card pointer (%p) than expected (%p). Using returned pointer.",
+      card_out,
+      sd_card->card);
+    // If the pointers are unexpectedly different, free the original one to prevent leak
+    if (sd_card->card != NULL) {
+      free(sd_card->card);
+    }
+    sd_card->card = card_out;
+  } else if (sd_card->card == NULL && card_out != NULL) {
+    // If sd_card->card was somehow NULL, assign the valid returned pointer
+    sd_card->card = card_out;
+  } else if (card_out == NULL) {
+    // This shouldn't happen if err == ESP_OK, but handle defensively
+    log_error(sd_card->tag, "Mount Error", "Mount returned ESP_OK but card pointer is NULL!");
+    return ESP_FAIL;
   }
-  sd_card->card = card_out;
+  // Now sd_card->card should hold the correct pointer to the populated structure.
 
   // --- Create /logs directory AFTER successful mount ---
   char logs_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
@@ -208,6 +232,12 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
   }
   if (!atomic_load(&sd_card->card_available)) {
     log_info(sd_card->tag, "Unmount Info", "SD card already unmounted");
+    // Even if not mounted, ensure the card pointer is freed if it exists
+    if (sd_card->card != NULL) {
+      free(sd_card->card);
+      sd_card->card = NULL;
+    }
+    sd_card->current_interface = k_sd_interface_none; // Ensure interface is none
     return ESP_OK;
   }
   log_info(sd_card->tag,
@@ -215,59 +245,77 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
            "Unmounting SD card from path: %s",
            sd_card->mount_path);
 
-  esp_err_t err = ESP_OK;
+  esp_err_t vfs_err = ESP_OK;
+  esp_err_t bus_err = ESP_OK;
 
-  // Only try to unmount if card pointer is valid
+  // Only try to unmount VFS if card pointer is valid
   if (sd_card->card != NULL) {
-    err = esp_vfs_fat_sdcard_unmount(sd_card->mount_path, sd_card->card);
+    vfs_err = esp_vfs_fat_sdcard_unmount(sd_card->mount_path, sd_card->card);
   } else {
-    log_warn(sd_card->tag, "Unmount Warning", "Card pointer is NULL during unmount");
+    log_warn(sd_card->tag, "Unmount Warning", "Card pointer is NULL during VFS unmount");
   }
 
+  // Mark unavailable and notify BEFORE freeing resources
   atomic_store(&sd_card->card_available, false);
   storage_notify_availability(sd_card, false);
 
-  if (err != ESP_OK) {
+  if (vfs_err != ESP_OK) {
     log_error(sd_card->tag,
               "Unmount Error",
               "Failed to unmount SD card VFS: %s",
-              esp_err_to_name(err));
+              esp_err_to_name(vfs_err));
+    // Continue with cleanup even if VFS unmount fails
   }
 
-  if (sd_card->current_interface == k_sd_interface_spi && sd_card->card != NULL) {
+  // --- Bus Cleanup Moved Here ---
+  if (sd_card->current_interface == k_sd_interface_spi) {
     const char* spi_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME; // Assume default name
     // If multiple instances, this needs context to get the correct bus name
-    pstar_bus_config_t* spi_bus_config =
-      pstar_bus_manager_find_bus(&sd_card->bus_manager, spi_bus_name);
-    if (spi_bus_config != NULL && spi_bus_config->type == k_pstar_bus_type_spi &&
-        spi_bus_config->handle != NULL) {
-      log_info(sd_card->tag,
-               "Unmount SPI Cleanup",
-               "Removing SPI device from bus '%s'.",
-               spi_bus_name);
-      sdspi_host_remove_device((sdspi_dev_handle_t)(uintptr_t)spi_bus_config->handle);
-      spi_bus_config->handle = NULL;
-    } else {
+
+    // Use the bus manager to remove the bus config, which handles deinit and destroy
+    log_info(sd_card->tag,
+             "Unmount SPI Cleanup",
+             "Removing SPI bus '%s' via Bus Manager.",
+             spi_bus_name);
+    bus_err = pstar_bus_manager_remove_bus(&sd_card->bus_manager, spi_bus_name);
+    if (bus_err != ESP_OK && bus_err != ESP_ERR_NOT_FOUND) {
       log_warn(sd_card->tag,
                "Unmount SPI Cleanup",
-               "Could not find SPI bus config '%s' or handle to remove device.",
+               "Failed to remove/deinit SPI bus '%s': %s",
+               spi_bus_name,
+               esp_err_to_name(bus_err));
+      // Continue cleanup
+    } else if (bus_err == ESP_OK) {
+      log_info(sd_card->tag,
+               "Unmount SPI Cleanup",
+               "Successfully removed and deinitialized SPI bus '%s'.",
                spi_bus_name);
+    } else {
+      log_info(sd_card->tag,
+               "Unmount SPI Cleanup",
+               "SPI bus '%s' was not found in manager (already removed?).",
+               spi_bus_name);
+      bus_err = ESP_OK; // Treat not found as OK in this context
     }
-    log_info(sd_card->tag, "Unmount SPI Cleanup", "Deinitializing SDSPI host.");
-    sdspi_host_deinit();
   }
+  // Add similar cleanup for SDIO if implemented later
+  // --- End Bus Cleanup ---
 
+  // --- CRITICAL FIX: Free the card structure HERE, only ONCE ---
   if (sd_card->card != NULL) {
     free(sd_card->card);
-    sd_card->card = NULL; // Set to NULL after freeing to prevent double free
+    sd_card->card = NULL; // Set to NULL after freeing
   }
+  // --- End Free ---
 
-  sd_card->current_interface = k_sd_interface_none;
+  sd_card->current_interface = k_sd_interface_none; // Reset interface type
 
   log_info(sd_card->tag,
            "Unmount Success",
            "SD card unmounted and interface cleaned up successfully");
-  return err;
+
+  // Return the first error encountered (prefer VFS error over bus error if both occur)
+  return (vfs_err != ESP_OK) ? vfs_err : bus_err;
 }
 
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
@@ -289,7 +337,7 @@ esp_err_t sd_card_setup_detection(sd_card_hal_t* sd_card)
 
   // Determine the correct GPIO bus name based on context (needs refinement for multi-instance)
   const char* gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME; // Assume default
-  // If sd_card == &second_sd_card, use "sd_gpio_2" ? This requires passing context or storing name in struct.
+  // If sd_card == &g_sd_card_2, use "sd_gpio_2" ? This requires passing context or storing name in struct.
 
   pstar_bus_config_t* gpio_config =
     pstar_bus_manager_find_bus(&sd_card->bus_manager, gpio_bus_name);
@@ -322,7 +370,8 @@ esp_err_t sd_card_setup_detection(sd_card_hal_t* sd_card)
                 "Failed to add GPIO bus '%s' to manager: %s",
                 gpio_bus_name,
                 esp_err_to_name(err));
-      pstar_bus_config_destroy(gpio_config);
+      pstar_bus_config_destroy(gpio_config); // Destroy config if add fails
+      gpio_config = NULL;                    // Avoid dangling pointer
       return err;
     }
 
@@ -333,6 +382,7 @@ esp_err_t sd_card_setup_detection(sd_card_hal_t* sd_card)
                 "Failed to initialize GPIO bus '%s': %s",
                 gpio_bus_name,
                 esp_err_to_name(err));
+      // Remove bus also destroys config
       pstar_bus_manager_remove_bus(&sd_card->bus_manager, gpio_bus_name);
       return err;
     }
@@ -356,6 +406,7 @@ esp_err_t sd_card_setup_detection(sd_card_hal_t* sd_card)
                                              priv_sd_card_detection_isr,
                                              (void*)sd_card);
 
+  // ESP_ERR_INVALID_STATE means ISR handler already added for this pin, which is okay if re-initializing
   if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
     log_error(sd_card->tag,
               "Detection Setup Error",
@@ -363,10 +414,23 @@ esp_err_t sd_card_setup_detection(sd_card_hal_t* sd_card)
               sd_card->pin_config.gpio_det_pin,
               gpio_bus_name,
               esp_err_to_name(isr_err));
-    if (pstar_bus_manager_find_bus(&sd_card->bus_manager, gpio_bus_name) == gpio_config) {
+    // Only remove the bus if we just added it and ISR add failed
+    if (pstar_bus_manager_find_bus(&sd_card->bus_manager, gpio_bus_name) == gpio_config &&
+        gpio_config != NULL) { // Check if we actually created it this time
       pstar_bus_manager_remove_bus(&sd_card->bus_manager, gpio_bus_name);
     }
     return isr_err;
+  } else if (isr_err == ESP_ERR_INVALID_STATE) {
+    log_warn(sd_card->tag,
+             "Detection Setup Info",
+             "ISR handler already added for pin %d.",
+             sd_card->pin_config.gpio_det_pin);
+  } else {
+    log_info(sd_card->tag,
+             "ISR Added",
+             "Added ISR handler for pin %d on bus '%s'",
+             sd_card->pin_config.gpio_det_pin,
+             gpio_bus_name);
   }
 
   log_info(sd_card->tag,
@@ -427,28 +491,15 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
            sd_card->interface_attempt_count);
 
   // --- Cleanup previous interface attempt if any ---
-  if (sd_card->card != NULL) {
-    if (sd_card->current_interface == k_sd_interface_spi) {
-      const char* spi_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_BUS_NAME; // Assume default name
-      // Need context for multi-instance bus name
-      pstar_bus_config_t* spi_bus_config =
-        pstar_bus_manager_find_bus(&sd_card->bus_manager, spi_bus_name);
-      if (spi_bus_config != NULL && spi_bus_config->type == k_pstar_bus_type_spi &&
-          spi_bus_config->handle != NULL) {
-        sdspi_host_remove_device((sdspi_dev_handle_t)(uintptr_t)spi_bus_config->handle);
-        spi_bus_config->handle = NULL;
-      }
-    }
-    free(sd_card->card);
-    sd_card->card = NULL; // Set to NULL after freeing to prevent double free
-  }
+  // No need to free sd_card->card here. Let sd_card_unmount handle it if needed.
+  // Simply reset the current interface.
   sd_card->current_interface = k_sd_interface_none;
   // --- End Cleanup ---
 
   log_info(sd_card->tag, "Interface Try", "Attempting SPI interface");
   sd_card->interface_info[k_sd_interface_spi].attempted = true;
 
-  esp_err_t setup_err = storage_spi_setup(sd_card);
+  esp_err_t setup_err = storage_spi_setup(sd_card); // Allocates sd_card->card on success
 
   if (setup_err != ESP_OK) {
     log_warn(sd_card->tag,
@@ -457,11 +508,17 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
              esp_err_to_name(setup_err));
     last_error = setup_err;
     sd_card->interface_info[k_sd_interface_spi].error_count++;
+    // Ensure card is NULL if setup failed
+    if (sd_card->card != NULL) {
+      free(sd_card->card);
+      sd_card->card = NULL;
+    }
     return last_error;
   }
 
+  // If setup succeeded, sd_card->card is allocated. Now try to mount.
   sd_card->current_interface = k_sd_interface_spi;
-  esp_err_t mount_err        = sd_card_mount(sd_card);
+  esp_err_t mount_err        = sd_card_mount(sd_card); // Uses sd_card->card
 
   if (mount_err != ESP_OK) {
     log_warn(sd_card->tag,
@@ -471,10 +528,9 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
     last_error = mount_err;
     sd_card->interface_info[k_sd_interface_spi].error_count++;
     sd_card->current_interface = k_sd_interface_none;
-    if (sd_card->card != NULL) {
-      free(sd_card->card);
-      sd_card->card = NULL; // Set to NULL after freeing to prevent double free
-    }
+    // Clean up the SPI bus and free the card struct if mount fails
+    // NOTE: Calling unmount here will handle bus removal and freeing card struct
+    sd_card_unmount(sd_card);
     return last_error;
   }
 
@@ -529,7 +585,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
       vSemaphoreDelete(sd_card->mutex);
       sd_card->mutex = NULL;
     }
-    pstar_bus_manager_deinit(&sd_card->bus_manager);
+    pstar_bus_manager_deinit(&sd_card->bus_manager); // Cleanup bus manager if detection setup fails
     error_handler_deinit(&sd_card->error_handler);
     return det_err;
   }
@@ -546,21 +602,14 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
               esp_err_to_name(pin_err));
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     // Cleanup detection ISR if setup succeeded before pin registration failed
-    bool mutex_taken_cleanup = false;
-    if (sd_card->mutex != NULL &&
-        xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
-      mutex_taken_cleanup = true;
-      if (sd_card->pin_config.gpio_det_pin >= 0) {
-        // Use the correct bus name used in setup_detection
-        const char* gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME;
-        // Need context to know if it's the second card's bus name
-        // Assume default Kconfig name for now
-        pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
-                                  gpio_bus_name,
-                                  sd_card->pin_config.gpio_det_pin);
-        // Don't unregister pin here, let validator handle potential shared uses if needed elsewhere
-      }
-      storage_release_mutex_if_taken(sd_card, &mutex_taken_cleanup);
+    // No mutex needed here as task not running yet
+    if (sd_card->pin_config.gpio_det_pin >= 0) {
+      // Use the correct bus name used in setup_detection
+      const char* gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME;
+      // Assume default Kconfig name for now
+      pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
+                                gpio_bus_name,
+                                sd_card->pin_config.gpio_det_pin);
     }
 #endif
     // General cleanup
@@ -568,7 +617,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
       vSemaphoreDelete(sd_card->mutex);
       sd_card->mutex = NULL;
     }
-    pstar_bus_manager_deinit(&sd_card->bus_manager);
+    pstar_bus_manager_deinit(&sd_card->bus_manager); // Cleanup bus manager
     error_handler_deinit(&sd_card->error_handler);
     return pin_err;
   }
@@ -584,18 +633,11 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
     log_error(TAG, "Failed to create mount task", "sd_card: %p", sd_card);
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
     // Cleanup detection ISR
-    bool mutex_taken_cleanup = false;
-    if (sd_card->mutex != NULL &&
-        xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
-      mutex_taken_cleanup = true;
-      if (sd_card->pin_config.gpio_det_pin >= 0) {
-        const char* gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME;
-        // Assume default Kconfig name
-        pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
-                                  gpio_bus_name,
-                                  sd_card->pin_config.gpio_det_pin);
-      }
-      storage_release_mutex_if_taken(sd_card, &mutex_taken_cleanup);
+    if (sd_card->pin_config.gpio_det_pin >= 0) {
+      const char* gpio_bus_name = CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME;
+      pstar_bus_gpio_isr_remove(&sd_card->bus_manager,
+                                gpio_bus_name,
+                                sd_card->pin_config.gpio_det_pin);
     }
 #endif
     // General cleanup
@@ -603,7 +645,7 @@ esp_err_t sd_card_init(sd_card_hal_t* sd_card)
       vSemaphoreDelete(sd_card->mutex);
       sd_card->mutex = NULL;
     }
-    pstar_bus_manager_deinit(&sd_card->bus_manager);
+    pstar_bus_manager_deinit(&sd_card->bus_manager); // Cleanup bus manager
     error_handler_deinit(&sd_card->error_handler);
     return ESP_ERR_NO_MEM;
   }
@@ -691,8 +733,8 @@ static void priv_sd_card_mount_task(void* arg)
       mutex_taken = true;
       // Check if already available (e.g., from loaded config)
       if (!atomic_load(&sd_card->card_available)) {
-        storage_update_state_machine(sd_card, k_sd_state_card_inserted);       // Takes/gives mutex
-        storage_update_state_machine(sd_card, k_sd_state_interface_discovery); // Takes/gives mutex
+        storage_update_state_machine(sd_card, k_sd_state_card_inserted);
+        storage_update_state_machine(sd_card, k_sd_state_interface_discovery);
         initial_mount_needed = true;
       }
       storage_release_mutex_if_taken(sd_card, &mutex_taken);
@@ -718,6 +760,11 @@ static void priv_sd_card_mount_task(void* arg)
                     "Failed to mount SD card at startup: %s",
                     esp_err_to_name(err));
           storage_update_state_machine(sd_card, k_sd_state_error);
+          // RECORD_ERROR here if mount fails during init
+          RECORD_ERROR(&sd_card->error_handler, err, "Initial SD card mount failed");
+          if (!error_handler_can_retry(&sd_card->error_handler)) {
+            storage_update_state_machine(sd_card, k_sd_state_failed);
+          }
         } else if (atomic_load(&sd_card->card_available)) {
           storage_update_state_machine(sd_card, k_sd_state_interface_ready);
         } else {
@@ -725,6 +772,12 @@ static void priv_sd_card_mount_task(void* arg)
                    "Initial Mount Status",
                    "try_interfaces OK, but card not available.");
           storage_update_state_machine(sd_card, k_sd_state_error);
+          RECORD_ERROR(&sd_card->error_handler,
+                       ESP_FAIL,
+                       "Initial mount OK but card not available");
+          if (!error_handler_can_retry(&sd_card->error_handler)) {
+            storage_update_state_machine(sd_card, k_sd_state_failed);
+          }
         }
         storage_release_mutex_if_taken(sd_card, &mutex_taken);
       } else {
@@ -736,6 +789,8 @@ static void priv_sd_card_mount_task(void* arg)
 
   } else {
     log_info(sd_card->tag, "Initial Detection", "No SD card detected at startup");
+    // Ensure state is idle if no card detected initially
+    storage_update_state_machine(sd_card, k_sd_state_idle);
   }
 
   // Main task loop
@@ -808,7 +863,7 @@ static void priv_sd_card_mount_task(void* arg)
 
           // Perform mount or unmount *outside* the initial mutex lock if needed
           if (mount_needed) {
-            esp_err_t err = sd_card_try_interfaces(sd_card);
+            esp_err_t err = sd_card_try_interfaces(sd_card); // Handles its own mutex needs
 
             mutex_taken = false;
             if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
@@ -825,12 +880,16 @@ static void priv_sd_card_mount_task(void* arg)
                 }
               } else if (atomic_load(&sd_card->card_available)) {
                 storage_update_state_machine(sd_card, k_sd_state_interface_ready);
-                error_handler_reset_state(&sd_card->error_handler);
+                error_handler_reset_state(&sd_card->error_handler); // Reset errors on success
               } else {
                 log_warn(sd_card->tag,
                          "Mount Status",
                          "try_interfaces returned OK, but card not available.");
+                RECORD_ERROR(&sd_card->error_handler, ESP_FAIL, "Mount OK but card not available");
                 storage_update_state_machine(sd_card, k_sd_state_error);
+                if (!error_handler_can_retry(&sd_card->error_handler)) {
+                  storage_update_state_machine(sd_card, k_sd_state_failed);
+                }
               }
               storage_release_mutex_if_taken(sd_card, &mutex_taken);
             } else {
@@ -839,7 +898,7 @@ static void priv_sd_card_mount_task(void* arg)
                         "Failed to acquire mutex to update state after mount attempt.");
             }
           } else if (unmount_needed) {
-            esp_err_t err = sd_card_unmount(sd_card);
+            esp_err_t err = sd_card_unmount(sd_card); // Handles its own mutex needs
 
             mutex_taken = false;
             if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
@@ -849,13 +908,14 @@ static void priv_sd_card_mount_task(void* arg)
                           "Unmount Error",
                           "Failed to unmount SD card: %s",
                           esp_err_to_name(err));
+                // Optionally record unmount error? Depends if it's critical.
               }
               storage_update_state_machine(sd_card, k_sd_state_idle);
               sd_card->interface_discovery_complete = false; // Ready for next insertion
               log_info(sd_card->tag,
                        "Card Removed",
                        "SD card has been physically removed and unmounted");
-              error_handler_reset_state(&sd_card->error_handler);
+              error_handler_reset_state(&sd_card->error_handler); // Reset errors on removal
               storage_release_mutex_if_taken(sd_card, &mutex_taken);
             } else {
               log_error(sd_card->tag,
@@ -883,11 +943,11 @@ static void priv_sd_card_mount_task(void* arg)
     // Check conditions for retry attempt safely
     if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
       mutex_taken = true;
+      // Only retry if in ERROR state, card is present, and retries remain
       if (sd_card->state == k_sd_state_error && card_physically_present &&
           error_handler_can_retry(&sd_card->error_handler)) {
-        if (sd_card->error_handler.current_retry > 0) { // Delay only after first failed attempt
-          delay_ms = sd_card->error_handler.current_retry_delay;
-        }
+        // Get the delay *before* potentially calling the reset function which increments retry count
+        delay_ms      = sd_card->error_handler.current_retry_delay;
         attempt_retry = true;
       }
       storage_release_mutex_if_taken(sd_card, &mutex_taken);
@@ -898,6 +958,7 @@ static void priv_sd_card_mount_task(void* arg)
     }
 
     if (attempt_retry) {
+      // Apply delay based on the *previous* error's delay calculation
       if (delay_ms > 0) {
         log_info(sd_card->tag,
                  "Error Retry",
@@ -911,28 +972,42 @@ static void priv_sd_card_mount_task(void* arg)
       if (sd_card->mount_task_exit_requested)
         break; // Check exit request again
 
-      // Attempt recovery (reset function handles mutex internally)
+      // Attempt recovery (reset function handles mutex internally and increments retry count via RECORD_ERROR if it fails)
       log_info(sd_card->tag,
                "Error Recovery",
                "Attempting to recover from error (retry %lu/%lu)",
                sd_card->error_handler.current_retry + 1, // Log next attempt number
                sd_card->error_handler.max_retries);
 
-      esp_err_t reset_err = storage_sd_card_reset(sd_card); // Reset calls try_interfaces -> mount
+      // The reset function calls try_interfaces which calls mount.
+      // Mount failure will call RECORD_ERROR, updating the error handler state.
+      esp_err_t reset_err = storage_sd_card_reset(sd_card);
 
-      // State is updated within storage_sd_card_reset based on outcome
-      if (reset_err != ESP_OK) {
-        log_error(sd_card->tag,
-                  "Reset Error",
-                  "SD card reset/remount attempt failed: %s",
-                  esp_err_to_name(reset_err));
-        // Error handler state (retry count) was updated within RECORD_ERROR called by mount failure
-        // Check if retries are now exhausted after this failed attempt
-        if (!error_handler_can_retry(&sd_card->error_handler)) {
-          storage_update_state_machine(sd_card, k_sd_state_failed); // Takes/gives mutex
+      // Check state AFTER reset attempt
+      mutex_taken = false;
+      if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+        mutex_taken = true;
+        if (reset_err == ESP_OK && atomic_load(&sd_card->card_available)) {
+          // Success! State should be INTERFACE_READY (set inside reset)
+          // error_handler_reset_state was called inside reset on success path.
+        } else {
+          // Reset failed or didn't result in mount
+          log_error(sd_card->tag, "Reset Failed", "SD card reset/remount failed or did not mount.");
+          // Error handler retry count was already incremented by the failure inside reset/mount.
+          // Check if retries are now exhausted.
+          if (!error_handler_can_retry(&sd_card->error_handler)) {
+            storage_update_state_machine(sd_card, k_sd_state_failed);
+          } else {
+            // Still in error state, but retries remain
+            storage_update_state_machine(sd_card, k_sd_state_error);
+          }
         }
+        storage_release_mutex_if_taken(sd_card, &mutex_taken);
+      } else {
+        log_error(sd_card->tag,
+                  "Reset State Error",
+                  "Failed to acquire mutex after reset attempt.");
       }
-      // If reset_err was OK, state machine was updated to READY inside reset function
     }
     // --- End Error Retry Logic ---
 #endif // CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
@@ -949,7 +1024,8 @@ static void priv_sd_card_mount_task(void* arg)
       mutex_taken = true;
       if (sd_card->state == k_sd_state_interface_ready && atomic_load(&sd_card->card_available) &&
           sd_card->performance.measurement_needed) {
-        needs_measurement = true;
+        needs_measurement                       = true;
+        sd_card->performance.measurement_needed = false; // Mark as handled
       }
       storage_release_mutex_if_taken(sd_card, &mutex_taken);
     }
@@ -1000,6 +1076,9 @@ static void priv_sd_card_mount_task(void* arg)
         if (xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
           mutex_taken = true;
           storage_update_state_machine(sd_card, k_sd_state_error);
+          if (!error_handler_can_retry(&sd_card->error_handler)) {
+            storage_update_state_machine(sd_card, k_sd_state_failed);
+          }
           storage_release_mutex_if_taken(sd_card, &mutex_taken);
         } else {
           log_error(sd_card->tag,

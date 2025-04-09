@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
+#include <stdatomic.h> // Include for atomic operations
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h> // Needed for malloc/free
@@ -20,7 +21,7 @@ static const char* TAG = "PIN_VALIDATOR";
 
 static pin_usage_info_t  s_pin_registry[PIN_VALIDATOR_MAX_PINS] = {0};
 static SemaphoreHandle_t s_validator_mutex                      = NULL;
-static bool              s_initialized                          = false;
+static _Atomic bool      s_initialized = false; // Use atomic for thread safety
 
 /* Private Function Prototypes ************************************************/
 
@@ -32,12 +33,18 @@ static void priv_update_overall_shareability(int pin);
 
 esp_err_t pin_validator_init(void)
 {
-  if (s_initialized) {
+  // Atomically check if already initialized
+  if (atomic_load(&s_initialized)) {
     log_warn(TAG, "Already Init", "Pin validator already initialized");
     return ESP_OK;
   }
 
   /* Initialize the mutex for thread safety */
+  // Check if mutex handle is unexpectedly non-NULL before creating
+  if (s_validator_mutex != NULL) {
+    log_warn(TAG, "Mutex Exists", "Mutex handle non-NULL before init, potential issue?");
+    // Decide recovery strategy: delete existing? return error? For now, log and continue.
+  }
   s_validator_mutex = xSemaphoreCreateMutex();
   if (s_validator_mutex == NULL) {
     log_error(TAG, "Mutex Error", "Failed to create mutex");
@@ -47,8 +54,42 @@ esp_err_t pin_validator_init(void)
   /* Initialize the pin registry */
   memset(s_pin_registry, 0, sizeof(s_pin_registry));
 
-  s_initialized = true;
+  // Atomically set initialized flag *after* successful initialization
+  atomic_store(&s_initialized, true);
   log_info(TAG, "Init Complete", "Pin validator initialized successfully");
+  return ESP_OK;
+}
+
+// --- NEW FUNCTION ---
+/**
+ * @brief Cleans up the pin validator resources, including deleting the mutex.
+ *
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_STATE if not initialized.
+ */
+esp_err_t pin_validator_cleanup(void)
+{
+  // Atomically check if initialized and set to false to prevent races
+  if (!atomic_exchange(&s_initialized, false)) {
+    log_warn(TAG, "Cleanup Skip", "Pin validator not initialized or already cleaned up.");
+    return ESP_OK; // Not an error if already cleaned up
+  }
+
+  log_info(TAG, "Cleanup Start", "Cleaning up pin validator...");
+
+  /* Delete the mutex */
+  if (s_validator_mutex != NULL) {
+    SemaphoreHandle_t temp_mutex = s_validator_mutex;
+    s_validator_mutex            = NULL; // Set to NULL *before* deleting
+    vSemaphoreDelete(temp_mutex);
+    log_info(TAG, "Cleanup", "Pin validator mutex deleted.");
+  } else {
+    log_warn(TAG, "Cleanup Warning", "Mutex was already NULL during cleanup.");
+  }
+
+  /* Optionally clear the registry (good practice) */
+  memset(s_pin_registry, 0, sizeof(s_pin_registry));
+
+  log_info(TAG, "Cleanup Complete", "Pin validator cleanup finished.");
   return ESP_OK;
 }
 
@@ -58,7 +99,7 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
                                      bool        can_share)
 
 {
-  if (!s_initialized) {
+  if (!atomic_load(&s_initialized)) { // Use atomic load
     log_error(TAG, "Not Init", "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
@@ -187,7 +228,7 @@ esp_err_t pin_validator_register_pins(const gpio_num_t* pins,
                                       const char*       usage_desc,
                                       bool              can_share)
 {
-  if (!s_initialized) {
+  if (!atomic_load(&s_initialized)) { // Use atomic load
     log_error(TAG, "Not Init", "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
@@ -214,7 +255,7 @@ esp_err_t pin_validator_register_pins(const gpio_num_t* pins,
 
 esp_err_t pin_validator_validate_all(bool halt_on_conflict)
 {
-  if (!s_initialized) {
+  if (!atomic_load(&s_initialized)) { // Use atomic load
     log_error(TAG, "Not Init", "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
@@ -268,7 +309,7 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict)
 
 esp_err_t pin_validator_print_assignments(void)
 {
-  if (!s_initialized) {
+  if (!atomic_load(&s_initialized)) { // Use atomic load
     log_error(TAG, "Not Init", "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
@@ -467,7 +508,7 @@ buffer_full:
 
 esp_err_t pin_validator_clear_all(void)
 {
-  if (!s_initialized) {
+  if (!atomic_load(&s_initialized)) { // Use atomic load
     log_error(TAG, "Not Init", "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }
@@ -488,7 +529,7 @@ esp_err_t pin_validator_clear_all(void)
 
 esp_err_t pin_validator_unregister_pin(gpio_num_t pin, const char* component_name)
 {
-  if (!s_initialized) {
+  if (!atomic_load(&s_initialized)) { // Use atomic load
     log_error(TAG, "Not Init", "Pin validator not initialized");
     return ESP_ERR_INVALID_STATE;
   }

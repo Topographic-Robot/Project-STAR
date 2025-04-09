@@ -43,7 +43,7 @@ typedef enum : uint8_t {
 /**
  * @brief SD card state machine states
  */
-typedef enum {
+typedef enum : uint8_t {
   k_sd_state_idle,                /* No SD card inserted or detection task not running */
   k_sd_state_card_inserted,       /* Card inserted, interface discovery needed */
   k_sd_state_interface_discovery, /* Trying to find a working interface */
