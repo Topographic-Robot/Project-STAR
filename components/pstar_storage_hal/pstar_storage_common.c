@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "esp_heap_caps.h" // Include for heap_caps_malloc
 #include "esp_timer.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -538,13 +539,32 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
 
   log_info(sd_card->tag, "Performance Test", "Measuring SD card performance metrics");
 
-  /* Allocate a temporary DMA-capable buffer for testing (256 KB) */
-  const size_t buffer_size = 256 * 1024;
-  uint8_t*     buffer      = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA);
+  /* --- FIX: More robust buffer size calculation --- */
+  size_t buffer_size = 64 * 1024; // Reduce default from 256KB to 64KB
+
+  // Attempt to allocate buffer with DMA capability
+  uint8_t* buffer = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA);
+
+  // If allocation fails, try with smaller buffer sizes
   if (buffer == NULL) {
-    log_error(sd_card->tag, "Performance Error", "Failed to allocate memory for performance test");
-    return;
+    buffer_size = 32 * 1024; // Try with 32KB
+    buffer      = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA);
+
+    if (buffer == NULL) {
+      buffer_size = 16 * 1024; // Try with 16KB as minimum
+      buffer      = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA);
+
+      if (buffer == NULL) {
+        log_error(sd_card->tag,
+                  "Performance Error",
+                  "Failed to allocate memory for performance test");
+        sd_card->performance.last_measured = now; // Mark as measured to prevent constant retries
+        sd_card->performance.measurement_needed = false;
+        return;
+      }
+    }
   }
+  /* --- End FIX --- */
 
   /* Fill buffer with a test pattern */
   for (size_t i = 0; i < buffer_size; i++) {

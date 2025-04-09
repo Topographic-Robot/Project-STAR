@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sdkconfig.h"
+#include "sdkconfig.h" // Include sdkconfig for Kconfig options
 
 /* Constants ******************************************************************/
 
@@ -272,6 +272,11 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                     "Failed to register SCL pin for I2C bus '%s': %s",
                     config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
+          // Unregister SDA if SCL fails
+          if (config->config.i2c.config.sda_io_num != -1) {
+            pin_validator_unregister_pin(config->config.i2c.config.sda_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
           return result;
         }
       }
@@ -323,6 +328,11 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                     "Failed to register DO (MISO) pin for SPI bus '%s': %s", // Updated log
                     config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
+          // Unregister MOSI if MISO fails
+          if (config->config.spi.bus_config.mosi_io_num != -1) {
+            pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
           return result;
         }
       }
@@ -338,6 +348,15 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                     "Failed to register SCLK pin for SPI bus '%s': %s",
                     config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
+          // Unregister MOSI and MISO if SCLK fails
+          if (config->config.spi.bus_config.mosi_io_num != -1) {
+            pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
+          if (config->config.spi.bus_config.miso_io_num != -1) {
+            pin_validator_unregister_pin(config->config.spi.bus_config.miso_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
           return result;
         }
       }
@@ -353,6 +372,19 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                     "Failed to register CS pin for SPI bus '%s': %s",
                     config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
+          // Unregister MOSI, MISO, SCLK if CS fails
+          if (config->config.spi.bus_config.mosi_io_num != -1) {
+            pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
+          if (config->config.spi.bus_config.miso_io_num != -1) {
+            pin_validator_unregister_pin(config->config.spi.bus_config.miso_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
+          if (config->config.spi.bus_config.sclk_io_num != -1) {
+            pin_validator_unregister_pin(config->config.spi.bus_config.sclk_io_num,
+                                         config->name ? config->name : "UNKNOWN");
+          }
           return result;
         }
       }
@@ -430,6 +462,12 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                         pin,
                         config->name ? config->name : "UNKNOWN",
                         esp_err_to_name(result));
+              // Unregister previously registered GPIO pins for this bus on error
+              for (int prev_pin = 0; prev_pin < pin; prev_pin++) {
+                if ((pin_mask >> prev_pin) & 0x1) {
+                  pin_validator_unregister_pin(prev_pin, config->name ? config->name : "UNKNOWN");
+                }
+              }
               return result;
             }
           }
@@ -474,6 +512,50 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
               "Failed to initialize bus '%s': %s",
               config->name ? config->name : "UNKNOWN",
               esp_err_to_name(result));
+    // Cleanup pin registrations if init failed after registration
+    if (config->type == k_pstar_bus_type_i2c) {
+      if (config->config.i2c.config.sda_io_num != -1)
+        pin_validator_unregister_pin(config->config.i2c.config.sda_io_num,
+                                     config->name ? config->name : "UNKNOWN");
+      if (config->config.i2c.config.scl_io_num != -1)
+        pin_validator_unregister_pin(config->config.i2c.config.scl_io_num,
+                                     config->name ? config->name : "UNKNOWN");
+    } else if (config->type == k_pstar_bus_type_spi) {
+      if (config->config.spi.bus_config.mosi_io_num != -1)
+        pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num,
+                                     config->name ? config->name : "UNKNOWN");
+      if (config->config.spi.bus_config.miso_io_num != -1)
+        pin_validator_unregister_pin(config->config.spi.bus_config.miso_io_num,
+                                     config->name ? config->name : "UNKNOWN");
+      if (config->config.spi.bus_config.sclk_io_num != -1)
+        pin_validator_unregister_pin(config->config.spi.bus_config.sclk_io_num,
+                                     config->name ? config->name : "UNKNOWN");
+      if (config->config.spi.dev_config.spics_io_num != -1)
+        pin_validator_unregister_pin(config->config.spi.dev_config.spics_io_num,
+                                     config->name ? config->name : "UNKNOWN");
+    } else if (config->type == k_pstar_bus_type_gpio) {
+      uint64_t pin_mask_gpio = config->config.gpio.config.pin_bit_mask;
+      for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
+        if ((pin_mask_gpio >> pin) & 0x1) {
+          // --- FIX: Avoid double-unregistering SD Card Detect pin on init failure ---
+          bool skip_unregistration = false;
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+          if (config->name &&
+              strcmp(config->name, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME) == 0 &&
+              pin == CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO) {
+            // Don't unregister here if it was skipped during registration
+            skip_unregistration = true;
+          }
+#endif /* DETECTION_ENABLED */
+#endif /* SD_CARD_ENABLED */
+          if (!skip_unregistration) {
+            pin_validator_unregister_pin(pin, config->name ? config->name : "UNKNOWN");
+          }
+          // --- End FIX ---
+        }
+      }
+    }
     return result;
   }
 
@@ -604,8 +686,28 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       uint64_t pin_mask_gpio = config->config.gpio.config.pin_bit_mask;
       for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
         if ((pin_mask_gpio >> pin) & 0x1) {
-          /* This pin is used, unregister it */
-          pin_validator_unregister_pin(pin, config->name ? config->name : "UNKNOWN");
+          // --- FIX: Avoid double-unregistering SD Card Detect pin ---
+          bool skip_unregistration = false;
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
+#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
+          if (config->name &&
+              strcmp(config->name, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME) == 0 &&
+              pin == CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO) {
+            log_debug(
+              TAG,
+              "Skip Unregistration",
+              "Skipping unregistration of SD Card Detect pin %d in GPIO bus deinit (handled by SD HAL)",
+              pin);
+            skip_unregistration = true;
+          }
+#endif /* DETECTION_ENABLED */
+#endif /* SD_CARD_ENABLED */
+
+          if (!skip_unregistration) {
+            /* This pin is used and not handled elsewhere, unregister it */
+            pin_validator_unregister_pin(pin, config->name ? config->name : "UNKNOWN");
+          }
+          // --- End FIX ---
         }
       }
 

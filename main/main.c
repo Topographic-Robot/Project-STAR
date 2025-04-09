@@ -1,4 +1,5 @@
-/* ./main/main.c */
+/* main/main.c */
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -37,6 +38,10 @@
 // Other = No SD Cards
 #define WHAT_SD_CARD_TO_USE (1) // <--- CHANGE THIS TO TEST DIFFERENT CONFIGURATIONS
 
+// --- Macro to easily disable tests ---
+#define RUN_PERFORMANCE_TEST (1) // Set to 1 to run performance test
+#define RUN_FILE_IO_TEST (1)     // Set to 1 to run file I/O test
+
 /* Static Variables */
 static const char* TAG = "DUAL_SD_EXAMPLE";
 
@@ -57,8 +62,8 @@ static const sd_card_pin_config_t second_card_pins = {
   // SPI pins for second SD card (using SPI3_HOST, HSPI)
   .spi_cs_pin   = 26, // GPIO26 for CS
   .spi_sclk_pin = 25, // GPIO25 for SCLK
-  .spi_di_pin   = 33, // GPIO33 for MISO (DI for ESP32) -> Should be MOSI (DI for Card)
-  .spi_do_pin   = 32, // GPIO32 for MOSI (DO for ESP32) -> Should be MISO (DO for Card)
+  .spi_di_pin   = 33, // GPIO33 for MOSI (DI for Card)
+  .spi_do_pin   = 32, // GPIO32 for MISO (DO for Card)
 
   // SDIO pins - not used but initialize to -1
   .sdio_clk_pin = -1,
@@ -101,7 +106,7 @@ void test_sd_card(const char* card_name, const char* mount_path)
 
   log_info(TAG, "Test Start", "Testing %s (Path: %s)", card_name, filename_full);
 
-  // --- Ensure directory exists before writing ---
+  // --- FIX: Ensure directory exists before writing ---
   char dir_path[sizeof(filename_full)];
   strncpy(dir_path, filename_full, sizeof(dir_path) - 1);
   dir_path[sizeof(dir_path) - 1] = '\0';
@@ -125,7 +130,7 @@ void test_sd_card(const char* card_name, const char* mount_path)
       return; // Cannot proceed if path exists but isn't a directory
     }
   }
-  // --- End Directory Creation ---
+  // --- End Directory Creation Fix ---
 
   // --- Write Test ---
   for (int i = 0; i < num_writes; ++i) {
@@ -246,14 +251,14 @@ void app_main(void)
   // Declare status flags *only* if SD card support is enabled globally
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
 #if (WHAT_SD_CARD_TO_USE == 1 || WHAT_SD_CARD_TO_USE == 3)
-  bool card1_struct_initialized = false; // Tracks if sd_card_init_default was called
-  bool card1_hal_initialized    = false; // Tracks if sd_card_init was called
-  bool card1_ready              = false; // Tracks if sd_card_is_available is true
+  // bool card1_struct_initialized = false; // Unused variable removed
+  bool card1_hal_initialized = false; // Tracks if sd_card_init was called
+  bool card1_ready           = false; // Tracks if sd_card_is_available is true
 #endif
 #if (WHAT_SD_CARD_TO_USE == 2 || WHAT_SD_CARD_TO_USE == 3)
-  bool card2_struct_initialized = false;
-  bool card2_hal_initialized    = false;
-  bool card2_ready              = false;
+  // bool card2_struct_initialized = false; // Unused variable removed
+  bool card2_hal_initialized = false;
+  bool card2_ready           = false;
 #endif
   sd_card_hal_t* target_sd_for_logging = NULL; // Pointer to the card used for logging
 #endif                                         // CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
@@ -306,7 +311,7 @@ void app_main(void)
               "Failed to initialize SD card 1 struct: %s",
               esp_err_to_name(err));
   } else {
-    card1_struct_initialized = true;
+    // card1_struct_initialized = true; // Unused variable removed
     // Step 2: Initialize the hardware and start the mount task
     err = sd_card_init(&g_sd_card_1);
     if (err != ESP_OK) {
@@ -316,7 +321,7 @@ void app_main(void)
                 esp_err_to_name(err));
       // Attempt cleanup if struct init succeeded but HAL init failed
       sd_card_cleanup(&g_sd_card_1);
-      card1_struct_initialized = false; // Mark as not fully initialized
+      // card1_struct_initialized = false; // Unused variable removed
     } else {
       log_info(TAG, "Card 1 OK", "First SD card HAL initialized successfully!");
       card1_hal_initialized = true; // Set flag on success
@@ -344,7 +349,7 @@ void app_main(void)
               "Failed to initialize SD card 2 struct: %s",
               esp_err_to_name(err));
   } else {
-    card2_struct_initialized = true;
+    // card2_struct_initialized = true; // Unused variable removed
     // --- Step 2: Initialize the hardware and start the mount task ---
     // Note: sd_card_init will internally handle creating/managing the necessary
     // SPI and GPIO buses using the pin config provided in step 1.
@@ -356,7 +361,7 @@ void app_main(void)
                 esp_err_to_name(err));
       // Attempt cleanup if struct init succeeded but HAL init failed
       sd_card_cleanup(&g_sd_card_2);
-      card2_struct_initialized = false; // Mark as not fully initialized
+      // card2_struct_initialized = false; // Unused variable removed
     } else {
       log_info(TAG, "Card 2 OK", "Second SD card HAL initialized successfully!");
       card2_hal_initialized = true;
@@ -540,6 +545,26 @@ void app_main(void)
 #endif
   log_info(TAG, "Card Status", "----------------------------------");
 
+  // --- Optional Performance Test ---
+#if RUN_PERFORMANCE_TEST == 1
+#if defined(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED) &&                                               \
+  (WHAT_SD_CARD_TO_USE == 1 || WHAT_SD_CARD_TO_USE == 3)
+  if (card1_ready) {
+    storage_measure_card_performance(&g_sd_card_1); // Handles its own mutex
+  }
+#endif
+#if defined(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED) &&                                               \
+  (WHAT_SD_CARD_TO_USE == 2 || WHAT_SD_CARD_TO_USE == 3)
+  if (card2_ready) {
+    storage_measure_card_performance(&g_sd_card_2); // Handles its own mutex
+  }
+#endif
+#else
+  log_info(TAG, "Test Skip", "Performance test disabled via RUN_PERFORMANCE_TEST macro.");
+#endif // RUN_PERFORMANCE_TEST
+
+  // --- Optional File I/O Test ---
+#if RUN_FILE_IO_TEST == 1
   // Test operations on each targeted and ready card
 #if defined(CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED) &&                                               \
   (WHAT_SD_CARD_TO_USE == 1 || WHAT_SD_CARD_TO_USE == 3)
@@ -558,6 +583,9 @@ void app_main(void)
     log_warn(TAG, "Test Skip", "Skipping test for Card #2 (not ready).");
   }
 #endif
+#else
+  log_info(TAG, "Test Skip", "File I/O test disabled via RUN_FILE_IO_TEST macro.");
+#endif // RUN_FILE_IO_TEST
 
   log_info(TAG, "Example End", "Dual SD card example finished testing.");
 
@@ -595,8 +623,8 @@ void app_main(void)
 #endif
 
 #ifdef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
-  // pin_validator_cleanup(); // Add if a cleanup function exists
-  log_info(TAG, "Cleanup", "Pin validator cleanup (if implemented).");
+  pin_validator_cleanup(); // Call cleanup function
+  log_info(TAG, "Cleanup", "Pin validator cleanup complete.");
 #endif
 
 #ifdef CONFIG_PSTAR_KCONFIG_TIME_MANAGER_ENABLED

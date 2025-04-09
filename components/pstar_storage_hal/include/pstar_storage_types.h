@@ -1,4 +1,5 @@
-/* ./components/pstar_storage_hal/include/pstar_storage_types.h */
+/* components/pstar_storage_hal/include/pstar_storage_types.h */
+
 #ifndef PSTAR_STORAGE_TYPES_H
 #define PSTAR_STORAGE_TYPES_H
 

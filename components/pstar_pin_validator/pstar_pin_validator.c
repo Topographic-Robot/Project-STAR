@@ -172,7 +172,7 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
         }
         log_debug(TAG,
                   "Usage Count",
-                  "Incremented usage count for pin %d by %s: %s (count: %d, Shareable: %s)",
+                  "Incremented usage count for pin %d by %s: %s (count: %ld, Shareable: %s)",
                   pin,
                   component_name,
                   pin_info->registrations[i].usage_desc,
@@ -209,7 +209,8 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
       } else {
         log_error(TAG, "Registration Error", "Exceeded max registrations for pin %d", pin);
         priv_release_mutex_if_taken(&mutex_taken);
-        return ESP_ERR_PIN_VALIDATOR_MAX_REGISTRATIONS_REACHED;
+        // --- Use the corrected error code ---
+        return ESP_ERR_PSTAR_PIN_VALIDATOR_MAX_REGISTRATIONS_REACHED;
       }
     }
     /* Update overall pin shareability based on all registrations */
@@ -285,7 +286,7 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict)
       for (uint32_t i = 0; i < pin_info->num_registrations; i++) {
         log_error(TAG,
                   "Conflict Detail",
-                  "  - %s: '%s' (Shareable: %s, Count: %d)",
+                  "  - %s: '%s' (Shareable: %s, Count: %ld)",
                   pin_info->registrations[i].component_name,
                   pin_info->registrations[i].usage_desc,
                   pin_info->registrations[i].can_share ? "Yes" : "No",
@@ -300,7 +301,8 @@ esp_err_t pin_validator_validate_all(bool halt_on_conflict)
   if (has_conflicts) {
     log_error(TAG, "Validation Failed", "PIN VALIDATION FAILED: Conflicts detected!");
     /* The function now just reports the error state. */
-    return ESP_ERR_INVALID_STATE; /* Indicate conflicts were found */
+    // --- Use the corrected error code ---
+    return ESP_ERR_PSTAR_PIN_VALIDATOR_CONFLICT; /* Indicate conflicts were found */
   } else {
     log_info(TAG, "Validation Passed", "No conflicts detected in pin assignments");
     return ESP_OK;
@@ -433,7 +435,7 @@ esp_err_t pin_validator_print_assignments(void)
       any_pins_used = true;
       written       = snprintf(buf_ptr,
                          remaining_size,
-                         "| %-*d | %-*.*s | %-*.*s | %-*s | %-*d |\n",
+                         "| %-*d | %-*.*s | %-*.*s | %-*s | %-*ld |\n",
                          gpio_width,
                          pin,
                          comp_width,
@@ -602,7 +604,7 @@ esp_err_t pin_validator_unregister_pin(gpio_num_t pin, const char* component_nam
   } else {
     log_info(TAG,
              "Usage Decremented",
-             "Decremented usage count for pin %d by %s (remaining count: %d)",
+             "Decremented usage count for pin %d by %s (remaining count: %ld)",
              pin,
              component_name,
              pin_info->registrations[reg_index].count);

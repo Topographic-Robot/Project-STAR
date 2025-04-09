@@ -1,4 +1,5 @@
-/* ./components/pstar_storage_hal/pstar_storage_hal.c */
+/* components/pstar_storage_hal/pstar_storage_hal.c */
+
 #include "pstar_storage_hal.h"
 
 #include "pstar_bus_gpio.h"    // Include Bus GPIO header

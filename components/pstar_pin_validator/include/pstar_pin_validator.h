@@ -3,88 +3,115 @@
 #ifndef PSTAR_PIN_VALIDATOR_H
 #define PSTAR_PIN_VALIDATOR_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "driver/gpio.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
-#include "esp_err.h"
+#include "esp_err.h" // Include for standard ESP error codes
+
+/* Kconfig Defines */
+#include "sdkconfig.h"
 
 /* Constants ******************************************************************/
 
-#define PIN_VALIDATOR_MAX_USAGE_DESC_LEN (128) /**< Maximum length of pin usage description */
-#define PIN_VALIDATOR_MAX_PINS (GPIO_NUM_MAX)  /**< Maximum number of pins that can be registered */
-#define PIN_VALIDATOR_MAX_REGISTRATIONS (4) /**< Maximum number of unique registrations per pin */
+#ifndef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_MAX_PINS
+#define PIN_VALIDATOR_MAX_PINS GPIO_NUM_MAX
+#else
+#define PIN_VALIDATOR_MAX_PINS CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_MAX_PINS
+#endif
+
+#ifndef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_MAX_REGISTRATIONS
+#define PIN_VALIDATOR_MAX_REGISTRATIONS 5
+#else
+#define PIN_VALIDATOR_MAX_REGISTRATIONS CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_MAX_REGISTRATIONS
+#endif
+
+#ifndef CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_MAX_USAGE_DESC_LEN
+#define PIN_VALIDATOR_MAX_USAGE_DESC_LEN 64
+#else
+#define PIN_VALIDATOR_MAX_USAGE_DESC_LEN CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_MAX_USAGE_DESC_LEN
+#endif
+
+/* Custom Error Codes */
+// --- CORRECTED: Define a component-specific base ---
+#define ESP_ERR_PSTAR_PIN_VALIDATOR_BASE (0x6000) /* Starting base for this component's errors */
+// --- Use the new base for specific errors ---
+#define ESP_ERR_PSTAR_PIN_VALIDATOR_CONFLICT                                                       \
+  (ESP_ERR_PSTAR_PIN_VALIDATOR_BASE + 1) /* Pin conflict detected */
+#define ESP_ERR_PSTAR_PIN_VALIDATOR_MAX_REGISTRATIONS_REACHED                                      \
+  (ESP_ERR_PSTAR_PIN_VALIDATOR_BASE + 2) /* Too many registrations for a single pin */
+
+/* Structures *****************************************************************/
 
 /**
- * @brief Error when the maximum number of registrations for a pin has been reached.
+ * @brief Structure to hold information about a single registration for a pin.
  */
-#define ESP_ERR_PIN_VALIDATOR_MAX_REGISTRATIONS_REACHED (ESP_ERR_NO_MEM)
-
-/* Structs ********************************************************************/
-
-/**
- * @brief Information about a single registration for a GPIO pin
- */
-typedef struct pin_registration {
-  char component_name[PIN_VALIDATOR_MAX_USAGE_DESC_LEN]; /**< Name of component using the pin */
-  char usage_desc[PIN_VALIDATOR_MAX_USAGE_DESC_LEN];     /**< Description of how the pin is used */
-  int  count;     /**< Number of times this component registered the pin */
-  bool can_share; /**< Whether this component allows sharing of the pin */
+typedef struct {
+  char component_name[PIN_VALIDATOR_MAX_USAGE_DESC_LEN]; /**< Name of the component using the pin */
+  char usage_desc[PIN_VALIDATOR_MAX_USAGE_DESC_LEN];     /**< Description of the pin's usage */
+  uint32_t count;     /**< How many times this specific component/usage combo was registered */
+  bool     can_share; /**< Can this specific usage share the pin? */
 } pin_registration_t;
 
 /**
- * @brief Information about a GPIO pin usage
+ * @brief Structure to hold overall usage information for a single GPIO pin.
  */
-typedef struct pin_usage_info {
-  bool in_use; /**< Whether the pin is in use */
+typedef struct {
+  bool     in_use;      /**< Is this pin currently registered by any component? */
+  bool     can_share;   /**< Overall shareability (true only if ALL registrations allow sharing) */
+  uint32_t usage_count; /**< Total number of times this pin has been registered (across all
+                           components/usages) */
+  uint32_t num_registrations; /**< Number of unique component/usage registrations */
   pin_registration_t
-       registrations[PIN_VALIDATOR_MAX_REGISTRATIONS]; /**< Array of registrations for this pin */
-  int  num_registrations;                              /**< Number of unique registrations */
-  bool can_share; /**< Overall shareability of the pin (true if all registrations allow sharing) */
-  int  usage_count; /**< Total usage count for the pin */
-  char
-    aggregated_component_name[PIN_VALIDATOR_MAX_USAGE_DESC_LEN]; /**< Aggregated component name */
-  char aggregated_usage_desc[PIN_VALIDATOR_MAX_USAGE_DESC_LEN]; /**< Aggregated usage description */
+       registrations[PIN_VALIDATOR_MAX_REGISTRATIONS]; /**< Array of individual registrations */
+  char aggregated_component_name
+    [PIN_VALIDATOR_MAX_USAGE_DESC_LEN]; /**< Aggregated string of component names */
+  char aggregated_usage_desc
+    [PIN_VALIDATOR_MAX_USAGE_DESC_LEN]; /**< Aggregated string of usage descriptions */
 } pin_usage_info_t;
 
-/* Public Functions ***********************************************************/
+/* Public Function Prototypes *************************************************/
 
 /**
- * @brief Initialize the pin validator system
+ * @brief Initializes the pin validator module.
  *
- * This function initializes the pin validator system, setting up the necessary
- * data structures and mutexes for thread-safe operation. It must be called
- * before any other pin validator functions.
+ * Sets up the internal registry and mutex. Must be called before any other
+ * pin validator functions.
  *
- * @return
- * - ESP_OK if successful
- * - ESP_ERR_NO_MEM if memory allocation for mutex fails
+ * @return esp_err_t ESP_OK on success, ESP_ERR_NO_MEM if mutex creation fails.
  */
 esp_err_t pin_validator_init(void);
 
 /**
- * @brief Register a pin usage with the validator
+ * @brief Cleans up the pin validator resources.
  *
- * This function registers a GPIO pin as being used by a specific component.
- * It checks for conflicts with existing pin assignments and updates the usage
- * information. If a pin is already registered by the same component, it simply
- * increments the usage count.
+ * Deletes the mutex and resets the internal state. Should be called during
+ * application shutdown or deinitialization.
  *
- * @param[in] pin            GPIO pin number to register
- * @param[in] component_name Name of the component using this pin
- * @param[in] usage_desc     Description of how the pin is used
- * @param[in] can_share      Whether this pin can be shared with other components
+ * @return esp_err_t ESP_OK on success.
+ */
+esp_err_t pin_validator_cleanup(void);
+
+/**
+ * @brief Registers a single GPIO pin usage.
  *
- * @return
- * - ESP_OK if successful
- * - ESP_ERR_INVALID_STATE if pin validator is not initialized
- * - ESP_ERR_INVALID_ARG if pin number is invalid or strings are NULL
- * - ESP_ERR_TIMEOUT if mutex cannot be taken
- * - ESP_ERR_PIN_VALIDATOR_MAX_REGISTRATIONS_REACHED if maximum registrations per pin is reached
+ * Records that a specific component is using a pin for a particular purpose.
+ * Checks for conflicts based on the 'can_share' flag.
+ *
+ * @param pin GPIO number to register.
+ * @param component_name Name of the component registering the pin.
+ * @param usage_desc Description of how the pin is being used.
+ * @param can_share True if this specific usage allows the pin to be shared
+ *                  with other components/usages that also allow sharing.
+ *                  False if this usage requires exclusive access.
+ * @return esp_err_t
+ *         - ESP_OK on success.
+ *         - ESP_ERR_INVALID_ARG if pin number or descriptions are invalid.
+ *         - ESP_ERR_INVALID_STATE if the validator is not initialized.
+ *         - ESP_ERR_TIMEOUT if mutex cannot be acquired.
+ *         - ESP_ERR_PSTAR_PIN_VALIDATOR_MAX_REGISTRATIONS_REACHED if the pin already has the
+ * maximum allowed unique registrations.
  */
 esp_err_t pin_validator_register_pin(gpio_num_t  pin,
                                      const char* component_name,
@@ -92,21 +119,18 @@ esp_err_t pin_validator_register_pin(gpio_num_t  pin,
                                      bool        can_share);
 
 /**
- * @brief Register multiple pins at once with the validator
+ * @brief Registers multiple GPIO pins for the same component and usage.
  *
- * This function registers multiple GPIO pins with the same component and usage
- * description. It calls pin_validator_register_pin for each pin in the array.
- * Pins with value -1 are skipped.
+ * Convenience function to register an array of pins. Pins with value -1
+ * in the array are skipped.
  *
- * @param[in] pins           Array of GPIO pin numbers to register
- * @param[in] num_pins       Number of pins in the array
- * @param[in] component_name Name of the component using these pins
- * @param[in] usage_desc     Description of how the pins are used
- * @param[in] can_share      Whether these pins can be shared with other components
- *
- * @return
- * - ESP_OK if all pins are registered successfully
- * - First error code encountered if any pin registration fails
+ * @param pins Array of GPIO numbers to register.
+ * @param num_pins Number of pins in the array.
+ * @param component_name Name of the component registering the pins.
+ * @param usage_desc Description of how the pins are being used.
+ * @param can_share True if this usage allows sharing, False otherwise.
+ * @return esp_err_t ESP_OK if all valid pins were registered successfully,
+ *         or the first error code encountered during registration.
  */
 esp_err_t pin_validator_register_pins(const gpio_num_t* pins,
                                       size_t            num_pins,
@@ -115,69 +139,59 @@ esp_err_t pin_validator_register_pins(const gpio_num_t* pins,
                                       bool              can_share);
 
 /**
- * @brief Validate all registered pins for conflicts
+ * @brief Unregisters a component's usage of a specific pin.
  *
- * This function checks all registered pins for conflicts, which occur when
- * multiple components use the same pin and at least one of them has marked
- * the pin as non-shareable.
+ * Decrements the usage count for the given component on the specified pin.
+ * If the count reaches zero for that component/usage combination, the
+ * registration entry is removed. If it's the last registration for the pin,
+ * the pin is marked as completely unused.
  *
- * @param[in] halt_on_conflict If true, system will halt indefinitely if conflicts are found
+ * @param pin GPIO number to unregister.
+ * @param component_name Name of the component unregistering the pin.
+ * @return esp_err_t
+ *         - ESP_OK on success.
+ *         - ESP_ERR_INVALID_ARG if pin number or component name is invalid.
+ *         - ESP_ERR_INVALID_STATE if the validator is not initialized.
+ *         - ESP_ERR_TIMEOUT if mutex cannot be acquired.
+ *         - ESP_ERR_NOT_FOUND if the pin was not registered or not registered
+ *           by the specified component.
+ */
+esp_err_t pin_validator_unregister_pin(gpio_num_t pin, const char* component_name);
+
+/**
+ * @brief Validates all registered pin assignments for conflicts.
  *
- * @return
- * - ESP_OK if no conflicts are found
- * - ESP_ERR_INVALID_STATE if conflicts are found or pin validator is not initialized
- * - ESP_ERR_TIMEOUT if mutex cannot be taken
+ * Checks if any pin marked as non-shareable by any component is being used
+ * by more than one component or for more than one purpose. Logs errors
+ * for any conflicts found.
+ *
+ * @param halt_on_conflict If true, the function will enter an infinite loop
+ *                         (effectively halting the system) upon detecting the
+ *                         first conflict. If false, it logs all conflicts and
+ *                         returns an error code if any conflicts were found.
+ * @return esp_err_t
+ *         - ESP_OK if no conflicts are found.
+ *         - ESP_ERR_PSTAR_PIN_VALIDATOR_CONFLICT if conflicts are found.
+ *         - ESP_ERR_TIMEOUT if mutex cannot be acquired.
+ *         - ESP_ERR_INVALID_STATE if validator not initialized.
  */
 esp_err_t pin_validator_validate_all(bool halt_on_conflict);
 
 /**
- * @brief Print all registered pin assignments
+ * @brief Prints a formatted table of all registered pin assignments to the console.
  *
- * This function prints a table of all registered pin assignments, including
- * the component name, usage description, shareability, and usage count.
- *
- * @return
- * - ESP_OK if successful
- * - ESP_ERR_INVALID_STATE if pin validator is not initialized
- * - ESP_ERR_TIMEOUT if mutex cannot be taken
+ * @return esp_err_t ESP_OK on success, ESP_ERR_NO_MEM if buffer allocation fails,
+ *         ESP_ERR_TIMEOUT if mutex cannot be acquired.
  */
 esp_err_t pin_validator_print_assignments(void);
 
 /**
- * @brief Clear all registered pin assignments
+ * @brief Clears all pin registrations from the validator.
  *
- * This function clears all registered pin assignments, effectively resetting
- * the pin validator to its initial state.
+ * Resets the internal registry to an empty state.
  *
- * @return
- * - ESP_OK if successful
- * - ESP_ERR_INVALID_STATE if pin validator is not initialized
- * - ESP_ERR_TIMEOUT if mutex cannot be taken
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex cannot be acquired.
  */
 esp_err_t pin_validator_clear_all(void);
-
-/**
- * @brief Unregister a specific pin from the validator
- *
- * This function unregisters a pin for a specific component. If the pin is
- * used by multiple components or multiple times by the same component, the
- * usage count is decremented. The pin is fully unregistered only when the
- * usage count reaches zero.
- *
- * @param[in] pin            GPIO pin number to unregister
- * @param[in] component_name Component name that registered the pin
- *
- * @return
- * - ESP_OK if successfully unregistered
- * - ESP_ERR_INVALID_STATE if pin validator is not initialized
- * - ESP_ERR_INVALID_ARG if pin number is invalid or component_name is NULL
- * - ESP_ERR_NOT_FOUND if pin is not registered or not registered by this component
- * - ESP_ERR_TIMEOUT if mutex cannot be taken
- */
-esp_err_t pin_validator_unregister_pin(gpio_num_t pin, const char* component_name);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* PSTAR_PIN_VALIDATOR_H */

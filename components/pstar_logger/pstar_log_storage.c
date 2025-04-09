@@ -1,4 +1,5 @@
-/* ./components/pstar_logger/pstar_log_storage.c */
+/* components/pstar_logger/pstar_log_storage.c */
+
 #include "pstar_log_storage.h"
 
 #include "pstar_log_macros.h"

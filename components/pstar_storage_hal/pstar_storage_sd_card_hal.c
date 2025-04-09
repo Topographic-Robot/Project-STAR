@@ -273,11 +273,17 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
     // --- Assume esp_vfs_fat_sdcard_unmount frees card_to_unmount ---
 
     if (vfs_err != ESP_OK) {
+      // --- FIX: Log the actual error from VFS unmount ---
       log_error(sd_card->tag,
-                "Unmount Error",
-                "Failed to unmount SD card VFS: %s",
+                "VFS Unmount Failed",
+                "esp_vfs_fat_sdcard_unmount returned: %s",
                 esp_err_to_name(vfs_err));
       // Continue with cleanup even if VFS unmount fails
+    } else {
+      log_info(sd_card->tag,
+               "VFS Unmount OK",
+               "VFS unmount successful for %s",
+               sd_card->mount_path);
     }
     // --- REMOVED the explicit free here ---
   } else {
