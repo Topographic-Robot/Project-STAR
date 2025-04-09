@@ -66,18 +66,22 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager, pstar_bus_conf
 
   /* Validate bus configuration */
   if (!config->name || strlen(config->name) == 0) {
-    log_error(manager->tag, "Bus addition failed", "Bus configuration lacks a valid name");
+    log_error(manager->tag ? manager->tag : TAG,
+              "Bus addition failed",
+              "Bus configuration lacks a valid name");
     return ESP_ERR_INVALID_ARG;
   }
 
   /* Take mutex for thread safety */
   if (manager->mutex == NULL) {
-    log_error(manager->tag, "Bus addition failed", "Mutex not initialized");
+    log_error(manager->tag ? manager->tag : TAG, "Bus addition failed", "Mutex not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   if (xSemaphoreTake(manager->mutex, pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) !=
       pdTRUE) {
-    log_error(manager->tag, "Bus addition failed", "Failed to acquire mutex for bus addition");
+    log_error(manager->tag ? manager->tag : TAG,
+              "Bus addition failed",
+              "Failed to acquire mutex for bus addition");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -86,7 +90,7 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager, pstar_bus_conf
     if (curr->name && config->name && strcmp(curr->name, config->name) == 0) {
       /* Found existing bus with same name */
       xSemaphoreGive(manager->mutex);
-      log_error(manager->tag,
+      log_error(manager->tag ? manager->tag : TAG,
                 "Bus addition failed",
                 "Bus with name '%s' already exists",
                 config->name);
@@ -101,7 +105,7 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager, pstar_bus_conf
   /* Release mutex */
   xSemaphoreGive(manager->mutex);
 
-  log_info(manager->tag,
+  log_info(manager->tag ? manager->tag : TAG,
            "Bus added",
            "Added bus: %s (type: %s)",
            config->name,
@@ -121,12 +125,14 @@ pstar_bus_config_t* pstar_bus_manager_find_bus(const pstar_bus_manager_t* manage
 
   /* Take mutex for thread safety */
   if (manager->mutex == NULL) {
-    log_error(manager->tag, "Bus search failed", "Mutex not initialized");
+    log_error(manager->tag ? manager->tag : TAG, "Bus search failed", "Mutex not initialized");
     return NULL;
   }
   if (xSemaphoreTake(manager->mutex, pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) !=
       pdTRUE) {
-    log_error(manager->tag, "Bus search failed", "Failed to acquire mutex for bus search");
+    log_error(manager->tag ? manager->tag : TAG,
+              "Bus search failed",
+              "Failed to acquire mutex for bus search");
     return NULL;
   }
 
@@ -158,12 +164,14 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
 
   /* Take mutex for thread safety */
   if (manager->mutex == NULL) {
-    log_error(manager->tag, "Bus removal failed", "Mutex not initialized");
+    log_error(manager->tag ? manager->tag : TAG, "Bus removal failed", "Mutex not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   if (xSemaphoreTake(manager->mutex, pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) !=
       pdTRUE) {
-    log_error(manager->tag, "Bus removal failed", "Failed to acquire mutex for bus removal");
+    log_error(manager->tag ? manager->tag : TAG,
+              "Bus removal failed",
+              "Failed to acquire mutex for bus removal");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -188,7 +196,7 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
 
   /* If bus was not found */
   if (!to_remove) {
-    log_warn(manager->tag, "Bus removal failed", "Bus '%s' not found", name);
+    log_warn(manager->tag ? manager->tag : TAG, "Bus removal failed", "Bus '%s' not found", name);
     return ESP_ERR_NOT_FOUND;
   }
 
@@ -196,7 +204,7 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
   if (to_remove->initialized) {
     result = pstar_bus_config_deinit(to_remove);
     if (result != ESP_OK) {
-      log_warn(manager->tag,
+      log_warn(manager->tag ? manager->tag : TAG,
                "Bus deinit warning",
                "Failed to deinitialize bus '%s' during removal: %s",
                to_remove->name ? to_remove->name : "UNKNOWN",
@@ -205,19 +213,34 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
     }
   }
 
+  /* Save a copy of the name for logging, as it will be NULL after destroy */
+  char* name_copy = NULL;
+  if (to_remove->name) {
+    name_copy = strdup(to_remove->name);
+  }
+
   /* Destroy the removed bus configuration */
   esp_err_t destroy_result = pstar_bus_config_destroy(to_remove);
+  /* At this point, to_remove is invalid and must not be accessed */
+  to_remove = NULL;
+
   if (destroy_result != ESP_OK) {
-    log_warn(manager->tag,
+    log_warn(manager->tag ? manager->tag : TAG,
              "Bus destroy warning",
              "Failed to destroy bus configuration '%s' during removal: %s",
-             name, /* Original name is safe here */
+             name_copy ? name_copy : name, /* Use our copy, fallback to original name */
              esp_err_to_name(destroy_result));
     /* We've already removed it from the list, so return the deinit result
      * or ESP_OK if deinit was skipped/successful */
   }
 
-  log_info(manager->tag, "Bus removed", "Removed and destroyed bus: %s", name);
+  /* Free our name copy */
+  if (name_copy) {
+    free(name_copy);
+    name_copy = NULL;
+  }
+
+  log_info(manager->tag ? manager->tag : TAG, "Bus removed", "Removed and destroyed bus: %s", name);
   /* Return the deinit result if it failed, otherwise the destroy result (or OK) */
   return (result != ESP_OK) ? result : destroy_result;
 }
@@ -238,18 +261,20 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
                        pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS * 2)) == pdTRUE) {
       mutex_taken = true;
     } else {
-      log_error(manager->tag,
+      log_error(manager->tag ? manager->tag : TAG,
                 "Deinitialization warning",
                 "Failed to acquire mutex for cleanup - attempting anyway (RISKY)");
       /* Continue with cleanup even without mutex, but state is risky */
     }
   } else {
-    log_warn(manager->tag, "Deinitialization warning", "Mutex was NULL during deinit");
+    log_warn(manager->tag ? manager->tag : TAG,
+             "Deinitialization warning",
+             "Mutex was NULL during deinit");
   }
 
   /* Call deinit and destroy on each bus in the list */
   pstar_bus_config_t* curr = manager->buses;
-  manager->buses           = NULL; /* Detach list head immediately */
+  manager->buses           = NULL; /* Detach list head immediately to prevent concurrent access */
 
   /* Release mutex before iterating and destroying, prevents holding lock during long operations */
   if (mutex_taken) {
@@ -265,7 +290,7 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
     /* First deinitialize the bus (release hardware resources) */
     esp_err_t result = pstar_bus_config_deinit(curr);
     if (result != ESP_OK) {
-      log_warn(manager->tag,
+      log_warn(manager->tag ? manager->tag : TAG,
                "Bus deinit warning",
                "Failed to deinitialize bus '%s': %s",
                curr->name ? curr->name : "UNKNOWN",
@@ -278,23 +303,22 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
     /* Then destroy the bus configuration (free memory) */
     result = pstar_bus_config_destroy(curr); /* curr pointer is still valid here */
     if (result != ESP_OK) {
-      log_warn(manager->tag,
+      log_warn(manager->tag ? manager->tag : TAG,
                "Bus destroy warning",
-               "Failed to destroy bus configuration for '%s': %s", /* Log name if possible */
-               curr->name ? curr->name : "UNKNOWN",
+               "Failed to destroy bus configuration: %s",
                esp_err_to_name(result));
       if (first_error == ESP_OK)
         first_error = result; /* Record first error */
       /* Continue with cleanup despite the warning */
     }
-    curr = next; /* Move to the next node */
+    curr = next; /* Move to the next node, curr is now invalid */
   }
 
   /* Free the tag string if it was dynamically allocated */
-  if (manager->tag && manager->tag != TAG) {
+  if (manager->tag != NULL && manager->tag != TAG) {
     free((void*)manager->tag);
+    manager->tag = NULL;
   }
-  manager->tag = NULL;
 
   /* Delete mutex after use */
   if (manager->mutex != NULL) {

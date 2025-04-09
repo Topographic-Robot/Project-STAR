@@ -56,8 +56,9 @@ esp_err_t error_handler_init(error_handler_t* handler,
 void error_handler_deinit(error_handler_t* handler)
 {
   if (handler != NULL && handler->mutex != NULL) {
-    vSemaphoreDelete(handler->mutex);
-    handler->mutex = NULL; /* Mark mutex as deleted */
+    SemaphoreHandle_t temp_mutex = handler->mutex;
+    handler->mutex               = NULL; /* Set to NULL first to prevent double-delete */
+    vSemaphoreDelete(temp_mutex);
   }
 }
 

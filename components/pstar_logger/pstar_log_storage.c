@@ -399,8 +399,11 @@ esp_err_t log_storage_cleanup(void)
   } /* End mutex handling block */
 
   /* Delete the mutex */
-  vSemaphoreDelete(s_log_mutex);
-  s_log_mutex = NULL;
+  if (s_log_mutex != NULL) {
+    SemaphoreHandle_t tmp_mutex = s_log_mutex;
+    s_log_mutex                 = NULL; /* Set to NULL before deleting to prevent double-free */
+    vSemaphoreDelete(tmp_mutex);
+  }
 
   /* Reset atomic SD availability flag */
   atomic_store(&s_sd_card_available, false);
@@ -689,7 +692,8 @@ static esp_err_t priv_write_log_data(const char* const file_path_relative, const
       CONFIG_PSTAR_KCONFIG_LOGGING_COMPRESSION_BUFFER_SIZE; /* Use Kconfig size if sufficient */
   }
 
-  char* compress_buffer = malloc(alloc_size);
+  char* compress_buffer = NULL;
+  compress_buffer       = malloc(alloc_size);
   if (compress_buffer == NULL) {
     ESP_LOGE(TAG, "Memory Error: Failed to allocate compression buffer (size %zu)", alloc_size);
     return ESP_ERR_NO_MEM;
@@ -699,13 +703,22 @@ static esp_err_t priv_write_log_data(const char* const file_path_relative, const
 
   esp_err_t ret = priv_compress_data(data, data_len, compress_buffer, &output_len);
   if (ret != ESP_OK) {
-    free(compress_buffer);
+    if (compress_buffer != NULL) {
+      free(compress_buffer);
+      compress_buffer = NULL; // Set to NULL after freeing
+    }
     return ret;
   }
 
   /* Write compressed data using the binary enqueue function */
   ret = file_write_binary_enqueue(s_file_manager, file_path_relative, compress_buffer, output_len);
-  free(compress_buffer);
+
+  /* Safely free the buffer after use */
+  if (compress_buffer != NULL) {
+    free(compress_buffer);
+    compress_buffer = NULL; // Set to NULL after freeing
+  }
+
   return ret;
 
 #else /* Compression disabled */

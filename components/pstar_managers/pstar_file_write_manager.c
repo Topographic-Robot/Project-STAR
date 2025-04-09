@@ -122,8 +122,10 @@ esp_err_t file_write_manager_init(file_write_manager_t* manager,
   manager->task_exit_sem = xSemaphoreCreateBinary();
   if (manager->task_exit_sem == NULL) {
     log_error(TAG, "Semaphore Error", "Failed to create task exit semaphore");
-    vQueueDelete(manager->file_write_queue);
-    manager->file_write_queue = NULL;
+    if (manager->file_write_queue != NULL) {
+      vQueueDelete(manager->file_write_queue);
+      manager->file_write_queue = NULL;
+    }
     return ESP_ERR_NO_MEM;
   }
 
@@ -137,10 +139,14 @@ esp_err_t file_write_manager_init(file_write_manager_t* manager,
 
   if (task_created != pdPASS) {
     log_error(TAG, "Task Error", "Failed to create file write task");
-    vQueueDelete(manager->file_write_queue);
-    manager->file_write_queue = NULL;
-    vSemaphoreDelete(manager->task_exit_sem); /* Delete semaphore on failure */
-    manager->task_exit_sem = NULL;
+    if (manager->file_write_queue != NULL) {
+      vQueueDelete(manager->file_write_queue);
+      manager->file_write_queue = NULL;
+    }
+    if (manager->task_exit_sem != NULL) {
+      vSemaphoreDelete(manager->task_exit_sem); /* Delete semaphore on failure */
+      manager->task_exit_sem = NULL;
+    }
     return ESP_FAIL;
   }
 
@@ -346,17 +352,22 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
       log_error(TAG,
                 "Cleanup Error",
                 "File write task did not signal exit within timeout. Forcing deletion.");
-      vTaskDelete(manager->file_write_task); /* Force delete if timeout */
-      cleanup_result = ESP_ERR_TIMEOUT;      /* Indicate timeout */
+      if (manager->file_write_task != NULL) {
+        TaskHandle_t temp_task   = manager->file_write_task;
+        manager->file_write_task = NULL; /* Mark as NULL before deleting */
+        vTaskDelete(temp_task);          /* Force delete if timeout */
+      }
+      cleanup_result = ESP_ERR_TIMEOUT; /* Indicate timeout */
     } else {
       log_info(TAG, "Cleanup", "File write task exited cleanly.");
+      manager->file_write_task = NULL; /* Mark task as gone */
     }
-    manager->file_write_task = NULL; /* Mark task as gone */
   } else if (manager->file_write_task != NULL) {
     /* If semaphore wasn't created or is NULL, force delete task (less clean) */
     log_warn(TAG, "Cleanup Warning", "Task exit semaphore invalid, forcing task deletion.");
-    vTaskDelete(manager->file_write_task);
-    manager->file_write_task = NULL;
+    TaskHandle_t temp_task   = manager->file_write_task;
+    manager->file_write_task = NULL; /* Mark as NULL before deleting */
+    vTaskDelete(temp_task);
     if (cleanup_result == ESP_OK) {
       cleanup_result = ESP_FAIL; /* Indicate unclean shutdown */
     }
@@ -378,14 +389,16 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
       }
     }
     log_info(TAG, "Queue Delete", "Deleting file write queue");
-    vQueueDelete(manager->file_write_queue);
-    manager->file_write_queue = NULL;
+    QueueHandle_t temp_queue  = manager->file_write_queue;
+    manager->file_write_queue = NULL; /* Mark as NULL before deleting */
+    vQueueDelete(temp_queue);
   }
 
   /* Delete the exit semaphore */
   if (manager->task_exit_sem != NULL) {
-    vSemaphoreDelete(manager->task_exit_sem);
-    manager->task_exit_sem = NULL;
+    SemaphoreHandle_t temp_sem = manager->task_exit_sem;
+    manager->task_exit_sem     = NULL; /* Mark as NULL before deleting */
+    vSemaphoreDelete(temp_sem);
   }
 
   atomic_store(&manager->initialized, false); /* Mark as uninitialized */
@@ -407,8 +420,9 @@ esp_err_t file_write_manager_cleanup(file_write_manager_t* manager)
 static void priv_free_request_data(file_write_request_t* request)
 {
   if (request && request->data) {
-    free(request->data);
-    request->data = NULL;
+    void* temp_data = request->data;
+    request->data   = NULL; /* Set to NULL before freeing to prevent double-free */
+    free(temp_data);
   }
 }
 

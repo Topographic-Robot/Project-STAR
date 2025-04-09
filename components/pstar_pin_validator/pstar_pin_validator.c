@@ -293,7 +293,10 @@ esp_err_t pin_validator_print_assignments(void)
 
   /* Estimate buffer size: Header(3) + Separators(3) + MaxPins + Footer(1) lines */
   size_t buffer_size  = (3 + 3 + PIN_VALIDATOR_MAX_PINS + 1) * max_line_len;
-  char*  table_buffer = malloc(buffer_size);
+  char*  table_buffer = NULL;
+
+  /* Safe allocation with null check */
+  table_buffer = (char*)malloc(buffer_size);
   if (table_buffer == NULL) {
     log_error(TAG, "Memory Error", "Failed to allocate buffer for pin assignment table");
     priv_release_mutex_if_taken(&mutex_taken);
@@ -448,10 +451,16 @@ buffer_full:
   }
 
   /* --- Print the entire buffered table --- */
-  printf("%s", table_buffer); // Use printf for potentially large string
+  if (table_buffer != NULL) {
+    printf("%s", table_buffer); // Use printf for potentially large string
+  }
 
   /* --- Cleanup --- */
-  free(table_buffer);
+  if (table_buffer != NULL) {
+    free(table_buffer);
+    table_buffer = NULL; // Set to NULL after freeing
+  }
+
   priv_release_mutex_if_taken(&mutex_taken);
   return ESP_OK;
 }

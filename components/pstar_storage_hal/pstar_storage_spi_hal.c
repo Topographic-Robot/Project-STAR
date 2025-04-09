@@ -172,7 +172,7 @@ esp_err_t storage_spi_setup(sd_card_hal_t* sd_card)
   /* Free old card structure if it exists */
   if (sd_card->card != NULL) {
     free(sd_card->card);
-    sd_card->card = NULL;
+    sd_card->card = NULL; /* Set to NULL after freeing to prevent double free */
   }
 
   /* Allocate memory for the card structure */

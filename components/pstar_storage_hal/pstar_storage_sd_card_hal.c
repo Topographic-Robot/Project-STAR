@@ -154,6 +154,7 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
     }
     if (card_out != NULL) {
       free(card_out);
+      card_out = NULL; // Prevent potential double free
     }
     return err;
   }
@@ -161,6 +162,7 @@ esp_err_t sd_card_mount(sd_card_hal_t* sd_card)
   // --- Mount successful ---
   if (sd_card->card != NULL && sd_card->card != card_out) {
     free(sd_card->card);
+    sd_card->card = NULL; // Set to NULL before reassigning to prevent memory leaks
   }
   sd_card->card = card_out;
 
@@ -213,7 +215,14 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
            "Unmounting SD card from path: %s",
            sd_card->mount_path);
 
-  esp_err_t err = esp_vfs_fat_sdcard_unmount(sd_card->mount_path, sd_card->card);
+  esp_err_t err = ESP_OK;
+
+  // Only try to unmount if card pointer is valid
+  if (sd_card->card != NULL) {
+    err = esp_vfs_fat_sdcard_unmount(sd_card->mount_path, sd_card->card);
+  } else {
+    log_warn(sd_card->tag, "Unmount Warning", "Card pointer is NULL during unmount");
+  }
 
   atomic_store(&sd_card->card_available, false);
   storage_notify_availability(sd_card, false);
@@ -250,7 +259,7 @@ esp_err_t sd_card_unmount(sd_card_hal_t* sd_card)
 
   if (sd_card->card != NULL) {
     free(sd_card->card);
-    sd_card->card = NULL;
+    sd_card->card = NULL; // Set to NULL after freeing to prevent double free
   }
 
   sd_card->current_interface = k_sd_interface_none;
@@ -431,7 +440,7 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
       }
     }
     free(sd_card->card);
-    sd_card->card = NULL;
+    sd_card->card = NULL; // Set to NULL after freeing to prevent double free
   }
   sd_card->current_interface = k_sd_interface_none;
   // --- End Cleanup ---
@@ -464,7 +473,7 @@ esp_err_t sd_card_try_interfaces(sd_card_hal_t* sd_card)
     sd_card->current_interface = k_sd_interface_none;
     if (sd_card->card != NULL) {
       free(sd_card->card);
-      sd_card->card = NULL;
+      sd_card->card = NULL; // Set to NULL after freeing to prevent double free
     }
     return last_error;
   }

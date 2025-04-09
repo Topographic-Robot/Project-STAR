@@ -191,7 +191,7 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
       log_error(TAG,
                 "Deinit Error",
                 "Failed to deinitialize bus '%s' before destroying: %s",
-                config->name,
+                config->name ? config->name : "UNKNOWN",
                 esp_err_to_name(result));
 
       /* Despite the error, we'll proceed with cleanup to avoid resource leaks */
@@ -199,16 +199,22 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
       log_warn(TAG,
                "Destroy Warning",
                "Proceeding with cleanup of bus '%s' despite deinit failure",
-               config->name);
+               config->name ? config->name : "UNKNOWN");
     }
   }
 
   /* Log the destruction */
-  log_info(TAG, "Destroying Bus", "Destroying bus configuration for '%s'", config->name);
+  log_info(TAG,
+           "Destroying Bus",
+           "Destroying bus configuration for '%s'",
+           config->name ? config->name : "UNKNOWN");
 
   /* Clean up and free the configuration */
   priv_pstar_bus_config_cleanup(config);
 
+  /* IMPORTANT: After this call, the config pointer is invalid.
+   * Callers should set their copy of this pointer to NULL after calling this function.
+   */
   return ESP_OK;
 }
 
@@ -221,7 +227,10 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
   /* Check if already initialized */
   if (config->initialized) {
-    log_warn(TAG, "Already Init", "Bus '%s' is already initialized", config->name);
+    log_warn(TAG,
+             "Already Init",
+             "Bus '%s' is already initialized",
+             config->name ? config->name : "UNKNOWN");
     return ESP_OK;
   }
 
@@ -233,20 +242,20 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       log_info(TAG,
                "I2C Init",
                "Initializing I2C bus '%s', port %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.i2c.port);
 
       /* Register I2C pins with pin validator */
       if (config->config.i2c.config.sda_io_num != -1) {
         result = pin_validator_register_pin(config->config.i2c.config.sda_io_num,
-                                            config->name,
+                                            config->name ? config->name : "UNKNOWN",
                                             "I2C SDA",
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
                     "Failed to register SDA pin for I2C bus '%s': %s",
-                    config->name,
+                    config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
           return result;
         }
@@ -254,14 +263,14 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
       if (config->config.i2c.config.scl_io_num != -1) {
         result = pin_validator_register_pin(config->config.i2c.config.scl_io_num,
-                                            config->name,
+                                            config->name ? config->name : "UNKNOWN",
                                             "I2C SCL",
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
                     "Failed to register SCL pin for I2C bus '%s': %s",
-                    config->name,
+                    config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
           return result;
         }
@@ -282,21 +291,21 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       log_info(TAG,
                "SPI Init",
                "Initializing SPI bus '%s', host %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.spi.host);
 
       /* Register SPI pins with pin validator */
       if (config->config.spi.bus_config.mosi_io_num != -1) {
         // --- FIX --- MOSI (Master Out) is DI (Data In) for the peripheral
         result = pin_validator_register_pin(config->config.spi.bus_config.mosi_io_num,
-                                            config->name,
+                                            config->name ? config->name : "UNKNOWN",
                                             "SPI DI (MOSI)", // Updated comment
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
                     "Failed to register DI (MOSI) pin for SPI bus '%s': %s", // Updated log
-                    config->name,
+                    config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
           return result;
         }
@@ -305,14 +314,14 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       if (config->config.spi.bus_config.miso_io_num != -1) {
         // --- FIX --- MISO (Master In) is DO (Data Out) for the peripheral
         result = pin_validator_register_pin(config->config.spi.bus_config.miso_io_num,
-                                            config->name,
+                                            config->name ? config->name : "UNKNOWN",
                                             "SPI DO (MISO)", // Updated comment
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
                     "Failed to register DO (MISO) pin for SPI bus '%s': %s", // Updated log
-                    config->name,
+                    config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
           return result;
         }
@@ -320,14 +329,14 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
       if (config->config.spi.bus_config.sclk_io_num != -1) {
         result = pin_validator_register_pin(config->config.spi.bus_config.sclk_io_num,
-                                            config->name,
+                                            config->name ? config->name : "UNKNOWN",
                                             "SPI SCLK",
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
                     "Failed to register SCLK pin for SPI bus '%s': %s",
-                    config->name,
+                    config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
           return result;
         }
@@ -335,14 +344,14 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 
       if (config->config.spi.dev_config.spics_io_num != -1) {
         result = pin_validator_register_pin(config->config.spi.dev_config.spics_io_num,
-                                            config->name,
+                                            config->name ? config->name : "UNKNOWN",
                                             "SPI CS",
                                             false);
         if (result != ESP_OK) {
           log_error(TAG,
                     "Pin Registration Error",
                     "Failed to register CS pin for SPI bus '%s': %s",
-                    config->name,
+                    config->name ? config->name : "UNKNOWN",
                     esp_err_to_name(result));
           return result;
         }
@@ -360,7 +369,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       log_info(TAG,
                "UART Init",
                "Initializing UART bus '%s', port %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.uart.port);
 
       /* Register UART pins with pin validator */
@@ -381,7 +390,10 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_gpio:
-      log_info(TAG, "GPIO Init", "Initializing GPIO bus '%s'", config->name);
+      log_info(TAG,
+               "GPIO Init",
+               "Initializing GPIO bus '%s'",
+               config->name ? config->name : "UNKNOWN");
 
       /* Register GPIO pins with pin validator */
       uint64_t pin_mask = config->config.gpio.config.pin_bit_mask;
@@ -392,7 +404,8 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
           /* Check if this is the SD card GPIO bus and the specific CD pin */
           /* Prevent double registration - SD HAL will register it. */
-          if (strcmp(config->name, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME) == 0 &&
+          if (config->name &&
+              strcmp(config->name, CONFIG_PSTAR_KCONFIG_SD_CARD_GPIO_BUS_NAME) == 0 &&
               pin == CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO) {
             log_debug(
               TAG,
@@ -407,7 +420,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
           if (!skip_registration) {
             /* This pin is used, register it */
             result = pin_validator_register_pin(pin,
-                                                config->name,
+                                                config->name ? config->name : "UNKNOWN",
                                                 "GPIO",
                                                 false); /* Default non-shareable for generic GPIO */
             if (result != ESP_OK) {
@@ -415,7 +428,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                         "Pin Registration Error",
                         "Failed to register GPIO pin %d for bus '%s': %s",
                         pin,
-                        config->name,
+                        config->name ? config->name : "UNKNOWN",
                         esp_err_to_name(result));
               return result;
             }
@@ -433,7 +446,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       log_info(TAG,
                "SDIO Init",
                "Initializing SDIO bus '%s', slot %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.sdio.host.slot);
 
       /* Register SDIO pins with pin validator */
@@ -451,7 +464,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                 "Unknown Type",
                 "Unknown bus type %d for bus '%s'",
                 config->type,
-                config->name);
+                config->name ? config->name : "UNKNOWN");
       return ESP_ERR_INVALID_ARG;
   }
 
@@ -459,7 +472,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
     log_error(TAG,
               "Init Failed",
               "Failed to initialize bus '%s': %s",
-              config->name,
+              config->name ? config->name : "UNKNOWN",
               esp_err_to_name(result));
     return result;
   }
@@ -470,7 +483,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
   log_info(TAG,
            "Init Success",
            "Successfully initialized bus '%s' (%s)",
-           config->name,
+           config->name ? config->name : "UNKNOWN",
            pstar_bus_type_to_string(config->type));
 
   return ESP_OK;
@@ -485,7 +498,10 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
 
   /* If not initialized, nothing to do */
   if (!config->initialized) {
-    log_warn(TAG, "Not Init", "Bus '%s' is not initialized, nothing to deinitialize", config->name);
+    log_warn(TAG,
+             "Not Init",
+             "Bus '%s' is not initialized, nothing to deinitialize",
+             config->name ? config->name : "UNKNOWN");
     return ESP_OK;
   }
 
@@ -497,16 +513,18 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       log_info(TAG,
                "I2C Deinit",
                "Deinitializing I2C bus '%s', port %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.i2c.port);
 
       /* Unregister I2C pins from pin validator */
       if (config->config.i2c.config.sda_io_num != -1) {
-        pin_validator_unregister_pin(config->config.i2c.config.sda_io_num, config->name);
+        pin_validator_unregister_pin(config->config.i2c.config.sda_io_num,
+                                     config->name ? config->name : "UNKNOWN");
       }
 
       if (config->config.i2c.config.scl_io_num != -1) {
-        pin_validator_unregister_pin(config->config.i2c.config.scl_io_num, config->name);
+        pin_validator_unregister_pin(config->config.i2c.config.scl_io_num,
+                                     config->name ? config->name : "UNKNOWN");
       }
 
       result = i2c_driver_delete(config->config.i2c.port);
@@ -516,24 +534,28 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       log_info(TAG,
                "SPI Deinit",
                "Deinitializing SPI bus '%s', host %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.spi.host);
 
       /* Unregister SPI pins from pin validator */
       if (config->config.spi.bus_config.mosi_io_num != -1) {
-        pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num, config->name);
+        pin_validator_unregister_pin(config->config.spi.bus_config.mosi_io_num,
+                                     config->name ? config->name : "UNKNOWN");
       }
 
       if (config->config.spi.bus_config.miso_io_num != -1) {
-        pin_validator_unregister_pin(config->config.spi.bus_config.miso_io_num, config->name);
+        pin_validator_unregister_pin(config->config.spi.bus_config.miso_io_num,
+                                     config->name ? config->name : "UNKNOWN");
       }
 
       if (config->config.spi.bus_config.sclk_io_num != -1) {
-        pin_validator_unregister_pin(config->config.spi.bus_config.sclk_io_num, config->name);
+        pin_validator_unregister_pin(config->config.spi.bus_config.sclk_io_num,
+                                     config->name ? config->name : "UNKNOWN");
       }
 
       if (config->config.spi.dev_config.spics_io_num != -1) {
-        pin_validator_unregister_pin(config->config.spi.dev_config.spics_io_num, config->name);
+        pin_validator_unregister_pin(config->config.spi.dev_config.spics_io_num,
+                                     config->name ? config->name : "UNKNOWN");
       }
 
       if (config->handle != NULL) {
@@ -558,7 +580,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       log_info(TAG,
                "UART Deinit",
                "Deinitializing UART bus '%s', port %d",
-               config->name,
+               config->name ? config->name : "UNKNOWN",
                config->config.uart.port);
 
       /* No pins to unregister for UART as we didn't register them */
@@ -567,14 +589,17 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_gpio:
-      log_info(TAG, "GPIO Deinit", "Deinitializing GPIO bus '%s'", config->name);
+      log_info(TAG,
+               "GPIO Deinit",
+               "Deinitializing GPIO bus '%s'",
+               config->name ? config->name : "UNKNOWN");
 
       /* Unregister GPIO pins from pin validator */
       uint64_t pin_mask = config->config.gpio.config.pin_bit_mask;
       for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
         if ((pin_mask >> pin) & 0x1) {
           /* This pin is used, unregister it */
-          pin_validator_unregister_pin(pin, config->name);
+          pin_validator_unregister_pin(pin, config->name ? config->name : "UNKNOWN");
         }
       }
 
@@ -583,7 +608,10 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_sdio:
-      log_info(TAG, "SDIO Deinit", "Deinitializing SDIO bus '%s'", config->name);
+      log_info(TAG,
+               "SDIO Deinit",
+               "Deinitializing SDIO bus '%s'",
+               config->name ? config->name : "UNKNOWN");
 
       /* No pins to unregister for SDIO as we didn't register them */
 
@@ -597,7 +625,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
                 "Unknown Type",
                 "Unknown bus type %d for bus '%s'",
                 config->type,
-                config->name);
+                config->name ? config->name : "UNKNOWN");
       return ESP_ERR_INVALID_ARG;
   }
 
@@ -605,7 +633,7 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
     log_error(TAG,
               "Deinit Failed",
               "Failed to deinitialize bus '%s': %s",
-              config->name,
+              config->name ? config->name : "UNKNOWN",
               esp_err_to_name(result));
     return result;
   }
@@ -613,7 +641,10 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
   /* Mark as not initialized */
   config->initialized = false;
 
-  log_info(TAG, "Deinit Success", "Successfully deinitialized bus '%s'", config->name);
+  log_info(TAG,
+           "Deinit Success",
+           "Successfully deinitialized bus '%s'",
+           config->name ? config->name : "UNKNOWN");
 
   return ESP_OK;
 }
@@ -641,8 +672,14 @@ static void priv_pstar_bus_config_cleanup(pstar_bus_config_t* config)
     config->name = NULL;
   }
 
+  /* Set any other pointers to NULL before freeing config */
+  config->handle   = NULL;
+  config->user_ctx = NULL;
+  config->next     = NULL;
+
   /* Free the bus configuration structure itself */
   free(config);
+  /* Note: Cannot set config to NULL here since we only have a local copy of the pointer */
 }
 
 /**
@@ -680,6 +717,7 @@ static pstar_bus_config_t* priv_pstar_bus_config_create_common(const char*      
   if (name_copy == NULL) {
     log_error(TAG, "Memory Error", "Failed to allocate memory for bus name");
     free(config);
+    config = NULL;
     return NULL;
   }
 

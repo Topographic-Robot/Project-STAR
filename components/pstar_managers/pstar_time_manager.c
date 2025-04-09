@@ -321,8 +321,10 @@ esp_err_t time_manager_init(void)
               "Init Error",
               "Failed to register STA IP event handler: %s",
               esp_err_to_name(reg_err));
-    vEventGroupDelete(s_time_sync_event_group);
-    s_time_sync_event_group = NULL;
+    if (s_time_sync_event_group != NULL) {
+      vEventGroupDelete(s_time_sync_event_group);
+      s_time_sync_event_group = NULL;
+    }
     return reg_err;
   }
   reg_err = esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &ip_event_handler, NULL);
@@ -334,8 +336,10 @@ esp_err_t time_manager_init(void)
     esp_event_handler_unregister(IP_EVENT,
                                  IP_EVENT_STA_GOT_IP,
                                  ip_event_handler); /* Unregister STA handler */
-    vEventGroupDelete(s_time_sync_event_group);
-    s_time_sync_event_group = NULL;
+    if (s_time_sync_event_group != NULL) {
+      vEventGroupDelete(s_time_sync_event_group);
+      s_time_sync_event_group = NULL;
+    }
     return reg_err;
   }
 
@@ -352,8 +356,10 @@ esp_err_t time_manager_init(void)
     /* Unregister event handlers on task creation failure */
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, ip_event_handler);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_ETH_GOT_IP, ip_event_handler);
-    vEventGroupDelete(s_time_sync_event_group);
-    s_time_sync_event_group = NULL;
+    if (s_time_sync_event_group != NULL) {
+      vEventGroupDelete(s_time_sync_event_group);
+      s_time_sync_event_group = NULL;
+    }
     s_time_sync_task_handle = NULL; /* Ensure handle is NULL on failure */
     return ESP_FAIL;
   }
@@ -376,14 +382,16 @@ esp_err_t time_manager_cleanup(void)
   /* Delete the time sync task if it's still running */
   if (s_time_sync_task_handle != NULL) {
     log_info(TAG, "Cleanup", "Deleting time sync task...");
-    vTaskDelete(s_time_sync_task_handle);
-    s_time_sync_task_handle = NULL;
+    TaskHandle_t temp_task  = s_time_sync_task_handle;
+    s_time_sync_task_handle = NULL; /* Set to NULL before deleting to prevent double-free */
+    vTaskDelete(temp_task);
   }
 
   /* Delete the event group */
   if (s_time_sync_event_group != NULL) {
-    vEventGroupDelete(s_time_sync_event_group);
-    s_time_sync_event_group = NULL;
+    EventGroupHandle_t temp_group = s_time_sync_event_group;
+    s_time_sync_event_group       = NULL; /* Set to NULL before deleting to prevent double-free */
+    vEventGroupDelete(temp_group);
   }
 
   /* Stop the SNTP service if it was initialized */
