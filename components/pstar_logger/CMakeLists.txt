@@ -12,20 +12,24 @@ set(logger_requires
     freertos
     nvs_flash
     esp_timer
-    # Add storage_hal conditionally
+    pstar_storage_hal # <-- Make unconditional
+    # Add other base requirements if any
 )
 # Base private requires
 set(logger_priv_requires
     pstar_managers
     espressif__zlib
-    # Add storage_hal conditionally
+    pstar_storage_hal # <-- Make unconditional
+    # Add other private base requirements if any
 )
 
-# Conditionally require storage_hal based on Kconfig
-if(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED)
-  list(APPEND logger_requires pstar_storage_hal)
-  list(APPEND logger_priv_requires pstar_storage_hal)
-endif()
+# Conditionally add dependencies ONLY if SD card logging is enabled
+# (This is now redundant as we made it unconditional above, but keep for clarity
+# or remove if preferred)
+# if(CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED)
+#   list(APPEND logger_requires pstar_storage_hal)
+#   list(APPEND logger_priv_requires pstar_storage_hal)
+# endif()
 
 # Ensure no duplicates
 list(REMOVE_DUPLICATES logger_requires)

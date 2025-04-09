@@ -18,7 +18,7 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLED
-#include "pstar_sd_card_hal.h"
+#include "pstar_storage_hal.h"
 #include "pstar_time_manager.h"
 #endif
 #include <ctype.h>

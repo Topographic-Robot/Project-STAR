@@ -7,13 +7,16 @@
 #include "pstar_log_handler.h"
 #include "pstar_pin_validator.h"
 #include "pstar_storage_common.h"
-#include "pstar_storage_sdio_hal.h" // Include SDIO HAL header
-#include "pstar_storage_spi_hal.h"  // Include SPI HAL header
+#include "pstar_storage_spi_hal.h" // Include SPI HAL header
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include <errno.h>
+#include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "esp_err.h"
 #include "nvs_flash.h"
@@ -57,58 +60,300 @@ static const sd_card_pin_config_t sd_card_default_pins = {
     -1,
 #endif
 
-  /* SDIO pins */
-  .sdio_clk_pin =
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO,
-#else
-    -1,
-#endif
-  .sdio_cmd_pin =
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO,
-#else
-    -1,
-#endif
-  .sdio_d0_pin =
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO,
-#else
-    -1,
-#endif
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE
-  .sdio_d1_pin =
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO,
-#else
-    -1,
-#endif
-  .sdio_d2_pin =
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO,
-#else
-    -1,
-#endif
-  .sdio_d3_pin =
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-    CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO,
-#else
-    -1,
-#endif
-#else  /* Not 4BIT_MODE */
-  .sdio_d1_pin = -1,
-  .sdio_d2_pin = -1,
-  .sdio_d3_pin = -1,
-#endif /* CONFIG_PSTAR_KCONFIG_SD_CARD_4BIT_MODE */
+  /* SDIO pins - keeping for future but not using now */
+  .sdio_clk_pin = -1,
+  .sdio_cmd_pin = -1,
+  .sdio_d0_pin  = -1,
+  .sdio_d1_pin  = -1,
+  .sdio_d2_pin  = -1,
+  .sdio_d3_pin  = -1,
 };
+
+/* Global instance for simplified API ******************************************/
+static sd_card_hal_t g_sd_card;
+static bool          g_sd_card_initialized = false;
+
+/* Simplified API Functions ***************************************************/
+
+esp_err_t sd_card_init_simple(void)
+{
+  if (g_sd_card_initialized) {
+    return ESP_OK;
+  }
+
+  esp_err_t err = sd_card_init_default(&g_sd_card,
+                                       "SD_Card",
+                                       CONFIG_PSTAR_KCONFIG_SD_CARD_MOUNT_POINT,
+                                       "storage_hal",
+                                       k_sd_bus_width_1bit);
+  if (err != ESP_OK) {
+    log_error(TAG, "Init Simple Error", "Failed to initialize SD card: %s", esp_err_to_name(err));
+    return err;
+  }
+
+  err = sd_card_init(&g_sd_card);
+  if (err != ESP_OK) {
+    log_error(TAG, "Init Simple Error", "Failed to start SD card: %s", esp_err_to_name(err));
+    return err;
+  }
+
+  g_sd_card_initialized = true;
+  log_info(TAG, "Init Simple", "SD card initialized successfully");
+  return ESP_OK;
+}
+
+esp_err_t sd_card_write(const char* filename, const void* data, size_t len, bool append)
+{
+  if (!g_sd_card_initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  if (!sd_card_is_available(&g_sd_card)) {
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  if (filename == NULL || data == NULL || len == 0) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Construct full path
+  char full_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  if (filename[0] == '/') {
+    if (snprintf(full_path, sizeof(full_path), "%s%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  } else {
+    if (snprintf(full_path, sizeof(full_path), "%s/%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  }
+
+  // Check if path is safe
+  if (!storage_path_is_safe(&g_sd_card, full_path)) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Create parent directory if needed
+  char dir_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  strncpy(dir_path, full_path, sizeof(dir_path));
+
+  // Find last slash to get directory path
+  char* last_slash = strrchr(dir_path, '/');
+  if (last_slash != NULL) {
+    *last_slash = '\0'; // Terminate string at last slash
+
+    // Create directory if it doesn't exist
+    esp_err_t err = storage_create_directory_if_needed(&g_sd_card, dir_path);
+    if (err != ESP_OK) {
+      log_error(TAG, "Write Error", "Failed to create directory: %s", esp_err_to_name(err));
+      return err;
+    }
+  }
+
+  // Open file
+  FILE* f = fopen(full_path, append ? "ab" : "wb");
+  if (f == NULL) {
+    log_error(TAG, "Write Error", "Failed to open file: %s (%s)", full_path, strerror(errno));
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  // Write data
+  size_t written = fwrite(data, 1, len, f);
+  fclose(f);
+
+  if (written != len) {
+    log_error(TAG, "Write Error", "Failed to write all data (%zu/%zu bytes written)", written, len);
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  return ESP_OK;
+}
+
+esp_err_t sd_card_read(const char* filename, void* data, size_t max_len, size_t* bytes_read)
+{
+  if (!g_sd_card_initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  if (!sd_card_is_available(&g_sd_card)) {
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  if (filename == NULL || data == NULL || max_len == 0) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Construct full path
+  char full_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  if (filename[0] == '/') {
+    if (snprintf(full_path, sizeof(full_path), "%s%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  } else {
+    if (snprintf(full_path, sizeof(full_path), "%s/%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  }
+
+  // Check if path is safe
+  if (!storage_path_is_safe(&g_sd_card, full_path)) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Open file
+  FILE* f = fopen(full_path, "rb");
+  if (f == NULL) {
+    log_error(TAG, "Read Error", "Failed to open file: %s (%s)", full_path, strerror(errno));
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  // Read data
+  size_t read_count = fread(data, 1, max_len, f);
+  fclose(f);
+
+  // Update bytes read if pointer provided
+  if (bytes_read != NULL) {
+    *bytes_read = read_count;
+  }
+
+  return ESP_OK;
+}
+
+bool sd_card_file_exists(const char* filename)
+{
+  if (!g_sd_card_initialized || !sd_card_is_available(&g_sd_card)) {
+    return false;
+  }
+
+  if (filename == NULL) {
+    return false;
+  }
+
+  // Construct full path
+  char full_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  if (filename[0] == '/') {
+    if (snprintf(full_path, sizeof(full_path), "%s%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return false;
+    }
+  } else {
+    if (snprintf(full_path, sizeof(full_path), "%s/%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return false;
+    }
+  }
+
+  // Check if path is safe
+  if (!storage_path_is_safe(&g_sd_card, full_path)) {
+    return false;
+  }
+
+  // Check if file exists
+  struct stat st;
+  return (stat(full_path, &st) == 0);
+}
+
+esp_err_t sd_card_delete_file(const char* filename)
+{
+  if (!g_sd_card_initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  if (!sd_card_is_available(&g_sd_card)) {
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  if (filename == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Construct full path
+  char full_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  if (filename[0] == '/') {
+    if (snprintf(full_path, sizeof(full_path), "%s%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  } else {
+    if (snprintf(full_path, sizeof(full_path), "%s/%s", g_sd_card.mount_path, filename) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  }
+
+  // Check if path is safe
+  if (!storage_path_is_safe(&g_sd_card, full_path)) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Delete file
+  if (unlink(full_path) != 0) {
+    log_error(TAG, "Delete Error", "Failed to delete file: %s (%s)", full_path, strerror(errno));
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  return ESP_OK;
+}
+
+esp_err_t sd_card_create_dir(const char* path)
+{
+  if (!g_sd_card_initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  if (!sd_card_is_available(&g_sd_card)) {
+    return ESP_ERR_NOT_FOUND;
+  }
+
+  if (path == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // Construct full path
+  char full_path[CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_PATH_LENGTH];
+  if (path[0] == '/') {
+    if (snprintf(full_path, sizeof(full_path), "%s%s", g_sd_card.mount_path, path) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  } else {
+    if (snprintf(full_path, sizeof(full_path), "%s/%s", g_sd_card.mount_path, path) >=
+        (int)sizeof(full_path)) {
+      return ESP_ERR_INVALID_ARG;
+    }
+  }
+
+  // Create directory
+  return storage_create_directory_if_needed(&g_sd_card, full_path);
+}
+
+const char* sd_card_get_mount_path(void)
+{
+  if (!g_sd_card_initialized) {
+    return NULL;
+  }
+
+  return g_sd_card.mount_path;
+}
+
+bool sd_card_is_ready(void)
+{
+  if (!g_sd_card_initialized) {
+    return false;
+  }
+
+  return sd_card_is_available(&g_sd_card);
+}
 
 /* Public Functions ***********************************************************/
 
 const char* sd_card_interface_to_string(sd_interface_type_t interface_type)
 {
   switch (interface_type) {
-    case k_sd_interface_sdio:
-      return "SDIO";
     case k_sd_interface_spi:
       return "SPI";
     case k_sd_interface_none:
@@ -140,23 +385,6 @@ esp_err_t sd_card_init_with_pins(sd_card_hal_t*              sd_card,
 
   /* Store custom pin configuration */
   memcpy(&sd_card->pin_config, pin_config, sizeof(sd_card_pin_config_t));
-
-/* Check for pin conflicts with custom pins */
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED // Only check if SDIO is possible
-  if (bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
-      sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-    log_warn(sd_card->tag,
-             "Pin Conflict",
-             "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
-             "Will default to 1-bit mode for better compatibility.",
-             sd_card->pin_config.gpio_det_pin);
-
-    /* Default to 1-bit mode when there's a pin conflict */
-    sd_card->bus_width = k_sd_bus_width_1bit;
-  }
-#endif // SDIO_MODE_ENABLED
-#endif // DETECTION_ENABLED
 
   /* Defer detailed pin validation to registration */
 
@@ -196,43 +424,20 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
     return ESP_ERR_INVALID_ARG;
   }
 
-  /* Determine preferred interface from Kconfig */
-  sd_interface_type_t preferred_interface;
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_INTERFACE_SDIO
-  preferred_interface = k_sd_interface_sdio;
-#elif defined(CONFIG_PSTAR_KCONFIG_SD_CARD_INTERFACE_SPI)
-  preferred_interface = k_sd_interface_spi;
-#else
-#error "No preferred SD card interface selected in Kconfig"
-  preferred_interface = k_sd_interface_none; /* Should not happen */
-#endif
+  /* For SPI-only mode, always use SPI as preferred interface */
+  sd_interface_type_t preferred_interface = k_sd_interface_spi;
 
-  /* Cache enabled modes */
-  bool sdio_enabled = false;
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-  // Call function only ifdef'd
-  sdio_enabled = storage_sdio_is_supported();
-#endif
+  /* Cache enabled modes - we only support SPI now */
   bool spi_enabled = false;
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
   // Call function only ifdef'd
   spi_enabled = storage_spi_is_supported();
 #endif
 
-  /* Check if preferred interface is actually enabled */
-  if ((preferred_interface == k_sd_interface_sdio && !sdio_enabled) ||
-      (preferred_interface == k_sd_interface_spi && !spi_enabled)) {
-    log_warn(TAG,
-             "Interface Config Warning",
-             "Preferred interface (%s) is disabled. Adjusting preference.",
-             sd_card_interface_to_string(preferred_interface));
-    if (sdio_enabled) {
-      preferred_interface = k_sd_interface_sdio;
-    } else if (spi_enabled) {
-      preferred_interface = k_sd_interface_spi;
-    } else {
-      preferred_interface = k_sd_interface_none; /* No interfaces enabled */
-    }
+  /* Check if SPI is enabled */
+  if (!spi_enabled) {
+    log_error(TAG, "No interfaces enabled", "SPI mode must be enabled");
+    return ESP_ERR_NOT_SUPPORTED;
   }
 
   /* Default task configuration */
@@ -251,70 +456,49 @@ esp_err_t sd_card_init_default(sd_card_hal_t* sd_card,
   };
 
   /* Default Configuration */
-  sd_card_hal_t sd_card_default = {
-    .tag                  = tag,
-    .mount_path           = mount_path,
-    .max_files            = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES,
-    .allocation_unit_size = CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE,
-    .card_detect_low_active =
+  sd_card_hal_t sd_card_default = {.tag        = tag,
+                                   .mount_path = mount_path,
+                                   .max_files  = CONFIG_PSTAR_KCONFIG_SD_CARD_MAX_FILES,
+                                   .allocation_unit_size =
+                                     CONFIG_PSTAR_KCONFIG_SD_CARD_ALLOCATION_UNIT_SIZE,
+                                   .card_detect_low_active =
 #ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
 #if CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ACTIVE_LOW
-      true,
+                                     true,
 #else
-      false,
+                                     false,
 #endif
 #else
-      false,
+                                     false,
 #endif
-    .bus_width           = bus_width,
-    .pin_config          = sd_card_default_pins, /* Use default pin configuration */
-    .preferred_interface = preferred_interface,
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_ENABLE_INTERFACE_FALLBACK
-    .enable_fallback = true,
-#else
-    .enable_fallback = false,
-#endif
-    .sdio_mode_enabled            = sdio_enabled,
-    .spi_mode_enabled             = spi_enabled,
-    .state                        = k_sd_state_idle,
-    .error_count                  = 0,
-    .last_state_change_time       = 0,
-    .current_interface            = k_sd_interface_none,
-    .interface_info               = {{0}, {0}, {0}},
-    .interface_discovery_complete = false,
-    .interface_attempt_count      = 0,
-    .card                         = NULL,
-    .mutex                        = NULL,
-    .initialized                  = false,
-    .mount_task_exit_requested    = false,
-    .mount_task_handle            = NULL,
-    .error_handler                = {0},
-    .component_id                 = component_id,
-    .bus_manager                  = {0},
-    .task_config                  = task_config,
-    .performance                  = performance,
-    .availability_callback        = NULL};
+                                   .bus_width              = bus_width,
+                                   .pin_config             = sd_card_default_pins,
+                                   .preferred_interface    = preferred_interface,
+                                   .enable_fallback        = false, // No fallback in SPI-only mode
+                                   .sdio_mode_enabled      = false, // SDIO disabled for now
+                                   .spi_mode_enabled       = spi_enabled,
+                                   .state                  = k_sd_state_idle,
+                                   .error_count            = 0,
+                                   .last_state_change_time = 0,
+                                   .current_interface      = k_sd_interface_none,
+                                   .interface_info         = {{0}, {0}},
+                                   .interface_discovery_complete = false,
+                                   .interface_attempt_count      = 0,
+                                   .card                         = NULL,
+                                   .mutex                        = NULL,
+                                   .initialized                  = false,
+                                   .mount_task_exit_requested    = false,
+                                   .mount_task_handle            = NULL,
+                                   .error_handler                = {0},
+                                   .component_id                 = component_id,
+                                   .bus_manager                  = {0},
+                                   .task_config                  = task_config,
+                                   .performance                  = performance,
+                                   .availability_callback        = NULL};
   atomic_init(&sd_card_default.card_available, false);
 
   /* Copy default configuration to sd_card */
   memcpy(sd_card, &sd_card_default, sizeof(sd_card_hal_t));
-
-/* Check for pin conflicts with default pins */
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED // Only check if SDIO is possible
-  if (bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
-      sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-    log_warn(TAG,
-             "Pin Conflict",
-             "Card detect pin (GPIO %d) conflicts with SDIO D3 for 4-bit mode. "
-             "Will default to 1-bit mode for better compatibility.",
-             sd_card->pin_config.gpio_det_pin);
-
-    /* Default to 1-bit mode when there's a pin conflict */
-    sd_card->bus_width = k_sd_bus_width_1bit;
-  }
-#endif // SDIO_MODE_ENABLED
-#endif // DETECTION_ENABLED
 
   /* Initialize error handler */
   err = error_handler_init(&sd_card->error_handler,
@@ -409,8 +593,6 @@ esp_err_t sd_card_set_task_config(sd_card_hal_t* sd_card,
            (unsigned long)mutex_timeout);
   return ESP_OK;
 }
-
-// NOTE: sd_card_init function definition is MOVED to pstar_storage_sd_card_hal.c
 
 bool sd_card_is_available(sd_card_hal_t* sd_card)
 {
@@ -544,12 +726,10 @@ esp_err_t sd_card_force_remount(sd_card_hal_t* sd_card)
     }
 
     /* Reset interface discovery state */
-    sd_card->interface_discovery_complete = false;
-    sd_card->interface_attempt_count      = 0;
-    for (int i = 0; i < k_sd_interface_count; i++) {
-      sd_card->interface_info[i].attempted   = false;
-      sd_card->interface_info[i].error_count = 0;
-    }
+    sd_card->interface_discovery_complete                   = false;
+    sd_card->interface_attempt_count                        = 0;
+    sd_card->interface_info[k_sd_interface_spi].attempted   = false;
+    sd_card->interface_info[k_sd_interface_spi].error_count = 0;
 
     storage_update_state_machine(sd_card, k_sd_state_card_inserted);
     storage_update_state_machine(sd_card, k_sd_state_interface_discovery);
@@ -567,9 +747,8 @@ esp_err_t sd_card_force_remount(sd_card_hal_t* sd_card)
       storage_update_state_machine(sd_card, k_sd_state_interface_ready);
       log_info(sd_card->tag,
                "Remount Success",
-               "Successfully remounted SD card with %s interface and %s bus width",
-               sd_card_interface_to_string(sd_card->current_interface),
-               storage_bus_width_to_string(sd_card->bus_width));
+               "Successfully remounted SD card with %s interface",
+               sd_card_interface_to_string(sd_card->current_interface));
     }
 
     storage_release_mutex_if_taken(sd_card, &mutex_taken);
@@ -608,33 +787,15 @@ esp_err_t sd_card_set_bus_width(sd_card_hal_t* sd_card, sd_bus_width_t bus_width
       return ESP_OK;
     }
 
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
-#ifdef CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED // Only check if SDIO possible
-    if (bus_width == k_sd_bus_width_4bit && sd_card->pin_config.gpio_det_pin >= 0 &&
-        sd_card->pin_config.gpio_det_pin == sd_card->pin_config.sdio_d3_pin) {
-      log_error(sd_card->tag,
-                "Pin Conflict",
-                "Cannot use 4-bit mode - card detect pin (GPIO %d) conflicts with SDIO D3",
-                sd_card->pin_config.gpio_det_pin);
-      storage_release_mutex_if_taken(sd_card, &mutex_taken);
-      return ESP_ERR_INVALID_STATE;
-    }
-#endif // SDIO_MODE_ENABLED
-#endif // DETECTION_ENABLED
-
+    // For SPI, bus width doesn't really matter, but keep the setting for future SDIO support
     log_info(sd_card->tag,
              "Bus Width Change",
-             "Changing from %s to %s bus width",
+             "Changing from %s to %s bus width (SPI mode still active)",
              storage_bus_width_to_string(sd_card->bus_width),
              storage_bus_width_to_string(bus_width));
 
     sd_card->bus_width = bus_width;
     storage_save_working_config(sd_card);
-
-    if (atomic_load(&sd_card->card_available)) {
-      storage_release_mutex_if_taken(sd_card, &mutex_taken);
-      return sd_card_force_remount(sd_card);
-    }
 
     storage_release_mutex_if_taken(sd_card, &mutex_taken);
   } else {

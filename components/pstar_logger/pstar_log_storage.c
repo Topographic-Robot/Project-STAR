@@ -31,7 +31,8 @@
 #ifdef CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
 /* Include these only when SD card logging is actually enabled */
 #include "pstar_file_write_manager.h" /* Include manager header */
-#include "pstar_sd_card_hal.h"        /* Include HAL header */
+#include "pstar_storage_hal.h"        /* Include HAL header */
+#include "pstar_storage_hal.h"
 #endif
 
 static const char* TAG = "Log Storage";

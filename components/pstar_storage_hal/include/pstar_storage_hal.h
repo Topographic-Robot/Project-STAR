@@ -9,9 +9,86 @@ extern "C" {
 
 #include "pstar_storage_types.h"
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "esp_err.h"
 
-/* Public Functions ***********************************************************/
+/* Simple API Functions *******************************************************/
+
+/**
+ * @brief Initialize the SD card with default settings
+ * 
+ * This is a simple initialization function that uses optimal defaults.
+ * It's the recommended way to initialize the SD card for most applications.
+ * 
+ * @return ESP_OK if successful, appropriate error code otherwise
+ */
+esp_err_t sd_card_init_simple(void);
+
+/**
+ * @brief Write data to a file on the SD card
+ * 
+ * @param[in] filename Path to the file (relative to SD card mount point)
+ * @param[in] data     Pointer to the data to write
+ * @param[in] len      Length of data in bytes
+ * @param[in] append   If true, append to existing file; if false, overwrite
+ * @return ESP_OK if successful, appropriate error code otherwise
+ */
+esp_err_t sd_card_write(const char* filename, const void* data, size_t len, bool append);
+
+/**
+ * @brief Read data from a file on the SD card
+ * 
+ * @param[in]  filename  Path to the file (relative to SD card mount point)
+ * @param[out] data      Buffer to store the read data
+ * @param[in]  max_len   Maximum number of bytes to read
+ * @param[out] bytes_read Actual number of bytes read (can be NULL if not needed)
+ * @return ESP_OK if successful, appropriate error code otherwise
+ */
+esp_err_t sd_card_read(const char* filename, void* data, size_t max_len, size_t* bytes_read);
+
+/**
+ * @brief Check if a file exists on the SD card
+ * 
+ * @param[in] filename Path to the file (relative to SD card mount point)
+ * @return true if file exists, false otherwise
+ */
+bool sd_card_file_exists(const char* filename);
+
+/**
+ * @brief Delete a file from the SD card
+ * 
+ * @param[in] filename Path to the file (relative to SD card mount point)
+ * @return ESP_OK if successful, appropriate error code otherwise
+ */
+esp_err_t sd_card_delete_file(const char* filename);
+
+/**
+ * @brief Create a directory on the SD card
+ * 
+ * Creates the specified directory and any parent directories that don't exist.
+ * 
+ * @param[in] path Path to the directory (relative to SD card mount point)
+ * @return ESP_OK if successful, appropriate error code otherwise
+ */
+esp_err_t sd_card_create_dir(const char* path);
+
+/**
+ * @brief Get the mount path of the SD card
+ * 
+ * @return The mount path string, or NULL if not initialized
+ */
+const char* sd_card_get_mount_path(void);
+
+/**
+ * @brief Check if the SD card is available (inserted and mounted)
+ * 
+ * @return true if available, false otherwise
+ */
+bool sd_card_is_ready(void);
+
+/* Advanced API Functions *****************************************************/
 
 /**
  * @brief Initializes an SD card HAL structure with default values

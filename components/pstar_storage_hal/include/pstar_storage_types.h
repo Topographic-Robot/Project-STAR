@@ -28,12 +28,12 @@ extern "C" {
 typedef enum : uint8_t {
   k_sd_interface_none = 0, /* No interface selected or initialized */
   k_sd_interface_spi,      /* SPI interface */
-  k_sd_interface_sdio,     /* SDIO (SDMMC) interface */
   k_sd_interface_count,    /* Total number of interface types */
+  // Remove SDIO but don't change the count value
 } sd_interface_type_t;
 
 /**
- * @brief SD card bus width options (Primarily for SDIO)
+ * @brief SD card bus width options (for future SDIO support)
  */
 typedef enum : uint8_t {
   k_sd_bus_width_1bit = 1, /* 1-bit bus width for maximum compatibility */
@@ -86,7 +86,7 @@ typedef struct sd_card_pin_config {
   gpio_num_t spi_sclk_pin; /* SPI SCLK (Clock) */
   gpio_num_t spi_cs_pin;   /* SPI CS (Chip Select) */
 
-  /* SDIO pins */
+  /* SDIO pins - keep struct members for future but not used for now */
   gpio_num_t sdio_clk_pin; /* SDIO CLK */
   gpio_num_t sdio_cmd_pin; /* SDIO CMD */
   gpio_num_t sdio_d0_pin;  /* SDIO D0 (mandatory for both 1-bit and 4-bit modes) */
@@ -133,7 +133,8 @@ typedef struct sd_card_hal {
   /* Configuration */
   bool
     card_detect_low_active; /**< If true, card detect pin is low-active (0=card present), if false, high-active (1=card present) */
-  sd_bus_width_t bus_width; /**< SD card bus width (1-bit or 4-bit mode) - Primarily for SDIO */
+  sd_bus_width_t
+    bus_width; /**< SD card bus width (1-bit or 4-bit mode) - Primarily for future SDIO */
   sd_card_pin_config_t  pin_config;          /**< Pin configuration for all SD card interfaces */
   sd_interface_type_t   preferred_interface; /**< Preferred interface to try first */
   bool                  enable_fallback;     /**< Whether to try other interfaces on failure */

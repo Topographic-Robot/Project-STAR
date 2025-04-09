@@ -6,10 +6,10 @@
 #include "pstar_bus_manager.h"
 #include "pstar_bus_types.h"
 #include "pstar_log_handler.h"
-// #include "pstar_sd_card_hal.h" // <-- REMOVE this line
+
 #include <string.h>
 
-#include "sdmmc_cmd.h" // <-- ADD this line to include sdmmc types directly
+#include "sdmmc_cmd.h" // Include sdmmc types directly
 
 /* Constants ******************************************************************/
 

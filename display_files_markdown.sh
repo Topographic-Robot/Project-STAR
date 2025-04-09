@@ -1,36 +1,13 @@
 #!/usr/bin/env bash
 # display_files_markdown.sh
 #
-# This script finds and displays files matching specific patterns (.c, .h, CMakeLists.txt, Kconfig)
-# with markdown formatting (triple backticks). It excludes build, managed_components, and
-# clang_format_backup_* directories/files.
-#
-# In normal mode, the output is displayed in the terminal and also copied to the clipboard (on macOS,
-# Linux with xclip, or Windows with clip). In silent mode (--silent), output is only copied to the clipboard
-# (and/or saved to a file if --output_file is provided) without terminal display.
-#
-# Use --include_type option to filter files by type (C, H, CMake, Kconfig, or All).
-# Use --output_file option to save the output to a specified file.
-#
-# Options:
-#   --silent                 Silent mode: only copy to clipboard and/or save to file; no terminal output.
-#   --include_type=TYPE      Filter files by type. TYPE can be:
-#                                C        - Include only .c files.
-#                                H        - Include only .h files.
-#                                CMake    - Include only CMakeLists.txt files.
-#                                Kconfig  - Include only Kconfig files.
-#                                All      - Include all file types (default).
-#   --output_file=FILE       Write the output to the specified file.
-#   --help                   Display this help message and exit.
-#
-# Usage examples:
-#   ./display_files_markdown.sh --include_type=C
-#   ./display_files_markdown.sh --silent --output_file=output.md
-#
+# This script finds and displays files matching a wide range of file types 
+# commonly found in embedded projects with web interfaces.
 
 # Default settings
 SILENT_MODE=false
-INCLUDE_TYPE="All"  # Default to including all file types
+INCLUDE_TYPES=()
+EXCLUDE_PATTERNS=()
 OUTPUT_FILE=""
 
 # Parse command line arguments
@@ -41,7 +18,19 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --include_type=*)
-            INCLUDE_TYPE="${1#*=}"
+            # Split comma-separated types and add to INCLUDE_TYPES array
+            IFS=',' read -ra TYPES <<< "${1#*=}"
+            for type in "${TYPES[@]}"; do
+                INCLUDE_TYPES+=("$(echo "$type" | tr '[:lower:]' '[:upper:]')")
+            done
+            shift
+            ;;
+        --exclude=*)
+            # Split comma-separated patterns and add to EXCLUDE_PATTERNS array
+            IFS=',' read -ra PATTERNS <<< "${1#*=}"
+            for pattern in "${PATTERNS[@]}"; do
+                EXCLUDE_PATTERNS+=("$pattern")
+            done
             shift
             ;;
         --output_file=*)
@@ -53,15 +42,48 @@ while [[ $# -gt 0 ]]; do
             echo "Find and display files with markdown formatting."
             echo ""
             echo "Options:"
-            echo "  --silent                 Silent mode: only copy to clipboard and/or save to file; no terminal output"
-            echo "  --include_type=TYPE      Filter files by type. TYPE can be:"
-            echo "                             C        - Include only .c files"
-            echo "                             H        - Include only .h files"
-            echo "                             CMake    - Include only CMakeLists.txt files"
-            echo "                             Kconfig  - Include only Kconfig files"
-            echo "                             All      - Include all file types (default)"
-            echo "  --output_file=FILE       Write the output to the specified file"
-            echo "  --help                   Display this help message and exit"
+            echo "  --include_type=TYPES    Comma-separated list of file types to include"
+            echo "                          Multiple types can be specified: --include_type=C,H,CPP"
+            echo "  --exclude=PATTERNS      Comma-separated list of files or paths to exclude"
+            echo "                          Example: --exclude=vendor,tests,config.txt"
+            echo ""
+            echo "Language/Type Options:"
+            echo "  C         - C source files (.c)"
+            echo "  CPP       - C++ source files (.cpp, .cxx, .cc)"
+            echo "  H         - C header files (.h)"
+            echo "  HPP       - C++ header files (.hpp)"
+            echo "  GO        - Go source files (.go)"
+            echo "  PY        - Python source files (.py)"
+            echo "  JS        - JavaScript files (.js, .mjs)"
+            echo "  TS        - TypeScript files (.ts)"
+            echo "  TSX       - TypeScript React files (.tsx)"
+            echo "  HTML      - HTML files (.html)"
+            echo "  CSS       - CSS files (.css)"
+            echo "  VUE       - Vue files (.vue)"
+            echo "  SVELTE    - Svelte files (.svelte)"
+            echo "  SH        - Shell scripts (.sh)"
+            echo "  PS1       - PowerShell scripts (.ps1)"
+            echo "  CMAKE     - CMake files (CMakeLists.txt)"
+            echo "  MAKE      - Makefiles (Makefile*)"
+            echo "  KCONFIG   - Kconfig configuration files"
+            echo "  JSON      - JSON files (.json)"
+            echo "  YAML      - YAML files (.yaml, .yml)"
+            echo "  TOML      - TOML files (.toml)"
+            echo "  MD        - Markdown files (.md)"
+            echo "  TXT       - Text files (.txt)"
+            echo "  DOCKER    - Dockerfiles"
+            echo "  ALL       - All supported file types"
+            echo ""
+            echo "Additional Options:"
+            echo "  --silent           Silent mode: only copy to clipboard/file"
+            echo "  --output_file=FILE Write output to specified file"
+            echo ""
+            echo "Examples:"
+            echo "  $0 --include_type=C,H        # C and C header files"
+            echo "  $0 --include_type=CPP,HPP    # C++ source and header files"
+            echo "  $0 --include_type=ALL        # All file types"
+            echo "  $0 --include_type=c,h        # Lowercase works too"
+            echo "  $0 --exclude=config.txt,docs # Exclude specific file and directory"
             exit 0
             ;;
         *)
@@ -72,42 +94,164 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Normalize INCLUDE_TYPE to uppercase for case-insensitive comparison
-INCLUDE_TYPE=$(echo "$INCLUDE_TYPE" | tr '[:lower:]' '[:upper:]')
+# If no include types specified, default to ALL
+if [ ${#INCLUDE_TYPES[@]} -eq 0 ]; then
+    INCLUDE_TYPES=("ALL")
+fi
 
-# Set the find command pattern based on the include type
-FIND_PATTERN=""
-case "$INCLUDE_TYPE" in
-    "C")
-        FIND_PATTERN="-name '*.c'"
-        ;;
-    "H")
-        FIND_PATTERN="-name '*.h'"
-        ;;
-    "CMAKE")
-        FIND_PATTERN="-name 'CMakeLists.txt'"
-        ;;
-    "KCONFIG")
-        FIND_PATTERN="-name 'Kconfig' -o -name 'Kconfig.*'"
-        ;;
-    "ALL")
-        FIND_PATTERN="-name 'CMakeLists.txt' -o -name 'Kconfig' -o -name 'Kconfig.*' -o -name '*.c' -o -name '*.h'"
-        ;;
-    *)
-        echo "Error: Invalid include type: $INCLUDE_TYPE" >&2
-        echo "Valid types are: C, H, CMake, Kconfig, All" >&2
-        exit 1
-        ;;
-esac
+# Create find pattern based on specified types
+build_find_pattern() {
+    local pattern=""
+    local separator=""
+
+    for type in "${INCLUDE_TYPES[@]}"; do
+        case "$type" in
+            "C")
+                pattern+="${separator}-name '*.c'"
+                separator=" -o "
+                ;;
+            "CPP")
+                pattern+="${separator}-name '*.cpp' -o -name '*.cxx' -o -name '*.cc'"
+                separator=" -o "
+                ;;
+            "H")
+                pattern+="${separator}-name '*.h'"
+                separator=" -o "
+                ;;
+            "HPP")
+                pattern+="${separator}-name '*.hpp'"
+                separator=" -o "
+                ;;
+            "SH")
+                pattern+="${separator}-name '*.sh'"
+                separator=" -o "
+                ;;
+            "PS1")
+                pattern+="${separator}-name '*.ps1'"
+                separator=" -o "
+                ;;
+            "GO")
+                pattern+="${separator}-name '*.go'"
+                separator=" -o "
+                ;;
+            "PY")
+                pattern+="${separator}-name '*.py'"
+                separator=" -o "
+                ;;
+            "JS")
+                pattern+="${separator}-name '*.js' -o -name '*.mjs'"
+                separator=" -o "
+                ;;
+            "TS")
+                pattern+="${separator}-name '*.ts'"
+                separator=" -o "
+                ;;
+            "TSX")
+                pattern+="${separator}-name '*.tsx'"
+                separator=" -o "
+                ;;
+            "HTML")
+                pattern+="${separator}-name '*.html'"
+                separator=" -o "
+                ;;
+            "CSS")
+                pattern+="${separator}-name '*.css'"
+                separator=" -o "
+                ;;
+            "VUE")
+                pattern+="${separator}-name '*.vue'"
+                separator=" -o "
+                ;;
+            "SVELTE")
+                pattern+="${separator}-name '*.svelte'"
+                separator=" -o "
+                ;;
+            "CMAKE")
+                pattern+="${separator}-name 'CMakeLists.txt'"
+                separator=" -o "
+                ;;
+            "MAKE")
+                pattern+="${separator}-name 'Makefile*'"
+                separator=" -o "
+                ;;
+            "KCONFIG")
+                pattern+="${separator}-name 'Kconfig' -o -name 'Kconfig.*'"
+                separator=" -o "
+                ;;
+            "JSON")
+                pattern+="${separator}-name '*.json'"
+                separator=" -o "
+                ;;
+            "YAML")
+                pattern+="${separator}-name '*.yaml' -o -name '*.yml'"
+                separator=" -o "
+                ;;
+            "TOML")
+                pattern+="${separator}-name '*.toml'"
+                separator=" -o "
+                ;;
+            "MD")
+                pattern+="${separator}-name '*.md'"
+                separator=" -o "
+                ;;
+            "TXT")
+                pattern+="${separator}-name '*.txt'"
+                separator=" -o "
+                ;;
+            "DOCKER")
+                pattern+="${separator}-name 'Dockerfile*'"
+                separator=" -o "
+                ;;
+            "ALL")
+                pattern="-name '*.c' -o -name '*.cpp' -o -name '*.cxx' -o -name '*.cc' \
+                    -o -name '*.h' -o -name '*.hpp' \
+                    -o -name '*.go' -o -name '*.py' \
+                    -o -name '*.js' -o -name '*.mjs' -o -name '*.ts' -o -name '*.tsx' \
+                    -o -name '*.html' -o -name '*.css' -o -name '*.vue' -o -name '*.svelte' \
+                    -o -name '*.sh' -o -name '*.ps1' \
+                    -o -name 'CMakeLists.txt' -o -name 'Makefile*' \
+                    -o -name 'Kconfig' -o -name 'Kconfig.*' \
+                    -o -name '*.json' -o -name '*.yaml' -o -name '*.yml' -o -name '*.toml' \
+                    -o -name '*.md' -o -name '*.txt' -o -name 'Dockerfile*'"
+                break
+                ;;
+            *)
+                echo "Error: Invalid include type: $type" >&2
+                echo "Valid types are: C, CPP, H, HPP, SH, PS1, GO, PY, JS, TS, TSX, HTML, CSS, VUE, SVELTE, CMAKE, MAKE, KCONFIG, JSON, YAML, TOML, MD, TXT, DOCKER, ALL" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    echo "$pattern"
+}
+
+# Build find pattern
+FIND_PATTERN=$(build_find_pattern)
 
 # Function to process files:
 process_files() {
-    # Use eval to correctly handle FIND_PATTERN with multiple -o options.
-    eval "find . \
-        -type d \( -path './build' -o -path './managed_components' -o -path './clang_format_backup_*' \) -prune -o \
-        -type f \( $FIND_PATTERN \) \
-        -not -path '*/clang_format_backup_*/*' \
-        -print" | sort | while read -r file; do
+    # Create a temporary exclude file pattern
+    local exclude_file_pattern=""
+    for exclude in "${EXCLUDE_PATTERNS[@]}"; do
+        if [[ -n "$exclude_file_pattern" ]]; then
+            exclude_file_pattern+="|"
+        fi
+        exclude_file_pattern+="$exclude"
+    done
+    
+    # Default excluded directories
+    local excluded_dirs="-path './build' -o -path './managed_components' -o -path './clang_format_backup_*' -o -path './node_modules' -o -path './dist'"
+    
+    # Use eval to correctly handle FIND_PATTERN with multiple -o options
+    find_cmd="find . -type d \( $excluded_dirs \) -prune -o -type f \( $FIND_PATTERN \) -print"
+    
+    # Execute the find command and filter out excluded files
+    eval "$find_cmd" | sort | while read -r file; do
+        # Skip excluded files
+        if [[ -n "$exclude_file_pattern" ]] && echo "$file" | grep -E "($exclude_file_pattern)" > /dev/null; then
+            continue
+        fi
 
         # Get the filename and determine language for markdown code block syntax.
         filename=$(basename "$file")
@@ -115,14 +259,74 @@ process_files() {
             *.c)
                 lang="c"
                 ;;
+            *.cpp|*.cxx|*.cc)
+                lang="cpp"
+                ;;
             *.h)
                 lang="c"
+                ;;
+            *.hpp)
+                lang="cpp"
+                ;;
+            *.sh)
+                lang="bash"
+                ;;
+            *.ps1)
+                lang="powershell"
+                ;;
+            *.go)
+                lang="go"
+                ;;
+            *.py)
+                lang="python"
+                ;;
+            *.js|*.mjs)
+                lang="javascript"
+                ;;
+            *.ts)
+                lang="typescript"
+                ;;
+            *.tsx)
+                lang="typescript"
+                ;;
+            *.html)
+                lang="html"
+                ;;
+            *.css)
+                lang="css"
+                ;;
+            *.vue)
+                lang="vue"
+                ;;
+            *.svelte)
+                lang="svelte"
                 ;;
             CMakeLists.txt)
                 lang="cmake"
                 ;;
+            Makefile*)
+                lang="makefile"
+                ;;
             Kconfig*)
                 lang="kconfig"
+                ;;
+            *.json)
+                lang="json"
+                ;;
+            *.yaml|*.yml)
+                lang="yaml"
+                ;;
+            *.toml)
+                lang="toml"
+                ;;
+            *.md)
+                lang="markdown"
+                ;;
+            *.txt)
+                lang="text"
+                ;;
+            Dockerfile*)
+                lang="dockerfile"
                 ;;
             *)
                 lang=""
@@ -134,7 +338,12 @@ process_files() {
         echo "# $file"
         echo
         echo "\`\`\`$lang"
-        cat "$file"
+        # Only try to cat regular files to avoid "Is a directory" errors
+        if [[ -f "$file" ]]; then
+            cat "$file"
+        else
+            echo "[Not a regular file]"
+        fi
         echo "\`\`\`"
         echo
     done
@@ -186,4 +395,3 @@ else
         process_files
     fi
 fi
-

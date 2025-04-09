@@ -12,17 +12,11 @@ extern "C" {
 #include "esp_err.h"
 
 /**
- * @brief Sets up the SDIO interface for SD card communication
- *
- * @param[in] sd_card Pointer to the SD card HAL instance
- * @return ESP_OK if successful, appropriate error code otherwise
- */
-esp_err_t storage_sdio_setup(sd_card_hal_t* sd_card);
-
-/**
  * @brief Checks if SDIO mode is supported on this system
+ * 
+ * @note Currently always returns false as SDIO support is not yet implemented
  *
- * @return true if SDIO mode is supported, false otherwise
+ * @return Always false (SDIO not supported in this version)
  */
 bool storage_sdio_is_supported(void);
 

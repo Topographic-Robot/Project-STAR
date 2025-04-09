@@ -284,10 +284,18 @@ if [ -n "$KCONFIG_FILES" ]; then
         for file in $KCONFIG_FILES; do
             if [ -f "$file" ]; then
                 echo "Checking $file..."
-                # Run in check-only mode
-                if ! python -m kconfcheck --check-only "$file"; then
+                # Run kconfcheck with the --check syntax flag
+                if ! python -m kconfcheck --check syntax "$file" > "$TEMP_DIR/kconfcheck_out.log" 2>&1; then
                     echo -e "${YELLOW}Kconfig issues found in: $file${NC}"
+                    cat "$TEMP_DIR/kconfcheck_out.log"
                     KCONFIG_ISSUES=true
+                else
+                    # Check if any syntax issues were reported in the output
+                    if grep -i "error\|warning\|issue" "$TEMP_DIR/kconfcheck_out.log" > /dev/null; then
+                        echo -e "${YELLOW}Kconfig issues found in: $file${NC}"
+                        cat "$TEMP_DIR/kconfcheck_out.log"
+                        KCONFIG_ISSUES=true
+                    fi
                 fi
             fi
         done

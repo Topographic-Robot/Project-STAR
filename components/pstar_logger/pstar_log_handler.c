@@ -22,7 +22,7 @@
 /* Conditionally include SD card related headers only when SD logging is enabled */
 #ifdef CONFIG_PSTAR_KCONFIG_LOGGING_SD_CARD_ENABLED
 #include "pstar_file_write_manager.h"
-#include "pstar_sd_card_hal.h"
+#include "pstar_storage_hal.h"
 #endif
 
 /* Constants ******************************************************************/

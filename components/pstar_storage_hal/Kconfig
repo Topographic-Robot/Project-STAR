@@ -20,14 +20,6 @@ menu "Project Star Storage HAL Configuration"
     menu "SD Card Interface Configuration"
         depends on PSTAR_KCONFIG_SD_CARD_ENABLED
 
-        config PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-            bool "Enable SDIO Interface Mode"
-            default y
-            select PSTAR_KCONFIG_BUS_SDIO_ENABLED if PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
-            help
-                Allow the use of the SDIO (SDMMC) interface for SD cards.
-                This enables the SDIO bus type in the Bus Component.
-
         config PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
             bool "Enable SPI Interface Mode"
             default y
@@ -36,41 +28,42 @@ menu "Project Star Storage HAL Configuration"
                 Allow the use of the SPI interface for SD cards.
                 This enables the SPI bus type in the Bus Component.
 
-        config PSTAR_KCONFIG_SD_CARD_4BIT_MODE
-            bool "Use 4-bit SD bus width (SDIO Mode Only)"
-            depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-            default y
+        config PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+            bool "Enable SDIO Interface Mode (Placeholder - Not Currently Supported)"
+            default n
             help
-                If enabled, SD card will use 4-bit bus width when possible in SDIO mode.
-                If disabled, SD card will always use 1-bit bus width in SDIO mode.
-                This setting does not affect SPI mode.
+                This option is reserved for future SDIO support and currently has no effect.
+                The SDIO implementation will be added in a future update.
+
+        config PSTAR_KCONFIG_SD_CARD_4BIT_MODE
+            bool "Use 4-bit SD bus width (Reserved for Future SDIO Support)"
+            default n
+            depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+            help
+                This option is reserved for future SDIO support and currently has no effect.
+                In SPI mode, only 1-bit communication is possible regardless of this setting.
 
         choice PSTAR_KCONFIG_SD_CARD_PREFERRED_INTERFACE
             prompt "Preferred SD Card Interface"
-            default PSTAR_KCONFIG_SD_CARD_INTERFACE_SDIO if PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
-            default PSTAR_KCONFIG_SD_CARD_INTERFACE_SPI if !PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED && PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+            default PSTAR_KCONFIG_SD_CARD_INTERFACE_SPI
             help
                 Select the interface to try first when initializing the SD card.
-                The selected interface must also be enabled above. If only one interface
-                is enabled, it will be selected automatically.
-
-            config PSTAR_KCONFIG_SD_CARD_INTERFACE_SDIO
-                bool "SDIO (Higher Performance)"
-                depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
+                Currently, only SPI mode is supported.
 
             config PSTAR_KCONFIG_SD_CARD_INTERFACE_SPI
-                bool "SPI (Wider Compatibility)"
-                depends on PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+                bool "SPI (Currently the only supported interface)"
+
+            config PSTAR_KCONFIG_SD_CARD_INTERFACE_SDIO
+                bool "SDIO (Placeholder - Not Currently Supported)"
+                depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
         endchoice
 
         config PSTAR_KCONFIG_SD_CARD_ENABLE_INTERFACE_FALLBACK
-            bool "Enable Interface Fallback"
-            default y
-            depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED && PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
+            bool "Enable Interface Fallback (Reserved for Future Multi-Interface Support)"
+            default n
             help
-                If the preferred interface fails, automatically try the other enabled interface.
-                This option is only relevant if both SDIO and SPI modes are enabled.
-                If disabled, only the preferred interface will be attempted.
+                This option is reserved for future multi-interface support and currently has no effect.
+                Since only SPI is currently supported, there is no fallback option available.
     endmenu
 
     menu "SD Card Configuration"
@@ -153,13 +146,11 @@ menu "Project Star Storage HAL Configuration"
 
         config PSTAR_KCONFIG_SD_CARD_DET_GPIO
             int "Card detect GPIO pin"
-            default 13 # Default to 13 (safe with D3=32)
+            default 13
             depends on PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED
             range 0 39
             help
                 GPIO pin number for SD card detection.
-                *** WARNING: If using 4-bit SDIO mode, ensure this does not conflict with SDIO D3. ***
-                Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_DET_GPIO
 
         menu "SPI Interface Pins"
             depends on PSTAR_KCONFIG_SD_CARD_SPI_MODE_ENABLED
@@ -167,96 +158,83 @@ menu "Project Star Storage HAL Configuration"
             config PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO
                 int "SPI Chip Select (CS) GPIO Pin"
                 range 0 39
-                default 5 # Default CS pin
+                default 5
                 help
-                    GPIO pin number for SPI Chip Select (CS/SS). This pin is unique to SPI mode.
+                    GPIO pin number for SPI Chip Select (CS/SS).
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CS_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
-                int "SPI DO / Shared CMD GPIO Pin"
+                int "SPI DO (MOSI) GPIO Pin"
                 range 0 39
-                default 15 # Default DO, shared with CMD
+                default 15
                 help
-                    GPIO pin for SPI DO (Data Out).
-                    *** If sharing with SDIO CMD on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO. ***
+                    GPIO pin for SPI DO/MOSI (Data Out/Master Out Slave In).
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
-                int "SPI DI / Shared D0 GPIO Pin"
+                int "SPI DI (MISO) GPIO Pin"
                 range 0 39
-                default 2 # Default DI, shared with D0
+                default 2
                 help
-                    GPIO pin for SPI DI (Data In).
-                    *** If sharing with SDIO D0 on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO. ***
+                    GPIO pin for SPI DI/MISO (Data In/Master In Slave Out).
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO
 
             config PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO
-                int "SPI CLK / Shared CLK GPIO Pin"
+                int "SPI CLK GPIO Pin"
                 range 0 39
-                default 14 # Default CLK, shared with SDIO CLK
+                default 14
                 help
                     GPIO pin for SPI Clock (SCLK).
-                    *** If sharing with SDIO CLK on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO. ***
                     Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO
         endmenu
 
-        menu "SDIO Interface Pins"
+        menu "SDIO Interface Pins (Reserved for Future Implementation)"
             depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO
-                int "SDIO CLK / Shared CLK GPIO pin"
+                int "SDIO CLK GPIO pin (Not Currently Used)"
                 range 0 39
-                default 14 # Default SDIO CLK, shared with SPI CLK
+                default 14
                 help
-                    GPIO pin number for SDIO Clock.
-                    *** If sharing with SPI CLK on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_CLK_GPIO. ***
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CLK_GPIO
+                    Reserved for future SDIO implementation.
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO
-                int "SDIO CMD / Shared DO GPIO pin"
+                int "SDIO CMD GPIO pin (Not Currently Used)"
                 range 0 39
-                default 15 # Default SDIO CMD, shared with SPI DO
+                default 15
                 help
-                    GPIO pin number for SDIO Command.
-                    *** If sharing with SPI DO on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_DO_GPIO. ***
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_CMD_GPIO
+                    Reserved for future SDIO implementation.
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO
-                int "SDIO D0 / Shared DI GPIO pin"
+                int "SDIO D0 GPIO pin (Not Currently Used)"
                 range 0 39
-                default 2 # Default SDIO D0, shared with SPI DI
+                default 2
                 help
-                    GPIO pin number for SDIO Data 0.
-                    *** If sharing with SPI DI on the same socket, this MUST be set to the same GPIO as PSTAR_KCONFIG_SD_CARD_SPI_DI_GPIO. ***
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D0_GPIO
+                    Reserved for future SDIO implementation.
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO
-                int "SDIO D1 GPIO pin (4-bit mode)"
+                int "SDIO D1 GPIO pin (4-bit mode) (Not Currently Used)"
                 depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
                 range 0 39
-                default 4 # Default D1
+                default 4
                 help
-                    GPIO pin number for SDIO Data 1 (only used in 4-bit SDIO mode).
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D1_GPIO
+                    Reserved for future SDIO implementation.
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO
-                int "SDIO D2 GPIO pin (4-bit mode)"
+                int "SDIO D2 GPIO pin (4-bit mode) (Not Currently Used)"
                 depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
                 range 0 39
-                default 12 # Default D2
+                default 12
                 help
-                    GPIO pin number for SDIO Data 2 (only used in 4-bit SDIO mode).
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D2_GPIO
+                    Reserved for future SDIO implementation.
 
             config PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO
-                int "SDIO D3 GPIO pin (4-bit mode)"
+                int "SDIO D3 GPIO pin (4-bit mode) (Not Currently Used)"
                 depends on PSTAR_KCONFIG_SD_CARD_4BIT_MODE
                 range 0 39
-                default 32 # Default D3 (Changed from 13 to avoid conflict with DET=13)
+                default 32
                 help
-                    GPIO pin number for SDIO Data 3 (only used in 4-bit SDIO mode).
-                    *** WARNING: May conflict with Card Detect pin if PSTAR_KCONFIG_SD_CARD_DETECTION_ENABLED is set. ***
-                    Corresponding Kconfig Macro: CONFIG_PSTAR_KCONFIG_SD_CARD_SDIO_D3_GPIO
+                    Reserved for future SDIO implementation.
         endmenu
 
     endmenu # SD Card Pin Configuration
@@ -278,11 +256,11 @@ menu "Project Star Storage HAL Configuration"
                 Name of the SPI bus used for SD card.
 
         config PSTAR_KCONFIG_SD_CARD_SDIO_BUS_NAME
-            string "SD card SDIO bus name"
+            string "SD card SDIO bus name (Reserved for Future Implementation)"
             depends on PSTAR_KCONFIG_SD_CARD_SDIO_MODE_ENABLED
             default "sd_card_sdio"
             help
-                Name of the SDIO bus used for SD card.
+                Reserved for future SDIO implementation.
     endmenu
 
     menu "SD Card NVS Configuration"

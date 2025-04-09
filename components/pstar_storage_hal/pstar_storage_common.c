@@ -39,28 +39,8 @@ void storage_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_state)
     return;
   }
 
-  /* Take mutex for thread safety */
-  bool mutex_taken = false;
-  if (sd_card->mutex != NULL &&
-      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
-    mutex_taken = true;
-  } else {
-    // Add state info to the log message
-    const char* target_states[] =
-      {"IDLE", "CARD_INSERTED", "INTERFACE_DISCOVERY", "INTERFACE_READY", "ERROR", "FAILED"};
-    log_warn(sd_card->tag,
-             "State Change Warning",
-             "Failed to acquire mutex for state change (target: %s). Aborting state update.",
-             (new_state < sizeof(target_states) / sizeof(target_states[0]))
-               ? target_states[new_state]
-               : "UNKNOWN");
-    /* CRITICAL FIX: Do not proceed without mutex */
-    return;
-  }
-
   /* No state change, nothing to do */
   if (sd_card->state == new_state) {
-    storage_release_mutex_if_taken(sd_card, &mutex_taken);
     return;
   }
 
@@ -71,8 +51,9 @@ void storage_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_state)
   log_info(sd_card->tag,
            "State Change",
            "Transitioning from %s to %s state",
-           states[sd_card->state],
-           states[new_state]);
+           (sd_card->state < sizeof(states) / sizeof(states[0])) ? states[sd_card->state]
+                                                                 : "UNKNOWN",
+           (new_state < sizeof(states) / sizeof(states[0])) ? states[new_state] : "UNKNOWN");
 
   /* Update the state */
   sd_card->state = new_state;
@@ -92,9 +73,9 @@ void storage_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_state)
     }
   } else if (new_state == k_sd_state_interface_ready) {
     /* Save the working configuration */
-    storage_save_working_config(sd_card);
+    storage_save_working_config(sd_card); // This handles its own NVS access, no mutex needed here
     /* Reset error handler */
-    error_handler_reset_state(&sd_card->error_handler);
+    error_handler_reset_state(&sd_card->error_handler); // This handles its own mutex
     /* Reset performance metrics */
     sd_card->performance.last_measured    = 0;
     sd_card->performance.read_speed_kbps  = 0;
@@ -109,9 +90,6 @@ void storage_update_state_machine(sd_card_hal_t* sd_card, sd_state_t new_state)
     sd_card->error_count       = 0;
     sd_card->current_interface = k_sd_interface_none; /* Clear current interface */
   }
-
-  /* Release mutex */
-  storage_release_mutex_if_taken(sd_card, &mutex_taken);
 }
 
 esp_err_t storage_save_working_config(sd_card_hal_t* sd_card)
@@ -719,11 +697,21 @@ void storage_measure_card_performance(sd_card_hal_t* sd_card)
 
 esp_err_t storage_sd_card_reset(void* context)
 {
-  esp_err_t      result  = ESP_OK;
-  sd_card_hal_t* sd_card = (sd_card_hal_t*)context;
+  esp_err_t      result      = ESP_OK;
+  bool           mutex_taken = false; // Flag to track mutex state
+  sd_card_hal_t* sd_card     = (sd_card_hal_t*)context;
 
   if (sd_card == NULL) {
     log_error(TAG, "Reset Error", "Invalid context pointer");
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // --- Take Mutex ---
+  if (sd_card->mutex != NULL &&
+      xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+    mutex_taken = true;
+  } else {
+    log_error(sd_card->tag, "Reset Error", "Failed to acquire mutex for reset");
     return ESP_ERR_INVALID_ARG;
   }
 
@@ -741,7 +729,8 @@ esp_err_t storage_sd_card_reset(void* context)
                 "Failed to unmount SD card: %s",
                 esp_err_to_name(unmount_result));
       result = unmount_result;
-      return result; /* Return early on unmount failure */
+      storage_release_mutex_if_taken(sd_card, &mutex_taken); // Release mutex before returning
+      return result;
     }
     /* If unmount succeeds, card_available is now false, state is idle */
   }
@@ -758,13 +747,26 @@ esp_err_t storage_sd_card_reset(void* context)
   /* Set current interface to preferred, will be tried first */
   sd_card->current_interface = sd_card->preferred_interface;
 
+  // Check insertion status (this function handles its own mutex, but it's okay as we hold it)
+  bool inserted = storage_sd_card_is_inserted(sd_card);
+
   /* If card is inserted, try to mount */
-  if (storage_sd_card_is_inserted(sd_card)) { /* is_inserted takes+gives its own mutex if needed */
-    storage_update_state_machine(
-      sd_card,
-      k_sd_state_interface_discovery); /* update_state takes+gives its own mutex */
-    esp_err_t mount_result =
-      sd_card_try_interfaces(sd_card); /* try_interfaces handles its own state/mutex */
+  if (inserted) {
+    storage_update_state_machine(sd_card, k_sd_state_interface_discovery); // OK: Mutex held
+
+    // --- Release mutex BEFORE calling try_interfaces ---
+    storage_release_mutex_if_taken(sd_card, &mutex_taken);
+
+    esp_err_t mount_result = sd_card_try_interfaces(sd_card); // Handles its own mutex
+
+    // --- Re-acquire mutex AFTER try_interfaces ---
+    if (sd_card->mutex != NULL &&
+        xSemaphoreTake(sd_card->mutex, sd_card->task_config.mutex_timeout) == pdTRUE) {
+      mutex_taken = true;
+    } else {
+      log_error(sd_card->tag, "Reset Error", "Failed to re-acquire mutex after mount attempt");
+      return ESP_ERR_TIMEOUT; // Critical failure
+    }
     if (mount_result != ESP_OK) {
       log_error(sd_card->tag,
                 "Reset Error",
@@ -772,23 +774,17 @@ esp_err_t storage_sd_card_reset(void* context)
                 esp_err_to_name(mount_result));
       result = mount_result;
       /* Update state machine to error after failed reset attempt */
-      storage_update_state_machine(sd_card,
-                                   k_sd_state_error); /* update_state takes+gives its own mutex */
-      return result;                                  /* Return error */
+      storage_update_state_machine(sd_card, k_sd_state_error); // OK: Mutex held
     }
     /* If mounted successfully, update state */
     if (atomic_load(&sd_card->card_available)) {
-      storage_update_state_machine(
-        sd_card,
-        k_sd_state_interface_ready); /* update_state takes+gives its own mutex */
+      storage_update_state_machine(sd_card, k_sd_state_interface_ready); // OK: Mutex held
     } else {
       /* Mount failed even after reset */
-      storage_update_state_machine(sd_card,
-                                   k_sd_state_error); /* update_state takes+gives its own mutex */
+      storage_update_state_machine(sd_card, k_sd_state_error); // OK: Mutex held
     }
   } else {
-    storage_update_state_machine(sd_card,
-                                 k_sd_state_idle); /* update_state takes+gives its own mutex */
+    storage_update_state_machine(sd_card, k_sd_state_idle); // OK: Mutex held
   }
 
   /* --- Mutex is released by the caller --- */
@@ -801,6 +797,8 @@ esp_err_t storage_sd_card_reset(void* context)
              "SD card reset successful but card not mounted (not inserted or mount failed)");
   }
 
+  // --- Release Mutex ---
+  storage_release_mutex_if_taken(sd_card, &mutex_taken);
   return result;
 }
 
