@@ -1,0 +1,8 @@
+additional_options=--compile-commands-dir\=/Users/bsikar/Documents/git/Project-Star/build
+background_index=true
+clangd_path=/Users/bsikar/.espressif/tools/esp-clang/esp-18.1.2_20240912/esp-clang/bin/clangd
+completion_style=detailed
+eclipse.preferences.version=1
+pretty_print=true
+query_driver=/Users/bsikar/.espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc
+use_tidy=true
