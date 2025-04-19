@@ -1,0 +1,218 @@
+# --- Diagram Metadata ---
+title: "ESP32 I2C Bus Manager and BH1750 HAL Architecture (Layered View)"
+description: "Comprehensive Functional Block Diagram with Detailed Component Relationships"
+
+# --- Global Graph Attributes ---
+graph_attributes:
+  graph:
+    rankdir: "TB"
+    splines: "polyline"
+    nodesep: "1.0" # Slightly reduce node separation
+    ranksep: "1.5" # Slightly reduce rank separation
+    fontname: "Arial"
+    fontsize: "14"
+    bgcolor: "white"
+    overlap: "false"
+    compound: "true"
+    concentrate: "false"
+  node: # Default node attributes
+    fontname: "Arial"
+    fontsize: "10" # Slightly smaller default node font
+    height: "0.7"
+    width: "2.8" # Slightly wider for potentially longer names
+    margin: "0.25"
+    shape: "box"
+    style: "filled"
+  edge: # Default edge attributes
+    fontname: "Arial"
+    fontsize: "9" # Slightly smaller edge font
+    penwidth: "1.2"
+    arrowsize: "0.7"
+    labeldistance: "2.5"
+    minlen: "1.5" # Allow shorter edges
+
+# --- Title Attributes ---
+title_attributes:
+  labelloc: "t"
+  fontsize: "18"
+  fontname: "Arial Bold"
+
+# --- Node Definitions ---
+# Nodes are defined within their respective clusters below.
+
+# --- Cluster Definitions (Logical Grouping with Layering) ---
+clusters:
+  # Cluster 0: Main Application
+  - name: "AppCluster"
+    attributes:
+      label: ""
+      style: "invis"
+    nodes:
+      - id: "Main"
+        name: "main.c\nApplication Entry Point\n(Setup, Configuration, Device Mgmt)"
+        attributes:
+          style: "filled,rounded"
+          fillcolor: "#9fd49f" # Greenish
+          fontsize: "12"
+          penwidth: "2"
+
+  # Cluster 1: Bus Manager Component (Combined API & Impl)
+  - name: "BusManagerComponent"
+    attributes:
+      label: "pstar_bus Component\n(I2C Manager)"
+      style: "filled"
+      fillcolor: "#e6f0ff" # Very Light Blue background
+      fontsize: "14"
+      margin: "15" # Increased margin
+      penwidth: "2"
+    nodes:
+      # Core Manager API & Impl
+      - id: "BusMgr"
+        name: "pstar_bus_manager.h\nBus Manager Core API"
+        attributes: { fillcolor: "#a0c0ff" } # Medium Blue (API)
+      - id: "BusMgrImpl"
+        name: "pstar_bus_manager.c\nImplementation"
+        attributes: { fillcolor: "#c0d8ff" } # Lighter Blue (Impl)
+      # Configuration API & Impl
+      - id: "BusConfig"
+        name: "pstar_bus_config.h\nBus Configuration API"
+        attributes: { fillcolor: "#c0e0a0" } # Light Green (API)
+      - id: "BusConfigImpl"
+        name: "pstar_bus_config.c\nImplementation"
+        attributes: { fillcolor: "#d8f0c0" } # Lighter Green (Impl)
+      # I2C Protocol API & Impl
+      - id: "BusI2C"
+        name: "pstar_bus_i2c.h\nI2C Protocol API"
+        attributes: { fillcolor: "#ffe0b0" } # Light Orange (API)
+      - id: "BusI2CImpl"
+        name: "pstar_bus_i2c.c\nImplementation"
+        attributes: { fillcolor: "#fff0d0" } # Lighter Orange (Impl)
+      # Type Definitions (Grouped within Bus Manager)
+      - id: "BusTypes"
+        name: "pstar_bus_types.h\nCore Type Definitions"
+        attributes: { fillcolor: "#d8d8ff" } # Medium Purple (Types Header)
+      - id: "BusTypesImpl"
+        name: "pstar_bus_types.c\nType Utilities Impl"
+        attributes: { fillcolor: "#e8e8ff" } # Lighter Purple (Types Impl)
+      # Detailed Type Headers (Visually grouped near BusTypes)
+      - id: "CommonTypes"
+        name: "pstar_bus_common_types.h"
+        attributes: { fillcolor: "#e8e8ff", shape: "note" } # Lighter Purple, different shape
+      - id: "EventTypes"
+        name: "pstar_bus_event_types.h"
+        attributes: { fillcolor: "#e8e8ff", shape: "note" }
+      - id: "FunctionTypes"
+        name: "pstar_bus_function_types.h"
+        attributes: { fillcolor: "#e8e8ff", shape: "note" }
+      - id: "ProtocolTypes"
+        name: "pstar_bus_protocol_types.h"
+        attributes: { fillcolor: "#e8e8ff", shape: "note" }
+      - id: "ManagerTypes"
+        name: "pstar_bus_manager_types.h"
+        attributes: { fillcolor: "#e8e8ff", shape: "note" }
+
+  # Cluster 2: BH1750 HAL Component (Combined API & Impl)
+  - name: "BH1750HAL"
+    attributes:
+      label: "bh1750_hal Component\n(Light Sensor HAL)"
+      style: "filled"
+      fillcolor: "#ffe8f8" # Very Light Pink background
+      fontsize: "14"
+      margin: "15"
+      penwidth: "2"
+    nodes:
+      - id: "BH1750Interface"
+        name: "bh1750_hal.h\nBH1750 HAL API"
+        attributes: { fillcolor: "#ffb0d0" } # Medium Pink (API)
+      - id: "BH1750Impl"
+        name: "bh1750_hal.c\nImplementation"
+        attributes: { fillcolor: "#ffcfe0" } # Lighter Pink (Impl)
+
+  # Cluster 3: ESP-IDF Dependencies
+  - name: "ESPIDF"
+    attributes:
+      label: "ESP-IDF Dependencies\n(Hardware & System Services)"
+      style: "filled"
+      fillcolor: "#f0fff0" # Very Light Green fill
+      fontsize: "14"
+      margin: "12"
+      penwidth: "2"
+    nodes:
+      - id: "I2CDriver"
+        name: "driver/i2c.h\nESP I2C Driver"
+        attributes: { fillcolor: "#ffe0b0" } # Light Orange
+      - id: "GPIODriver"
+        name: "driver/gpio.h\nESP GPIO Driver"
+        attributes: { fillcolor: "#c0e0a0" } # Light Green
+      - id: "FreeRTOS"
+        name: "freertos/*\nOS Services"
+        attributes: { fillcolor: "#c0e0ff" } # Light Blue
+      - id: "ESPLog"
+        name: "esp_log.h\nLogging Utilities"
+        attributes: { fillcolor: "#d0ffd0" } # Pale Green
+
+# --- Connection Definitions ---
+connections:
+  # --- Main Application Interactions ---
+  - { from: "Main", to: "BusMgr", label: "initializes manager", attributes: { color: "#4040ff", penwidth: "1.8", fontcolor: "#0000cc" } }
+  - { from: "Main", to: "BusConfig", label: "creates config", attributes: { color: "#40a040", penwidth: "1.8", fontcolor: "#006400" } }
+  - { from: "Main", to: "BusMgr", label: "adds config", attributes: { color: "#4040ff", penwidth: "1.2", fontcolor: "#0000cc", constraint: "false" } }
+  - { from: "Main", to: "BusMgr", label: "registers pins", attributes: { color: "#4040ff", penwidth: "1.2", fontcolor: "#0000cc", constraint: "false" } }
+  - { from: "Main", to: "BusConfig", label: "calls init", attributes: { color: "#40a040", penwidth: "1.2", fontcolor: "#006400", constraint: "false" } }
+  - { from: "Main", to: "BH1750Interface", label: "initializes HAL", attributes: { color: "#b040b0", penwidth: "1.8", fontcolor: "#800080" } }
+  - { from: "Main", to: "BH1750Interface", label: "reads sensor", attributes: { color: "#b040b0", penwidth: "1.5", fontcolor: "#800080", constraint: "false" } }
+  - { from: "Main", to: "BH1750Interface", label: "sets mode", attributes: { color: "#b040b0", penwidth: "1.2", fontcolor: "#800080", constraint: "false" } }
+
+  # --- Implementation Links (API -> Implementation) ---
+  # Connect API header to its implementation file
+  - { from: "BusMgr", to: "BusMgrImpl", label: "implemented by", attributes: { color: "#4040ff", style: "dashed", arrowhead: "odot", dir: "back" } } # Arrow points from Impl to API conceptually
+  - { from: "BusConfig", to: "BusConfigImpl", label: "implemented by", attributes: { color: "#40a040", style: "dashed", arrowhead: "odot", dir: "back" } }
+  - { from: "BusI2C", to: "BusI2CImpl", label: "implemented by", attributes: { color: "#e08000", style: "dashed", arrowhead: "odot", dir: "back" } }
+  - { from: "BusTypes", to: "BusTypesImpl", label: "implemented by", attributes: { color: "#8080ff", style: "dashed", arrowhead: "odot", dir: "back" } }
+  - { from: "BH1750Interface", to: "BH1750Impl", label: "implemented by", attributes: { color: "#b040b0", style: "dashed", arrowhead: "odot", dir: "back" } }
+
+  # --- Core Dependencies (Includes) ---
+  # Show that the main API headers include the core types
+  - { from: "BusMgr", to: "BusTypes", label: "uses types", attributes: { color: "#000080", style: "dotted" } }
+  - { from: "BusConfig", to: "BusTypes", label: "uses types", attributes: { color: "#000080", style: "dotted" } }
+  - { from: "BusI2C", to: "BusTypes", label: "uses types", attributes: { color: "#000080", style: "dotted" } }
+  # Show that the HAL interface uses the Bus Manager types (e.g., for handle)
+  - { from: "BH1750Interface", to: "BusMgr", label: "uses manager type", attributes: { color: "#b040b0", style: "dotted" } }
+
+  # --- Type Definition Includes ---
+  # Show BusTypes includes the detailed type headers
+  - { from: "BusTypes", to: "CommonTypes", label: "includes", attributes: { color: "#8080a0", arrowhead: "none" } }
+  - { from: "BusTypes", to: "EventTypes", label: "includes", attributes: { color: "#8080a0", arrowhead: "none" } }
+  - { from: "BusTypes", to: "FunctionTypes", label: "includes", attributes: { color: "#8080a0", arrowhead: "none" } }
+  - { from: "BusTypes", to: "ProtocolTypes", label: "includes", attributes: { color: "#8080a0", arrowhead: "none" } }
+  - { from: "BusTypes", to: "ManagerTypes", label: "includes", attributes: { color: "#8080a0", arrowhead: "none" } }
+  # Show hierarchy within types
+  - { from: "ManagerTypes", to: "ProtocolTypes", label: "uses", attributes: { color: "#8080a0", style: "dotted" } }
+  - { from: "ProtocolTypes", to: "FunctionTypes", label: "uses", attributes: { color: "#8080a0", style: "dotted" } }
+  - { from: "FunctionTypes", to: "EventTypes", label: "uses", attributes: { color: "#8080a0", style: "dotted" } }
+  - { from: "EventTypes", to: "CommonTypes", label: "uses", attributes: { color: "#8080a0", style: "dotted" } }
+  - { from: "ProtocolTypes", to: "CommonTypes", label: "uses", attributes: { color: "#8080a0", style: "dotted" } }
+
+  # --- Implementation Dependencies ---
+  # Show which implementation files use which APIs or drivers
+  - { from: "BH1750Impl", to: "BusI2C", label: "calls I2C API", attributes: { color: "#b040b0", penwidth: "1.5" } }
+  - { from: "BusI2CImpl", to: "I2CDriver", label: "uses driver API", attributes: { color: "#e08000", penwidth: "1.5" } }
+  - { from: "BusConfigImpl", to: "I2CDriver", label: "configures driver", attributes: { color: "#e08000", penwidth: "1.5" } }
+  - { from: "BusConfigImpl", to: "GPIODriver", label: "uses pin defs", attributes: { color: "#40a040" } }
+  - { from: "BusMgrImpl", to: "FreeRTOS", label: "uses synchronization", attributes: { color: "#4040ff", penwidth: "1.5" } }
+  - { from: "BH1750Impl", to: "FreeRTOS", label: "uses delays", attributes: { color: "#b040b0" } }
+  # Logging
+  - { from: "BusMgrImpl", to: "ESPLog", label: "logs", attributes: { color: "#008000", style: "dotted" } }
+  - { from: "BusConfigImpl", to: "ESPLog", label: "logs", attributes: { color: "#008000", style: "dotted" } }
+  - { from: "BusI2CImpl", to: "ESPLog", label: "logs", attributes: { color: "#008000", style: "dotted" } }
+  - { from: "BH1750Impl", to: "ESPLog", label: "logs", attributes: { color: "#b040b0", style: "dotted" } }
+  # Internal Bus Manager Calls
+  - { from: "BusMgrImpl", to: "BusConfig", label: "calls destroy", attributes: { color: "#4040ff", style: "dotted" } }
+  - { from: "BusConfigImpl", to: "BusI2C", label: "calls init_default_ops", attributes: { color: "#40a040", style: "dotted" } }
+  - { from: "BusI2CImpl", to: "BusMgr", label: "uses find_bus", attributes: { color: "#e08000", style: "dotted" } }
+
+# --- Output Formats ---
+output_formats:
+  - pdf
+  - png
+  - svg

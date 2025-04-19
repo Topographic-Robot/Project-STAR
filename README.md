@@ -11,6 +11,7 @@
   - [Features](#features)
   - [Hardware](#hardware)
   - [Software](#software)
+    - [Architecture Diagrams](#architecture-diagrams)
   - [Installation](#installation)
   - [Configuration](#configuration)
     - [Using menuconfig](#using-menuconfig)
@@ -87,6 +88,14 @@ The firmware is developed using the **ESP-IDF** framework and written primarily 
   - **`include/tasks/`:** Task definitions for motor control, sensor data acquisition, Wi-Fi management, and web server communication.
   - `main.c`: Main application entry point.
 
+### Architecture Diagrams
+
+The project includes architectural diagrams to help visualize the system design:
+
+- **ESP32 Bus Manager Functional Block Diagram:** The `esp32_bus_manager_fbd.svg` file illustrates the communication architecture between the ESP32 and its peripheral components, showing how I2C, SPI, and UART buses are managed to connect various sensors and devices. This diagram is essential for understanding the hardware interfaces and data flow within the system.
+
+![ESP32 Bus Manager Block Diagram](./docs/diagrams/esp32_bus_manager_fbd.svg)
+
 **Dependencies:**
 
 - **ESP-IDF:** v4.4 or later (check `idf.py --version`)
@@ -104,4 +113,3 @@ The firmware is developed using the **ESP-IDF** framework and written primarily 
 
    If you are contributing to the project and use `clang-format` for formatting code, make sure it is up to date (preferably version 20.1.1 or later).
    On macOS, run the following:
-

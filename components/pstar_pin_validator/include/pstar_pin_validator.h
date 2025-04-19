@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-/****************************** INCLUDES ******************************/
+/* --- INCLUDES --- */
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -18,11 +18,11 @@ extern "C" {
 #include "esp_err.h"
 #include "soc/gpio_num.h"
 
-/****************************** MACROS ******************************/
+/* --- MACROS --- */
 
 #define PIN_VALIDATOR_DESC_MAX_LEN (64)
 
-/****************************** STRUCTS ******************************/
+/* --- STRUCTS --- */
 
 /**
  * @brief Info for each GPIO pin.
@@ -42,7 +42,7 @@ typedef struct {
   SemaphoreHandle_t mutex;              /**< Mutex for thread safety */
 } pstar_pin_validator_t;
 
-/****************************** FUNCTIONS ******************************/
+/* --- FUNCTIONS --- */
 
 /**
  * @brief Register a pin on the validator

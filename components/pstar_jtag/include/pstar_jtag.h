@@ -10,13 +10,13 @@ extern "C" {
 #include "esp_err.h"
 #include "soc/gpio_num.h"
 
-/****************************** Structs ******************************/
+/* --- Structs --- */
 
 typedef struct pstar_jtag {
   gpio_num_t tck, tms, tdi, tdo;
 } pstar_jtag_t;
 
-/****************************** Functions ******************************/
+/* --- Functions --- */
 
 /**
  * @brief get the jtag pins via Kconfig options

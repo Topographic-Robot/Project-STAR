@@ -55,7 +55,7 @@ get_language_from_filename() {
     local filename="$1"
     local ext="${filename##*.}"
     local basename=$(basename "$filename")
-    
+
     case "$basename" in
         *.c)
             echo "c"
@@ -212,7 +212,7 @@ detect_clipboard_cmd() {
         echo ""
         return
     fi
-    
+
     if command -v pbcopy &> /dev/null; then
         # macOS
         echo "pbcopy"
@@ -252,17 +252,17 @@ is_valid_type() {
     local type="$1"
     local all_types=$(get_all_file_types)
     local found=false
-    
+
     if [ "$type" = "ALL" ]; then
         return 0
     fi
-    
+
     for t in $all_types; do
         if [ "$t" = "$type" ]; then
             return 0
         fi
     done
-    
+
     return 1
 }
 
@@ -391,7 +391,7 @@ build_find_pattern() {
             separator=" -o "
         done
     done
-    
+
     echo "$pattern"
 }
 
@@ -399,13 +399,13 @@ build_find_pattern() {
 build_exclude_pattern() {
     local excluded_dirs_pattern=""
     local separator=""
-    
+
     # Add default excluded directories
     for dir in "${DEFAULT_EXCLUDED_DIRS[@]}"; do
         excluded_dirs_pattern+="${separator}-path '*/$dir' -o -path '$dir'"
         separator=" -o "
     done
-    
+
     # Add user-specified exclude patterns that look like directories
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do
         if [[ "$pattern" == */ || -d "$SEARCH_DIR/$pattern" ]]; then
@@ -413,7 +413,7 @@ build_exclude_pattern() {
             separator=" -o "
         fi
     done
-    
+
     echo "$excluded_dirs_pattern"
 }
 
@@ -422,7 +422,7 @@ format_file() {
     local file="$1"
     local filename=$(basename "$file")
     local lang=$(get_language_from_filename "$filename")
-    
+
     # Skip if file doesn't exist anymore (could have been deleted during processing)
     if [[ ! -e "$file" ]]; then
         warning "File no longer exists: $file"
@@ -460,14 +460,14 @@ format_file() {
 # Process explicitly included files
 process_included_files() {
     local exclude_regex=""
-    
+
     # Build exclude regex if needed
     if [ ${#EXCLUDE_PATTERNS[@]} -gt 0 ]; then
         exclude_regex=$(IFS="|"; echo "${EXCLUDE_PATTERNS[*]}")
     fi
 
     log "Processing ${#INCLUDE_FILES[@]} explicitly included files"
-    
+
     for file in "${INCLUDE_FILES[@]}"; do
         local full_path
         # Check if the path is absolute or relative
@@ -476,7 +476,7 @@ process_included_files() {
         else
             full_path="$SEARCH_DIR/$file"
         fi
-        
+
         # Skip excluded files
         if [[ -n "$exclude_regex" ]] && echo "$file" | grep -E "($exclude_regex)" > /dev/null; then
             log "Skipping excluded file: $file"
@@ -496,13 +496,13 @@ process_included_files() {
 is_in_included_files() {
     local file="$1"
     local normalized_file="${file#$SEARCH_DIR/}"
-    
+
     for included_file in "${INCLUDE_FILES[@]}"; do
         if [ "$normalized_file" = "$included_file" ] || [ "$file" = "$included_file" ]; then
             return 0
         fi
     done
-    
+
     return 1
 }
 
@@ -511,32 +511,32 @@ process_found_files() {
     local find_pattern="$1"
     local exclude_dirs_pattern="$2"
     local exclude_regex=""
-    
+
     # Build exclude regex if needed
     if [ ${#EXCLUDE_PATTERNS[@]} -gt 0 ]; then
         exclude_regex=$(IFS="|"; echo "${EXCLUDE_PATTERNS[*]}")
     fi
-    
+
     # Build find command with proper syntax
     local find_cmd="find \"$SEARCH_DIR\" "
-    
+
     # Add depth limit if specified
     if [ "$RECURSIVE" = false ]; then
         find_cmd+=" -maxdepth 1 "
     elif [ -n "$MAX_DEPTH" ]; then
         find_cmd+=" -maxdepth $MAX_DEPTH "
     fi
-    
+
     # Add directory exclusions
     if [ -n "$exclude_dirs_pattern" ]; then
         find_cmd+="-type d \\( $exclude_dirs_pattern \\) -prune -o "
     fi
-    
+
     # Add file pattern - fixed the syntax here
     find_cmd+="-type f \\( $find_pattern \\) -print"
-    
+
     log "Executing find command: $find_cmd"
-    
+
     # Execute the find command and filter out excluded files
     eval "$find_cmd" | sort | while read -r file; do
         # Skip explicitly included files (they were already processed)
@@ -567,10 +567,10 @@ process_files() {
         # Build find pattern
         local find_pattern=$(build_find_pattern)
         local exclude_dirs_pattern=$(build_exclude_pattern)
-        
+
         log "File pattern: $find_pattern"
         log "Exclude directories pattern: $exclude_dirs_pattern"
-        
+
         process_found_files "$find_pattern" "$exclude_dirs_pattern"
     fi
 }
@@ -579,7 +579,7 @@ process_files() {
 output_results() {
     # Determine clipboard command
     local clipboard_cmd=$(detect_clipboard_cmd)
-    
+
     if [ "$SILENT_MODE" = true ]; then
         # In silent mode, do not display to terminal
         if [ -n "$clipboard_cmd" ] && [ -n "$OUTPUT_FILE" ]; then

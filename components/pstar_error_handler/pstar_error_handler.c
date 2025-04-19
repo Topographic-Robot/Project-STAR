@@ -9,14 +9,14 @@
 
 #define TAG ("PSTAR ERROR HANDLER")
 
-/****************************** Functions ******************************/
+/* --- Functions --- */
 
 /* clang-format off */
-esp_err_t error_handler_init(error_handler_t* handler, 
-                             uint32_t         max_retries, 
-                             uint32_t         base_retry_delay, 
-                             uint32_t         max_retry_delay, 
-                             esp_err_t      (*reset_fn)(void* context), 
+esp_err_t error_handler_init(error_handler_t* handler,
+                             uint32_t         max_retries,
+                             uint32_t         base_retry_delay,
+                             uint32_t         max_retry_delay,
+                             esp_err_t      (*reset_fn)(void* context),
                              void*            reset_context)
 /* clang-format on */
 {
@@ -27,9 +27,12 @@ esp_err_t error_handler_init(error_handler_t* handler,
 
   /* Initialize struct members first */
   memset(handler, 0, sizeof(error_handler_t)); /* Zero out the structure initially */
-  handler->max_retries         = max_retries;
-  handler->base_retry_delay    = base_retry_delay > 0 ? base_retry_delay : 100;                                             /* Ensure non-zero base delay */
-  handler->max_retry_delay     = max_retry_delay > handler->base_retry_delay ? max_retry_delay : handler->base_retry_delay; /* Ensure max >= base */
+  handler->max_retries = max_retries;
+  handler->base_retry_delay =
+    base_retry_delay > 0 ? base_retry_delay : 100; /* Ensure non-zero base delay */
+  handler->max_retry_delay     = max_retry_delay > handler->base_retry_delay
+                                   ? max_retry_delay
+                                   : handler->base_retry_delay; /* Ensure max >= base */
   handler->current_retry_delay = handler->base_retry_delay;
   handler->reset_fn            = reset_fn;
   handler->reset_context       = reset_context;
@@ -59,11 +62,11 @@ void error_handler_deinit(error_handler_t* handler)
 }
 
 /* clang-format off */
-esp_err_t error_handler_record_error(error_handler_t* handler, 
-                                     esp_err_t        error, 
-                                     const char*      description, 
-                                     const char*      file, 
-                                     int              line, 
+esp_err_t error_handler_record_error(error_handler_t* handler,
+                                     esp_err_t        error,
+                                     const char*      description,
+                                     const char*      file,
+                                     int              line,
                                      const char*      func)
 /* clang-format on */
 {
@@ -77,7 +80,10 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
   const char* funcname = func ? func : "Unknown function";
 
   if (handler->mutex == NULL) {
-    ESP_LOGE(TAG, "Mutex Error: Mutex not initialized for error handler used in %s:%d", filename, line);
+    ESP_LOGE(TAG,
+             "Mutex Error: Mutex not initialized for error handler used in %s:%d",
+             filename,
+             line);
     return ESP_ERR_INVALID_STATE; /* Indicate handler state issue */
   }
 
@@ -100,21 +106,27 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
     handler->current_retry++;
     retry_count_to_log = handler->current_retry; /* Log the incremented value */
     /* Apply exponential backoff */
-    uint64_t new_delay_64 = (uint64_t)handler->current_retry_delay * 2; /* Use 64-bit intermediate */
+    uint64_t new_delay_64 =
+      (uint64_t)handler->current_retry_delay * 2; /* Use 64-bit intermediate */
     if (new_delay_64 > handler->max_retry_delay) {
       handler->current_retry_delay = handler->max_retry_delay;
-    } else if (new_delay_64 < handler->base_retry_delay) { /* Prevent underflow/wrap-around if base is high */
+    } else if (new_delay_64 <
+               handler->base_retry_delay) { /* Prevent underflow/wrap-around if base is high */
       handler->current_retry_delay = handler->base_retry_delay;
     } else {
       handler->current_retry_delay = (uint32_t)new_delay_64;
     }
-    ESP_LOGI(TAG, "Backoff: Next retry delay: %lu ms", (unsigned long int)handler->current_retry_delay);
+    ESP_LOGI(TAG,
+             "Backoff: Next retry delay: %lu ms",
+             (unsigned long int)handler->current_retry_delay);
   } else {
     /* Retries already exhausted, log the max count */
     retry_count_to_log = handler->max_retries;
     /* Keep the max delay */
     handler->current_retry_delay = handler->max_retry_delay;
-    ESP_LOGI(TAG, "Backoff: Next retry delay: %lu ms", (unsigned long int)handler->current_retry_delay);
+    ESP_LOGI(TAG,
+             "Backoff: Next retry delay: %lu ms",
+             (unsigned long int)handler->current_retry_delay);
   }
 
   /* Construct detailed log message using retry_count_to_log */
@@ -142,7 +154,11 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
 
   /* Check if retries are exhausted based on the *actual* current_retry */
   if (handler->current_retry >= handler->max_retries) {
-    ESP_LOGE(TAG, "Max Retries: Max retries (%lu) exceeded for error %d (%s).", (unsigned long int)handler->max_retries, error, esp_err_to_name(error));
+    ESP_LOGE(TAG,
+             "Max Retries: Max retries (%lu) exceeded for error %d (%s).",
+             (unsigned long int)handler->max_retries,
+             error,
+             esp_err_to_name(error));
     /* Try reset function if available as a last resort */
     if (handler->reset_fn != NULL) {
       ESP_LOGI(TAG, "Reset Attempt: Attempting reset function after max retries...");
@@ -167,7 +183,10 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
         xSemaphoreGive(handler->mutex);
         return ESP_OK; /* Indicate recovery was successful */
       } else {
-        ESP_LOGE(TAG, "Reset Failed: Reset function failed with code: %d (%s)", recovery_result, esp_err_to_name(recovery_result));
+        ESP_LOGE(TAG,
+                 "Reset Failed: Reset function failed with code: %d (%s)",
+                 recovery_result,
+                 esp_err_to_name(recovery_result));
       }
     } else {
       ESP_LOGW(TAG, "No Reset: Max retries exceeded and no reset function provided.");

@@ -1,10 +1,14 @@
 # main/CMakeLists.txt
 
 idf_component_register(
-	SRCS main.c
+	SRCS
+		main.c
 	INCLUDE_DIRS
 	PRIV_INCLUDE_DIRS
-	REQUIRES           pstar_pin_validator
-	                   pstar_jtag
+	REQUIRES
+		pstar_pin_validator
+	  pstar_jtag
+	  pstar_bus
+	  pstar_bh1750_hal
 	PRIV_REQUIRES
 )

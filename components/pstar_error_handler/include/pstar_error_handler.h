@@ -12,17 +12,17 @@
 extern "C" {
 #endif
 
-/****************************** Macros ******************************/
+/* --- Macros --- */
 
 /**
  * @brief Record an error and manage retry/reset logic
  */
-#define RECORD_ERROR(handler, code, desc)                                                                                                                                                                                                                \
-  do {                                                                                                                                                                                                                                                   \
-    error_handler_record_error((handler), (code), (desc), __FILE__, __LINE__, __func__);                                                                                                                                                                 \
+#define RECORD_ERROR(handler, code, desc)                                                          \
+  do {                                                                                             \
+    error_handler_record_error((handler), (code), (desc), __FILE__, __LINE__, __func__);           \
   } while (0)
 
-/****************************** Structs ******************************/
+/* --- Structs --- */
 
 /**
  * @brief Error handler structure for managing error states and recovery
@@ -47,7 +47,7 @@ typedef struct error_handler {
   esp_err_t (*reset_fn)(void* context); /**< Optional function to reset component */
 } error_handler_t;
 
-/****************************** Functions ******************************/
+/* --- Functions --- */
 
 /**
  * @brief Initialize an error handler
@@ -65,11 +65,11 @@ typedef struct error_handler {
  * @return ESP_OK if successful, ESP_ERR_NO_MEM if mutex creation fails, ESP_ERR_INVALID_ARG if handler is NULL.
  */
 /* clang-format off */
-esp_err_t error_handler_init(error_handler_t* handler, 
-                             uint32_t         max_retries, 
-                             uint32_t         base_retry_delay, 
-                             uint32_t         max_retry_delay, 
-                             esp_err_t      (*reset_fn)(void* context), 
+esp_err_t error_handler_init(error_handler_t* handler,
+                             uint32_t         max_retries,
+                             uint32_t         base_retry_delay,
+                             uint32_t         max_retry_delay,
+                             esp_err_t      (*reset_fn)(void* context),
                              void*            reset_context);
 /* clang-format on */
 
@@ -106,8 +106,8 @@ esp_err_t error_handler_record_error(error_handler_t* handler,
                                      esp_err_t        error,
                                      const char*      description,
                                      const char*      file,
-                                     int              line, /* Its an int since __LINE__ expands to an int */
-                                     const char*      func);
+                                     int line, /* Its an int since __LINE__ expands to an int */
+                                     const char* func);
 
 /**
  * @brief Check if a retry should be attempted

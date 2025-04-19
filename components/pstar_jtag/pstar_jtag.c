@@ -1,7 +1,5 @@
 /* components/pstar_jtag/pstar_jtag.c */
 
-/* TODO: Add macro header for pstar logger */
-
 #include "pstar_jtag.h"
 
 #include "esp_err.h"
@@ -9,7 +7,7 @@
 
 #define TAG ("PSTAR JTAG")
 
-/****************************** Functions ******************************/
+/* --- Functions --- */
 
 esp_err_t pstar_get_jtag_pins(pstar_jtag_t* tag)
 {
@@ -50,7 +48,12 @@ esp_err_t pstar_get_jtag_pins(pstar_jtag_t* tag)
   return ESP_ERR_INVALID_STATE;
 #endif
 
-  ESP_LOGI(TAG, "JTAG pin config: TCK=%d, TMS=%d, TDI=%d, TDO=%d", tag->tck, tag->tms, tag->tdi, tag->tdo);
+  ESP_LOGI(TAG,
+           "JTAG pin config: TCK=%d, TMS=%d, TDI=%d, TDO=%d",
+           tag->tck,
+           tag->tms,
+           tag->tdi,
+           tag->tdo);
 
   return ESP_OK;
 }

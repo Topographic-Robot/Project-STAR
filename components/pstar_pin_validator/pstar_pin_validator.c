@@ -1,7 +1,5 @@
 /* components/pstar_pin_validator/pstar_pin_validator.c */
 
-/* TODO: Add macro header for pstar logger */
-
 #include "pstar_pin_validator.h"
 
 #include <stdlib.h>
@@ -12,11 +10,11 @@
 
 #define TAG ("PSTAR PIN VALIDATOR")
 
-/****************************** Global Variables (Static) ******************************/
+/* --- Global Variables (Static) --- */
 
 static pstar_pin_validator_t s_pin_validator = {0};
 
-/****************************** Private Function Declarations ******************************/
+/* --- Private Function Declarations --- */
 
 /**
  * @brief Initialize mutex if not already initialized
@@ -25,7 +23,7 @@ static pstar_pin_validator_t s_pin_validator = {0};
  */
 static esp_err_t priv_init_mutex(void);
 
-/****************************** Functions ******************************/
+/* --- Functions --- */
 
 static esp_err_t priv_init_mutex(void)
 {
@@ -83,7 +81,11 @@ esp_err_t pstar_register_pin(gpio_num_t gpio_num, const char* desc, bool can_be_
   if (pin->usage_count > 0) {
     ESP_LOGD(TAG, "Pin %d already in use (count: %d)", gpio_num, pin->usage_count);
     if (!pin->can_be_shared || !can_be_shared) {
-      ESP_LOGE(TAG, "Pin %d cannot be shared (current config: %d, requested: %d)", gpio_num, pin->can_be_shared, can_be_shared);
+      ESP_LOGE(TAG,
+               "Pin %d cannot be shared (current config: %d, requested: %d)",
+               gpio_num,
+               pin->can_be_shared,
+               can_be_shared);
       xSemaphoreGive(s_pin_validator.mutex);
       return ESP_ERR_INVALID_STATE;
     }
@@ -173,7 +175,11 @@ esp_err_t pstar_validate_pins(void)
         ESP_LOGE(TAG, "  User %d: %s", j + 1, pin->users[j]);
       }
     } else if (pin->usage_count > 0) {
-      ESP_LOGD(TAG, "GPIO %d: Used %d times, shareable: %d", i, pin->usage_count, pin->can_be_shared);
+      ESP_LOGD(TAG,
+               "GPIO %d: Used %d times, shareable: %d",
+               i,
+               pin->usage_count,
+               pin->can_be_shared);
     }
   }
 
