@@ -1,9 +1,11 @@
 /* components/pstar_bh1750_hal/include/pstar_bh1750_hal.h */
 
-#ifndef BH1750_HAL_H
-#define BH1750_HAL_H
+#ifndef PSTAR_BH1750_HAL_H
+#define PSTAR_BH1750_HAL_H
 
 #include "pstar_bus_manager.h" /* Already included */
+
+#include "driver/i2c.h" /* Added for i2c_port_t definition */
 
 #include <stdint.h>
 
@@ -52,31 +54,30 @@ typedef enum {
  * @param[out] out_handle Pointer to store the created HAL handle. Must not be NULL.
  * @return esp_err_t ESP_OK on success, errors otherwise (e.g., bus not found, I2C comm error).
  */
-esp_err_t bh1750_hal_init(
-  const pstar_bus_manager_t* manager, /* Keep const here if init doesn't modify manager */
-  const bh1750_hal_config_t* config,
-  bh1750_hal_mode_t          initial_mode,
-  bh1750_hal_handle_t*       out_handle);
+esp_err_t pstar_bh1750_hal_init(const pstar_bus_manager_t* manager,
+                                const bh1750_hal_config_t* config,
+                                bh1750_hal_mode_t          initial_mode,
+                                bh1750_hal_handle_t*       out_handle);
 
 /**
  * @brief Deinitialize the BH1750 HAL (frees handle).
  *        Does NOT deinitialize the underlying I2C bus managed by pstar_bus_manager.
  *        Optionally attempts to power down the sensor.
  *
- * @param[in] handle Handle obtained from bh1750_hal_init.
+ * @param[in] handle Handle obtained from pstar_bh1750_hal_init.
  * @param[in] power_down If true, attempts to send the power down command before freeing handle.
  * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if handle is NULL. Power down command error is logged but doesn't prevent deinit.
  */
-esp_err_t bh1750_hal_deinit(bh1750_hal_handle_t handle, bool power_down);
+esp_err_t pstar_bh1750_hal_deinit(bh1750_hal_handle_t handle, bool power_down);
 
 /**
  * @brief Set the measurement mode of the BH1750.
  *
- * @param[in] handle Handle obtained from bh1750_hal_init.
+ * @param[in] handle Handle obtained from pstar_bh1750_hal_init.
  * @param[in] mode The desired measurement mode.
  * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
  */
-esp_err_t bh1750_hal_set_mode(bh1750_hal_handle_t handle, bh1750_hal_mode_t mode);
+esp_err_t pstar_bh1750_hal_set_mode(bh1750_hal_handle_t handle, bh1750_hal_mode_t mode);
 
 /**
  * @brief Read the current light level from the BH1750 in Lux.
@@ -86,29 +87,29 @@ esp_err_t bh1750_hal_set_mode(bh1750_hal_handle_t handle, bh1750_hal_mode_t mode
  * before the next reading. This function assumes continuous mode or that the sensor
  * is ready for reading.
  *
- * @param[in] handle Handle obtained from bh1750_hal_init.
+ * @param[in] handle Handle obtained from pstar_bh1750_hal_init.
  * @param[out] lux Pointer to store the calculated light level in Lux. Must not be NULL.
  * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
  */
-esp_err_t bh1750_hal_read_lux(bh1750_hal_handle_t handle, float* lux);
+esp_err_t pstar_bh1750_hal_read_lux(bh1750_hal_handle_t handle, float* lux);
 
 /**
  * @brief Send the Power Down command to the BH1750.
  *        Measurement stops, reducing power consumption.
  *
- * @param[in] handle Handle obtained from bh1750_hal_init.
+ * @param[in] handle Handle obtained from pstar_bh1750_hal_init.
  * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
  */
-esp_err_t bh1750_hal_power_down(bh1750_hal_handle_t handle);
+esp_err_t pstar_bh1750_hal_power_down(bh1750_hal_handle_t handle);
 
 /**
  * @brief Send the Power On command to the BH1750.
  *        Needed after power down before setting a mode or reading.
  *
- * @param[in] handle Handle obtained from bh1750_hal_init.
+ * @param[in] handle Handle obtained from pstar_bh1750_hal_init.
  * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
  */
-esp_err_t bh1750_hal_power_on(bh1750_hal_handle_t handle);
+esp_err_t pstar_bh1750_hal_power_on(bh1750_hal_handle_t handle);
 
 /**
  * @brief Initialize the BH1750 sensor with default configuration from KConfig.
@@ -125,11 +126,42 @@ esp_err_t bh1750_hal_power_on(bh1750_hal_handle_t handle);
  * @param[out] out_handle Pointer to store the created HAL handle. Must not be NULL.
  * @return esp_err_t ESP_OK on success, or an error code if any step fails.
  */
-esp_err_t bh1750_hal_create_default(pstar_bus_manager_t* manager, /* Removed const */
-                                    bh1750_hal_handle_t* out_handle);
+esp_err_t pstar_bh1750_hal_create_kconfig_default(pstar_bus_manager_t* manager,
+                                                  bh1750_hal_handle_t* out_handle);
 
 /**
- * @brief Registers the pins used by the BH1750 component with the pin validator.
+ * @brief Initialize the BH1750 sensor with custom configuration.
+ *
+ * This function creates and initializes a BH1750 sensor using custom configuration values.
+ * It performs the following steps:
+ * 1. Creates an I2C bus configuration with provided parameters
+ * 2. Adds the configuration to the bus manager
+ * 3. Initializes the bus hardware
+ * 4. Initializes the BH1750 HAL with the specified mode
+ *
+ * @param[in] manager Pointer to an initialized bus manager. Must not be NULL.
+ * @param[in] bus_name Name for the I2C bus configuration. Must not be NULL.
+ * @param[in] port I2C port number to use.
+ * @param[in] addr I2C address of the BH1750 sensor.
+ * @param[in] sda_pin GPIO pin number for SDA.
+ * @param[in] scl_pin GPIO pin number for SCL.
+ * @param[in] freq_hz I2C bus frequency in Hz.
+ * @param[in] mode Initial measurement mode for the sensor.
+ * @param[out] out_handle Pointer to store the created HAL handle. Must not be NULL.
+ * @return esp_err_t ESP_OK on success, or an error code if any step fails.
+ */
+esp_err_t pstar_bh1750_hal_create_custom(pstar_bus_manager_t* manager,
+                                         const char*          bus_name,
+                                         i2c_port_t           port,
+                                         uint8_t              addr,
+                                         int                  sda_pin,
+                                         int                  scl_pin,
+                                         uint32_t             freq_hz,
+                                         bh1750_hal_mode_t    mode,
+                                         bh1750_hal_handle_t* out_handle);
+
+/**
+ * @brief Registers the pins used by the BH1750 component with the pin validator using KConfig values.
  *
  * This function should be called after the pin validator is ready but before
  * pstar_validate_pins() is called. It only performs registration if the
@@ -137,10 +169,23 @@ esp_err_t bh1750_hal_create_default(pstar_bus_manager_t* manager, /* Removed con
  *
  * @return esp_err_t ESP_OK on success (or if validator is disabled), or an error code on failure.
  */
-esp_err_t register_bh1750_pins(void);
+esp_err_t pstar_bh1750_register_kconfig_pins(void);
+
+/**
+ * @brief Registers custom pins used by the BH1750 component with the pin validator.
+ *
+ * This function should be called after the pin validator is ready but before
+ * pstar_validate_pins() is called. It only performs registration if the
+ * pin validator component is enabled via Kconfig.
+ *
+ * @param[in] sda_pin GPIO pin number for SDA to register.
+ * @param[in] scl_pin GPIO pin number for SCL to register.
+ * @return esp_err_t ESP_OK on success (or if validator is disabled), or an error code on failure.
+ */
+esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* BH1750_HAL_H */
+#endif /* PSTAR_BH1750_HAL_H */

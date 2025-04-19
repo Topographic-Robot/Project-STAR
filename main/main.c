@@ -43,7 +43,7 @@ void app_main(void)
 
   /* Register BH1750 pins (function handles internal check for BH1750 enabled) */
 #if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
-  ret = register_bh1750_pins();
+  ret = pstar_bh1750_register_kconfig_pins();
   ESP_GOTO_ON_ERROR(ret, cleanup, TAG, "Failed to register BH1750 pins: %s", esp_err_to_name(ret));
 #endif
 
@@ -94,7 +94,7 @@ void app_main(void)
 
   /* 3. Create and Initialize BH1750 using default KConfig values */
 #if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
-  ret = bh1750_hal_create_default(&g_bus_manager, &bh1750_handle);
+  ret = pstar_bh1750_hal_create_kconfig_default(&g_bus_manager, &bh1750_handle);
   ESP_GOTO_ON_ERROR(ret,
                     cleanup,
                     TAG,
@@ -116,7 +116,7 @@ void app_main(void)
   float current_lux = 0.0f;
   while (1) {
 #if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
-    ret = bh1750_hal_read_lux(bh1750_handle, &current_lux);
+    ret = pstar_bh1750_hal_read_lux(bh1750_handle, &current_lux);
     if (ret == ESP_OK) {
       ESP_LOGI(TAG, "BH1750 Light Level: %.2f Lux", current_lux);
     } else {
@@ -142,7 +142,7 @@ cleanup:
 #ifdef CONFIG_PSTAR_KCONFIG_BH1750_POWER_SAVE_MODE
     power_down = true;
 #endif
-    esp_err_t deinit_ret = bh1750_hal_deinit(bh1750_handle, power_down);
+    esp_err_t deinit_ret = pstar_bh1750_hal_deinit(bh1750_handle, power_down);
     if (deinit_ret != ESP_OK) {
       ESP_LOGE(TAG, "BH1750 HAL deinit failed: %s", esp_err_to_name(deinit_ret));
     }
