@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_config.h */
 
-#ifndef PSTAR_BUS_CONFIG_H
-#define PSTAR_BUS_CONFIG_H
+#ifndef PSTAR_COMPONENT_BUS_CONFIG_H
+#define PSTAR_COMPONENT_BUS_CONFIG_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,4 +73,4 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config);
 }
 #endif
 
-#endif /* PSTAR_BUS_CONFIG_H */
+#endif /* PSTAR_COMPONENT_BUS_CONFIG_H */

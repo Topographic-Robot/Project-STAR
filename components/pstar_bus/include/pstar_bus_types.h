@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_types.h */
 
-#ifndef PSTAR_BUS_TYPES_H
-#define PSTAR_BUS_TYPES_H
+#ifndef PSTAR_COMPONENT_BUS_TYPES_H
+#define PSTAR_COMPONENT_BUS_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,4 +19,4 @@ extern "C" {
 }
 #endif
 
-#endif /* PSTAR_BUS_TYPES_H */
+#endif /* PSTAR_COMPONENT_BUS_TYPES_H */

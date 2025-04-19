@@ -1,7 +1,7 @@
 /* components/pstar_bh1750_hal/include/pstar_bh1750_hal.h */
 
-#ifndef PSTAR_BH1750_HAL_H
-#define PSTAR_BH1750_HAL_H
+#ifndef PSTAR_COMPONENT_BH1750_HAL_H
+#define PSTAR_COMPONENT_BH1750_HAL_H
 
 #include "pstar_bus_manager.h" /* Already included */
 
@@ -188,4 +188,4 @@ esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin);
 }
 #endif
 
-#endif /* PSTAR_BH1750_HAL_H */
+#endif /* PSTAR_COMPONENT_BH1750_HAL_H */

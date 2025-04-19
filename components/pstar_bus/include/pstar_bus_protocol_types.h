@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_protocol_types.h */
 
-#ifndef PSTAR_BUS_PROTOCOL_TYPES_H
-#define PSTAR_BUS_PROTOCOL_TYPES_H
+#ifndef PSTAR_COMPONENT_BUS_PROTOCOL_TYPES_H
+#define PSTAR_COMPONENT_BUS_PROTOCOL_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,4 +54,4 @@ typedef struct pstar_i2c_bus_config {
 }
 #endif
 
-#endif /* PSTAR_BUS_PROTOCOL_TYPES_H */
+#endif /* PSTAR_COMPONENT_BUS_PROTOCOL_TYPES_H */

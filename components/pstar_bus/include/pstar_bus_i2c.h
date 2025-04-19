@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_i2c.h */
 
-#ifndef PSTAR_BUS_I2C_H
-#define PSTAR_BUS_I2C_H
+#ifndef PSTAR_COMPONENT_BUS_I2C_H
+#define PSTAR_COMPONENT_BUS_I2C_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,4 +103,4 @@ esp_err_t pstar_bus_i2c_read_raw(const pstar_bus_manager_t* manager,
 }
 #endif
 
-#endif /* PSTAR_BUS_I2C_H */
+#endif /* PSTAR_COMPONENT_BUS_I2C_H */

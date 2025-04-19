@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_manager.h */
 
-#ifndef PSTAR_BUS_MANAGER_H
-#define PSTAR_BUS_MANAGER_H
+#ifndef PSTAR_COMPONENT_BUS_MANAGER_H
+#define PSTAR_COMPONENT_BUS_MANAGER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,4 +104,4 @@ esp_err_t pstar_bus_manager_register_all_pins(const pstar_bus_manager_t*  manage
 }
 #endif
 
-#endif /* PSTAR_BUS_MANAGER_H */
+#endif /* PSTAR_COMPONENT_BUS_MANAGER_H */

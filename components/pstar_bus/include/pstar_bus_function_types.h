@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_function_types.h */
 
-#ifndef PSTAR_BUS_FUNCTION_TYPES_H
-#define PSTAR_BUS_FUNCTION_TYPES_H
+#ifndef PSTAR_COMPONENT_BUS_FUNCTION_TYPES_H
+#define PSTAR_COMPONENT_BUS_FUNCTION_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,4 +88,4 @@ typedef esp_err_t (*pstar_i2c_read_raw_fn_t)(const pstar_bus_config_t* config,
 }
 #endif
 
-#endif /* PSTAR_BUS_FUNCTION_TYPES_H */
+#endif /* PSTAR_COMPONENT_BUS_FUNCTION_TYPES_H */

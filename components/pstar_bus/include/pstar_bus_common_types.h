@@ -1,7 +1,7 @@
 /* components/pstar_bus/include/pstar_bus_common_types.h */
 
-#ifndef PSTAR_BUS_COMMON_TYPES_H
-#define PSTAR_BUS_COMMON_TYPES_H
+#ifndef PSTAR_COMPONENT_BUS_COMMON_TYPES_H
+#define PSTAR_COMPONENT_BUS_COMMON_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,4 +62,4 @@ const char* pstar_bus_type_to_string(pstar_bus_type_t type);
 }
 #endif
 
-#endif /* PSTAR_BUS_COMMON_TYPES_H */
+#endif /* PSTAR_COMPONENT_BUS_COMMON_TYPES_H */
