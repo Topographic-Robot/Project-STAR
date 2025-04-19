@@ -47,48 +47,10 @@ void app_main(void)
   ESP_GOTO_ON_ERROR(ret, cleanup, TAG, "Failed to register BH1750 pins: %s", esp_err_to_name(ret));
 #endif
 
-  /* --- Example: Register JTAG pins if enabled --- */
+  /* Register JTAG pins if enabled */
 #if CONFIG_PSTAR_KCONFIG_JTAG_ENABLED
-  pstar_jtag_t jtag_pins;
-  ret = pstar_get_jtag_pins(&jtag_pins);
-  if (ret == ESP_OK) {
-    /* Register JTAG pins (usually not shared) */
-    ret = pstar_register_pin(jtag_pins.tck, "JTAG TCK", false);
-    ESP_GOTO_ON_ERROR(ret,
-                      cleanup,
-                      TAG,
-                      "Failed to register JTAG TCK pin: %s",
-                      esp_err_to_name(ret));
-
-    ret = pstar_register_pin(jtag_pins.tms, "JTAG TMS", false);
-    ESP_GOTO_ON_ERROR(ret,
-                      cleanup,
-                      TAG,
-                      "Failed to register JTAG TMS pin: %s",
-                      esp_err_to_name(ret));
-
-    ret = pstar_register_pin(jtag_pins.tdi, "JTAG TDI", false);
-    ESP_GOTO_ON_ERROR(ret,
-                      cleanup,
-                      TAG,
-                      "Failed to register JTAG TDI pin: %s",
-                      esp_err_to_name(ret));
-
-    ret = pstar_register_pin(jtag_pins.tdo, "JTAG TDO", false);
-    ESP_GOTO_ON_ERROR(ret,
-                      cleanup,
-                      TAG,
-                      "Failed to register JTAG TDO pin: %s",
-                      esp_err_to_name(ret));
-
-    ESP_LOGI(TAG, "JTAG pins registered.");
-  } else if (ret != ESP_ERR_NOT_SUPPORTED) { /* Ignore error if JTAG just isn't enabled */
-    ESP_GOTO_ON_ERROR(ret,
-                      cleanup,
-                      TAG,
-                      "Failed to get JTAG pins for registration: %s",
-                      esp_err_to_name(ret));
-  }
+  ret = pstar_jtag_register_kconfig_pins();
+  ESP_GOTO_ON_ERROR(ret, cleanup, TAG, "Failed to register JTAG pins: %s", esp_err_to_name(ret));
 #endif /* CONFIG_PSTAR_KCONFIG_JTAG_ENABLED */
 #endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
 
