@@ -7,6 +7,8 @@
 
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "freertos/FreeRTOS.h" /* Added for SemaphoreHandle_t */
+#include "freertos/semphr.h"   /* Added for SemaphoreHandle_t */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -41,13 +43,13 @@ typedef struct pstar_pca9685_hal_dev_t* pstar_pca9685_hal_handle_t;
  *
  * Configures the PCA9685 chip with default settings (e.g., enables auto-increment),
  * sets an initial PWM frequency, and configures the Output Enable (OE) pin if enabled
- * via Kconfig for the default instance.
+ * via Kconfig for the default instance. Creates a mutex for thread-safe access to the handle.
  *
  * @param[in] manager Pointer to the initialized bus manager. Must not be NULL.
  * @param[in] config Configuration specifying the bus name. Must not be NULL.
  * @param[in] initial_freq_hz The initial PWM frequency to set (e.g., 50 for servos).
  * @param[out] out_handle Pointer to store the created HAL handle. Must not be NULL.
- * @return esp_err_t ESP_OK on success, errors otherwise (e.g., bus not found, I2C comm error, GPIO config error).
+ * @return esp_err_t ESP_OK on success, errors otherwise (e.g., bus not found, I2C comm error, GPIO config error, mutex creation error).
  */
 esp_err_t pstar_pca9685_hal_init(const pstar_bus_manager_t*        manager,
                                  const pstar_pca9685_hal_config_t* config,
@@ -57,7 +59,7 @@ esp_err_t pstar_pca9685_hal_init(const pstar_bus_manager_t*        manager,
 /**
  * @brief Deinitialize the PCA9685 HAL.
  *
- * Frees the handle resources. Does NOT deinitialize the underlying I2C bus
+ * Frees the handle resources, including the mutex. Does NOT deinitialize the underlying I2C bus
  * managed by pstar_bus_manager. Optionally puts the chip into sleep mode and
  * disables the output via the OE pin (if configured).
  *
@@ -72,22 +74,24 @@ pstar_pca9685_hal_deinit(pstar_pca9685_hal_handle_t handle, bool sleep, bool dis
 /**
  * @brief Set the PWM frequency for all channels.
  *
+ * This function is thread-safe.
+ *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
  * @param[in] freq_hz The desired frequency in Hz (typically 24Hz to 1526Hz).
- * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_set_pwm_freq(pstar_pca9685_hal_handle_t handle, float freq_hz);
 
 /**
  * @brief Set the raw ON and OFF times for a specific PWM channel.
  *
- * Allows precise control over the PWM pulse timing.
+ * Allows precise control over the PWM pulse timing. This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
  * @param[in] channel The channel number (0-15).
  * @param[in] on_value The time tick (0-4095) when the pulse should turn ON. Use 0x1000 for full ON.
  * @param[in] off_value The time tick (0-4095) when the pulse should turn OFF. Use 0x1000 for full OFF.
- * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if channel invalid, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if channel invalid, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_set_channel_pwm_values(pstar_pca9685_hal_handle_t handle,
                                                    uint8_t                    channel,
@@ -99,12 +103,12 @@ esp_err_t pstar_pca9685_hal_set_channel_pwm_values(pstar_pca9685_hal_handle_t ha
  *
  * This is a convenience function that sets the ON time to 0 and calculates the OFF time
  * based on the desired percentage (0.0 to 100.0). Handles 0% and 100% duty cycles correctly
- * using the full ON/OFF bits.
+ * using the full ON/OFF bits. This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
  * @param[in] channel The channel number (0-15).
  * @param[in] duty_cycle_percent The desired duty cycle (0.0 to 100.0).
- * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if channel or percentage invalid, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if channel or percentage invalid, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_set_channel_duty_cycle(pstar_pca9685_hal_handle_t handle,
                                                    uint8_t                    channel,
@@ -113,25 +117,61 @@ esp_err_t pstar_pca9685_hal_set_channel_duty_cycle(pstar_pca9685_hal_handle_t ha
 /**
  * @brief Set the PWM values for all channels simultaneously.
  *
- * Uses the ALL_LED registers for efficiency.
+ * Uses the ALL_LED registers for efficiency. This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
  * @param[in] on_value The time tick (0-4095) when all pulses should turn ON. Use 0x1000 for full ON.
  * @param[in] off_value The time tick (0-4095) when all pulses should turn OFF. Use 0x1000 for full OFF.
- * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_set_all_pwm_values(pstar_pca9685_hal_handle_t handle,
                                                uint16_t                   on_value,
                                                uint16_t                   off_value);
 
 /**
+ * @brief Set the angle for a specific servo motor channel.
+ *
+ * Calculates the required PWM OFF value based on the configured servo pulse width
+ * range (min/max microseconds), angle range (degrees), and the current PWM frequency.
+ * Assumes the servo pulse starts at time 0 (ON value = 0).
+ * This function is thread-safe.
+ *
+ * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
+ * @param[in] channel The channel number (0-15) connected to the servo.
+ * @param[in] angle_degrees The desired angle in degrees. The value will be clamped
+ *                          to the configured servo angle range (e.g., 0-180).
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if channel invalid,
+ *                   ESP_ERR_TIMEOUT if mutex times out, errors from calculation or bus communication otherwise.
+ */
+esp_err_t pstar_pca9685_hal_set_servo_angle(pstar_pca9685_hal_handle_t handle,
+                                            uint8_t                    channel,
+                                            float                      angle_degrees);
+
+/**
+ * @brief Set the angle for all servo motor channels simultaneously.
+ *
+ * Calculates the required PWM OFF value based on the configured servo pulse width
+ * range, angle range, and the current PWM frequency, then applies it to all channels
+ * using the ALL_LED registers. Assumes all channels are connected to identical servos
+ * and should be set to the same angle.
+ * This function is thread-safe.
+ *
+ * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
+ * @param[in] angle_degrees The desired angle in degrees for all channels. The value will be clamped.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex times out, errors from calculation or bus communication otherwise.
+ */
+esp_err_t pstar_pca9685_hal_set_all_servos_angle(pstar_pca9685_hal_handle_t handle,
+                                                 float                      angle_degrees);
+
+/**
  * @brief Restart the PCA9685 chip's PWM operation.
  *
  * Required after setting the PWM frequency or waking from sleep to ensure
  * PWM outputs resume correctly. Toggles the RESTART bit in MODE1.
+ * This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
- * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_restart(pstar_pca9685_hal_handle_t handle);
 
@@ -141,9 +181,10 @@ esp_err_t pstar_pca9685_hal_restart(pstar_pca9685_hal_handle_t handle);
  * Sets the SLEEP bit in MODE1 to reduce power consumption. The oscillator is stopped.
  * Note: This does NOT affect the OE pin state. Use `pstar_pca9685_hal_output_disable`
  * to disable outputs via the OE pin.
+ * This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
- * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_sleep(pstar_pca9685_hal_handle_t handle);
 
@@ -153,9 +194,10 @@ esp_err_t pstar_pca9685_hal_sleep(pstar_pca9685_hal_handle_t handle);
  * Clears the SLEEP bit in MODE1. The oscillator is started.
  * Needs a small delay (typically >500us) before outputs are resumed. Consider calling
  * pstar_pca9685_hal_restart() after wakeup if needed.
+ * This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
- * @return esp_err_t ESP_OK on success, errors from bus communication otherwise.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_TIMEOUT if mutex times out, errors from bus communication otherwise.
  */
 esp_err_t pstar_pca9685_hal_wakeup(pstar_pca9685_hal_handle_t handle);
 
@@ -164,9 +206,10 @@ esp_err_t pstar_pca9685_hal_wakeup(pstar_pca9685_hal_handle_t handle);
  *
  * Sets the configured OE GPIO pin to the active level (low or high based on Kconfig/custom setup).
  * Does nothing if OE pin control is not configured for this handle.
+ * This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
- * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_STATE if OE pin not configured, or error from gpio_set_level.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_STATE if OE pin not configured, ESP_ERR_TIMEOUT if mutex times out, or error from gpio_set_level.
  */
 esp_err_t pstar_pca9685_hal_output_enable(pstar_pca9685_hal_handle_t handle);
 
@@ -175,9 +218,10 @@ esp_err_t pstar_pca9685_hal_output_enable(pstar_pca9685_hal_handle_t handle);
  *
  * Sets the configured OE GPIO pin to the inactive level (high or low based on Kconfig/custom setup).
  * Does nothing if OE pin control is not configured for this handle.
+ * This function is thread-safe.
  *
  * @param[in] handle Handle obtained from pstar_pca9685_hal_init.
- * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_STATE if OE pin not configured, or error from gpio_set_level.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_STATE if OE pin not configured, ESP_ERR_TIMEOUT if mutex times out, or error from gpio_set_level.
  */
 esp_err_t pstar_pca9685_hal_output_disable(pstar_pca9685_hal_handle_t handle);
 

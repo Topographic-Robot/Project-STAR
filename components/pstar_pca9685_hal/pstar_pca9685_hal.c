@@ -9,7 +9,8 @@
 
 #include "driver/gpio.h" /* Include GPIO driver for OE pin */
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h" /* For vTaskDelay */
+#include "freertos/semphr.h" /* For mutex */
+#include "freertos/task.h"   /* For vTaskDelay */
 
 #include <math.h>   /* For floor, roundf */
 #include <stdio.h>  /* For snprintf */
@@ -59,10 +60,11 @@ static const char* TAG = "PCA9685 HAL";
 #define PCA9685_MODE2_OUTNE0 (1 << 0) /**< Output mode bit 0 */
 
 /* --- Constants --- */
-#define PCA9685_OSC_CLOCK_MHZ 25.0f /**< Internal oscillator frequency in MHz */
-#define PCA9685_WAKEUP_DELAY_US 500 /**< Delay needed after waking from sleep (datasheet) */
-#define MAX_DEFAULT_BOARDS 16       /**< Sanity limit for default init count */
-#define BUS_NAME_MAX_LEN 32         /**< Max length for generated bus names */
+#define PCA9685_OSC_CLOCK_MHZ 25.0f   /**< Internal oscillator frequency in MHz */
+#define PCA9685_WAKEUP_DELAY_US 500   /**< Delay needed after waking from sleep (datasheet) */
+#define MAX_DEFAULT_BOARDS 16         /**< Sanity limit for default init count */
+#define BUS_NAME_MAX_LEN 32           /**< Max length for generated bus names */
+#define PCA9685_MUTEX_TIMEOUT_MS 1000 /* Timeout for acquiring HAL mutex */
 
 /* --- KConfig Defaults --- */
 #ifdef CONFIG_PSTAR_KCONFIG_PCA9685_ENABLED /* Only define if component enabled */
@@ -100,6 +102,10 @@ static const char* TAG = "PCA9685 HAL";
 #define PCA9685_DEFAULT_OE_PIN (-1)       /* Invalid pin if OE not used */
 #define PCA9685_DEFAULT_OE_ACTIVE_LOW (1) /* Default to active low if somehow used without enable */
 #endif
+/* Servo Kconfig Defaults */
+#define PCA9685_SERVO_MIN_PULSE_US CONFIG_PSTAR_KCONFIG_PCA9685_SERVO_MIN_PULSE_US
+#define PCA9685_SERVO_MAX_PULSE_US CONFIG_PSTAR_KCONFIG_PCA9685_SERVO_MAX_PULSE_US
+#define PCA9685_SERVO_ANGLE_RANGE ((float)CONFIG_PSTAR_KCONFIG_PCA9685_SERVO_ANGLE_RANGE)
 
 #else /* Define fallbacks if component disabled to avoid compile errors elsewhere */
 #define PCA9685_DEFAULT_INIT_COUNT (0)
@@ -115,6 +121,10 @@ static const char* TAG = "PCA9685 HAL";
 #define PCA9685_DEFAULT_SDA_PIN (21)
 #define PCA9685_DEFAULT_SCL_PIN (22)
 #define PCA9685_DEFAULT_I2C_FREQ_HZ (400000)
+/* Servo defaults */
+#define PCA9685_SERVO_MIN_PULSE_US (1000)
+#define PCA9685_SERVO_MAX_PULSE_US (2000)
+#define PCA9685_SERVO_ANGLE_RANGE (180.0f)
 #endif /* CONFIG_PSTAR_KCONFIG_PCA9685_ENABLED */
 
 /* --- Internal Handle Structure --- */
@@ -125,12 +135,14 @@ typedef struct pstar_pca9685_hal_dev_t {
   gpio_num_t                 oe_pin;          /**< GPIO number for OE pin, or < 0 if not used */
   bool                       oe_active_low;   /**< True if OE pin is active low */
   bool                       output_enabled;  /**< Current state of the output enable */
+  SemaphoreHandle_t          mutex;           /**< Mutex for thread-safe access to handle state */
 } pstar_pca9685_hal_dev_t;
 
 /* --- Helper Functions --- */
 
 /**
  * @brief Write a single byte to a PCA9685 register.
+ *        Assumes mutex is already taken if needed.
  *
  * @param handle PCA9685 HAL handle.
  * @param reg_addr Register address to write to.
@@ -138,15 +150,15 @@ typedef struct pstar_pca9685_hal_dev_t {
  * @return esp_err_t ESP_OK on success, or error from pstar_bus_i2c_write.
  */
 static esp_err_t
-priv_pca9685_write_byte(pstar_pca9685_hal_handle_t handle, uint8_t reg_addr, uint8_t value)
+priv_pca9685_write_byte_nolock(pstar_pca9685_hal_handle_t handle, uint8_t reg_addr, uint8_t value)
 {
-  ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
-  /* Use the bus manager's write function, writing 1 byte (value) to the specified register (reg_addr) */
+  /* No NULL check here, assumed valid by caller */
   return pstar_bus_i2c_write(handle->bus_manager, handle->bus_name, &value, 1, reg_addr, NULL);
 }
 
 /**
  * @brief Read a single byte from a PCA9685 register.
+ *        Assumes mutex is already taken if needed.
  *
  * @param handle PCA9685 HAL handle.
  * @param reg_addr Register address to read from.
@@ -154,25 +166,41 @@ priv_pca9685_write_byte(pstar_pca9685_hal_handle_t handle, uint8_t reg_addr, uin
  * @return esp_err_t ESP_OK on success, or error from pstar_bus_i2c_read.
  */
 static esp_err_t
-priv_pca9685_read_byte(pstar_pca9685_hal_handle_t handle, uint8_t reg_addr, uint8_t* value)
+priv_pca9685_read_byte_nolock(pstar_pca9685_hal_handle_t handle, uint8_t reg_addr, uint8_t* value)
 {
-  ESP_RETURN_ON_FALSE(handle && value,
-                      ESP_ERR_INVALID_ARG,
-                      TAG,
-                      "Device handle or value pointer is NULL");
-  /* Use the bus manager's read function, reading 1 byte into 'value' from the specified register (reg_addr) */
+  /* No NULL check here, assumed valid by caller */
   return pstar_bus_i2c_read(handle->bus_manager, handle->bus_name, value, 1, reg_addr, NULL);
 }
 
 /**
+ * @brief Write multiple bytes to PCA9685 starting from a register address.
+ *        Uses I2C auto-increment feature. Assumes mutex is already taken.
+ *
+ * @param handle PCA9685 HAL handle.
+ * @param reg_addr Starting register address.
+ * @param data Pointer to data buffer.
+ * @param len Number of bytes to write.
+ * @return esp_err_t ESP_OK on success, or error from pstar_bus_i2c_write.
+ */
+static esp_err_t priv_pca9685_write_bytes_nolock(pstar_pca9685_hal_handle_t handle,
+                                                 uint8_t                    reg_addr,
+                                                 const uint8_t*             data,
+                                                 size_t                     len)
+{
+  /* No NULL check here, assumed valid by caller */
+  return pstar_bus_i2c_write(handle->bus_manager, handle->bus_name, data, len, reg_addr, NULL);
+}
+
+/**
  * @brief Configure the OE GPIO pin.
+ *        Assumes mutex is already taken.
  *
  * @param handle PCA9685 HAL handle containing OE pin info.
  * @return esp_err_t ESP_OK on success, or error from GPIO configuration.
  */
-static esp_err_t priv_pca9685_configure_oe_pin(pstar_pca9685_hal_handle_t handle)
+static esp_err_t priv_pca9685_configure_oe_pin_nolock(pstar_pca9685_hal_handle_t handle)
 {
-  ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  /* No NULL check here, assumed valid by caller */
 
   if (handle->oe_pin < 0 || handle->oe_pin >= GPIO_NUM_MAX) {
     ESP_LOGI(TAG,
@@ -207,6 +235,67 @@ static esp_err_t priv_pca9685_configure_oe_pin(pstar_pca9685_hal_handle_t handle
   handle->output_enabled = false; /* Start disabled */
 
   ESP_LOGI(TAG, "OE pin %d configured successfully (initial state: disabled)", handle->oe_pin);
+  return ESP_OK;
+}
+
+/**
+ * @brief Calculate the PCA9685 OFF value for a given servo angle.
+ *        Uses Kconfig values for servo parameters.
+ *        Assumes mutex is already taken.
+ *
+ * @param handle PCA9685 HAL handle (used for current frequency).
+ * @param angle_degrees Desired angle.
+ * @param[out] out_off_value Pointer to store the calculated OFF value.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if frequency is invalid.
+ */
+static esp_err_t priv_calculate_servo_pwm_off_value_nolock(pstar_pca9685_hal_handle_t handle,
+                                                           float                      angle_degrees,
+                                                           uint16_t*                  out_off_value)
+{
+  /* No NULL check here, assumed valid by caller */
+  const uint32_t servo_min_pulse_us = PCA9685_SERVO_MIN_PULSE_US;
+  const uint32_t servo_max_pulse_us = PCA9685_SERVO_MAX_PULSE_US;
+  const float    servo_angle_range  = PCA9685_SERVO_ANGLE_RANGE;
+  const float    pwm_freq_hz        = handle->current_freq_hz;
+
+  /* Clamp angle */
+  if (angle_degrees < 0.0f) {
+    angle_degrees = 0.0f;
+  } else if (angle_degrees > servo_angle_range) {
+    angle_degrees = servo_angle_range;
+  }
+
+  ESP_RETURN_ON_FALSE(pwm_freq_hz > 0,
+                      ESP_ERR_INVALID_ARG,
+                      TAG,
+                      "Invalid PWM frequency for servo calculation: %.1f Hz",
+                      pwm_freq_hz);
+
+  float pulse_us = servo_min_pulse_us +
+                   (angle_degrees / servo_angle_range) * (servo_max_pulse_us - servo_min_pulse_us);
+  float period_us        = 1000000.0f / pwm_freq_hz;
+  float time_per_tick_us = period_us / 4096.0f;
+
+  ESP_RETURN_ON_FALSE(time_per_tick_us > 0,
+                      ESP_ERR_INVALID_STATE,
+                      TAG,
+                      "Division by zero: time_per_tick_us is zero (check frequency).");
+
+  uint16_t off_value = (uint16_t)roundf(pulse_us / time_per_tick_us);
+
+  /* Clamp to max value */
+  if (off_value > PCA9685_MAX_PWM_VALUE) {
+    off_value = PCA9685_MAX_PWM_VALUE;
+  }
+
+  ESP_LOGD(TAG,
+           "Angle: %.1f -> Pulse: %.1f us -> OFF Value: %u (Freq: %.1f Hz)",
+           angle_degrees,
+           pulse_us,
+           off_value,
+           pwm_freq_hz);
+
+  *out_off_value = off_value;
   return ESP_OK;
 }
 
@@ -259,62 +348,101 @@ static esp_err_t priv_pca9685_hal_init_internal(const pstar_bus_manager_t*      
     return ESP_ERR_NO_MEM;
   }
 
+  /* Create mutex */
+  dev->mutex = xSemaphoreCreateMutex();
+  if (!dev->mutex) {
+    ESP_LOGE(TAG, "Failed to create mutex for handle '%s'", dev->bus_name);
+    free(dev->bus_name);
+    free(dev);
+    return ESP_ERR_NO_MEM;
+  }
+
+  /* Take mutex for the rest of initialization */
+  if (xSemaphoreTake(dev->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex during init for '%s'", dev->bus_name);
+    vSemaphoreDelete(dev->mutex);
+    free(dev->bus_name);
+    free(dev);
+    return ESP_ERR_TIMEOUT;
+  }
+
   /* Store OE pin configuration */
   dev->oe_pin         = oe_pin;
   dev->oe_active_low  = oe_active_low;
   dev->output_enabled = false; /* Start disabled */
 
   /* --- Configure OE Pin (if applicable) --- */
-  ret = priv_pca9685_configure_oe_pin(dev);
-  ESP_GOTO_ON_ERROR(ret, init_fail, TAG, "Failed to configure OE pin: %s", esp_err_to_name(ret));
+  ret = priv_pca9685_configure_oe_pin_nolock(dev);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to configure OE pin: %s", esp_err_to_name(ret));
+    goto init_fail_mutex;
+  }
 
   /* --- PCA9685 Initialization Sequence --- */
   ESP_LOGI(TAG, "Initializing PCA9685 on bus '%s'...", dev->bus_name);
 
   /* 1. Reset MODE1 register to default value (clears SLEEP bit, enables auto-increment) */
-  ret = priv_pca9685_write_byte(dev, PCA9685_MODE1, PCA9685_MODE1_AI); /* Enable auto-increment */
-  ESP_GOTO_ON_ERROR(ret, init_fail, TAG, "Failed to reset MODE1: %s", esp_err_to_name(ret));
+  ret = priv_pca9685_write_byte_nolock(dev, PCA9685_MODE1, PCA9685_MODE1_AI);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to reset MODE1: %s", esp_err_to_name(ret));
+    goto init_fail_mutex;
+  }
   vTaskDelay(pdMS_TO_TICKS(5)); /* Allow oscillator to stabilize after potential reset/power-on */
 
   /* 2. Set MODE2 register to default (totem pole output) */
-  ret = priv_pca9685_write_byte(dev, PCA9685_MODE2, PCA9685_MODE2_OUTDRV);
-  ESP_GOTO_ON_ERROR(ret, init_fail, TAG, "Failed to set MODE2: %s", esp_err_to_name(ret));
+  ret = priv_pca9685_write_byte_nolock(dev, PCA9685_MODE2, PCA9685_MODE2_OUTDRV);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to set MODE2: %s", esp_err_to_name(ret));
+    goto init_fail_mutex;
+  }
 
-  /* 3. Set initial PWM frequency */
+  /* 3. Set initial PWM frequency (internal function takes care of sleep/restart) */
+  /* Note: set_pwm_freq acquires the mutex itself, so release before calling */
+  xSemaphoreGive(dev->mutex);
   ret = pstar_pca9685_hal_set_pwm_freq(dev, initial_freq_hz);
-  ESP_GOTO_ON_ERROR(ret,
-                    init_fail,
-                    TAG,
-                    "Failed to set initial PWM frequency: %s",
-                    esp_err_to_name(ret));
+  /* Re-acquire mutex after call */
+  if (xSemaphoreTake(dev->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout re-acquiring mutex after set_pwm_freq for '%s'", dev->bus_name);
+    /* Cannot reliably continue, cleanup needed */
+    vSemaphoreDelete(dev->mutex);
+    free(dev->bus_name);
+    free(dev);
+    return ESP_ERR_TIMEOUT;
+  }
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to set initial PWM frequency: %s", esp_err_to_name(ret));
+    goto init_fail_mutex;
+  }
 
   /* 4. Set all PWM channels OFF initially */
-  ret = pstar_pca9685_hal_set_all_pwm_values(dev, 0, 0x1000); /* Full OFF */
-  ESP_GOTO_ON_ERROR(ret,
-                    init_fail,
-                    TAG,
-                    "Failed to set all channels OFF: %s",
-                    esp_err_to_name(ret));
+  uint8_t all_off_data[4] = {0x00, 0x00, 0x00, 0x10}; /* ON=0, OFF=4096 (Full OFF bit) */
+  ret = priv_pca9685_write_bytes_nolock(dev, PCA9685_ALL_LED_ON_L, all_off_data, 4);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to set all channels OFF: %s", esp_err_to_name(ret));
+    goto init_fail_mutex;
+  }
 
-  /* 5. Enable output if OE pin is configured (optional initial state, could leave disabled) */
-  /* ret = pstar_pca9685_hal_output_enable(dev); */
-  /* ESP_GOTO_ON_ERROR(ret, init_fail, TAG, "Failed to enable output initially: %s", esp_err_to_name(ret)); */
+  /* Initialization successful */
+  xSemaphoreGive(dev->mutex); /* Release mutex */
 
   ESP_LOGI(TAG,
            "PCA9685 initialized successfully on bus '%s' at %.2f Hz (OE Pin: %d)",
            dev->bus_name,
-           dev->current_freq_hz,
+           dev->current_freq_hz, /* Freq updated by set_pwm_freq */
            dev->oe_pin);
   *out_handle = dev;
   return ESP_OK;
 
-init_fail:
+init_fail_mutex:
+  xSemaphoreGive(dev->mutex); /* Release mutex on failure */
   ESP_LOGE(TAG, "PCA9685 initialization failed on bus '%s'", dev->bus_name);
   if (dev) {
+    if (dev->mutex) {
+      vSemaphoreDelete(dev->mutex);
+    }
     if (dev->bus_name) {
       free(dev->bus_name);
     }
-    /* No need to deconfigure GPIO here, system handles it. */
     free(dev);
   }
   *out_handle = NULL;
@@ -353,27 +481,50 @@ pstar_pca9685_hal_deinit(pstar_pca9685_hal_handle_t handle, bool sleep, bool dis
            "Deinitializing PCA9685 HAL for bus '%s'",
            handle->bus_name ? handle->bus_name : "UNKNOWN");
 
+  /* Take mutex */
+  if (handle->mutex &&
+      xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex during deinit for '%s'", handle->bus_name);
+    /* Continue cleanup cautiously */
+  }
+
   if (disable_output) {
-    esp_err_t disable_ret = pstar_pca9685_hal_output_disable(handle);
-    if (disable_ret != ESP_OK &&
-        disable_ret != ESP_ERR_INVALID_STATE) { /* Ignore if OE not configured */
-      ESP_LOGE(TAG, "Failed to disable output during deinit: %s", esp_err_to_name(disable_ret));
-    } else if (disable_ret == ESP_OK) {
-      ESP_LOGD(TAG, "Output disabled via OE pin.");
+    if (handle->oe_pin >= 0) {
+      uint32_t  inactive_level = handle->oe_active_low ? 1 : 0;
+      esp_err_t disable_ret    = gpio_set_level(handle->oe_pin, inactive_level);
+      if (disable_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to disable output during deinit: %s", esp_err_to_name(disable_ret));
+      } else {
+        handle->output_enabled = false;
+        ESP_LOGD(TAG, "Output disabled via OE pin.");
+      }
     }
   }
 
   if (sleep) {
-    esp_err_t sleep_ret = pstar_pca9685_hal_sleep(handle);
-    if (sleep_ret != ESP_OK) {
-      /* Log error but continue deinit */
-      ESP_LOGE(TAG, "Failed to send Sleep command during deinit: %s", esp_err_to_name(sleep_ret));
+    uint8_t   mode1;
+    esp_err_t read_ret = priv_pca9685_read_byte_nolock(handle, PCA9685_MODE1, &mode1);
+    if (read_ret == ESP_OK) {
+      mode1               = (mode1 & ~PCA9685_MODE1_RESTART) | PCA9685_MODE1_SLEEP;
+      esp_err_t sleep_ret = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, mode1);
+      if (sleep_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to send Sleep command during deinit: %s", esp_err_to_name(sleep_ret));
+      } else {
+        ESP_LOGD(TAG, "Sent Sleep command.");
+      }
     } else {
-      ESP_LOGD(TAG, "Sent Sleep command.");
+      ESP_LOGE(TAG,
+               "Failed to read MODE1 before sleep during deinit: %s",
+               esp_err_to_name(read_ret));
     }
   }
 
-  /* No need to explicitly deconfigure GPIO, driver handles it. */
+  /* Release and delete mutex */
+  if (handle->mutex) {
+    xSemaphoreGive(handle->mutex);
+    vSemaphoreDelete(handle->mutex);
+    handle->mutex = NULL;
+  }
 
   if (handle->bus_name) {
     free(handle->bus_name);
@@ -385,56 +536,70 @@ pstar_pca9685_hal_deinit(pstar_pca9685_hal_handle_t handle, bool sleep, bool dis
 esp_err_t pstar_pca9685_hal_set_pwm_freq(pstar_pca9685_hal_handle_t handle, float freq_hz)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for set_pwm_freq on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
   ESP_LOGD(TAG, "Setting PWM frequency to %.2f Hz for '%s'", freq_hz, handle->bus_name);
 
-  /* Clamp frequency to datasheet limits */
+  /* Clamp frequency */
   if (freq_hz < 24.0f)
     freq_hz = 24.0f;
   if (freq_hz > 1526.0f)
     freq_hz = 1526.0f;
 
-  /* Calculate prescale value */
   float   prescale_float = (PCA9685_OSC_CLOCK_MHZ * 1000000.0f) / (4096.0f * freq_hz) - 1.0f;
-  uint8_t prescale       = (uint8_t)floor(prescale_float + 0.5f); /* Round to nearest integer */
-
+  uint8_t prescale       = (uint8_t)floor(prescale_float + 0.5f);
   ESP_LOGD(TAG, "Calculated prescale value: %d for %.2f Hz", prescale, freq_hz);
 
-  esp_err_t ret;
-  uint8_t   old_mode1;
+  uint8_t old_mode1;
+  ret = priv_pca9685_read_byte_nolock(handle, PCA9685_MODE1, &old_mode1);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to read MODE1 before setting frequency: %s", esp_err_to_name(ret));
+    goto freq_fail_mutex;
+  }
 
-  /* 1. Read current MODE1 register */
-  ret = priv_pca9685_read_byte(handle, PCA9685_MODE1, &old_mode1);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to read MODE1 before setting frequency");
-
-  /* 2. Set SLEEP bit in MODE1 to allow changing the prescaler */
   uint8_t new_mode1 = (old_mode1 & ~PCA9685_MODE1_RESTART) | PCA9685_MODE1_SLEEP;
-  ret               = priv_pca9685_write_byte(handle, PCA9685_MODE1, new_mode1);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to enter sleep mode before setting frequency");
-  vTaskDelay(pdMS_TO_TICKS(1)); /* Wait >500ns for oscillator stop */
+  ret               = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, new_mode1);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to enter sleep mode before setting frequency: %s", esp_err_to_name(ret));
+    goto freq_fail_mutex;
+  }
+  vTaskDelay(pdMS_TO_TICKS(1));
 
-  /* 3. Write the prescale value */
-  ret = priv_pca9685_write_byte(handle, PCA9685_PRE_SCALE, prescale);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to write prescale value");
+  ret = priv_pca9685_write_byte_nolock(handle, PCA9685_PRE_SCALE, prescale);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to write prescale value: %s", esp_err_to_name(ret));
+    goto freq_fail_mutex;
+  }
 
-  /* 4. Restore original MODE1 (clearing SLEEP) */
-  ret = priv_pca9685_write_byte(handle,
-                                PCA9685_MODE1,
-                                old_mode1 & ~PCA9685_MODE1_SLEEP); /* Ensure sleep is cleared */
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to restore MODE1 after setting frequency");
-  vTaskDelay(pdMS_TO_TICKS(1)); /* Wait >500us for oscillator to wake up */
+  ret = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, old_mode1 & ~PCA9685_MODE1_SLEEP);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to restore MODE1 after setting frequency: %s", esp_err_to_name(ret));
+    goto freq_fail_mutex;
+  }
+  vTaskDelay(pdMS_TO_TICKS(1));
 
-  /* 5. Set RESTART bit to restart PWM channels with the new frequency */
-  ret = priv_pca9685_write_byte(handle, PCA9685_MODE1, old_mode1 | PCA9685_MODE1_RESTART);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to set RESTART bit after setting frequency");
+  ret = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, old_mode1 | PCA9685_MODE1_RESTART);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to set RESTART bit after setting frequency: %s", esp_err_to_name(ret));
+    goto freq_fail_mutex;
+  }
 
-  /* Store the actual frequency set (based on rounded prescale) */
   handle->current_freq_hz = (PCA9685_OSC_CLOCK_MHZ * 1000000.0f) / (4096.0f * (prescale + 1));
   ESP_LOGD(TAG,
            "Frequency set for '%s'. Actual frequency: %.2f Hz",
            handle->bus_name,
            handle->current_freq_hz);
 
-  return ESP_OK;
+freq_fail_mutex:
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t pstar_pca9685_hal_set_channel_pwm_values(pstar_pca9685_hal_handle_t handle,
@@ -448,8 +613,15 @@ esp_err_t pstar_pca9685_hal_set_channel_pwm_values(pstar_pca9685_hal_handle_t ha
                       TAG,
                       "Invalid channel number: %d",
                       channel);
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
 
-  /* Mask values to 13 bits (12 bits timer + 1 bit full ON/OFF) */
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for set_channel_pwm on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
   on_value &= 0x1FFF;
   off_value &= 0x1FFF;
 
@@ -460,26 +632,23 @@ esp_err_t pstar_pca9685_hal_set_channel_pwm_values(pstar_pca9685_hal_handle_t ha
            on_value,
            off_value);
 
-  esp_err_t ret;
-  uint8_t   reg_base =
-    PCA9685_LED0_ON_L + (4 * channel); /* Calculate base register address for the channel */
+  uint8_t reg_base = PCA9685_LED0_ON_L + (4 * channel);
+  uint8_t data[4]  = {(uint8_t)(on_value & 0xFF),
+                      (uint8_t)(on_value >> 8),
+                      (uint8_t)(off_value & 0xFF),
+                      (uint8_t)(off_value >> 8)};
 
-  /* Write ON_L, ON_H, OFF_L, OFF_H using auto-increment (AI bit must be set in MODE1) */
-  uint8_t data[4] = {
-    (uint8_t)(on_value & 0xFF),  /* ON_L */
-    (uint8_t)(on_value >> 8),    /* ON_H (includes full ON bit) */
-    (uint8_t)(off_value & 0xFF), /* OFF_L */
-    (uint8_t)(off_value >> 8)    /* OFF_H (includes full OFF bit) */
-  };
+  ret = priv_pca9685_write_bytes_nolock(handle, reg_base, data, 4);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG,
+             "Failed to write PWM values for channel %d on '%s': %s",
+             channel,
+             handle->bus_name,
+             esp_err_to_name(ret));
+  }
 
-  ret = pstar_bus_i2c_write(handle->bus_manager, handle->bus_name, data, 4, reg_base, NULL);
-  ESP_RETURN_ON_ERROR(ret,
-                      TAG,
-                      "Failed to write PWM values for channel %d on '%s'",
-                      channel,
-                      handle->bus_name);
-
-  return ESP_OK;
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t pstar_pca9685_hal_set_channel_duty_cycle(pstar_pca9685_hal_handle_t handle,
@@ -496,30 +665,26 @@ esp_err_t pstar_pca9685_hal_set_channel_duty_cycle(pstar_pca9685_hal_handle_t ha
                       ESP_ERR_INVALID_ARG,
                       TAG,
                       "Duty cycle must be between 0.0 and 100.0");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
 
   uint16_t on_value  = 0;
   uint16_t off_value = 0;
 
   if (duty_cycle_percent >= 100.0f) {
-    /* Special case for 100% duty cycle: Set Full ON bit (bit 12 of ON value) */
     on_value  = 0x1000;
-    off_value = 0; /* Off value doesn't matter when Full ON is set */
+    off_value = 0;
   } else if (duty_cycle_percent <= 0.0f) {
-    /* Special case for 0% duty cycle: Set Full OFF bit (bit 12 of OFF value) */
-    on_value  = 0; /* On value doesn't matter when Full OFF is set */
+    on_value  = 0;
     off_value = 0x1000;
   } else {
-    /* Calculate OFF value based on percentage of the 4096 clock cycles */
-    /* Ensure calculation uses float division */
     off_value = (uint16_t)roundf((duty_cycle_percent / 100.0f) * 4096.0f);
-    /* Clamp to max value (0xFFF = 4095) */
     if (off_value > PCA9685_MAX_PWM_VALUE) {
       off_value = PCA9685_MAX_PWM_VALUE;
     }
-    /* Standard PWM: turn ON at time 0, turn OFF at calculated time */
     on_value = 0;
   }
-  /* Use the function that handles the full ON/OFF bits correctly */
+
+  /* Call the raw value setter (which handles mutex) */
   return pstar_pca9685_hal_set_channel_pwm_values(handle, channel, on_value, off_value);
 }
 
@@ -528,8 +693,15 @@ esp_err_t pstar_pca9685_hal_set_all_pwm_values(pstar_pca9685_hal_handle_t handle
                                                uint16_t                   off_value)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
 
-  /* Mask values to 13 bits */
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for set_all_pwm on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
   on_value &= 0x1FFF;
   off_value &= 0x1FFF;
 
@@ -539,111 +711,256 @@ esp_err_t pstar_pca9685_hal_set_all_pwm_values(pstar_pca9685_hal_handle_t handle
            on_value,
            off_value);
 
-  esp_err_t ret;
-  uint8_t   reg_base = PCA9685_ALL_LED_ON_L; /* Base register for ALL_LED control */
+  uint8_t reg_base = PCA9685_ALL_LED_ON_L;
+  uint8_t data[4]  = {(uint8_t)(on_value & 0xFF),
+                      (uint8_t)(on_value >> 8),
+                      (uint8_t)(off_value & 0xFF),
+                      (uint8_t)(off_value >> 8)};
 
-  /* Write ALL_LED_ON_L, ALL_LED_ON_H, ALL_LED_OFF_L, ALL_LED_OFF_H using auto-increment */
-  uint8_t data[4] = {
-    (uint8_t)(on_value & 0xFF),  /* ON_L */
-    (uint8_t)(on_value >> 8),    /* ON_H */
-    (uint8_t)(off_value & 0xFF), /* OFF_L */
-    (uint8_t)(off_value >> 8)    /* OFF_H */
-  };
+  ret = priv_pca9685_write_bytes_nolock(handle, reg_base, data, 4);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG,
+             "Failed to write ALL_LED PWM values for '%s': %s",
+             handle->bus_name,
+             esp_err_to_name(ret));
+  }
 
-  ret = pstar_bus_i2c_write(handle->bus_manager, handle->bus_name, data, 4, reg_base, NULL);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to write ALL_LED PWM values for '%s'", handle->bus_name);
+  xSemaphoreGive(handle->mutex);
+  return ret;
+}
 
-  return ESP_OK;
+esp_err_t pstar_pca9685_hal_set_servo_angle(pstar_pca9685_hal_handle_t handle,
+                                            uint8_t                    channel,
+                                            float                      angle_degrees)
+{
+  ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(channel < PCA9685_NUM_CHANNELS,
+                      ESP_ERR_INVALID_ARG,
+                      TAG,
+                      "Invalid channel number: %d",
+                      channel);
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret           = ESP_OK;
+  uint16_t  pwm_off_value = 0;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for set_servo_angle on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
+  /* Calculate the OFF value based on angle and current frequency */
+  ret = priv_calculate_servo_pwm_off_value_nolock(handle, angle_degrees, &pwm_off_value);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG,
+             "Failed to calculate PWM for angle %.1f on channel %d: %s",
+             angle_degrees,
+             channel,
+             esp_err_to_name(ret));
+    goto servo_angle_fail_mutex;
+  }
+
+  /* Set the calculated PWM value (ON=0, OFF=calculated) */
+  uint8_t reg_base = PCA9685_LED0_ON_L + (4 * channel);
+  uint8_t data[4]  = {0x00, 0x00, (uint8_t)(pwm_off_value & 0xFF), (uint8_t)(pwm_off_value >> 8)};
+
+  ret = priv_pca9685_write_bytes_nolock(handle, reg_base, data, 4);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG,
+             "Failed to set servo angle %.1f (PWM %u) for channel %d on '%s': %s",
+             angle_degrees,
+             pwm_off_value,
+             channel,
+             handle->bus_name,
+             esp_err_to_name(ret));
+  }
+
+servo_angle_fail_mutex:
+  xSemaphoreGive(handle->mutex);
+  return ret;
+}
+
+esp_err_t pstar_pca9685_hal_set_all_servos_angle(pstar_pca9685_hal_handle_t handle,
+                                                 float                      angle_degrees)
+{
+  ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret           = ESP_OK;
+  uint16_t  pwm_off_value = 0;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for set_all_servos_angle on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
+  /* Calculate the OFF value based on angle and current frequency */
+  ret = priv_calculate_servo_pwm_off_value_nolock(handle, angle_degrees, &pwm_off_value);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG,
+             "Failed to calculate PWM for angle %.1f for all channels: %s",
+             angle_degrees,
+             esp_err_to_name(ret));
+    goto all_servo_angle_fail_mutex;
+  }
+
+  /* Set the calculated PWM value for all channels (ON=0, OFF=calculated) */
+  uint8_t reg_base = PCA9685_ALL_LED_ON_L;
+  uint8_t data[4]  = {0x00, 0x00, (uint8_t)(pwm_off_value & 0xFF), (uint8_t)(pwm_off_value >> 8)};
+
+  ret = priv_pca9685_write_bytes_nolock(handle, reg_base, data, 4);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG,
+             "Failed to set all servos angle %.1f (PWM %u) on '%s': %s",
+             angle_degrees,
+             pwm_off_value,
+             handle->bus_name,
+             esp_err_to_name(ret));
+  }
+
+all_servo_angle_fail_mutex:
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t pstar_pca9685_hal_restart(pstar_pca9685_hal_handle_t handle)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
-  ESP_LOGD(TAG, "Restarting PCA9685 on '%s'", handle->bus_name);
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
 
-  esp_err_t ret;
-  uint8_t   mode1;
+  esp_err_t ret = ESP_OK;
 
-  /* Read current MODE1 */
-  ret = priv_pca9685_read_byte(handle, PCA9685_MODE1, &mode1);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to read MODE1 before restart");
-
-  /* Check if restart bit is already set */
-  if (mode1 & PCA9685_MODE1_RESTART) {
-    /* If restart is set, it might mean the chip is already restarting or stuck. */
-    /* Try clearing sleep first, then set restart. */
-    mode1 &= ~PCA9685_MODE1_SLEEP;
-    ret = priv_pca9685_write_byte(handle, PCA9685_MODE1, mode1);
-    ESP_RETURN_ON_ERROR(ret, TAG, "Failed to clear sleep before restart");
-    vTaskDelay(pdMS_TO_TICKS(1)); /* Small delay */
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for restart on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
   }
 
-  /* Set the RESTART bit (while keeping sleep clear and AI set) */
+  ESP_LOGD(TAG, "Restarting PCA9685 on '%s'", handle->bus_name);
+  uint8_t mode1;
+  ret = priv_pca9685_read_byte_nolock(handle, PCA9685_MODE1, &mode1);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to read MODE1 before restart: %s", esp_err_to_name(ret));
+    goto restart_fail_mutex;
+  }
+
+  if (mode1 & PCA9685_MODE1_RESTART) {
+    mode1 &= ~PCA9685_MODE1_SLEEP;
+    ret = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, mode1);
+    if (ret != ESP_OK) {
+      ESP_LOGE(TAG, "Failed to clear sleep before restart: %s", esp_err_to_name(ret));
+      goto restart_fail_mutex;
+    }
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+
   uint8_t restart_mode = (mode1 & ~PCA9685_MODE1_SLEEP) | PCA9685_MODE1_RESTART | PCA9685_MODE1_AI;
-  ret                  = priv_pca9685_write_byte(handle, PCA9685_MODE1, restart_mode);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to set RESTART bit");
+  ret                  = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, restart_mode);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to set RESTART bit: %s", esp_err_to_name(ret));
+  }
 
-  vTaskDelay(pdMS_TO_TICKS(1)); /* Give time for restart sequence */
+  vTaskDelay(pdMS_TO_TICKS(1));
 
-  return ESP_OK;
+restart_fail_mutex:
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t pstar_pca9685_hal_sleep(pstar_pca9685_hal_handle_t handle)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for sleep on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
   ESP_LOGD(TAG, "Putting PCA9685 on '%s' to sleep", handle->bus_name);
+  uint8_t mode1;
+  ret = priv_pca9685_read_byte_nolock(handle, PCA9685_MODE1, &mode1);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to read MODE1 before sleep: %s", esp_err_to_name(ret));
+    goto sleep_fail_mutex;
+  }
 
-  esp_err_t ret;
-  uint8_t   mode1;
-
-  ret = priv_pca9685_read_byte(handle, PCA9685_MODE1, &mode1);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to read MODE1 before sleep");
-
-  /* Set the SLEEP bit (bit 4), keep other bits as they were (except clear RESTART) */
   mode1 = (mode1 & ~PCA9685_MODE1_RESTART) | PCA9685_MODE1_SLEEP;
-  ret   = priv_pca9685_write_byte(handle, PCA9685_MODE1, mode1);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to write MODE1 to enter sleep");
+  ret   = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, mode1);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to write MODE1 to enter sleep: %s", esp_err_to_name(ret));
+  }
 
-  vTaskDelay(pdMS_TO_TICKS(1)); /* Allow oscillator to stop (>500ns) */
-  return ESP_OK;
+  vTaskDelay(pdMS_TO_TICKS(1));
+
+sleep_fail_mutex:
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t pstar_pca9685_hal_wakeup(pstar_pca9685_hal_handle_t handle)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for wakeup on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
   ESP_LOGD(TAG, "Waking up PCA9685 on '%s'", handle->bus_name);
+  uint8_t mode1;
+  ret = priv_pca9685_read_byte_nolock(handle, PCA9685_MODE1, &mode1);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to read MODE1 before wakeup: %s", esp_err_to_name(ret));
+    goto wakeup_fail_mutex;
+  }
 
-  esp_err_t ret;
-  uint8_t   mode1;
-
-  ret = priv_pca9685_read_byte(handle, PCA9685_MODE1, &mode1);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to read MODE1 before wakeup");
-
-  /* Clear the SLEEP bit (bit 4) */
   uint8_t wakeup_mode = mode1 & ~PCA9685_MODE1_SLEEP;
-  ret                 = priv_pca9685_write_byte(handle, PCA9685_MODE1, wakeup_mode);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to write MODE1 to wake up");
+  ret                 = priv_pca9685_write_byte_nolock(handle, PCA9685_MODE1, wakeup_mode);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to write MODE1 to wake up: %s", esp_err_to_name(ret));
+    goto wakeup_fail_mutex;
+  }
 
-  /* Wait for oscillator to stabilize (datasheet recommends 500us) */
-  vTaskDelay(pdMS_TO_TICKS(1)); /* Minimum delay, usually enough */
+  vTaskDelay(pdMS_TO_TICKS(1));
 
-  /* After waking up, the RESTART bit might need to be set to resume PWM outputs smoothly. */
+  /* Release mutex before calling restart (which takes mutex itself) */
+  xSemaphoreGive(handle->mutex);
   ret = pstar_pca9685_hal_restart(handle);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to restart after wakeup");
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to restart after wakeup: %s", esp_err_to_name(ret));
+  }
+  return ret; /* Return result of restart */
 
-  return ESP_OK;
+wakeup_fail_mutex:
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t pstar_pca9685_hal_output_enable(pstar_pca9685_hal_handle_t handle)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
-  if (handle->oe_pin < 0) {
-    ESP_LOGD(TAG, "Output enable requested for '%s', but OE pin not configured.", handle->bus_name);
-    return ESP_ERR_INVALID_STATE; /* Indicate OE pin not available */
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for output_enable on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
   }
 
-  uint32_t  active_level = handle->oe_active_low ? 0 : 1;
-  esp_err_t ret          = gpio_set_level(handle->oe_pin, active_level);
+  if (handle->oe_pin < 0) {
+    ESP_LOGD(TAG, "Output enable requested for '%s', but OE pin not configured.", handle->bus_name);
+    ret = ESP_ERR_INVALID_STATE;
+    goto oe_enable_fail_mutex;
+  }
+
+  uint32_t active_level = handle->oe_active_low ? 0 : 1;
+  ret                   = gpio_set_level(handle->oe_pin, active_level);
   if (ret == ESP_OK) {
     handle->output_enabled = true;
     ESP_LOGD(TAG, "Output enabled for '%s' via OE pin %d", handle->bus_name, handle->oe_pin);
@@ -655,21 +972,34 @@ esp_err_t pstar_pca9685_hal_output_enable(pstar_pca9685_hal_handle_t handle)
              handle->bus_name,
              esp_err_to_name(ret));
   }
+
+oe_enable_fail_mutex:
+  xSemaphoreGive(handle->mutex);
   return ret;
 }
 
 esp_err_t pstar_pca9685_hal_output_disable(pstar_pca9685_hal_handle_t handle)
 {
   ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Device handle is NULL");
+  ESP_RETURN_ON_FALSE(handle->mutex, ESP_ERR_INVALID_STATE, TAG, "Handle mutex not initialized");
+
+  esp_err_t ret = ESP_OK;
+
+  if (xSemaphoreTake(handle->mutex, pdMS_TO_TICKS(PCA9685_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+    ESP_LOGE(TAG, "Timeout acquiring mutex for output_disable on '%s'", handle->bus_name);
+    return ESP_ERR_TIMEOUT;
+  }
+
   if (handle->oe_pin < 0) {
     ESP_LOGD(TAG,
              "Output disable requested for '%s', but OE pin not configured.",
              handle->bus_name);
-    return ESP_ERR_INVALID_STATE; /* Indicate OE pin not available */
+    ret = ESP_ERR_INVALID_STATE;
+    goto oe_disable_fail_mutex;
   }
 
-  uint32_t  inactive_level = handle->oe_active_low ? 1 : 0;
-  esp_err_t ret            = gpio_set_level(handle->oe_pin, inactive_level);
+  uint32_t inactive_level = handle->oe_active_low ? 1 : 0;
+  ret                     = gpio_set_level(handle->oe_pin, inactive_level);
   if (ret == ESP_OK) {
     handle->output_enabled = false;
     ESP_LOGD(TAG, "Output disabled for '%s' via OE pin %d", handle->bus_name, handle->oe_pin);
@@ -681,8 +1011,14 @@ esp_err_t pstar_pca9685_hal_output_disable(pstar_pca9685_hal_handle_t handle)
              handle->bus_name,
              esp_err_to_name(ret));
   }
+
+oe_disable_fail_mutex:
+  xSemaphoreGive(handle->mutex);
   return ret;
 }
+
+/* --- Default/Custom Creation Functions --- */
+/* These functions remain largely the same, but call the internal init */
 
 esp_err_t pstar_pca9685_hal_create_kconfig_default(pstar_bus_manager_t*        manager,
                                                    pstar_pca9685_hal_handle_t* out_handle)
@@ -864,6 +1200,7 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
         goto loop_cleanup;
       }
     } else if (i > 0 && !PCA9685_DEFAULT_ADDR_INCREMENT) {
+      /* Check if address is still the default, indicating a likely conflict */
       if (current_addr == PCA9685_DEFAULT_I2C_ADDR) {
         ESP_LOGE(
           TAG,
@@ -927,14 +1264,13 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
     }
 
     /* 3. Initialize Bus Hardware (Driver Install) - ONLY IF NOT ALREADY DONE FOR THIS PORT */
-    if (!loop_i2c_config
-           ->initialized) {         // Check if THIS specific config object is marked initialized
-      if (!port_driver_installed) { // Check if WE have installed the driver for this port
+    if (!loop_i2c_config->initialized) {
+      if (!port_driver_installed) {
         ESP_LOGI(TAG,
                  "Initializing I2C driver for Port %d (Board %d).",
                  PCA9685_DEFAULT_I2C_PORT,
                  i);
-        loop_ret = pstar_bus_config_init(loop_i2c_config); // This calls i2c_driver_install
+        loop_ret = pstar_bus_config_init(loop_i2c_config);
         if (loop_ret != ESP_OK) {
           ESP_LOGE(TAG,
                    "Failed to init bus hardware for board %d ('%s'): %s",
@@ -943,21 +1279,19 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
                    esp_err_to_name(loop_ret));
           goto loop_cleanup;
         }
-        port_driver_installed = true; // Mark driver as installed for this port
+        port_driver_installed = true;
       } else {
         ESP_LOGI(
           TAG,
           "I2C driver for Port %d already installed. Marking config '%s' as initialized without calling i2c_driver_install again.",
           PCA9685_DEFAULT_I2C_PORT,
           loop_bus_name);
-        // Manually mark this config as initialized since the underlying driver is ready
         loop_i2c_config->initialized = true;
-        loop_ret                     = ESP_OK; // Pretend init was successful for this config object
+        loop_ret                     = ESP_OK;
       }
     } else {
       ESP_LOGI(TAG, "Bus config '%s' already marked as initialized.", loop_bus_name);
-      // If the config object was already initialized, assume the port driver is too
-      port_driver_installed = true; // Ensure flag is set if we found an initialized config
+      port_driver_installed = true;
       loop_ret              = ESP_OK;
     }
 
@@ -975,7 +1309,6 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
                i,
                loop_bus_name,
                esp_err_to_name(loop_ret));
-      /* Note: Bus config remains in manager even if HAL init fails. Cleanup should handle it. */
       goto loop_cleanup;
     }
 
@@ -985,17 +1318,16 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
     if (loop_ret != ESP_OK) {
       ESP_LOGE(TAG, "Failed to initialize default PCA9685 board %d.", i);
       if (first_error == ESP_OK) {
-        first_error = loop_ret; /* Record the first error encountered */
+        first_error = loop_ret;
       }
-      /* If we created the config but failed to add/init it, destroy it */
       if (loop_config_created && !loop_config_added) {
         ESP_LOGW(TAG,
                  "Destroying config '%s' due to initialization failure for board %d",
                  loop_bus_name,
                  i);
-        pstar_bus_config_destroy(loop_i2c_config); // Clean up the created config
+        pstar_bus_config_destroy(loop_i2c_config);
       }
-      out_handles[i] = NULL; /* Ensure handle is NULL on failure */
+      out_handles[i] = NULL;
     }
   } /* End of loop */
 
@@ -1104,6 +1436,8 @@ cleanup:
     *out_handle = NULL;
   return ret;
 }
+
+/* --- Pin Registration Functions --- */
 
 esp_err_t pstar_pca9685_register_kconfig_pins(void)
 {
