@@ -67,91 +67,115 @@ menu "JTAG Configuration"
 			Enable JTAG debug support in the system. This typically reserves
 			specific GPIO pins for debugging purposes. Ensure these pins do not
 			conflict with other peripherals configured below.
+			The default pins are automatically selected based on your target MCU
+			(set via 'idf.py set-target').
 
 	if PSTAR_KCONFIG_JTAG_ENABLED
 
 		choice PSTAR_KCONFIG_JTAG_PIN_CONFIGURATION_MODE
 			prompt "JTAG Pin Configuration Mode"
 			default PSTAR_KCONFIG_JTAG_USE_DEFAULT
+			help
+				Select how JTAG pins are configured.
+				- Default: Use standard pins for the current target MCU (ESP32, S2, S3, etc.).
+				- Custom: Manually specify GPIO pins for each JTAG signal.
 
 			config PSTAR_KCONFIG_JTAG_USE_DEFAULT
-				bool "Use default JTAG pin configuration for MCU"
-				help
-					Automatically apply the standard JTAG pinout based
-					on the selected MCU target below.
+				bool "Use default JTAG pin configuration for target MCU"
 
 			config PSTAR_KCONFIG_JTAG_USE_CUSTOM
 				bool "Use custom JTAG pin configuration"
-				help
-					Manually specify custom GPIO pins for each JTAG signal.
-					Ensure these pins are valid for JTAG on your specific hardware
-					and do not conflict with other components.
 
 		endchoice
 
-		choice PSTAR_KCONFIG_JTAG_MCU_TARGET
-			prompt "Target MCU for default JTAG pin mapping"
-			depends on PSTAR_KCONFIG_JTAG_USE_DEFAULT
-			default PSTAR_KCONFIG_JTAG_MCU_ESP32
+		# --- Default Pin Definitions (Hidden, set based on target) ---
+		config PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TCK
+			int
+			default 13 if IDF_TARGET_ESP32
+			default 39 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+			# Add defaults for other targets (C3, C6, H2, etc.) if needed
+			default -1 # Default to invalid if target not matched
 
-			config PSTAR_KCONFIG_JTAG_MCU_ESP32
-				bool "ESP32 (Classic)"
-				help
-					Use default pin mapping for ESP32:
-					TCK=GPIO13, TMS=GPIO14, TDI=GPIO12, TDO=GPIO15.
-					Verify these pins are available and not used by other components.
+		config PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TMS
+			int
+			default 14 if IDF_TARGET_ESP32
+			default 40 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+			default -1
 
-			config PSTAR_KCONFIG_JTAG_MCU_ESP32S2
-				bool "ESP32-S2"
-				help
-					Use default pin mapping for ESP32-S2:
-					TCK=GPIO39, TMS=GPIO40, TDI=GPIO41, TDO=GPIO42.
-					Verify these pins are available and not used by other components.
+		config PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TDI
+			int
+			default 12 if IDF_TARGET_ESP32
+			default 41 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+			default -1
 
-			config PSTAR_KCONFIG_JTAG_MCU_ESP32S3
-				bool "ESP32-S3"
-				help
-					Use default pin mapping for ESP32-S3:
-					TCK=GPIO39, TMS=GPIO40, TDI=GPIO41, TDO=GPIO42.
-					Verify these pins are available and not used by other components.
+		config PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TDO
+			int
+			default 15 if IDF_TARGET_ESP32
+			default 42 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+			default -1
 
-		endchoice
-
-		config PSTAR_KCONFIG_JTAG_PIN_TCK
+		# --- Custom Pin Definitions ---
+		config PSTAR_KCONFIG_JTAG_PIN_TCK_CUSTOM
 			int "Custom GPIO for TCK (Test Clock)"
 			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
-			range 0 39 # Adjust range based on target MCU capabilities
+			range 0 54 # Adjust max range based on most capable supported MCU
 			default 13
 			help
 				Specify the GPIO number to use for the TCK (clock) signal.
 				Verify pin validity for JTAG on your target MCU.
 
-		config PSTAR_KCONFIG_JTAG_PIN_TMS
+		config PSTAR_KCONFIG_JTAG_PIN_TMS_CUSTOM
 			int "Custom GPIO for TMS (Test Mode Select)"
 			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
-			range 0 39 # Adjust range based on target MCU capabilities
+			range 0 54
 			default 14
 			help
 				Specify the GPIO number to use for the TMS signal.
 				Verify pin validity for JTAG on your target MCU.
 
-		config PSTAR_KCONFIG_JTAG_PIN_TDI
+		config PSTAR_KCONFIG_JTAG_PIN_TDI_CUSTOM
 			int "Custom GPIO for TDI (Test Data In)"
 			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
-			range 0 39 # Adjust range based on target MCU capabilities
+			range 0 54
 			default 12
 			help
 				Specify the GPIO number to use for the TDI signal.
 				Verify pin validity for JTAG on your target MCU.
 
-		config PSTAR_KCONFIG_JTAG_PIN_TDO
+		config PSTAR_KCONFIG_JTAG_PIN_TDO_CUSTOM
 			int "Custom GPIO for TDO (Test Data Out)"
 			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
-			range 0 39 # Adjust range based on target MCU capabilities
+			range 0 54
 			default 15
 			help
 				Specify the GPIO number to use for the TDO signal.
 				Verify pin validity for JTAG on your target MCU.
+
+		# --- Final Pin Values (Hidden, used by C code) ---
+		config PSTAR_KCONFIG_JTAG_PIN_TCK
+			int
+			default PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TCK if PSTAR_KCONFIG_JTAG_USE_DEFAULT
+			default PSTAR_KCONFIG_JTAG_PIN_TCK_CUSTOM if PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			depends on PSTAR_KCONFIG_JTAG_ENABLED
+
+		config PSTAR_KCONFIG_JTAG_PIN_TMS
+			int
+			default PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TMS if PSTAR_KCONFIG_JTAG_USE_DEFAULT
+			default PSTAR_KCONFIG_JTAG_PIN_TMS_CUSTOM if PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			depends on PSTAR_KCONFIG_JTAG_ENABLED
+
+		config PSTAR_KCONFIG_JTAG_PIN_TDI
+			int
+			default PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TDI if PSTAR_KCONFIG_JTAG_USE_DEFAULT
+			default PSTAR_KCONFIG_JTAG_PIN_TDI_CUSTOM if PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			depends on PSTAR_KCONFIG_JTAG_ENABLED
+
+		config PSTAR_KCONFIG_JTAG_PIN_TDO
+			int
+			default PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TDO if PSTAR_KCONFIG_JTAG_USE_DEFAULT
+			default PSTAR_KCONFIG_JTAG_PIN_TDO_CUSTOM if PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			depends on PSTAR_KCONFIG_JTAG_ENABLED
+
 	endif # PSTAR_KCONFIG_JTAG_ENABLED
 endmenu # JTAG Configuration
 
@@ -510,4 +534,344 @@ menu "PCA9685 PWM Driver Configuration"
 
 	endif # PSTAR_KCONFIG_PCA9685_ENABLED
 endmenu # PCA9685 PWM Driver Configuration
+
+# --- DHT22 Configuration ---
+menu "DHT22 Configuration"
+
+	config PSTAR_KCONFIG_DHT22_ENABLED
+		bool "Enable DHT22 Temp/Humidity Sensor Component"
+		default n
+		help
+			Enable the Project Star DHT22 Temperature and Humidity Sensor component.
+			This sensor uses a custom one-wire protocol on a single GPIO pin.
+
+	if PSTAR_KCONFIG_DHT22_ENABLED
+
+		config PSTAR_KCONFIG_DHT22_GPIO_PIN
+			int "GPIO Pin for DHT22 Data Line"
+			range 0 39 # Adjust range based on target MCU capabilities
+			default 4
+			help
+				Specify the GPIO pin number connected to the DHT22 data line.
+				Ensure this pin is not used by other components or JTAG.
+				An external pull-up resistor (e.g., 4.7k-10k Ohm) is required between
+				this pin and VCC.
+
+	endif # PSTAR_KCONFIG_DHT22_ENABLED
+endmenu # DHT22 Configuration
+
+# --- MQ135 Configuration ---
+menu "MQ135 Air Quality Sensor Configuration"
+
+	config PSTAR_KCONFIG_MQ135_ENABLED
+		bool "Enable MQ135 Air Quality Sensor Component"
+		default n
+		help
+			Enable the Project Star MQ135 Air Quality Sensor component.
+			This sensor provides an analog output voltage proportional to the
+			concentration of various gases (e.g., NH3, NOx, alcohol, Benzene, smoke, CO2).
+			Requires an ADC pin. Accurate PPM conversion requires calibration.
+
+	if PSTAR_KCONFIG_MQ135_ENABLED
+
+		choice PSTAR_KCONFIG_MQ135_PIN_MODE
+			prompt "MQ135 Pin Selection Mode"
+			default PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO
+			help
+				Choose how to specify the ADC pin connected to the MQ135.
+				- Common GPIO Pin: Select from a list of common GPIOs suitable for ADC input
+				  based on your target MCU (ESP32, S3, etc.). The ADC Unit and Channel
+				  will be determined automatically. (Recommended)
+				- Custom Unit/Channel: Manually enter the ADC Unit and Channel number.
+				  Use this if your pin isn't listed or for advanced configuration. Requires
+				  checking your board's datasheet/pinout.
+
+			config PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO
+				bool "Select Common GPIO Pin (Auto-detect Unit/Channel)"
+
+			config PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
+				bool "Enter Custom ADC Unit and Channel"
+
+		endchoice
+
+		# --- Common GPIO Pin Selection (Target Specific) ---
+		choice PSTAR_KCONFIG_MQ135_COMMON_GPIO
+			prompt "Common GPIO Pin"
+			depends on PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO
+			default PSTAR_KCONFIG_MQ135_GPIO_34 if IDF_TARGET_ESP32 # Default for ESP32
+			# Add defaults for other targets if desired, e.g.:
+			# default PSTAR_KCONFIG_MQ135_GPIO_S3_1 if IDF_TARGET_ESP32S3
+			help
+				Select the GPIO pin connected to the MQ135 sensor.
+				Only pins typically usable for ADC on the selected target MCU are shown.
+				The corresponding ADC Unit and Channel will be set automatically.
+				Verify the pin is available on your specific board.
+				WARNING: Using ADC2 pins can conflict with Wi-Fi on some chips (like ESP32). ADC1 is preferred.
+
+			# --- ESP32 Specific Common Pins ---
+			if IDF_TARGET_ESP32
+				config PSTAR_KCONFIG_MQ135_GPIO_36
+					bool "GPIO 36 (ADC1_CH0)"
+				config PSTAR_KCONFIG_MQ135_GPIO_39
+					bool "GPIO 39 (ADC1_CH3)"
+				config PSTAR_KCONFIG_MQ135_GPIO_32
+					bool "GPIO 32 (ADC1_CH4)"
+				config PSTAR_KCONFIG_MQ135_GPIO_33
+					bool "GPIO 33 (ADC1_CH5)"
+				config PSTAR_KCONFIG_MQ135_GPIO_34
+					bool "GPIO 34 (ADC1_CH6)"
+				config PSTAR_KCONFIG_MQ135_GPIO_35
+					bool "GPIO 35 (ADC1_CH7)"
+				# Common ADC2 Pins (Use with caution if Wi-Fi needed)
+				config PSTAR_KCONFIG_MQ135_GPIO_4
+					bool "GPIO 4 (ADC2_CH0)"
+				config PSTAR_KCONFIG_MQ135_GPIO_2
+					bool "GPIO 2 (ADC2_CH2)"
+				config PSTAR_KCONFIG_MQ135_GPIO_15
+					bool "GPIO 15 (ADC2_CH3)"
+				config PSTAR_KCONFIG_MQ135_GPIO_13
+					bool "GPIO 13 (ADC2_CH4)"
+				config PSTAR_KCONFIG_MQ135_GPIO_12
+					bool "GPIO 12 (ADC2_CH5)"
+				config PSTAR_KCONFIG_MQ135_GPIO_14
+					bool "GPIO 14 (ADC2_CH6)"
+				config PSTAR_KCONFIG_MQ135_GPIO_27
+					bool "GPIO 27 (ADC2_CH7)"
+				config PSTAR_KCONFIG_MQ135_GPIO_25
+					bool "GPIO 25 (ADC2_CH8)"
+				config PSTAR_KCONFIG_MQ135_GPIO_26
+					bool "GPIO 26 (ADC2_CH9)"
+			endif # IDF_TARGET_ESP32
+
+			# --- ESP32-S3 Specific Common Pins (Example) ---
+			# Add similar sections for other supported targets (S2, C3, etc.)
+			# Check ESP32-S3 datasheet for ADC pin mappings
+			if IDF_TARGET_ESP32S3
+				config PSTAR_KCONFIG_MQ135_GPIO_S3_1
+					bool "GPIO 1 (ADC1_CH0)"
+				config PSTAR_KCONFIG_MQ135_GPIO_S3_2
+					bool "GPIO 2 (ADC1_CH1)"
+				config PSTAR_KCONFIG_MQ135_GPIO_S3_3
+					bool "GPIO 3 (ADC1_CH2)"
+				config PSTAR_KCONFIG_MQ135_GPIO_S3_4
+					bool "GPIO 4 (ADC1_CH3)"
+				config PSTAR_KCONFIG_MQ135_GPIO_S3_5
+					bool "GPIO 5 (ADC1_CH4)"
+				# Add common ADC2 pins for S3 if needed
+				config PSTAR_KCONFIG_MQ135_GPIO_S3_11
+					bool "GPIO 11 (ADC2_CH0)"
+				# ... etc
+			endif # IDF_TARGET_ESP32S3
+
+		endchoice # PSTAR_KCONFIG_MQ135_COMMON_GPIO
+
+		# --- Custom Unit/Channel Selection ---
+		choice PSTAR_KCONFIG_MQ135_ADC_UNIT_CHOICE_CUSTOM
+			prompt "ADC Unit (Custom Mode)"
+			depends on PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
+			default PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM
+			help
+				Select the ADC unit (1 or 2) for the custom channel.
+				Note: ADC2 channels may conflict with Wi-Fi usage on ESP32.
+
+			config PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM
+				bool "ADC Unit 1 (ADC_UNIT_1)"
+
+			config PSTAR_KCONFIG_MQ135_ADC_UNIT_2_CUSTOM
+				bool "ADC Unit 2 (ADC_UNIT_2)"
+		endchoice
+
+		config PSTAR_KCONFIG_MQ135_ADC_CHANNEL_CUSTOM
+			int "ADC Channel (Custom Mode)"
+			depends on PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
+			range 0 9 # Max channel number across common ESP32 ADC units
+			default 6
+			help
+				Manually enter the ADC channel number (0-9).
+				You MUST verify the correct channel number corresponding to the GPIO pin
+				you are using on your specific ESP32 board/variant by consulting its
+				datasheet or pinout diagram. Ensure the chosen GPIO pin is not used
+				by other components.
+
+		# --- Hidden configs to store the final Unit and Channel ---
+		# Determine ADC Unit based on selections
+		config PSTAR_KCONFIG_MQ135_ADC_UNIT
+			int
+			default 1 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_36 || PSTAR_KCONFIG_MQ135_GPIO_39 || PSTAR_KCONFIG_MQ135_GPIO_32 || PSTAR_KCONFIG_MQ135_GPIO_33 || PSTAR_KCONFIG_MQ135_GPIO_34 || PSTAR_KCONFIG_MQ135_GPIO_35) # ESP32 ADC1
+			default 2 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_4 || PSTAR_KCONFIG_MQ135_GPIO_2 || PSTAR_KCONFIG_MQ135_GPIO_15 || PSTAR_KCONFIG_MQ135_GPIO_13 || PSTAR_KCONFIG_MQ135_GPIO_12 || PSTAR_KCONFIG_MQ135_GPIO_14 || PSTAR_KCONFIG_MQ135_GPIO_27 || PSTAR_KCONFIG_MQ135_GPIO_25 || PSTAR_KCONFIG_MQ135_GPIO_26) # ESP32 ADC2
+			default 1 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_S3_1 || PSTAR_KCONFIG_MQ135_GPIO_S3_2 || PSTAR_KCONFIG_MQ135_GPIO_S3_3 || PSTAR_KCONFIG_MQ135_GPIO_S3_4 || PSTAR_KCONFIG_MQ135_GPIO_S3_5) # ESP32-S3 ADC1 Example
+			default 2 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_S3_11) # ESP32-S3 ADC2 Example
+			# Add mappings for other targets/pins here...
+			default 1 if PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM # Custom Mode Unit 1
+			default 2 if PSTAR_KCONFIG_MQ135_ADC_UNIT_2_CUSTOM # Custom Mode Unit 2
+			depends on PSTAR_KCONFIG_MQ135_ENABLED
+
+		# Determine ADC Channel based on selections
+		config PSTAR_KCONFIG_MQ135_ADC_CHANNEL
+			int
+			# ESP32 ADC1 Mappings
+			default 0 if PSTAR_KCONFIG_MQ135_GPIO_36
+			default 3 if PSTAR_KCONFIG_MQ135_GPIO_39
+			default 4 if PSTAR_KCONFIG_MQ135_GPIO_32
+			default 5 if PSTAR_KCONFIG_MQ135_GPIO_33
+			default 6 if PSTAR_KCONFIG_MQ135_GPIO_34
+			default 7 if PSTAR_KCONFIG_MQ135_GPIO_35
+			# ESP32 ADC2 Mappings
+			default 0 if PSTAR_KCONFIG_MQ135_GPIO_4
+			default 2 if PSTAR_KCONFIG_MQ135_GPIO_2
+			default 3 if PSTAR_KCONFIG_MQ135_GPIO_15
+			default 4 if PSTAR_KCONFIG_MQ135_GPIO_13
+			default 5 if PSTAR_KCONFIG_MQ135_GPIO_12
+			default 6 if PSTAR_KCONFIG_MQ135_GPIO_14
+			default 7 if PSTAR_KCONFIG_MQ135_GPIO_27
+			default 8 if PSTAR_KCONFIG_MQ135_GPIO_25
+			default 9 if PSTAR_KCONFIG_MQ135_GPIO_26
+			# ESP32-S3 ADC1 Mappings (Example)
+			default 0 if PSTAR_KCONFIG_MQ135_GPIO_S3_1
+			default 1 if PSTAR_KCONFIG_MQ135_GPIO_S3_2
+			default 2 if PSTAR_KCONFIG_MQ135_GPIO_S3_3
+			default 3 if PSTAR_KCONFIG_MQ135_GPIO_S3_4
+			default 4 if PSTAR_KCONFIG_MQ135_GPIO_S3_5
+			# ESP32-S3 ADC2 Mappings (Example)
+			default 0 if PSTAR_KCONFIG_MQ135_GPIO_S3_11
+			# Add mappings for other targets/pins here...
+			# Custom Mode Channel
+			default PSTAR_KCONFIG_MQ135_ADC_CHANNEL_CUSTOM if PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
+			depends on PSTAR_KCONFIG_MQ135_ENABLED
+
+		# --- Attenuation, Bitwidth, Samples (common to both modes) ---
+		choice PSTAR_KCONFIG_MQ135_ADC_ATTEN_CHOICE
+			prompt "ADC Attenuation"
+			default PSTAR_KCONFIG_MQ135_ADC_ATTEN_11DB
+			help
+				Select the attenuation level for the ADC channel. This determines the
+				measurable input voltage range. Choose the range that best covers the
+				expected output voltage of the MQ135 under your operating conditions.
+				11dB attenuation is usually required for sensors operating up to 3.3V.
+
+			config PSTAR_KCONFIG_MQ135_ADC_ATTEN_0DB
+				bool "0dB Attenuation (Range: ~0-1.1V)"
+			config PSTAR_KCONFIG_MQ135_ADC_ATTEN_2_5DB
+				bool "2.5dB Attenuation (Range: ~0-1.5V)"
+			config PSTAR_KCONFIG_MQ135_ADC_ATTEN_6DB
+				bool "6dB Attenuation (Range: ~0-2.2V)"
+			config PSTAR_KCONFIG_MQ135_ADC_ATTEN_11DB
+				bool "11dB Attenuation (Range: ~0-3.9V)"
+		endchoice
+
+		config PSTAR_KCONFIG_MQ135_ADC_ATTEN # Hidden config
+			int
+			default 0 if PSTAR_KCONFIG_MQ135_ADC_ATTEN_0DB
+			default 1 if PSTAR_KCONFIG_MQ135_ADC_ATTEN_2_5DB
+			default 2 if PSTAR_KCONFIG_MQ135_ADC_ATTEN_6DB
+			default 3 if PSTAR_KCONFIG_MQ135_ADC_ATTEN_11DB
+			depends on PSTAR_KCONFIG_MQ135_ENABLED
+
+		choice PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_CHOICE
+			prompt "ADC Bit Width"
+			default PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_12
+			help
+				Select the resolution (bit width) for the ADC conversion.
+				Higher bit width provides finer resolution. ESP32 supports 9-12 bits.
+
+			config PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_9
+				bool "9-bit (ADC_BITWIDTH_9)"
+			config PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_10
+				bool "10-bit (ADC_BITWIDTH_10)"
+			config PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_11
+				bool "11-bit (ADC_BITWIDTH_11)"
+			config PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_12
+				bool "12-bit (ADC_BITWIDTH_12)"
+		endchoice
+
+		config PSTAR_KCONFIG_MQ135_ADC_BITWIDTH # Hidden config
+			int
+			default 9 if PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_9
+			default 10 if PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_10
+			default 11 if PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_11
+			default 12 if PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_12
+			depends on PSTAR_KCONFIG_MQ135_ENABLED
+
+		config PSTAR_KCONFIG_MQ135_NUM_SAMPLES
+			int "Number of ADC Samples to Average"
+			range 1 256
+			default 64
+			help
+				Number of consecutive ADC readings to take and average for each
+				call to read_raw or read_voltage. Averaging helps reduce noise.
+
+	endif # PSTAR_KCONFIG_MQ135_ENABLED
+endmenu # MQ135 Configuration
+
+# --- HD44780 Configuration ---
+menu "HD44780 LCD Configuration"
+
+	config PSTAR_KCONFIG_HD44780_ENABLED
+		bool "Enable HD44780 LCD Component"
+		default n
+		help
+			Enable the Project Star HD44780 Character LCD component.
+			This HAL supports 4-bit parallel communication mode.
+
+	if PSTAR_KCONFIG_HD44780_ENABLED
+
+		config PSTAR_KCONFIG_HD44780_RS_PIN
+			int "GPIO Pin for RS (Register Select)"
+			range 0 39
+			default 16
+			help
+				GPIO pin number connected to the LCD's RS pin.
+
+		config PSTAR_KCONFIG_HD44780_E_PIN
+			int "GPIO Pin for E (Enable)"
+			range 0 39
+			default 17
+			help
+				GPIO pin number connected to the LCD's E pin.
+
+		config PSTAR_KCONFIG_HD44780_D4_PIN
+			int "GPIO Pin for Data 4"
+			range 0 39
+			default 18
+			help
+				GPIO pin number connected to the LCD's D4 pin.
+
+		config PSTAR_KCONFIG_HD44780_D5_PIN
+			int "GPIO Pin for Data 5"
+			range 0 39
+			default 19
+			help
+				GPIO pin number connected to the LCD's D5 pin.
+
+		config PSTAR_KCONFIG_HD44780_D6_PIN
+			int "GPIO Pin for Data 6"
+			range 0 39
+			default 21 # Note: Default I2C SDA pin, ensure no conflict if I2C used
+			help
+				GPIO pin number connected to the LCD's D6 pin.
+
+		config PSTAR_KCONFIG_HD44780_D7_PIN
+			int "GPIO Pin for Data 7"
+			range 0 39
+			default 22 # Note: Default I2C SCL pin, ensure no conflict if I2C used
+			help
+				GPIO pin number connected to the LCD's D7 pin.
+
+		config PSTAR_KCONFIG_HD44780_ROWS
+			int "Number of LCD Rows"
+			range 1 4
+			default 2
+			help
+				Number of rows on your specific LCD module (e.g., 2 for 16x2, 4 for 20x4).
+
+		config PSTAR_KCONFIG_HD44780_COLS
+			int "Number of LCD Columns"
+			range 8 40
+			default 16
+			help
+				Number of columns on your specific LCD module (e.g., 16 for 16x2, 20 for 20x4).
+
+	endif # PSTAR_KCONFIG_HD44780_ENABLED
+endmenu # HD44780 Configuration
+
 endmenu # Project Star Components Configuration

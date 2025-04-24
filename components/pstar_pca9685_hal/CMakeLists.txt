@@ -9,8 +9,8 @@ idf_component_register(
 		pstar_bus
 		pstar_pin_validator
 		freertos
-		driver 
-		esp_common        
-		log              
+		driver
+		esp_common
+		log
 )
 

@@ -20,7 +20,7 @@ typedef struct pstar_jtag {
 
 /**
  * @brief Get the JTAG pins via Kconfig options
- * 
+ *
  * @param[out] tag Pointer to store JTAG pin configuration
  * @return esp_err_t ESP_OK on success, or error code
  */
