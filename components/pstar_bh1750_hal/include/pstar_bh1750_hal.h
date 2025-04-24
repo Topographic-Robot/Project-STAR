@@ -3,18 +3,15 @@
 #ifndef PSTAR_COMPONENT_BH1750_HAL_H
 #define PSTAR_COMPONENT_BH1750_HAL_H
 
-#include "sdkconfig.h" // Needed for Kconfig macros *before* the check
-
-// --- Add the main guard here ---
-#if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
-
-#include "pstar_bus_manager.h" /* Already included */
+#include "pstar_bus_manager.h"
 
 #include "driver/i2c.h" /* Added for i2c_port_t definition */
 
+#include <stdbool.h> /* Added for bool */
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "sdkconfig.h" /* Needed for Kconfig macros */
 
 #ifdef __cplusplus
 extern "C" {
@@ -125,10 +122,14 @@ esp_err_t pstar_bh1750_hal_power_on(bh1750_hal_handle_t handle);
  * 3. Initializes the bus hardware
  * 4. Initializes the BH1750 HAL with the default mode
  *
+ * @note This function will return ESP_ERR_NOT_SUPPORTED if the BH1750 component
+ *       is disabled via KConfig (`CONFIG_PSTAR_KCONFIG_BH1750_ENABLED` is false).
+ *
  * @param[in] manager Pointer to an initialized bus manager. Must not be NULL.
  *                    This manager WILL be modified (a bus is added).
  * @param[out] out_handle Pointer to store the created HAL handle. Must not be NULL.
- * @return esp_err_t ESP_OK on success, or an error code if any step fails.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_NOT_SUPPORTED if component disabled,
+ *                   or another error code if any step fails.
  */
 esp_err_t pstar_bh1750_hal_create_kconfig_default(pstar_bus_manager_t* manager,
                                                   bh1750_hal_handle_t* out_handle);
@@ -168,10 +169,10 @@ esp_err_t pstar_bh1750_hal_create_custom(pstar_bus_manager_t* manager,
  * @brief Registers the pins used by the BH1750 component with the pin validator using KConfig values.
  *
  * This function should be called after the pin validator is ready but before
- * pstar_validate_pins() is called. It only performs registration if the
- * pin validator component is enabled via Kconfig.
+ * pstar_validate_pins() is called. It only performs registration if both the
+ * pin validator component and the BH1750 component are enabled via Kconfig.
  *
- * @return esp_err_t ESP_OK on success (or if validator is disabled), or an error code on failure.
+ * @return esp_err_t ESP_OK on success (or if validator/component is disabled), or an error code on failure.
  */
 esp_err_t pstar_bh1750_register_kconfig_pins(void);
 
@@ -191,7 +192,5 @@ esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */
 
 #endif /* PSTAR_COMPONENT_BH1750_HAL_H */

@@ -2,8 +2,7 @@
 
 #include "pstar_bh1750_hal.h"
 
-#if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
-
+/* Include necessary headers regardless of Kconfig */
 #include "pstar_bus_config.h"
 #include "pstar_bus_i2c.h"
 #include "pstar_bus_manager.h"
@@ -18,6 +17,7 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#include "sdkconfig.h" /* Needed for Kconfig checks inside functions */
 
 static const char* TAG = "BH1750 HAL";
 
@@ -32,23 +32,6 @@ static const char* TAG = "BH1750 HAL";
 /* Measurement time estimates (add margin) */
 #define BH1750_DELAY_LOW_RES_MS (24)
 #define BH1750_DELAY_HIGH_RES_MS (180) /* Max time for H-ret modes */
-
-/* I2C port selection from KConfig */
-#if CONFIG_PSTAR_KCONFIG_BH1750_I2C_PORT_0
-#define BH1750_I2C_MASTER_PORT (I2C_NUM_0)
-#elif CONFIG_PSTAR_KCONFIG_BH1750_I2C_PORT_1
-#define BH1750_I2C_MASTER_PORT (I2C_NUM_1)
-#endif
-
-/* I2C address based on KConfig selection */
-#if CONFIG_PSTAR_KCONFIG_BH1750_ADDR_LOW
-#define BH1750_I2C_ADDR (0x23)
-#elif CONFIG_PSTAR_KCONFIG_BH1750_ADDR_HIGH
-#define BH1750_I2C_ADDR (0x5C)
-#endif
-
-/* BH1750 bus name from KConfig */
-#define BH1750_BUS_NAME (CONFIG_PSTAR_KCONFIG_BH1750_BUS_NAME)
 
 /* --- Internal Handle Structure --- */
 typedef struct bh1750_hal_dev_t {
@@ -280,6 +263,13 @@ esp_err_t pstar_bh1750_hal_power_on(bh1750_hal_handle_t handle)
 esp_err_t pstar_bh1750_hal_create_kconfig_default(pstar_bus_manager_t* manager,
                                                   bh1750_hal_handle_t* out_handle)
 {
+/* --- Add Kconfig check at the beginning --- */
+#if !CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
+  ESP_LOGE(TAG, "BH1750 component is disabled in Kconfig.");
+  if (out_handle)
+    *out_handle = NULL;
+  return ESP_ERR_NOT_SUPPORTED;
+#else
   ESP_RETURN_ON_FALSE(manager && out_handle, ESP_ERR_INVALID_ARG, TAG, "Invalid arguments");
 
   *out_handle                           = NULL;
@@ -289,6 +279,27 @@ esp_err_t pstar_bh1750_hal_create_kconfig_default(pstar_bus_manager_t* manager,
   pstar_bus_config_t* bh1750_i2c_config = NULL;
 
   ESP_LOGI(TAG, "Creating BH1750 with KConfig default configuration");
+
+  /* Define Kconfig dependent values locally */
+#ifdef CONFIG_PSTAR_KCONFIG_BH1750_I2C_PORT_0
+  const i2c_port_t BH1750_I2C_MASTER_PORT = I2C_NUM_0;
+#elif CONFIG_PSTAR_KCONFIG_BH1750_I2C_PORT_1
+  const i2c_port_t BH1750_I2C_MASTER_PORT = I2C_NUM_1;
+#else
+#error "No default I2C port selected for BH1750 in Kconfig"
+  const i2c_port_t BH1750_I2C_MASTER_PORT = I2C_NUM_0; /* Fallback */
+#endif
+
+#ifdef CONFIG_PSTAR_KCONFIG_BH1750_ADDR_LOW
+  const uint8_t BH1750_I2C_ADDR = 0x23;
+#elif CONFIG_PSTAR_KCONFIG_BH1750_ADDR_HIGH
+  const uint8_t BH1750_I2C_ADDR = 0x5C;
+#else
+#error "No default I2C address selected for BH1750 in Kconfig"
+  const uint8_t BH1750_I2C_ADDR = 0x23; /* Fallback */
+#endif
+
+  const char* BH1750_BUS_NAME = CONFIG_PSTAR_KCONFIG_BH1750_BUS_NAME;
 
   /* 1. Create Bus Configuration for BH1750 using KConfig values */
   bh1750_i2c_config = pstar_bus_config_create_i2c(BH1750_BUS_NAME,
@@ -344,7 +355,7 @@ esp_err_t pstar_bh1750_hal_create_kconfig_default(pstar_bus_manager_t* manager,
   default_mode = BH1750_MODE_ONE_TIME_LOW_RES;
 #else
 #error "No default BH1750 mode selected in KConfig"
-  default_mode = BH1750_MODE_CONTINUOUS_HIGH_RES;
+  default_mode = BH1750_MODE_CONTINUOUS_HIGH_RES; /* Fallback */
 #endif
 
   ret = pstar_bh1750_hal_init(manager, &hal_config, default_mode, out_handle);
@@ -366,6 +377,7 @@ cleanup:
 
   *out_handle = NULL;
   return ret;
+#endif /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */
 }
 
 esp_err_t pstar_bh1750_hal_create_custom(pstar_bus_manager_t* manager,
@@ -446,7 +458,8 @@ cleanup:
 
 esp_err_t pstar_bh1750_register_kconfig_pins(void)
 {
-#if CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+/* --- Add Kconfig check at the beginning --- */
+#if CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED && CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
   esp_err_t ret = ESP_OK;
   ESP_LOGI(TAG, "Registering BH1750 pins with validator (from KConfig)...");
 
@@ -469,9 +482,9 @@ esp_err_t pstar_bh1750_register_kconfig_pins(void)
   ESP_LOGI(TAG, "BH1750 KConfig pins registered successfully.");
   return ESP_OK;
 #else
-  ESP_LOGD(TAG, "Pin validator disabled, skipping BH1750 KConfig pin registration.");
-  return ESP_OK; /* Not an error if validator is disabled */
-#endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
+  ESP_LOGD(TAG, "Pin validator or BH1750 disabled, skipping BH1750 KConfig pin registration.");
+  return ESP_OK; /* Not an error if validator or component is disabled */
+#endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED && CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */
 }
 
 esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin)
@@ -497,5 +510,3 @@ esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin)
   return ESP_OK; /* Not an error if validator is disabled */
 #endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
 }
-
-#endif /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */
