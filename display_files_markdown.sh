@@ -45,6 +45,7 @@ get_file_extensions() {
         "TOML") echo "*.toml" ;;
         "MD") echo "*.md" ;;
         "TXT") echo "*.txt" ;;
+        "GD") echo "*.gd" ;;
         "DOCKER") echo "Dockerfile*" ;;
         *) echo "" ;;
     esac
@@ -126,6 +127,9 @@ get_language_from_filename() {
         *.txt)
             echo "text"
             ;;
+        *.gd)
+            echo "gdscript"
+            ;;
         Dockerfile*)
             echo "dockerfile"
             ;;
@@ -137,7 +141,7 @@ get_language_from_filename() {
 
 # Get all supported file types
 get_all_file_types() {
-    echo "C CPP H HPP GO PY JS TS TSX HTML CSS VUE SVELTE SH PS1 CMAKE MAKE KCONFIG JSON YAML TOML MD TXT DOCKER"
+    echo "C CPP H HPP GO PY JS TS TSX HTML CSS VUE SVELTE SH PS1 CMAKE MAKE KCONFIG JSON YAML TOML MD TXT GD DOCKER"
 }
 
 # Default excluded directories

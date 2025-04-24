@@ -2,6 +2,8 @@
 
 #include "pstar_bh1750_hal.h"
 
+#if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
+
 #include "pstar_bus_config.h"
 #include "pstar_bus_i2c.h"
 #include "pstar_bus_manager.h"
@@ -495,3 +497,5 @@ esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin)
   return ESP_OK; /* Not an error if validator is disabled */
 #endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
 }
+
+#endif /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */

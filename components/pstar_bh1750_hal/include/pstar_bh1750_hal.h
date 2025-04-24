@@ -3,6 +3,11 @@
 #ifndef PSTAR_COMPONENT_BH1750_HAL_H
 #define PSTAR_COMPONENT_BH1750_HAL_H
 
+#include "sdkconfig.h" // Needed for Kconfig macros *before* the check
+
+// --- Add the main guard here ---
+#if CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
+
 #include "pstar_bus_manager.h" /* Already included */
 
 #include "driver/i2c.h" /* Added for i2c_port_t definition */
@@ -10,7 +15,6 @@
 #include <stdint.h>
 
 #include "esp_err.h"
-#include "sdkconfig.h" /* Needed for Kconfig macros */
 
 #ifdef __cplusplus
 extern "C" {
@@ -187,5 +191,7 @@ esp_err_t pstar_bh1750_register_custom_pins(int sda_pin, int scl_pin);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */
 
 #endif /* PSTAR_COMPONENT_BH1750_HAL_H */

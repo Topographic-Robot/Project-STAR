@@ -1,297 +1,513 @@
 # main/Kconfig.projbuild
 
-menu "Project Star"
-    menu "BH1750 Configuration"
-        config PSTAR_KCONFIG_BH1750_ENABLED
-            bool "Enable BH1750 Light Sensor Component"
-            default y
-            depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
-            help
-                Enable the Project Star BH1750 Light Sensor component, which provides
-                an interface for reading light intensity measurements from the BH1750
-                ambient light sensor.
+menu "Project Star Components Configuration"
 
-        if PSTAR_KCONFIG_BH1750_ENABLED
+# --- I2C Bus Manager Configuration ---
+menu "I2C Bus Manager Configuration"
+	config PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
+		bool "Enable I2C Bus Manager Component"
+		default y
+		help
+			Enable the Project Star I2C Bus Manager component, which provides a unified
+			interface for managing I2C bus/device configurations. This allows sharing
+			I2C bus resources (pins, port, frequency) between multiple components.
 
-            config PSTAR_KCONFIG_BH1750_BUS_NAME
-                string "I2C Bus Manager Name"
-                default "bh1750_bm"
-                help
-                    The name of the I2C bus that the BH1750 sensor is connected to.
-                    This must match one of the bus names configured in the Bus Manager.
+	menu "Bus Manager Settings"
+		depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
 
-            choice
-                prompt "I2C Port"
-                default PSTAR_KCONFIG_BH1750_I2C_PORT_0
+		config PSTAR_KCONFIG_BUS_MAX_BUSES
+			int "Maximum number of I2C device configurations"
+			range 1 32
+			default 5
+			help
+				Conceptual maximum number of I2C device configurations (bus name entries)
+				that can be managed simultaneously by the bus manager.
+				The implementation uses a linked list, so this isn't a hard limit,
+				but helps in conceptualizing resource allocation. Each unique combination
+				of port, pins, and frequency typically requires a separate bus entry.
 
-                config PSTAR_KCONFIG_BH1750_I2C_PORT_0
-                    bool "I2C Port 0 (I2C_NUM_0)"
-                    help
-                        Use I2C port 0 for the BH1750 sensor.
+		config PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS
+			int "Bus manager mutex timeout (ms)"
+			range 10 10000
+			default 1000
+			help
+				Timeout in milliseconds for acquiring the bus manager's internal mutex,
+				which protects access to the list of bus configurations.
+	endmenu # Bus Manager Settings
+endmenu # I2C Bus Manager Configuration
 
-                config PSTAR_KCONFIG_BH1750_I2C_PORT_1
-                    bool "I2C Port 1 (I2C_NUM_1)"
-                    help
-                        Use I2C port 1 for the BH1750 sensor.
-            endchoice
+# --- Pin Validator Configuration ---
+menu "Pin Validator"
+	config PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+		bool "Enable Pin Validator"
+		default y
+		help
+			Enable the pin validation system to detect pin assignment conflicts
+			across all components that register their pin usage. Essential for
+			preventing hardware conflicts when multiple components use GPIOs.
+endmenu # Pin Validator
 
-            config PSTAR_KCONFIG_BH1750_I2C_FREQ_HZ
-                int "I2C Clock Frequency (Hz)"
-                range 10000 400000
-                default 100000
-                help
-                    I2C clock frequency in Hz. Standard mode is 100kHz (100000).
-                    Fast mode is 400kHz (400000).
+# --- Error Handling Configuration ---
+menu "Error Handling Configuration"
+	config PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+		bool "Enable Error Handling Component"
+		default y
+		help
+			Enable the Project Star Error Handling component, which provides
+			a unified way to handle, log, and potentially recover from errors
+			reported by various components.
+endmenu # Error Handling Configuration
 
-            config PSTAR_KCONFIG_BH1750_SDA_PIN
-                int "GPIO for SDA (I2C Data)"
-                range 0 39 # Adjust range based on target MCU if needed
-                default 21
-                help
-                    GPIO pin number used for I2C SDA connection to the BH1750 sensor.
+# --- JTAG Configuration ---
+menu "JTAG Configuration"
+	config PSTAR_KCONFIG_JTAG_ENABLED
+		bool "Enable JTAG Support"
+		default n
+		help
+			Enable JTAG debug support in the system. This typically reserves
+			specific GPIO pins for debugging purposes. Ensure these pins do not
+			conflict with other peripherals configured below.
 
-            config PSTAR_KCONFIG_BH1750_SCL_PIN
-                int "GPIO for SCL (I2C Clock)"
-                range 0 39 # Adjust range based on target MCU if needed
-                default 22
-                help
-                    GPIO pin number used for I2C SCL connection to the BH1750 sensor.
+	if PSTAR_KCONFIG_JTAG_ENABLED
 
-            choice
-                prompt "I2C Address Selection"
-                default PSTAR_KCONFIG_BH1750_ADDR_LOW
+		choice PSTAR_KCONFIG_JTAG_PIN_CONFIGURATION_MODE
+			prompt "JTAG Pin Configuration Mode"
+			default PSTAR_KCONFIG_JTAG_USE_DEFAULT
 
-                config PSTAR_KCONFIG_BH1750_ADDR_LOW
-                    bool "0x23 (ADDR pin connected to GND)"
-                    help
-                        Use I2C address 0x23 (35 decimal) when ADDR pin is connected to GND.
+			config PSTAR_KCONFIG_JTAG_USE_DEFAULT
+				bool "Use default JTAG pin configuration for MCU"
+				help
+					Automatically apply the standard JTAG pinout based
+					on the selected MCU target below.
 
-                config PSTAR_KCONFIG_BH1750_ADDR_HIGH
-                    bool "0x5C (ADDR pin connected to VCC)"
-                    help
-                        Use I2C address 0x5C (92 decimal) when ADDR pin is connected to VCC.
-            endchoice
+			config PSTAR_KCONFIG_JTAG_USE_CUSTOM
+				bool "Use custom JTAG pin configuration"
+				help
+					Manually specify custom GPIO pins for each JTAG signal.
+					Ensure these pins are valid for JTAG on your specific hardware
+					and do not conflict with other components.
 
-            choice
-                prompt "Default Measurement Mode"
-                default PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_HIGH_RES
+		endchoice
 
-                config PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_HIGH_RES
-                    bool "Continuous High Resolution Mode (1 lx resolution)"
-                    help
-                        Start measurement at 1 lx resolution. Measurement time is typically 120ms.
+		choice PSTAR_KCONFIG_JTAG_MCU_TARGET
+			prompt "Target MCU for default JTAG pin mapping"
+			depends on PSTAR_KCONFIG_JTAG_USE_DEFAULT
+			default PSTAR_KCONFIG_JTAG_MCU_ESP32
 
-                config PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_HIGH_RES2
-                    bool "Continuous High Resolution Mode 2 (0.5 lx resolution)"
-                    help
-                        Start measurement at 0.5 lx resolution. Measurement time is typically 120ms.
+			config PSTAR_KCONFIG_JTAG_MCU_ESP32
+				bool "ESP32 (Classic)"
+				help
+					Use default pin mapping for ESP32:
+					TCK=GPIO13, TMS=GPIO14, TDI=GPIO12, TDO=GPIO15.
+					Verify these pins are available and not used by other components.
 
-                config PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_LOW_RES
-                    bool "Continuous Low Resolution Mode (4 lx resolution)"
-                    help
-                        Start measurement at 4 lx resolution. Measurement time is typically 16ms.
+			config PSTAR_KCONFIG_JTAG_MCU_ESP32S2
+				bool "ESP32-S2"
+				help
+					Use default pin mapping for ESP32-S2:
+					TCK=GPIO39, TMS=GPIO40, TDI=GPIO41, TDO=GPIO42.
+					Verify these pins are available and not used by other components.
 
-                config PSTAR_KCONFIG_BH1750_MODE_ONE_TIME_HIGH_RES
-                    bool "One Time High Resolution Mode (1 lx resolution)"
-                    help
-                        Start measurement at 1 lx resolution once. Sensor automatically
-                        powers down after measurement.
+			config PSTAR_KCONFIG_JTAG_MCU_ESP32S3
+				bool "ESP32-S3"
+				help
+					Use default pin mapping for ESP32-S3:
+					TCK=GPIO39, TMS=GPIO40, TDI=GPIO41, TDO=GPIO42.
+					Verify these pins are available and not used by other components.
 
-                config PSTAR_KCONFIG_BH1750_MODE_ONE_TIME_HIGH_RES2
-                    bool "One Time High Resolution Mode 2 (0.5 lx resolution)"
-                    help
-                        Start measurement at 0.5 lx resolution once. Sensor automatically
-                        powers down after measurement.
+		endchoice
 
-                config PSTAR_KCONFIG_BH1750_MODE_ONE_TIME_LOW_RES
-                    bool "One Time Low Resolution Mode (4 lx resolution)"
-                    help
-                        Start measurement at 4 lx resolution once. Sensor automatically
-                        powers down after measurement.
-            endchoice
+		config PSTAR_KCONFIG_JTAG_PIN_TCK
+			int "Custom GPIO for TCK (Test Clock)"
+			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			range 0 39 # Adjust range based on target MCU capabilities
+			default 13
+			help
+				Specify the GPIO number to use for the TCK (clock) signal.
+				Verify pin validity for JTAG on your target MCU.
 
-            config PSTAR_KCONFIG_BH1750_MEASUREMENT_TIMEOUT_MS
-                int "Measurement timeout (ms)"
-                range 30 2000
-                default 200
-                help
-                    Timeout in milliseconds to wait for a measurement to complete.
-                    For high resolution modes, 200ms is typically sufficient.
-                    For low resolution modes, a lower value (e.g., 50ms) may be used.
+		config PSTAR_KCONFIG_JTAG_PIN_TMS
+			int "Custom GPIO for TMS (Test Mode Select)"
+			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			range 0 39 # Adjust range based on target MCU capabilities
+			default 14
+			help
+				Specify the GPIO number to use for the TMS signal.
+				Verify pin validity for JTAG on your target MCU.
 
-            config PSTAR_KCONFIG_BH1750_READ_INTERVAL_MS
-                int "Sensor read interval (ms)"
-                range 100 60000
-                default 1000
-                help
-                    Interval in milliseconds between sensor readings in the main loop.
+		config PSTAR_KCONFIG_JTAG_PIN_TDI
+			int "Custom GPIO for TDI (Test Data In)"
+			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			range 0 39 # Adjust range based on target MCU capabilities
+			default 12
+			help
+				Specify the GPIO number to use for the TDI signal.
+				Verify pin validity for JTAG on your target MCU.
 
-            config PSTAR_KCONFIG_BH1750_POWER_SAVE_MODE
-                bool "Enable Power Save Mode"
-                default n
-                help
-                    When enabled, the sensor will automatically be powered down after
-                    each measurement when using one-time measurement modes.
-                    This increases power efficiency but may increase measurement latency.
-                    Note: This option might be redundant if one-time modes are selected, as they inherently power down. Consider if this adds extra logic.
+		config PSTAR_KCONFIG_JTAG_PIN_TDO
+			int "Custom GPIO for TDO (Test Data Out)"
+			depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
+			range 0 39 # Adjust range based on target MCU capabilities
+			default 15
+			help
+				Specify the GPIO number to use for the TDO signal.
+				Verify pin validity for JTAG on your target MCU.
+	endif # PSTAR_KCONFIG_JTAG_ENABLED
+endmenu # JTAG Configuration
 
-            config PSTAR_KCONFIG_BH1750_AUTO_RETRY
-                bool "Enable Automatic Retry"
-                default y
-                help
-                    When enabled, the driver will automatically retry failed I2C communications
-                    up to the number of attempts specified in Auto Retry Count.
+# --- BH1750 Configuration ---
+menu "BH1750 Configuration"
+	depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED # Requires I2C Bus Manager
 
-            config PSTAR_KCONFIG_BH1750_AUTO_RETRY_COUNT
-                int "Auto Retry Count"
-                depends on PSTAR_KCONFIG_BH1750_AUTO_RETRY
-                range 1 10
-                default 3
-                help
-                    Number of retries before reporting a communication error.
+	config PSTAR_KCONFIG_BH1750_ENABLED
+		bool "Enable BH1750 Light Sensor Component"
+		default n
+		help
+			Enable the Project Star BH1750 Light Sensor component. This sensor
+			measures ambient light levels (illuminance) in lux. It is typically
+			considered a lower-speed I2C device (100kHz).
 
-            config PSTAR_KCONFIG_BH1750_MUTEX_TIMEOUT_MS
-                int "Component mutex timeout (ms)"
-                range 10 5000
-                default 1000
-                help
-                    Timeout in milliseconds for acquiring the component's internal mutex
-                    when performing operations on the BH1750 sensor.
+	if PSTAR_KCONFIG_BH1750_ENABLED
 
-        endif # PSTAR_KCONFIG_BH1750_ENABLED
-    endmenu # BH1750 Configuration
+		config PSTAR_KCONFIG_BH1750_BUS_NAME
+			string "I2C Bus Manager Name"
+			default "bh1750_bus"
+			help
+				The unique name identifying the I2C bus configuration within the
+				I2C Bus Manager that this BH1750 sensor will use. The Bus Manager
+				will use the Port, Pins, and Frequency defined below to create or
+				find this bus configuration.
 
-    menu "I2C Bus Manager Configuration"
-        config PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
-            bool "Enable I2C Bus Manager Component"
-            default y
-            help
-                Enable the Project Star I2C Bus Manager component, which provides a unified
-                interface for managing I2C bus/device configurations.
+		choice PSTAR_KCONFIG_BH1750_I2C_PORT
+			prompt "I2C Port for BH1750"
+			# --- DEFAULT: Port 1 for slower sensors ---
+			default PSTAR_KCONFIG_BH1750_I2C_PORT_1
+			help
+				Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) the BH1750 is connected to.
+				Recommendation: Use I2C_NUM_1 for slower sensors (like BH1750 at 100kHz)
+				to separate them from high-speed devices often placed on I2C_NUM_0 (400kHz+).
 
-        menu "Bus Manager Configuration"
-            depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
+			config PSTAR_KCONFIG_BH1750_I2C_PORT_0
+				bool "I2C Port 0 (I2C_NUM_0)"
 
-            config PSTAR_KCONFIG_BUS_MAX_BUSES
-                int "Maximum number of I2C device configurations"
-                range 1 32
-                default 5
-                help
-                    Conceptual maximum number of I2C device configurations
-                    that can be managed simultaneously by the bus manager.
-                    The implementation uses a linked list, so this isn't a hard limit,
-                    but helps in conceptualizing resource allocation.
+			config PSTAR_KCONFIG_BH1750_I2C_PORT_1
+				bool "I2C Port 1 (I2C_NUM_1)"
+		endchoice
 
-            config PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS
-                int "Bus manager mutex timeout (ms)"
-                range 10 10000
-                default 1000
-                help
-                    Timeout in milliseconds for acquiring the bus manager's internal mutex.
-        endmenu # Bus Manager Configuration
-    endmenu # I2C Bus Manager Configuration
+		config PSTAR_KCONFIG_BH1750_I2C_FREQ_HZ
+			int "I2C Clock Frequency (Hz)"
+			range 10000 400000
+			# --- DEFAULT: 100kHz suitable for BH1750 ---
+			default 100000
+			help
+				I2C clock frequency in Hz for the bus connected to the BH1750.
+				100000 (100kHz) is Standard mode, recommended for BH1750.
+				Ensure this matches the intended speed for the chosen I2C port (Port 1 recommended) and
+				other devices sharing the *exact same* bus configuration (port & pins).
 
-    menu "Error Handling Configuration"
-        config PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
-            bool "Enable Error Handling Component"
-            default y
-            help
-                Enable the Project Star Error Handling component, which provides
-                a unified way to handle and recover from errors.
-    endmenu # Error Handling Configuration
+		config PSTAR_KCONFIG_BH1750_SDA_PIN
+			int "GPIO for SDA (I2C Data)"
+			range 0 39 # Adjust range based on target MCU capabilities
+			# --- DEFAULT: Common pin for I2C_NUM_1 on ESP32 ---
+			default 25
+			help
+				GPIO pin number for the I2C SDA (Data) line connection to the BH1750 sensor.
+				Ensure this pin is valid for I2C on your hardware and does not conflict
+				with pins used by other components or JTAG (if enabled).
+				GPIO 25 is a common choice for I2C_NUM_1 SDA on ESP32, but VERIFY YOUR BOARD'S PINOUT.
 
-    menu "JTAG Configuration"
-        config PSTAR_KCONFIG_JTAG_ENABLED
-            bool "Enable JTAG Support"
-            default n
-            help
-                Enable JTAG debug support in the system. When enabled,
-                JTAG-related pins can either be set to default values for
-                the current MCU or defined manually via custom pin entries.
+		config PSTAR_KCONFIG_BH1750_SCL_PIN
+			int "GPIO for SCL (I2C Clock)"
+			range 0 39 # Adjust range based on target MCU capabilities
+			# --- DEFAULT: Common pin for I2C_NUM_1 on ESP32 ---
+			default 26
+			help
+				GPIO pin number for the I2C SCL (Clock) line connection to the BH1750 sensor.
+				Ensure this pin is valid for I2C on your hardware and does not conflict
+				with pins used by other components or JTAG (if enabled).
+				GPIO 26 is a common choice for I2C_NUM_1 SCL on ESP32, but VERIFY YOUR BOARD'S PINOUT.
 
-        choice
-            prompt "JTAG Pin Configuration Mode"
-            depends on PSTAR_KCONFIG_JTAG_ENABLED
-            default PSTAR_KCONFIG_JTAG_USE_DEFAULT
+		choice PSTAR_KCONFIG_BH1750_ADDR
+			prompt "I2C Address Selection"
+			default PSTAR_KCONFIG_BH1750_ADDR_LOW
+			help
+				Select the 7-bit I2C address of the BH1750 sensor. This is typically
+				set by pulling the ADDR pin on the sensor board high (VCC) or low (GND).
 
-            config PSTAR_KCONFIG_JTAG_USE_DEFAULT
-                bool "Use default JTAG pin configuration for MCU"
-                help
-                    Automatically apply the standard JTAG pinout based
-                    on the selected MCU (ESP32, ESP32-S2, ESP32-S3).
+			config PSTAR_KCONFIG_BH1750_ADDR_LOW
+				bool "0x23 (ADDR pin connected to GND)"
 
-            config PSTAR_KCONFIG_JTAG_USE_CUSTOM
-                bool "Use custom JTAG pin configuration"
-                help
-                    Manually specify custom GPIO pins for each JTAG signal.
+			config PSTAR_KCONFIG_BH1750_ADDR_HIGH
+				bool "0x5C (ADDR pin connected to VCC)"
+		endchoice
 
-        endchoice
+		choice PSTAR_KCONFIG_BH1750_MODE
+			prompt "Default Measurement Mode"
+			default PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_HIGH_RES
+			help
+				Select the operating mode for the BH1750 sensor.
+				- Continuous modes keep measuring automatically.
+				- One-Time modes take a single measurement then power down until commanded again.
+				- High resolution modes offer better accuracy (1lx or 0.5lx).
+				- Low resolution mode is faster but less accurate (4lx).
 
-        choice
-            prompt "Target MCU for default JTAG pin mapping"
-            depends on PSTAR_KCONFIG_JTAG_ENABLED && PSTAR_KCONFIG_JTAG_USE_DEFAULT
-            default PSTAR_KCONFIG_JTAG_MCU_ESP32
+			config PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_HIGH_RES
+				bool "Continuous High Resolution Mode (1 lx resolution, ~120ms)"
+			config PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_HIGH_RES2
+				bool "Continuous High Resolution Mode 2 (0.5 lx resolution, ~120ms)"
+			config PSTAR_KCONFIG_BH1750_MODE_CONTINUOUS_LOW_RES
+				bool "Continuous Low Resolution Mode (4 lx resolution, ~16ms)"
+			config PSTAR_KCONFIG_BH1750_MODE_ONE_TIME_HIGH_RES
+				bool "One Time High Resolution Mode (1 lx resolution, ~120ms)"
+			config PSTAR_KCONFIG_BH1750_MODE_ONE_TIME_HIGH_RES2
+				bool "One Time High Resolution Mode 2 (0.5 lx resolution, ~120ms)"
+			config PSTAR_KCONFIG_BH1750_MODE_ONE_TIME_LOW_RES
+				bool "One Time Low Resolution Mode (4 lx resolution, ~16ms)"
+		endchoice
 
-            config PSTAR_KCONFIG_JTAG_MCU_ESP32
-                bool "ESP32 (Classic)"
-                help
-                    Use default pin mapping for ESP32:
-                    TCK=GPIO13, TMS=GPIO14, TDI=GPIO12, TDO=GPIO15
+		config PSTAR_KCONFIG_BH1750_MEASUREMENT_TIMEOUT_MS
+			int "Measurement timeout (ms)"
+			range 30 2000
+			default 200
+			help
+				Maximum time in milliseconds to wait for a measurement to complete,
+				especially relevant for One-Time modes. Should be longer than the
+				typical measurement time for the selected mode (e.g., >120ms for high-res).
 
-            config PSTAR_KCONFIG_JTAG_MCU_ESP32S2
-                bool "ESP32-S2"
-                help
-                    Use default pin mapping for ESP32-S2:
-                    TCK=GPIO39, TMS=GPIO40, TDI=GPIO41, TDO=GPIO42
+		config PSTAR_KCONFIG_BH1750_READ_INTERVAL_MS
+			int "Sensor read interval (ms)"
+			range 100 60000
+			default 1000
+			help
+				Interval in milliseconds between sensor readings attempted by the component's
+				main task loop (if applicable). This is independent of the sensor's internal
+				measurement time in continuous modes.
 
-            config PSTAR_KCONFIG_JTAG_MCU_ESP32S3
-                bool "ESP32-S3"
-                help
-                    Use default pin mapping for ESP32-S3:
-                    TCK=GPIO39, TMS=GPIO40, TDI=GPIO41, TDO=GPIO42
+		config PSTAR_KCONFIG_BH1750_POWER_SAVE_MODE
+			bool "Enable Power Save Mode (One-Time Modes Only)"
+			default n
+			help
+				When enabled with a One-Time measurement mode, the component will explicitly
+				send a power-down command after reading. This may be redundant as One-Time
+				modes typically power down automatically after measurement, but can ensure
+				the state if communication was interrupted. Ignored for continuous modes.
 
-        endchoice
+		config PSTAR_KCONFIG_BH1750_AUTO_RETRY
+			bool "Enable Automatic Retry on I2C Error"
+			default y
+			help
+				If an I2C communication error occurs during read/write operations,
+				automatically retry the operation up to the specified count.
 
-        # Note: Consider adding MCU-specific pin range checks if needed
-        config PSTAR_KCONFIG_JTAG_PIN_TCK
-            int "Custom GPIO for TCK (Test Clock)"
-            depends on PSTAR_KCONFIG_JTAG_ENABLED && PSTAR_KCONFIG_JTAG_USE_CUSTOM
-            range 0 39 # Adjust range based on target MCU if needed
-            default 13
-            help
-                Specify the GPIO number to use for the TCK (clock) signal.
+		config PSTAR_KCONFIG_BH1750_AUTO_RETRY_COUNT
+			int "Auto Retry Count"
+			depends on PSTAR_KCONFIG_BH1750_AUTO_RETRY
+			range 1 10
+			default 3
+			help
+				Number of automatic retries to attempt before reporting a persistent
+				I2C communication error.
 
-        config PSTAR_KCONFIG_JTAG_PIN_TMS
-            int "Custom GPIO for TMS (Test Mode Select)"
-            depends on PSTAR_KCONFIG_JTAG_ENABLED && PSTAR_KCONFIG_JTAG_USE_CUSTOM
-            range 0 39 # Adjust range based on target MCU if needed
-            default 14
-            help
-                Specify the GPIO number to use for the TMS signal.
+		config PSTAR_KCONFIG_BH1750_MUTEX_TIMEOUT_MS
+			int "Component mutex timeout (ms)"
+			range 10 5000
+			default 1000
+			help
+				Timeout in milliseconds for acquiring the component's internal mutex,
+				which protects access to the sensor state and I2C operations.
+	endif # PSTAR_KCONFIG_BH1750_ENABLED
+endmenu # BH1750 Configuration
 
-        config PSTAR_KCONFIG_JTAG_PIN_TDI
-            int "Custom GPIO for TDI (Test Data In)"
-            depends on PSTAR_KCONFIG_JTAG_ENABLED && PSTAR_KCONFIG_JTAG_USE_CUSTOM
-            range 0 39 # Adjust range based on target MCU if needed
-            default 12
-            help
-                Specify the GPIO number to use for the TDI signal.
+# --- PCA9685 Configuration ---
+menu "PCA9685 PWM Driver Configuration"
+	depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED # Requires I2C Bus Manager
 
-        config PSTAR_KCONFIG_JTAG_PIN_TDO
-            int "Custom GPIO for TDO (Test Data Out)"
-            depends on PSTAR_KCONFIG_JTAG_ENABLED && PSTAR_KCONFIG_JTAG_USE_CUSTOM
-            range 0 39 # Adjust range based on target MCU if needed
-            default 15
-            help
-                Specify the GPIO number to use for the TDO signal.
-    endmenu # JTAG Configuration
+	config PSTAR_KCONFIG_PCA9685_ENABLED
+		bool "Enable PCA9685 PWM Driver Component"
+		default n
+		help
+			Enable the Project Star PCA9685 PWM Driver component. This component provides
+			an interface for controlling the 16-channel PCA9685 PWM/Servo driver chip via I2C.
+			It is typically considered a higher-speed I2C device (400kHz+).
 
-    menu "Pin Validator"
-        config PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
-            bool "Enable Pin Validator"
-            default y
-            help
-                Enable the pin validation system to detect pin assignment conflicts
-                across all components.
-    endmenu # Pin Validator
-endmenu # Project Star
+	if PSTAR_KCONFIG_PCA9685_ENABLED
+
+		config PSTAR_KCONFIG_PCA9685_BUS_NAME_PREFIX
+			string "I2C Bus Manager Name Prefix for Defaults"
+			default "pca9685_bus"
+			help
+				The prefix for the I2C bus configuration name(s) in the Bus Manager
+				used by the automatically initialized default PCA9685 instance(s).
+				If initializing multiple defaults (Count > 1), a numeric suffix
+				(e.g., '_0', '_1') might be appended automatically by the component code
+				if they are intended to be on separate bus configurations (though typically
+				multiple PCA9685s share the same physical bus). This setting primarily helps
+				identify the bus configuration used by default instances.
+
+		choice PSTAR_KCONFIG_PCA9685_I2C_PORT
+			prompt "I2C Port for Default PCA9685(s)"
+			# --- DEFAULT: Port 0 for faster devices ---
+			default PSTAR_KCONFIG_PCA9685_I2C_PORT_0
+			help
+				Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) for the default PCA9685 instance(s).
+				Assumes all default PCA9685 boards initialized automatically are on the same I2C bus port.
+				Recommendation: Use I2C_NUM_0 for higher-speed devices like PCA9685 (400kHz+)
+				to separate them from slower sensors often placed on I2C_NUM_1 (100kHz).
+
+			config PSTAR_KCONFIG_PCA9685_I2C_PORT_0
+				bool "I2C Port 0 (I2C_NUM_0)"
+
+			config PSTAR_KCONFIG_PCA9685_I2C_PORT_1
+				bool "I2C Port 1 (I2C_NUM_1)"
+		endchoice
+
+		config PSTAR_KCONFIG_PCA9685_I2C_ADDR
+			hex "Starting I2C Address for Default PCA9685(s)"
+			default 0x40
+			range 0x40 0x7F # Base address is 0x40, shifted via A0-A5 pins
+			help
+				The 7-bit I2C address for the *first* default PCA9685 chip initialized automatically.
+				The default 0x40 assumes address pins A0-A5 are low. If initializing multiple
+				defaults with address increment enabled, subsequent boards will use incremented
+				addresses (e.g., 0x41, 0x42...). Ensure addresses are unique on the bus and
+				match the hardware configuration of your PCA9685 boards (A0-A5 pin settings).
+
+		config PSTAR_KCONFIG_PCA9685_SDA_PIN
+			int "GPIO for SDA (I2C Data) for Default PCA9685(s)"
+			range 0 39 # Adjust range based on target MCU capabilities
+			# --- DEFAULT: Common pin for I2C_NUM_0 on ESP32 ---
+			default 21
+			help
+				GPIO pin number used for the I2C SDA (Data) line for the default PCA9685(s).
+				Assumes all default boards share the same SDA pin. Ensure this pin is valid
+				for I2C on your hardware and does not conflict with other components or JTAG.
+				GPIO 21 is the standard default for I2C_NUM_0 SDA on ESP32, but VERIFY YOUR BOARD'S PINOUT.
+
+		config PSTAR_KCONFIG_PCA9685_SCL_PIN
+			int "GPIO for SCL (I2C Clock) for Default PCA9685(s)"
+			range 0 39 # Adjust range based on target MCU capabilities
+			# --- DEFAULT: Common pin for I2C_NUM_0 on ESP32 ---
+			default 22
+			help
+				GPIO pin number used for the I2C SCL (Clock) line for the default PCA9685(s).
+				Assumes all default boards share the same SCL pin. Ensure this pin is valid
+				for I2C on your hardware and does not conflict with other components or JTAG.
+				GPIO 22 is the standard default for I2C_NUM_0 SCL on ESP32, but VERIFY YOUR BOARD'S PINOUT.
+
+		config PSTAR_KCONFIG_PCA9685_I2C_FREQ_HZ
+			int "I2C Clock Frequency (Hz) for Default PCA9685(s)"
+			range 10000 1000000 # PCA9685 supports up to 1MHz Fast Mode Plus
+			# --- DEFAULT: 400kHz Fast Mode suitable for PCA9685 ---
+			default 400000
+			help
+				I2C clock frequency in Hz for the bus used by the default PCA9685(s).
+				400000 (400kHz) is Fast mode, a good default for PCA9685.
+				1000000 (1MHz) is Fast Mode Plus (check MCU/board/pull-up resistor support).
+				Ensure this frequency is compatible with other devices sharing the exact
+				same bus configuration (port & pins).
+
+		config PSTAR_KCONFIG_PCA9685_DEFAULT_PWM_FREQ_HZ
+			int "Default PWM Frequency (Hz) for Default PCA9685(s)"
+			range 24 1526 # PCA9685 operational range
+			default 50
+			help
+				The PWM frequency (cycles per second) to set upon initialization for all
+				automatically initialized default PCA9685 boards.
+				- 50Hz is standard for common analog servos.
+				- Higher frequencies (e.g., 100-1000Hz+) are used for LEDs or DC motor speed control.
+
+		# --- Configuration for Initializing Multiple Defaults ---
+		config PSTAR_KCONFIG_PCA9685_DEFAULT_INIT_COUNT
+			int "Number of Default PCA9685 Boards to Initialize"
+			range 0 16 # Set a reasonable upper limit for automatic init
+			default 1
+			help
+				Specify how many PCA9685 boards should be automatically initialized
+				by the component using the default settings (Bus Prefix, Port, Pins, Freq, PWM Freq, Start Address).
+				- Set to 0 to disable automatic initialization (requires manual component setup calls).
+				- Set to 1 to initialize only the single board specified by the Start I2C Address.
+				- Set >1 to initialize multiple boards, potentially using incrementing I2C addresses.
+
+		config PSTAR_KCONFIG_PCA9685_DEFAULT_ADDR_INCREMENT
+			bool "Increment I2C Address for Multiple Default Boards"
+			depends on PSTAR_KCONFIG_PCA9685_DEFAULT_INIT_COUNT > 1
+			default y
+			help
+				If initializing more than one default board (Count > 1), enable this to automatically
+				increment the I2C address for each subsequent board during initialization
+				(e.g., Start Addr=0x40 -> Boards initialized at 0x40, 0x41, 0x42...).
+				Disable if your multiple default boards use non-sequential addresses or share the
+				same address (requires an I2C multiplexer, not handled by this simple increment logic).
+				Ensure your hardware address pins (A0-A5) are set correctly on each board
+				to match the expected sequential addresses if using this option.
+
+		# --- Output Enable (OE) Pin Configuration ---
+		config PSTAR_KCONFIG_PCA9685_USE_OE_PIN
+			bool "Use Output Enable (OE) Pin"
+			default n
+			help
+				Enable control of the PCA9685's Output Enable (OE) pin via a dedicated GPIO.
+				This allows globally enabling/disabling all PWM outputs from the chip(s)
+				sharing the same OE pin connection. Requires configuring the GPIO pin below.
+
+		if PSTAR_KCONFIG_PCA9685_USE_OE_PIN
+
+			config PSTAR_KCONFIG_PCA9685_OE_PIN
+				int "GPIO for Output Enable (OE)"
+				range 0 39 # Adjust range based on target MCU capabilities
+				default 5 # Default to 5
+				help
+					GPIO pin number connected to the OE pin of the PCA9685 chip(s).
+					Ensure this pin does not conflict with other components or JTAG.
+					Set to 5 if OE pin control is not used or not connected.
+
+			choice PSTAR_KCONFIG_PCA9685_OE_ACTIVE_LEVEL
+				prompt "OE Pin Active Level"
+				default PSTAR_KCONFIG_PCA9685_OE_ACTIVE_LOW
+				help
+					Select the logic level that enables the PCA9685 outputs via the OE pin.
+					Consult the PCA9685 datasheet or your board's schematic.
+					Typically, OE is active LOW (pulling low enables outputs).
+
+				config PSTAR_KCONFIG_PCA9685_OE_ACTIVE_LOW
+					bool "Active Low (0 = Enabled, 1 = Disabled)"
+
+				config PSTAR_KCONFIG_PCA9685_OE_ACTIVE_HIGH
+					bool "Active High (1 = Enabled, 0 = Disabled)"
+			endchoice
+
+		endif # PSTAR_KCONFIG_PCA9685_USE_OE_PIN
+
+		# --- Servo Configuration ---
+		menu "Servo Control Settings"
+			depends on PSTAR_KCONFIG_PCA9685_ENABLED
+
+			config PSTAR_KCONFIG_PCA9685_SERVO_MIN_PULSE_US
+				int "Servo Minimum Pulse Width (microseconds)"
+				range 500 1500
+				default 1000
+				help
+					The pulse width in microseconds corresponding to the servo's minimum angle (typically 0 degrees).
+					Adjust this based on your specific servo model's datasheet. Common values are 500-1000us.
+
+			config PSTAR_KCONFIG_PCA9685_SERVO_MAX_PULSE_US
+				int "Servo Maximum Pulse Width (microseconds)"
+				range 1500 2500
+				default 2000
+				help
+					The pulse width in microseconds corresponding to the servo's maximum angle (typically 180 degrees).
+					Adjust this based on your specific servo model's datasheet. Common values are 2000-2500us.
+
+			config PSTAR_KCONFIG_PCA9685_SERVO_ANGLE_RANGE
+				int "Servo Angle Range (degrees)"
+				range 90 270
+				default 180
+				help
+					The total angle range (in degrees) that the servo can travel between the minimum and maximum pulse widths.
+					Commonly 180 degrees for standard servos.
+
+		endmenu # Servo Control Settings
+
+	endif # PSTAR_KCONFIG_PCA9685_ENABLED
+endmenu # PCA9685 PWM Driver Configuration
+endmenu # Project Star Components Configuration
