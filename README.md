@@ -1,115 +1,180 @@
 # Project-STAR: Survey and Terrain Analysis Robot (STAR)
 
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://topographic-robot.github.io/Topographic-Robot-Documentation/html/index.html)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://topographic-robot.github.io/Project-STAR-Documentation/html/index.html)
 
-**STAR (Survey and Terrain Analysis Robot)** is an advanced terrain-mapping robot designed to autonomously navigate and create detailed 3D mesh topology maps of various landscapes, including hills and valleys. This repository contains the firmware for the ESP32 microcontroller that powers STAR. You can find comprehensive information, including hardware specifications, software architecture, and API documentation, on the project's dedicated documentation site hosted on GitHub Pages.
+**STAR (Survey and Terrain Analysis Robot)** is an advanced terrain-mapping robot designed to autonomously navigate and create detailed 3D mesh topology maps of various landscapes, including hills and valleys. This repository contains the firmware for the ESP32 microcontroller that powers STAR.
+
+_(Note: This repository is under active development. While the goal is a fully autonomous mapping robot, the currently implemented features focus on the Hardware Abstraction Layers (HALs) and supporting utilities.)_
 
 ## Table of Contents
 
 - [Project-STAR: Survey and Terrain Analysis Robot (STAR)](#project-star-survey-and-terrain-analysis-robot-star)
   - [Table of Contents](#table-of-contents)
-  - [Features](#features)
-  - [Hardware](#hardware)
+  - [Currently Implemented Features](#currently-implemented-features)
+  - [Supported Hardware Components](#supported-hardware-components)
   - [Software](#software)
-    - [Architecture Diagrams](#architecture-diagrams)
+    - [Architecture Diagram (Bus Manager)](#architecture-diagram-bus-manager)
+    - [Dependencies](#dependencies)
   - [Installation](#installation)
   - [Configuration](#configuration)
     - [Using menuconfig](#using-menuconfig)
-    - [Validating Kconfig Files](#validating-kconfig-files)
-    - [Fixing Kconfig Warnings (Step 2)](#fixing-kconfig-warnings-step-2)
-    - [Kconfig Validation and Update Script](#kconfig-validation-and-update-script)
-    - [ESP-IDF Kconfig Documentation](#esp-idf-kconfig-documentation)
-    - [Additional ESP-IDF Resources](#additional-esp-idf-resources)
+  - [Running Examples or Main Application](#running-examples-or-main-application)
   - [JTAG Debugging](#jtag-debugging)
-  - [Documentation](#documentation)
   - [Contributing](#contributing)
   - [License](#license)
 
-## Features
+## Currently Implemented Features
 
-- **Terrain Mapping:** Generates detailed 3D mesh topology maps of diverse terrains.
-- **Autonomous Navigation:** Designed to traverse hills, valleys, and other challenging landscapes.
-- **Sensor Suite:** Equipped with a comprehensive set of sensors for data acquisition:
-  - **Environmental:** DHT22 (Temperature & Humidity), BH1750 (Ambient Light), SEN-CCS811 & MQ135 (Air Quality).
-  - **Motion & Orientation:** MPU6050 (Accelerometer & Gyroscope), QMC5883L (Magnetometer).
-  - **Localization:** GY-NEO6MV2 (GPS).
-  - **Imaging:** OV7670 Camera (controlled by DE10-Lite FPGA).
-- **Data Storage:** Utilizes a Micro-SD card for onboard data logging.
-- **Remote Communication:** Implements Wi-Fi connectivity for data transmission and potential remote control.
-- **Modular Design:** Built using ESP-IDF with a modular component structure for easy maintenance and expansion.
-- **JTAG Debugging:** Supports JTAG debugging for development and troubleshooting.
-- **Interrupt-Driven Sensor Handling:** The MPU6050 sensor implementation uses interrupts for efficient data acquisition.
-- **SD Card Hot-Swap:** Supports SD card hot-swapping with automatic detection using the CD pin.
+This repository currently provides the following firmware features and utilities:
 
-## Hardware
+- **I2C Bus Management:** A manager (`pstar_bus`) to handle I2C bus configurations and operations.
+- **Ambient Light Sensing:** HAL (`pstar_bh1750_hal`) for the BH1750 I2C light sensor.
+- **Temperature & Humidity Sensing:** HAL (`pstar_dht22_hal`) for the DHT22 sensor (using a custom 1-wire protocol).
+- **Character LCD Display:** HAL (`pstar_hd44780_hal`) for HD44780-compatible LCDs (4-bit parallel mode).
+- **Air Quality Sensing (Analog):** HAL (`pstar_mq135_hal`) for the MQ135 analog gas sensor using ESP32's ADC.
+- **PWM/Servo Control:** HAL (`pstar_pca9685_hal`) for the PCA9685 16-channel I2C PWM driver.
+- **Pin Validation:** Utility (`pstar_pin_validator`) to detect GPIO pin assignment conflicts at compile/runtime setup.
+- **Error Handling:** Utility (`pstar_error_handler`) for basic error tracking and retry logic.
+- **JTAG Configuration:** Utility (`pstar_jtag`) to retrieve JTAG pin configuration from Kconfig.
+- **Modular Design:** Built using ESP-IDF with a modular component structure.
+- **Kconfig Integration:** Most components offer configuration options via `menuconfig`.
+- **Integrated Examples:** Example routines for each HAL component are included within the main project build. They can be selected to run *instead* of the main application via a Kconfig setting (`pstar_examples` component).
 
-The core of STAR is an ESP32 microcontroller. It interacts with the following hardware components:
+_(Future development aims to integrate these HALs into higher-level tasks for navigation, mapping, and communication.)_
 
-- **Microcontroller:** ESP32
+## Supported Hardware Components
+
+The firmware components currently support interaction with the following hardware:
+
+- **Microcontroller:** ESP32 (various modules)
 - **Sensors:**
-  - DHT22 (Temperature & Humidity)
-  - MPU6050 (Accelerometer & Gyroscope)
-  - BH1750 (Ambient Light)
-  - QMC5883L (Magnetometer)
-  - OV7670 (Camera, controlled by DE10-Lite)
-  - SEN-CCS811 (Air Quality - eCO2, TVOC)
-  - MQ135 (Air Quality - various gases)
-  - GY-NEO6MV2 (GPS)
-- **Storage:** Micro-SD Card Module
-- **Actuators:** Motors controlled via PCA9685 PWM Driver
-- **Communication:** Wi-Fi (ESP32 built-in)
-- **Power:** 3.3V power supply for most components, with potential external power for motors
-- **FPGA (External):** DE10-Lite (for camera control)
-- **JTAG Debugger:** CJMCU-4232 (optional, for debugging)
+  - BH1750 (Ambient Light - I2C)
+  - DHT22 (Temperature & Humidity - 1-Wire)
+  - MQ135 (Air Quality - Analog/ADC)
+- **Actuators/Drivers:**
+  - PCA9685 (16-Channel PWM/Servo Driver - I2C)
+- **Displays:**
+  - HD44780-compatible Character LCDs (4-bit parallel)
+- **Debugging:**
+  - JTAG Debugger (e.g., ESP-Prog, FTDI-based) - Configuration supported by `pstar_jtag`.
 
-**Schematics:**
-
-Refer to the images below for the schematics of the robot:
-
-![Print Schematic-2](https://github.com/user-attachments/assets/91e3658f-626d-4d3d-8d84-060d94f8161d)
-![Print Schematic-3](https://github.com/user-attachments/assets/b480c20d-7b98-4bb1-b207-027b9d4634cc)
-![Print Schematic-4](https://github.com/user-attachments/assets/fd70dec2-0874-4dc0-99f8-d9a695c5698a)
-![Print Schematic-5](https://github.com/user-attachments/assets/cfb79a64-f3b6-4450-9d41-8d787df71902)
+_(Support for other hardware like cameras, GPS, IMUs, SD cards, etc., will be added as development progresses.)_
 
 ## Software
 
-The firmware is developed using the **ESP-IDF** framework and written primarily in **C**. It utilizes **FreeRTOS** for task management.
+The firmware is developed using the **ESP-IDF** framework (v5.1 or later recommended for C23 support) and written primarily in **C**. It utilizes **FreeRTOS** for task management where applicable.
 
 **Software Components:**
 
-- **`components/`:** Contains modular components:
-  - **`camera/`:** Hardware Abstraction Layer (HAL) for the OV7670 camera.
-  - **`common/`:** I2C, SPI, and UART communication drivers.
-  - **`controllers/`:** HAL for the PCA9685 PWM driver.
-  - **`sensors/`:** HALs for each sensor (BH1750, DHT22, MPU6050, QMC5883L, GY-NEO6MV2, CCS811, MQ135).
-  - **`storage/`:** HAL for SD card interactions.
-- **`main/`:**
-  - **`include/managers/`:** Time management and file writing utilities.
-  - **`include/tasks/`:** Task definitions for motor control, sensor data acquisition, Wi-Fi management, and web server communication.
-  - `main.c`: Main application entry point.
+- **`components/`:** Contains modular HALs and utilities (see [Currently Implemented Features](#currently-implemented-features)).
+- **`examples/`:** Contains source files (`*.c`, `*.h`) for example routines demonstrating HAL usage. These are **not** standalone projects but are compiled conditionally into the main firmware build. The `pstar_examples` component within this directory handles dispatching to the selected example.
+- **`main/`:** Contains the main application entry point (`main.c`), project-wide Kconfig definitions (`Kconfig.projbuild`), and potentially the core application logic (when "Main Application" is selected in Kconfig).
 
-### Architecture Diagrams
+### Architecture Diagram (Bus Manager)
 
-The project includes architectural diagrams to help visualize the system design:
-
-- **ESP32 Bus Manager Functional Block Diagram:** The `esp32_bus_manager_fbd.svg` file illustrates the communication architecture between the ESP32 and its peripheral components, showing how I2C, SPI, and UART buses are managed to connect various sensors and devices. This diagram is essential for understanding the hardware interfaces and data flow within the system.
+The `pstar_bus` component provides an I2C bus manager. The diagram below illustrates its conceptual structure:
 
 ![ESP32 Bus Manager Block Diagram](./docs/diagrams/esp32_bus_manager_fbd.svg)
 
-**Dependencies:**
+_(Note: The diagram shows I2C, SPI, and UART, but the current implementation in `pstar_bus` only focuses on I2C management)._
 
-- **ESP-IDF:** v4.4 or later (check `idf.py --version`)
-- **cJSON:** For JSON data formatting.
-- **FATFS:** For SD card file system operations.
+### Dependencies
+
+- **ESP-IDF:** v5.1 or later (check `idf.py --version`). C23 support might require specific versions.
+- **FreeRTOS:** Included with ESP-IDF.
 
 ## Installation
 
-1. **Install ESP-IDF:**
+1.  **Clone the Repository:**
 
-   Follow the official ESP-IDF installation instructions:
-   [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
+    ```bash
+    git clone <repository-url> Project-Star
+    cd Project-Star
+    ```
 
-2. **Ensure Latest `clang-format` (Optional but Recommended):**
+2.  **Install ESP-IDF:**
+    Follow the official ESP-IDF installation instructions:
+    [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
+    Ensure the required environment variables (`IDF_PATH`, toolchain `PATH`) are set up correctly. You can verify by running `idf.py --version` in your terminal.
 
-   If you are contributing to the project and use `clang-format` for formatting code, make sure it is up to date (preferably version 20.1.1 or later).
-   On macOS, run the following:
+3.  **Set Target MCU:**
+    Configure the project for your specific ESP32 variant (e.g., esp32, esp32s2, esp32s3):
+    ```bash
+    idf.py set-target esp32
+    ```
+
+## Configuration
+
+### Using menuconfig
+
+Project-wide settings, including component configurations (pins, addresses, default values) and example selection, are managed using ESP-IDF's `menuconfig` system.
+
+1.  **Run menuconfig from the project root:**
+    ```bash
+    idf.py menuconfig
+    ```
+2.  **Navigate:** Go to `Project Star Components Configuration`.
+3.  **Select Example or Main App:**
+    *   Navigate to the `Select Example to Run` submenu.
+    *   Choose either `Main Application` to run the primary STAR firmware logic or select a specific example (e.g., `BH1750 Example`) to run only that demo routine.
+4.  **Enable/Disable Components:** Ensure the components required by your selection (either the main app or the chosen example) are enabled (e.g., `[*] Enable BH1750 Light Sensor Component`). Examples usually depend on their corresponding HAL component being enabled.
+5.  **Configure Component Settings:** Enter the submenus for enabled components to set parameters like GPIO pins, I2C addresses, default frequencies, etc. Pay close attention to pin assignments to avoid conflicts. The Pin Validator (if enabled) will help detect issues during the build or at runtime startup.
+6.  **Save and Exit.**
+
+## Running Examples or Main Application
+
+The process for running either the main application or an integrated example is the same, differing only in the selection made in `menuconfig`.
+
+1.  **Configure Selection:**
+    *   Run `idf.py menuconfig`.
+    *   Go to `Project Star Components Configuration` -> `Select Example to Run`.
+    *   Choose the desired execution target (e.g., `Main Application`, `PCA9685 Servo Sweep Example`).
+    *   Ensure all necessary components for your selection are enabled and configured correctly (pins, addresses, etc.).
+    *   Save and exit `menuconfig`.
+
+2.  **Build the Project:**
+
+    ```bash
+    idf.py build
+    ```
+
+3.  **Flash the Firmware:**
+    Connect your ESP32 board.
+
+    ```bash
+    idf.py flash
+    ```
+    *(You might need `-p /dev/your_port_name` if the port isn't detected automatically).*
+
+4.  **Monitor the Output:**
+    ```bash
+    idf.py monitor
+    ```
+    *(Press `Ctrl+]` to exit).*
+
+The firmware will now execute the logic corresponding to your selection in `menuconfig`. If an example was chosen, only that example's code will run. If "Main Application" was chosen, the standard STAR application logic will execute.
+
+## JTAG Debugging
+
+JTAG debugging allows for more advanced debugging capabilities like setting breakpoints and inspecting memory.
+
+1.  **Hardware Setup:** Connect a JTAG debugger (e.g., ESP-Prog, FTDI CJMCU-232H) to the ESP32's JTAG pins (TCK, TMS, TDI, TDO).
+2.  **Configure Pins:**
+    *   Run `idf.py menuconfig` from the project root.
+    *   Navigate to `Project Star Components Configuration` -> `JTAG Configuration`.
+    *   Enable `[*] Enable JTAG Support`.
+    *   Select the `JTAG Pin Configuration Mode` (`Default` for standard pins based on your target, or `Custom` to specify pins manually).
+    *   Ensure the selected JTAG pins do not conflict with other peripherals using the `Pin Validator` component.
+    *   Save and exit.
+3.  **Build and Flash:** Build and flash the project normally (`idf.py build flash`).
+4.  **Start Debug Session:** Follow the ESP-IDF JTAG debugging guide to start a debug session (e.g., using `idf.py openocd` and `xtensa-esp32-elf-gdb`).
+
+*(Refer to the official ESP-IDF JTAG Debugging documentation for detailed setup instructions: [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/jtag-debugging/index.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/jtag-debugging/index.html))*
+
+## Contributing
+
+Contributions are welcome! Please follow standard Git practices (fork, branch, pull request). Ensure code adheres to the existing style and passes pre-commit checks (run `./precommit.sh` manually if needed, or set up as a git hook). Run `./apply_clang_format.sh` and `./add_file_header.sh` before submitting changes.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

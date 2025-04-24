@@ -11,5 +11,6 @@ idf_component_register(
 	  pstar_bus
 	  pstar_bh1750_hal
 	  pstar_pca9685_hal
+	  pstar_examples
 	PRIV_REQUIRES
 )

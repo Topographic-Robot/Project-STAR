@@ -7,6 +7,7 @@
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "sdkconfig.h" /* Needed for CONFIG_ checks */
 
 static const char* TAG = "PSTAR JTAG";
 
@@ -16,16 +17,11 @@ esp_err_t pstar_get_jtag_pins(pstar_jtag_t* tag)
 {
   ESP_RETURN_ON_FALSE(tag, ESP_ERR_INVALID_ARG, TAG, "get_jtag_pins: NULL argument");
 
-#if !CONFIG_PSTAR_KCONFIG_JTAG_ENABLED
-  ESP_LOGW(TAG, "JTAG is disabled via Kconfig");
-  tag->tck = -1; /* Indicate invalid pins */
-  tag->tms = -1;
-  tag->tdi = -1;
-  tag->tdo = -1;
-  return ESP_ERR_NOT_SUPPORTED;
-#endif
+/* --- Guard Block Start --- */
+/* Only compile the following code if JTAG is enabled in Kconfig */
+#if CONFIG_PSTAR_KCONFIG_JTAG_ENABLED
 
-  /* Directly use the final Kconfig values determined by the logic */
+  /* Directly use the final Kconfig values determined by the logic in Kconfig.projbuild */
   tag->tck = CONFIG_PSTAR_KCONFIG_JTAG_PIN_TCK;
   tag->tms = CONFIG_PSTAR_KCONFIG_JTAG_PIN_TMS;
   tag->tdi = CONFIG_PSTAR_KCONFIG_JTAG_PIN_TDI;
@@ -55,10 +51,25 @@ esp_err_t pstar_get_jtag_pins(pstar_jtag_t* tag)
            tag->tdo);
 
   return ESP_OK;
+
+#else /* CONFIG_PSTAR_KCONFIG_JTAG_ENABLED is false */
+
+  /* JTAG is disabled, return error and set invalid pins */
+  ESP_LOGW(TAG, "JTAG is disabled via Kconfig. Cannot get JTAG pins.");
+  tag->tck = -1; /* Indicate invalid pins */
+  tag->tms = -1;
+  tag->tdi = -1;
+  tag->tdo = -1;
+  return ESP_ERR_NOT_SUPPORTED;
+
+#endif /* CONFIG_PSTAR_KCONFIG_JTAG_ENABLED */
+  /* --- Guard Block End --- */
 }
 
 esp_err_t pstar_jtag_register_kconfig_pins(void)
 {
+/* --- Guard Block Start --- */
+/* Only compile the following code if BOTH Pin Validator AND JTAG are enabled */
 #if CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED && CONFIG_PSTAR_KCONFIG_JTAG_ENABLED
   esp_err_t ret = ESP_OK;
   ESP_LOGI(TAG, "Registering JTAG pins with validator (from KConfig)...");
@@ -66,7 +77,11 @@ esp_err_t pstar_jtag_register_kconfig_pins(void)
   /* Get JTAG pins configuration */
   pstar_jtag_t jtag_pins;
   ret = pstar_get_jtag_pins(&jtag_pins);
-  ESP_RETURN_ON_ERROR(ret, TAG, "Failed to get JTAG pins: %s", esp_err_to_name(ret));
+  /* If get_jtag_pins fails (e.g., invalid config even if enabled), return error */
+  ESP_RETURN_ON_ERROR(ret,
+                      TAG,
+                      "Failed to get JTAG pins for registration: %s",
+                      esp_err_to_name(ret));
 
   /* Register all JTAG pins (usually not shared) */
   /* Check if pins are valid before registering */
@@ -100,8 +115,12 @@ esp_err_t pstar_jtag_register_kconfig_pins(void)
 
   ESP_LOGI(TAG, "JTAG KConfig pins registered successfully.");
   return ESP_OK;
-#else
+
+#else /* Pin Validator or JTAG is disabled */
+
   ESP_LOGD(TAG, "Pin validator or JTAG disabled, skipping JTAG pin registration.");
   return ESP_OK; /* Not an error if validator or JTAG is disabled */
+
 #endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED && CONFIG_PSTAR_KCONFIG_JTAG_ENABLED */
+  /* --- Guard Block End --- */
 }

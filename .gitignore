@@ -324,3 +324,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+!pstar_examples/
+!pstar_examples/**
