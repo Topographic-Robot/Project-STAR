@@ -1,6 +1,8 @@
 /* pstar_examples/bh1750_example.c */
 
-#include "bh1750_example.h"
+#include "sdkconfig.h"
+
+#ifdef CONFIG_PSTAR_KCONFIG_BH1750_ENABLED
 
 #include "pstar_bh1750_hal.h"
 #include "pstar_bus_manager.h"
@@ -9,8 +11,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "bh1750_example.h"
 #include "esp_log.h"
-#include "sdkconfig.h"
 
 static const char* TAG_EX = "BH1750_Example";
 
@@ -56,6 +58,7 @@ void example_bh1750_app_main(void)
 
   /* --- Setup Step 4: Create BH1750 device --- */
   ESP_LOGI(TAG_EX, "Initializing BH1750 HAL...");
+  /* This function is already guarded internally by the HAL C file */
   ret = pstar_bh1750_hal_create_kconfig_default(&example_bus_manager, &bh1750_handle);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG_EX, "Failed to create BH1750 default: %s", esp_err_to_name(ret));
@@ -72,13 +75,15 @@ void example_bh1750_app_main(void)
       ESP_LOGI(TAG_EX, "Ambient Light: %.2f Lux", lux);
     } else {
       ESP_LOGE(TAG_EX, "Failed to read BH1750: %s", esp_err_to_name(ret));
+      /* Optional: Implement error handling/retry based on the error */
     }
+    /* The Kconfig macro is only used if the component is enabled, so this is safe */
     vTaskDelay(pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BH1750_READ_INTERVAL_MS));
   }
 
 example_fail:
   /* Cleanup resources if setup failed */
-  ESP_LOGE(TAG_EX, "Example setup failed. Cleaning up and halting.");
+  ESP_LOGE(TAG_EX, "Example setup failed or ending. Cleaning up and halting.");
   if (bh1750_handle) {
     pstar_bh1750_hal_deinit(bh1750_handle, false);
   }
@@ -96,3 +101,29 @@ example_fail:
     vTaskDelay(portMAX_DELAY);
   }
 }
+
+#else /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */
+
+/* Provide a stub function if the component is disabled */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "esp_log.h"
+
+static const char* TAG_EX_STUB = "BH1750_Example";
+void               example_bh1750_app_main(void)
+{
+  ESP_LOGE(TAG_EX_STUB,
+           "BH1750 Example is selected in Kconfig, but the BH1750 component is disabled!");
+  ESP_LOGE(
+    TAG_EX_STUB,
+    "Please enable 'PSTAR_KCONFIG_BH1750_ENABLED' or select a different example/Main Application.");
+  /* Halt */
+  while (1) {
+    /* Include FreeRTOS headers needed for vTaskDelay OR use a simple busy loop */
+    /* For safety, let's include the headers needed just for this simple halt */
+    vTaskDelay(portMAX_DELAY);
+  }
+}
+
+#endif /* CONFIG_PSTAR_KCONFIG_BH1750_ENABLED */

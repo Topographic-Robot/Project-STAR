@@ -7,6 +7,7 @@ idf_component_register(
         "include"
     REQUIRES
         pstar_pin_validator
+        pstar_bus
         driver
         freertos
 )

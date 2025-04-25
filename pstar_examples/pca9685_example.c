@@ -1,6 +1,9 @@
 /* pstar_examples/pca9685_example.c */
 
-#include "pca9685_example.h"
+#include "sdkconfig.h"
+
+/* Only include and compile if component enabled */
+#ifdef CONFIG_PSTAR_KCONFIG_PCA9685_ENABLED
 
 #include "pstar_bus_manager.h"
 #include "pstar_pca9685_hal.h"
@@ -10,16 +13,14 @@
 #include "freertos/task.h"
 
 #include "esp_log.h"
-#include "sdkconfig.h" /* Needed for Kconfig values */
+#include "pca9685_example.h"
+// sdkconfig.h is already included
 
 static const char* TAG_EX = "PCA9685_MultiBoard_Example";
 
 /* --- Determine Number of Default Boards from Kconfig --- */
-#if CONFIG_PSTAR_KCONFIG_PCA9685_ENABLED && (CONFIG_PSTAR_KCONFIG_PCA9685_DEFAULT_INIT_COUNT > 0)
+/* Use the macro derived from Kconfig */
 #define NUM_DEFAULT_PCA9685 CONFIG_PSTAR_KCONFIG_PCA9685_DEFAULT_INIT_COUNT
-#else
-#define NUM_DEFAULT_PCA9685 0
-#endif
 
 /* Example Configuration */
 #define SWEEP_STEP_DEG 1   /* Angle increment/decrement per step (adjust for speed) */
@@ -37,15 +38,20 @@ void example_pca9685_app_main(void)
   bool                validator_used      = false; /* Track if validator was active */
 
 /* Array to hold handles for all initialized boards */
-#if NUM_DEFAULT_PCA9685 > 0
+#if NUM_DEFAULT_PCA9685 > 0 /* Array declaration only if needed */
   pstar_pca9685_hal_handle_t pca9685_handles[NUM_DEFAULT_PCA9685] = {NULL};
+#else
+  /* Define a dummy pointer to avoid compiler errors if the array is never used, */
+  /* although the logic below should prevent access anyway. */
+  pstar_pca9685_hal_handle_t* pca9685_handles = NULL;
 #endif
 
-/* --- Setup Step 1: Register Example Pins (if validator enabled) --- */
-#if CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED && NUM_DEFAULT_PCA9685 > 0
+/* --- Setup Step 1: Register Example Pins (if validator enabled AND boards configured) --- */
+#if CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED && (NUM_DEFAULT_PCA9685 > 0)
   validator_used = true;
   ESP_LOGI(TAG_EX, "Registering PCA9685 example pins...");
   /* Use Kconfig pins for the example. This registers I2C and potentially OE pin for the defaults. */
+  /* This function is already guarded internally by the HAL C file */
   ret = pstar_pca9685_register_kconfig_pins();
   if (ret != ESP_OK) {
     ESP_LOGE(TAG_EX, "Failed to register PCA9685 pins: %s", esp_err_to_name(ret));
@@ -59,10 +65,10 @@ void example_pca9685_app_main(void)
     goto example_fail; /* Treat as fatal */
   }
   ESP_LOGI(TAG_EX, "Example Pin validation successful.");
-#elif NUM_DEFAULT_PCA9685 > 0
+#elif NUM_DEFAULT_PCA9685 > 0 /* If boards configured but validator disabled */
   ESP_LOGW(TAG_EX, "Pin Validator disabled. Skipping pin checks for example.");
   validator_used = false;
-#else
+#else                         /* If no boards configured */
   ESP_LOGI(TAG_EX, "No default PCA9685 boards configured. Skipping pin registration/validation.");
   validator_used = false;
 #endif
@@ -77,8 +83,9 @@ void example_pca9685_app_main(void)
   manager_initialized = true;
 
   /* --- Setup Step 4: Create MULTIPLE PCA9685 devices using Kconfig defaults --- */
-#if NUM_DEFAULT_PCA9685 > 0
+#if NUM_DEFAULT_PCA9685 > 0 /* Wrap initialization logic */
   ESP_LOGI(TAG_EX, "Initializing %d default PCA9685 board(s)...", NUM_DEFAULT_PCA9685);
+  /* This function is already guarded internally by the HAL C file */
   ret = pstar_pca9685_hal_create_multiple_defaults(&example_bus_manager,
                                                    NUM_DEFAULT_PCA9685,
                                                    pca9685_handles); /* Pass the array */
@@ -97,7 +104,7 @@ void example_pca9685_app_main(void)
 
   /* --- Setup Step 5: Enable Output and Check Readiness --- */
   bool any_board_ready = false;
-#if NUM_DEFAULT_PCA9685 > 0
+#if NUM_DEFAULT_PCA9685 > 0 /* Wrap output enable logic */
   ESP_LOGI(TAG_EX, "Enabling output for initialized PCA9685 boards...");
   for (int board_idx = 0; board_idx < NUM_DEFAULT_PCA9685; ++board_idx) {
     if (pca9685_handles[board_idx]) { /* Check if handle is valid (init succeeded) */
@@ -126,17 +133,19 @@ void example_pca9685_app_main(void)
   /* Only proceed if at least one board is ready */
   if (!any_board_ready) {
     ESP_LOGE(TAG_EX, "No PCA9685 boards initialized or output enabled. Halting.");
-    goto example_fail; /* Or handle error appropriately */
+    goto example_fail;
   }
-#else
+#else  /* Case where NUM_DEFAULT_PCA9685 is 0 */
   ESP_LOGW(TAG_EX, "No PCA9685 boards configured. Entering idle state.");
-  goto example_fail; // Go to cleanup and halt
+  goto example_fail; /* Go to cleanup and halt */
 #endif /* NUM_DEFAULT_PCA9685 > 0 */
 
   /* --- Setup Step 6: Example Loop (Multi-Board Continuous Servo Sweep) --- */
-  float servo_max_angle = (float)CONFIG_PSTAR_KCONFIG_PCA9685_SERVO_ANGLE_RANGE;
-  float current_angle   = 0.0f;
-  int   sweep_direction = 1; /* 1 for increasing, -1 for decreasing */
+#if NUM_DEFAULT_PCA9685 > 0 /* Wrap the main example logic */
+  /* Use Kconfig value for servo angle range */
+  const float servo_max_angle = (float)CONFIG_PSTAR_KCONFIG_PCA9685_SERVO_ANGLE_RANGE;
+  float       current_angle   = 0.0f;
+  int         sweep_direction = 1; /* 1 for increasing, -1 for decreasing */
 
   ESP_LOGI(
     TAG_EX,
@@ -184,15 +193,16 @@ void example_pca9685_app_main(void)
     vTaskDelay(pdMS_TO_TICKS(STEP_DELAY_MS));
 
   } /* End while(1) */
+#endif /* NUM_DEFAULT_PCA9685 > 0 (End wrap for example logic) */
 
 example_fail:
   /* Cleanup resources if setup failed or loop exited */
   ESP_LOGW(TAG_EX, "Example setup failed or ending. Cleaning up and halting.");
 
-#if NUM_DEFAULT_PCA9685 > 0
+#if NUM_DEFAULT_PCA9685 > 0 /* Wrap cleanup logic accessing handles */
   ESP_LOGI(TAG_EX, "Deinitializing default PCA9685 board(s)...");
   for (int i = 0; i < NUM_DEFAULT_PCA9685; ++i) {
-    if (pca9685_handles[i]) {
+    if (pca9685_handles[i]) { /* Check handle is valid */
       /* Attempt to disable output before deinit, ignore errors */
       pstar_pca9685_hal_output_disable(pca9685_handles[i]);
       esp_err_t deinit_ret =
@@ -233,3 +243,26 @@ example_fail:
     vTaskDelay(portMAX_DELAY);
   }
 }
+
+#else /* CONFIG_PSTAR_KCONFIG_PCA9685_ENABLED */
+
+/* Provide a stub function if the component is disabled */
+#include "esp_log.h"
+/* Include FreeRTOS headers needed ONLY for the halt loop in the stub */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+static const char* TAG_EX_STUB = "PCA9685_Example";
+void               example_pca9685_app_main(void)
+{
+  ESP_LOGE(TAG_EX_STUB,
+           "PCA9685 Example is selected in Kconfig, but the PCA9685 component is disabled!");
+  ESP_LOGE(
+    TAG_EX_STUB,
+    "Please enable 'PSTAR_KCONFIG_PCA9685_ENABLED' or select a different example/Main Application.");
+  while (1) {
+    vTaskDelay(portMAX_DELAY); /* Halt */
+  }
+}
+
+#endif /* CONFIG_PSTAR_KCONFIG_PCA9685_ENABLED */

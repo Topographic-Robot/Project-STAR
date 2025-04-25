@@ -7,6 +7,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "sdkconfig.h"
 
 #define TAG ("PSTAR PIN VALIDATOR")
 
@@ -27,6 +28,8 @@ static esp_err_t priv_init_mutex(void);
 
 static esp_err_t priv_init_mutex(void)
 {
+/* Only create mutex if validator is enabled */
+#if CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
   if (s_pin_validator.mutex == NULL) {
     s_pin_validator.mutex = xSemaphoreCreateMutex();
     if (s_pin_validator.mutex == NULL) {
@@ -35,11 +38,17 @@ static esp_err_t priv_init_mutex(void)
     }
     ESP_LOGD(TAG, "Pin validator mutex created");
   }
+#endif
   return ESP_OK;
 }
 
 esp_err_t pstar_register_pin(gpio_num_t gpio_num, const char* desc, bool can_be_shared)
 {
+/* --- Add Top-Level Guard --- */
+#if !CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+  // ESP_LOGD(TAG, "Pin Validator disabled. Skipping registration for GPIO %d.", gpio_num);
+  return ESP_OK; /* Silently succeed if disabled */
+#else
   esp_err_t ret;
 
   /* validate inputs before taking mutex */
@@ -91,7 +100,7 @@ esp_err_t pstar_register_pin(gpio_num_t gpio_num, const char* desc, bool can_be_
     }
   } else {
     /* first time registering */
-    ESP_LOGI(TAG, "First registration of pin %d", gpio_num);
+    ESP_LOGD(TAG, "First registration of pin %d", gpio_num); /* Changed to debug */
     pin->can_be_shared = can_be_shared;
   }
 
@@ -129,16 +138,25 @@ esp_err_t pstar_register_pin(gpio_num_t gpio_num, const char* desc, bool can_be_
 
   strcpy(pin->users[pin->usage_count - 1], desc);
 
-  ESP_LOGI(TAG, "Pin %d registered successfully (usage count: %d)", gpio_num, pin->usage_count);
+  ESP_LOGD(TAG,
+           "Pin %d registered successfully (usage count: %d)",
+           gpio_num,
+           pin->usage_count); /* Changed to debug */
 
   /* Release mutex */
   xSemaphoreGive(s_pin_validator.mutex);
 
   return ESP_OK;
+#endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
 }
 
 esp_err_t pstar_validate_pins(void)
 {
+/* --- Add Top-Level Guard --- */
+#if !CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+  // ESP_LOGD(TAG, "Pin Validator disabled. Skipping validation.");
+  return ESP_OK; /* Silently succeed if disabled */
+#else
   esp_err_t ret;
   bool      conflicts_found = false;
 
@@ -193,21 +211,34 @@ esp_err_t pstar_validate_pins(void)
 
   ESP_LOGI(TAG, "Pin validation successful, no conflicts found");
   return ESP_OK;
+#endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
 }
 
 esp_err_t pstar_free_pin_validator(void)
 {
+/* --- Add Top-Level Guard --- */
+#if !CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
+  return ESP_OK; /* Silently succeed if disabled */
+#else
   esp_err_t ret;
 
   /* Initialize mutex if needed */
   ret = priv_init_mutex();
   if (ret != ESP_OK) {
-    return ret;
+    return ret; /* Cannot proceed without mutex initialized */
+  }
+  /* Check if mutex actually exists before trying to take/delete */
+  if (s_pin_validator.mutex == NULL) {
+    ESP_LOGW(
+      TAG,
+      "Attempting to free validator, but mutex was NULL (already freed or never initialized?).");
+    s_pin_validator.initialized = false; /* Ensure state is reset */
+    return ESP_OK;
   }
 
   /* Take mutex */
   if (xSemaphoreTake(s_pin_validator.mutex, portMAX_DELAY) != pdTRUE) {
-    ESP_LOGE(TAG, "Failed to take pin validator mutex");
+    ESP_LOGE(TAG, "Failed to take pin validator mutex for free");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -242,13 +273,17 @@ esp_err_t pstar_free_pin_validator(void)
 
   s_pin_validator.initialized = false;
 
+  /* Grab mutex handle before releasing and deleting */
+  SemaphoreHandle_t mutex_to_delete = s_pin_validator.mutex;
+  s_pin_validator.mutex             = NULL; /* Null out global handle */
+
   /* Release mutex before deleting it */
-  xSemaphoreGive(s_pin_validator.mutex);
+  xSemaphoreGive(mutex_to_delete);
 
   /* Delete the mutex */
-  vSemaphoreDelete(s_pin_validator.mutex);
-  s_pin_validator.mutex = NULL;
+  vSemaphoreDelete(mutex_to_delete);
 
   ESP_LOGI(TAG, "Pin validator resources freed successfully");
   return ESP_OK;
+#endif /* CONFIG_PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED */
 }

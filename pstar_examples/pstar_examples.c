@@ -26,6 +26,12 @@
 #ifdef CONFIG_PSTAR_EXAMPLE_PIN_VALIDATOR
 #include "pin_validator_example.h"
 #endif
+#ifdef CONFIG_PSTAR_EXAMPLE_ERROR_HANDLER // Added
+#include "error_handler_example.h"
+#endif
+#ifdef CONFIG_PSTAR_EXAMPLE_JTAG // Added
+#include "jtag_example.h"
+#endif
 
 static const char* TAG_DISPATCH = "ExampleDispatch";
 
@@ -49,6 +55,12 @@ void run_selected_example(void)
 #elif CONFIG_PSTAR_EXAMPLE_PIN_VALIDATOR
   ESP_LOGI(TAG_DISPATCH, "Dispatching to Pin Validator Example");
   example_pin_validator_app_main();
+#elif CONFIG_PSTAR_EXAMPLE_ERROR_HANDLER // Added
+  ESP_LOGI(TAG_DISPATCH, "Dispatching to Error Handler Example");
+  example_error_handler_app_main();
+#elif CONFIG_PSTAR_EXAMPLE_JTAG          // Added
+  ESP_LOGI(TAG_DISPATCH, "Dispatching to JTAG Example");
+  example_jtag_app_main();
 #elif CONFIG_PSTAR_EXAMPLE_NONE
   ESP_LOGE(TAG_DISPATCH, "Error: run_selected_example called when Main Application selected!");
 #else

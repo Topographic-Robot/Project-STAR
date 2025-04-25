@@ -5,10 +5,12 @@ idf_component_register(
     "pstar_examples.c"
     "bh1750_example.c"
     "pca9685_example.c"
-#    "dht22_example.c"
-#    "mq135_example.c"
-#    "hd44780_example.c"
+    "dht22_example.c"
+    "mq135_example.c"
+    "hd44780_example.c"
     "pin_validator_example.c"
+    "error_handler_example.c"
+    "jtag_example.c"
   INCLUDE_DIRS
     "."
     "include"
@@ -28,5 +30,7 @@ idf_component_register(
     pstar_dht22_hal
     pstar_mq135_hal
     pstar_hd44780_hal
+    pstar_error_handler
+    pstar_jtag
   PRIV_REQUIRES
 )

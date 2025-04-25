@@ -811,52 +811,141 @@ menu "Project Star Components Configuration"
             default n
             help
                 Enable the Project Star HD44780 Character LCD component.
-                This HAL supports 4-bit parallel communication mode.
+                Supports 4-bit parallel or I2C backpack (PCF8574) modes.
 
         if PSTAR_KCONFIG_HD44780_ENABLED
 
-            config PSTAR_KCONFIG_HD44780_RS_PIN
-                int "GPIO Pin for RS (Register Select)"
-                range 0 39
-                default 16
+            choice PSTAR_KCONFIG_HD44780_INTERFACE_MODE
+                prompt "Interface Mode"
+                default PSTAR_KCONFIG_HD44780_MODE_PARALLEL
                 help
-                    GPIO pin number connected to the LCD's RS pin.
+                    Select the communication interface used to connect to the LCD.
+                    - Parallel: Uses direct GPIO connections for RS, E, and D4-D7.
+                    - I2C: Uses an I2C backpack module (typically PCF8574-based).
+                           Requires the I2C Bus Manager component to be enabled.
 
-            config PSTAR_KCONFIG_HD44780_E_PIN
-                int "GPIO Pin for E (Enable)"
-                range 0 39
-                default 17
-                help
-                    GPIO pin number connected to the LCD's E pin.
+                config PSTAR_KCONFIG_HD44780_MODE_PARALLEL
+                    bool "4-bit Parallel Interface"
 
-            config PSTAR_KCONFIG_HD44780_D4_PIN
-                int "GPIO Pin for Data 4"
-                range 0 39
-                default 18
-                help
-                    GPIO pin number connected to the LCD's D4 pin.
+                config PSTAR_KCONFIG_HD44780_MODE_I2C
+                    bool "I2C Interface (via PCF8574 Backpack)"
+                    depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED # I2C mode needs the bus manager
+                    help
+                        Select this if your LCD is connected via an I2C adapter board.
+                        Configure the I2C bus settings below.
 
-            config PSTAR_KCONFIG_HD44780_D5_PIN
-                int "GPIO Pin for Data 5"
-                range 0 39
-                default 19
-                help
-                    GPIO pin number connected to the LCD's D5 pin.
+            endchoice
 
-            config PSTAR_KCONFIG_HD44780_D6_PIN
-                int "GPIO Pin for Data 6"
-                range 0 39
-                default 21 # Note: Default I2C SDA pin, ensure no conflict if I2C used
-                help
-                    GPIO pin number connected to the LCD's D6 pin.
+            # --- Parallel Interface Settings ---
+            if PSTAR_KCONFIG_HD44780_MODE_PARALLEL
 
-            config PSTAR_KCONFIG_HD44780_D7_PIN
-                int "GPIO Pin for Data 7"
-                range 0 39
-                default 22 # Note: Default I2C SCL pin, ensure no conflict if I2C used
-                help
-                    GPIO pin number connected to the LCD's D7 pin.
+                config PSTAR_KCONFIG_HD44780_RS_PIN
+                    int "GPIO Pin for RS (Register Select)"
+                    range 0 39 # Adjust range based on target MCU capabilities
+                    default 16
+                    help
+                        GPIO pin number connected to the LCD's RS pin.
 
+                config PSTAR_KCONFIG_HD44780_E_PIN
+                    int "GPIO Pin for E (Enable)"
+                    range 0 39
+                    default 17
+                    help
+                        GPIO pin number connected to the LCD's E pin.
+
+                config PSTAR_KCONFIG_HD44780_D4_PIN
+                    int "GPIO Pin for Data 4"
+                    range 0 39
+                    default 18
+                    help
+                        GPIO pin number connected to the LCD's D4 pin.
+
+                config PSTAR_KCONFIG_HD44780_D5_PIN
+                    int "GPIO Pin for Data 5"
+                    range 0 39
+                    default 19
+                    help
+                        GPIO pin number connected to the LCD's D5 pin.
+
+                config PSTAR_KCONFIG_HD44780_D6_PIN
+                    int "GPIO Pin for Data 6"
+                    range 0 39
+                    default 21 # Note: Common I2C SDA pin, ensure no conflict
+                    help
+                        GPIO pin number connected to the LCD's D6 pin.
+
+                config PSTAR_KCONFIG_HD44780_D7_PIN
+                    int "GPIO Pin for Data 7"
+                    range 0 39
+                    default 22 # Note: Common I2C SCL pin, ensure no conflict
+                    help
+                        GPIO pin number connected to the LCD's D7 pin.
+
+            endif # PSTAR_KCONFIG_HD44780_MODE_PARALLEL
+
+            # --- I2C Interface Settings ---
+            if PSTAR_KCONFIG_HD44780_MODE_I2C
+
+                config PSTAR_KCONFIG_HD44780_I2C_BUS_NAME
+                    string "I2C Bus Manager Name"
+                    default "lcd_i2c_bus"
+                    help
+                        The unique name identifying the I2C bus configuration within the
+                        I2C Bus Manager that the LCD backpack will use. The Bus Manager
+                        will use the Port, Pins, and Frequency defined below.
+
+                choice PSTAR_KCONFIG_HD44780_I2C_PORT
+                    prompt "I2C Port for LCD Backpack"
+                    default PSTAR_KCONFIG_HD44780_I2C_PORT_0 # Default Port 0 for potential sharing
+                    help
+                        Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) the
+                        LCD backpack is connected to.
+
+                    config PSTAR_KCONFIG_HD44780_I2C_PORT_0
+                        bool "I2C Port 0 (I2C_NUM_0)"
+
+                    config PSTAR_KCONFIG_HD44780_I2C_PORT_1
+                        bool "I2C Port 1 (I2C_NUM_1)"
+                endchoice
+
+                config PSTAR_KCONFIG_HD44780_I2C_FREQ_HZ
+                    int "I2C Clock Frequency (Hz)"
+                    range 10000 400000 # PCF8574 typically supports up to 400kHz
+                    default 100000 # Common standard mode speed
+                    help
+                        I2C clock frequency in Hz for the bus connected to the LCD backpack.
+                        100000 (100kHz) Standard mode is common and reliable for PCF8574.
+                        400000 (400kHz) Fast mode may also work.
+                        Ensure compatibility with other devices sharing the bus configuration.
+
+                config PSTAR_KCONFIG_HD44780_SDA_PIN
+                    int "GPIO for SDA (I2C Data)"
+                    range 0 39 # Adjust range based on target MCU capabilities
+                    default 21 # Common default for I2C_NUM_0 on ESP32
+                    help
+                        GPIO pin number for the I2C SDA line connected to the LCD backpack.
+                        Verify the pin mapping on your board.
+
+                config PSTAR_KCONFIG_HD44780_SCL_PIN
+                    int "GPIO for SCL (I2C Clock)"
+                    range 0 39 # Adjust range based on target MCU capabilities
+                    default 22 # Common default for I2C_NUM_0 on ESP32
+                    help
+                        GPIO pin number for the I2C SCL line connected to the LCD backpack.
+                        Verify the pin mapping on your board.
+
+                config PSTAR_KCONFIG_HD44780_I2C_ADDR
+                    hex "I2C Address of LCD Backpack (PCF8574)"
+                    default 0x27 # Common default for PCF8574 based backpacks
+                    range 0x20 0x27 # Standard PCF8574 address range
+                    help
+                        The 7-bit I2C address of the LCD backpack module (usually a PCF8574).
+                        Common addresses are 0x27 or 0x3F. Check your specific module
+                        (address selection jumpers/solder pads). Use an I2C scanner if unsure.
+
+            endif # PSTAR_KCONFIG_HD44780_MODE_I2C
+
+            # --- Common LCD Settings (Size) ---
             config PSTAR_KCONFIG_HD44780_ROWS
                 int "Number of LCD Rows"
                 range 1 4
@@ -922,10 +1011,24 @@ menu "Project Star Components Configuration"
                 Run a standalone example demonstrating the HD44780 LCD HAL.
 
         config PSTAR_EXAMPLE_PIN_VALIDATOR
-             bool "Pin Validator Demo"
+             bool "Pin Validator Example"
              depends on PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED # Example depends on the component
              help
                  Run a simple demonstration showing pin conflict detection using the Pin Validator.
+
+        # --- Added Examples ---
+        config PSTAR_EXAMPLE_ERROR_HANDLER
+            bool "Error Handler Example"
+            depends on PSTAR_KCONFIG_ERROR_HANDLER_ENABLED
+            help
+                Run a standalone example demonstrating the Error Handler utility.
+
+        config PSTAR_EXAMPLE_JTAG
+            bool "JTAG Configuration Example"
+            depends on PSTAR_KCONFIG_JTAG_ENABLED
+            help
+                Run a standalone example demonstrating retrieval of JTAG pin configuration.
+        # --- End Added ---
 
         # --- Add more examples as needed ---
 
