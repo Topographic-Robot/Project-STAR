@@ -1113,7 +1113,6 @@ oe_disable_fail_mutex:
 }
 
 /* --- Default/Custom Creation Functions --- */
-/* These functions remain largely the same, but call the internal init */
 
 esp_err_t pstar_pca9685_hal_create_kconfig_default(pstar_bus_manager_t*        manager,
                                                    pstar_pca9685_hal_handle_t* out_handle)
@@ -1181,7 +1180,8 @@ esp_err_t pstar_pca9685_hal_create_kconfig_default(pstar_bus_manager_t*        m
 
   /* 3. Initialize the bus hardware (only if we just added it and it's not initialized) */
   if (!pca9685_i2c_config->initialized) {
-    ret = pstar_bus_config_init(pca9685_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(pca9685_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,
@@ -1366,7 +1366,8 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
                  "Initializing I2C driver for Port %d (Board %d).",
                  PCA9685_DEFAULT_I2C_PORT,
                  i);
-        loop_ret = pstar_bus_config_init(loop_i2c_config);
+        // *** CORRECTED LINE ***
+        loop_ret = pstar_bus_config_init(loop_i2c_config, manager);
         if (loop_ret != ESP_OK) {
           ESP_LOGE(TAG,
                    "Failed to init bus hardware for board %d ('%s'): %s",
@@ -1495,7 +1496,8 @@ esp_err_t pstar_pca9685_hal_create_custom(pstar_bus_manager_t*        manager,
 
   /* 3. Initialize the bus hardware (if not already initialized) */
   if (!pca9685_i2c_config->initialized) {
-    ret = pstar_bus_config_init(pca9685_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(pca9685_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,

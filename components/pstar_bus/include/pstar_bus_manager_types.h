@@ -48,9 +48,10 @@ typedef struct pstar_bus_manager {
   pstar_bus_config_t* buses; /**< Linked list head of bus configurations */
   SemaphoreHandle_t   mutex; /**< Mutex for thread-safe access to the list */
   const char*         tag;   /**< Tag used for logging by this manager instance */
-  /* Add tracking for initialized SPI hosts if needed */
+  /* Track initialized SPI hosts and device count per host */
   bool
     spi_host_initialized[SPI_HOST_MAX]; /**< Track which SPI hosts have the bus driver installed */
+  int spi_device_count[SPI_HOST_MAX];   /**< Count of active devices per SPI host */
 } pstar_bus_manager_t;
 
 #ifdef __cplusplus

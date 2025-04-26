@@ -38,8 +38,11 @@
 #ifdef CONFIG_PSTAR_EXAMPLE_QMC5883
 #include "qmc5883_example.h"
 #endif
-#ifdef CONFIG_PSTAR_EXAMPLE_ILI9341 /* Added */
+#ifdef CONFIG_PSTAR_EXAMPLE_ILI9341
 #include "ili9341_example.h"
+#endif
+#ifdef CONFIG_PSTAR_EXAMPLE_SDMMC /* Added */
+#include "sdmmc_example.h"
 #endif
 
 static const char* TAG_DISPATCH = "ExampleDispatch";
@@ -76,9 +79,12 @@ void run_selected_example(void)
 #elif CONFIG_PSTAR_EXAMPLE_QMC5883
   ESP_LOGI(TAG_DISPATCH, "Dispatching to QMC5883 Example");
   example_qmc5883_app_main();
-#elif CONFIG_PSTAR_EXAMPLE_ILI9341 /* Added */
+#elif CONFIG_PSTAR_EXAMPLE_ILI9341
   ESP_LOGI(TAG_DISPATCH, "Dispatching to ILI9341 Example");
   example_ili9341_app_main();
+#elif CONFIG_PSTAR_EXAMPLE_SDMMC /* Added */
+  ESP_LOGI(TAG_DISPATCH, "Dispatching to SD Card (SDMMC/SPI) Example");
+  example_sdmmc_app_main();
 #elif CONFIG_PSTAR_EXAMPLE_NONE
   ESP_LOGE(TAG_DISPATCH, "Error: run_selected_example called when Main Application selected!");
 #else

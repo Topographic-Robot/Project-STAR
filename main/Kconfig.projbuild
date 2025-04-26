@@ -93,8 +93,7 @@ menu "Project Star Components Configuration"
                 int
                 default 13 if IDF_TARGET_ESP32
                 default 39 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
-                # Add defaults for other targets (C3, C6, H2, etc.) if needed
-                default -1 # Default to invalid if target not matched
+                default -1
 
             config PSTAR_KCONFIG_JTAG_DEFAULT_PIN_TMS
                 int
@@ -118,7 +117,7 @@ menu "Project Star Components Configuration"
             config PSTAR_KCONFIG_JTAG_PIN_TCK_CUSTOM
                 int "Custom GPIO for TCK (Test Clock)"
                 depends on PSTAR_KCONFIG_JTAG_USE_CUSTOM
-                range 0 54 # Adjust max range based on most capable supported MCU
+                range 0 54
                 default 13
                 help
                     Specify the GPIO number to use for the TCK (clock) signal.
@@ -204,7 +203,6 @@ menu "Project Star Components Configuration"
 
             choice PSTAR_KCONFIG_BH1750_I2C_PORT
                 prompt "I2C Port for BH1750"
-                # --- DEFAULT: Port 1 for slower sensors ---
                 default PSTAR_KCONFIG_BH1750_I2C_PORT_1
                 help
                     Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) the BH1750 is connected to.
@@ -213,7 +211,6 @@ menu "Project Star Components Configuration"
 
                 config PSTAR_KCONFIG_BH1750_I2C_PORT_0
                     bool "I2C Port 0 (I2C_NUM_0)"
-
                 config PSTAR_KCONFIG_BH1750_I2C_PORT_1
                     bool "I2C Port 1 (I2C_NUM_1)"
             endchoice
@@ -221,7 +218,6 @@ menu "Project Star Components Configuration"
             config PSTAR_KCONFIG_BH1750_I2C_FREQ_HZ
                 int "I2C Clock Frequency (Hz)"
                 range 10000 400000
-                # --- DEFAULT: 100kHz suitable for BH1750 ---
                 default 100000
                 help
                     I2C clock frequency in Hz for the bus connected to the BH1750.
@@ -231,8 +227,7 @@ menu "Project Star Components Configuration"
 
             config PSTAR_KCONFIG_BH1750_SDA_PIN
                 int "GPIO for SDA (I2C Data)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                # --- DEFAULT: Common pin for I2C_NUM_1 on ESP32 ---
+                range 0 54
                 default 25
                 help
                     GPIO pin number for the I2C SDA (Data) line connection to the BH1750 sensor.
@@ -242,8 +237,7 @@ menu "Project Star Components Configuration"
 
             config PSTAR_KCONFIG_BH1750_SCL_PIN
                 int "GPIO for SCL (I2C Clock)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                # --- DEFAULT: Common pin for I2C_NUM_1 on ESP32 ---
+                range 0 54
                 default 26
                 help
                     GPIO pin number for the I2C SCL (Clock) line connection to the BH1750 sensor.
@@ -260,7 +254,6 @@ menu "Project Star Components Configuration"
 
                 config PSTAR_KCONFIG_BH1750_ADDR_LOW
                     bool "0x23 (ADDR pin connected to GND)"
-
                 config PSTAR_KCONFIG_BH1750_ADDR_HIGH
                     bool "0x5C (ADDR pin connected to VCC)"
             endchoice
@@ -350,9 +343,8 @@ menu "Project Star Components Configuration"
             bool "Enable PCA9685 PWM Driver Component"
             default n
             help
-                Enable the Project Star PCA9685 PWM Driver component. This component provides
-                an interface for controlling the 16-channel PCA9685 PWM/Servo driver chip via I2C.
-                It is typically considered a higher-speed I2C device (400kHz+).
+                Enable the Project Star PCA9685 PWM Driver component. Controls 16-channel
+                PWM/Servo driver via I2C (typically 400kHz+).
 
         if PSTAR_KCONFIG_PCA9685_ENABLED
 
@@ -360,27 +352,16 @@ menu "Project Star Components Configuration"
                 string "I2C Bus Manager Name Prefix for Defaults"
                 default "pca9685_bus"
                 help
-                    The prefix for the I2C bus configuration name(s) in the Bus Manager
-                    used by the automatically initialized default PCA9685 instance(s).
-                    If initializing multiple defaults (Count > 1), a numeric suffix
-                    (e.g., '_0', '_1') might be appended automatically by the component code
-                    if they are intended to be on separate bus configurations (though typically
-                    multiple PCA9685s share the same physical bus). This setting primarily helps
-                    identify the bus configuration used by default instances.
+                    Prefix for the I2C bus name used by default instances.
 
             choice PSTAR_KCONFIG_PCA9685_I2C_PORT
                 prompt "I2C Port for Default PCA9685(s)"
-                # --- DEFAULT: Port 0 for faster devices ---
                 default PSTAR_KCONFIG_PCA9685_I2C_PORT_0
                 help
-                    Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) for the default PCA9685 instance(s).
-                    Assumes all default PCA9685 boards initialized automatically are on the same I2C bus port.
-                    Recommendation: Use I2C_NUM_0 for higher-speed devices like PCA9685 (400kHz+)
-                    to separate them from slower sensors often placed on I2C_NUM_1 (100kHz).
+                    I2C port for default PCA9685(s). Port 0 recommended for high-speed.
 
                 config PSTAR_KCONFIG_PCA9685_I2C_PORT_0
                     bool "I2C Port 0 (I2C_NUM_0)"
-
                 config PSTAR_KCONFIG_PCA9685_I2C_PORT_1
                     bool "I2C Port 1 (I2C_NUM_1)"
             endchoice
@@ -388,121 +369,80 @@ menu "Project Star Components Configuration"
             config PSTAR_KCONFIG_PCA9685_I2C_ADDR
                 hex "Starting I2C Address for Default PCA9685(s)"
                 default 0x40
-                range 0x40 0x7F # Base address is 0x40, shifted via A0-A5 pins
+                range 0x40 0x7F
                 help
-                    The 7-bit I2C address for the *first* default PCA9685 chip initialized automatically.
-                    The default 0x40 assumes address pins A0-A5 are low. If initializing multiple
-                    defaults with address increment enabled, subsequent boards will use incremented
-                    addresses (e.g., 0x41, 0x42...). Ensure addresses are unique on the bus and
-                    match the hardware configuration of your PCA9685 boards (A0-A5 pin settings).
+                    Starting 7-bit I2C address (0x40 if A0-A5 low).
 
             config PSTAR_KCONFIG_PCA9685_SDA_PIN
                 int "GPIO for SDA (I2C Data) for Default PCA9685(s)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                # --- DEFAULT: Common pin for I2C_NUM_0 on ESP32 ---
+                range 0 54
                 default 21
                 help
-                    GPIO pin number used for the I2C SDA (Data) line for the default PCA9685(s).
-                    Assumes all default boards share the same SDA pin. Ensure this pin is valid
-                    for I2C on your hardware and does not conflict with other components or JTAG.
-                    GPIO 21 is the standard default for I2C_NUM_0 SDA on ESP32, but VERIFY YOUR BOARD'S PINOUT.
+                    GPIO for I2C SDA. Assumes shared pin for defaults.
 
             config PSTAR_KCONFIG_PCA9685_SCL_PIN
                 int "GPIO for SCL (I2C Clock) for Default PCA9685(s)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                # --- DEFAULT: Common pin for I2C_NUM_0 on ESP32 ---
+                range 0 54
                 default 22
                 help
-                    GPIO pin number used for the I2C SCL (Clock) line for the default PCA9685(s).
-                    Assumes all default boards share the same SCL pin. Ensure this pin is valid
-                    for I2C on your hardware and does not conflict with other components or JTAG.
-                    GPIO 22 is the standard default for I2C_NUM_0 SCL on ESP32, but VERIFY YOUR BOARD'S PINOUT.
+                    GPIO for I2C SCL. Assumes shared pin for defaults.
 
             config PSTAR_KCONFIG_PCA9685_I2C_FREQ_HZ
                 int "I2C Clock Frequency (Hz) for Default PCA9685(s)"
-                range 10000 1000000 # PCA9685 supports up to 1MHz Fast Mode Plus
-                # --- DEFAULT: 400kHz Fast Mode suitable for PCA9685 ---
+                range 10000 1000000
                 default 400000
                 help
-                    I2C clock frequency in Hz for the bus used by the default PCA9685(s).
-                    400000 (400kHz) is Fast mode, a good default for PCA9685.
-                    1000000 (1MHz) is Fast Mode Plus (check MCU/board/pull-up resistor support).
-                    Ensure this frequency is compatible with other devices sharing the exact
-                    same bus configuration (port & pins).
+                    I2C clock frequency. 400kHz (Fast) or 1MHz (Fast Plus) common.
 
             config PSTAR_KCONFIG_PCA9685_DEFAULT_PWM_FREQ_HZ
                 int "Default PWM Frequency (Hz) for Default PCA9685(s)"
-                range 24 1526 # PCA9685 operational range
+                range 24 1526
                 default 50
                 help
-                    The PWM frequency (cycles per second) to set upon initialization for all
-                    automatically initialized default PCA9685 boards.
-                    - 50Hz is standard for common analog servos.
-                    - Higher frequencies (e.g., 100-1000Hz+) are used for LEDs or DC motor speed control.
+                    Initial PWM frequency (50Hz for servos, higher for LEDs/motors).
 
-            # --- Configuration for Initializing Multiple Defaults ---
             config PSTAR_KCONFIG_PCA9685_DEFAULT_INIT_COUNT
                 int "Number of Default PCA9685 Boards to Initialize"
-                range 0 16 # Set a reasonable upper limit for automatic init
+                range 0 16
                 default 1
                 help
-                    Specify how many PCA9685 boards should be automatically initialized
-                    by the component using the default settings (Bus Prefix, Port, Pins, Freq, PWM Freq, Start Address).
-                    - Set to 0 to disable automatic initialization (requires manual component setup calls).
-                    - Set to 1 to initialize only the single board specified by the Start I2C Address.
-                    - Set >1 to initialize multiple boards, potentially using incrementing I2C addresses.
+                    How many boards to auto-init (0=manual, 1=single, >1=multiple).
 
             config PSTAR_KCONFIG_PCA9685_DEFAULT_ADDR_INCREMENT
                 bool "Increment I2C Address for Multiple Default Boards"
                 depends on PSTAR_KCONFIG_PCA9685_DEFAULT_INIT_COUNT > 1
                 default y
                 help
-                    If initializing more than one default board (Count > 1), enable this to automatically
-                    increment the I2C address for each subsequent board during initialization
-                    (e.g., Start Addr=0x40 -> Boards initialized at 0x40, 0x41, 0x42...).
-                    Disable if your multiple default boards use non-sequential addresses or share the
-                    same address (requires an I2C multiplexer, not handled by this simple increment logic).
-                    Ensure your hardware address pins (A0-A5) are set correctly on each board
-                    to match the expected sequential addresses if using this option.
+                    Auto-increment address (0x40, 0x41...) if init count > 1.
 
-            # --- Output Enable (OE) Pin Configuration ---
             config PSTAR_KCONFIG_PCA9685_USE_OE_PIN
                 bool "Use Output Enable (OE) Pin"
                 default n
                 help
-                    Enable control of the PCA9685's Output Enable (OE) pin via a dedicated GPIO.
-                    This allows globally enabling/disabling all PWM outputs from the chip(s)
-                    sharing the same OE pin connection. Requires configuring the GPIO pin below.
+                    Enable control of the PCA9685 Output Enable pin via GPIO.
 
             if PSTAR_KCONFIG_PCA9685_USE_OE_PIN
 
                 config PSTAR_KCONFIG_PCA9685_OE_PIN
                     int "GPIO for Output Enable (OE)"
-                    range 0 39 # Adjust range based on target MCU capabilities
-                    default 5 # Default to 5
+                    range 0 54
+                    default 5
                     help
-                        GPIO pin number connected to the OE pin of the PCA9685 chip(s).
-                        Ensure this pin does not conflict with other components or JTAG.
-                        Set to 5 if OE pin control is not used or not connected.
+                        GPIO connected to the OE pin(s).
 
                 choice PSTAR_KCONFIG_PCA9685_OE_ACTIVE_LEVEL
                     prompt "OE Pin Active Level"
                     default PSTAR_KCONFIG_PCA9685_OE_ACTIVE_LOW
                     help
-                        Select the logic level that enables the PCA9685 outputs via the OE pin.
-                        Consult the PCA9685 datasheet or your board's schematic.
-                        Typically, OE is active LOW (pulling low enables outputs).
+                        Logic level that enables outputs (usually Active Low).
 
                     config PSTAR_KCONFIG_PCA9685_OE_ACTIVE_LOW
                         bool "Active Low (0 = Enabled, 1 = Disabled)"
-
                     config PSTAR_KCONFIG_PCA9685_OE_ACTIVE_HIGH
                         bool "Active High (1 = Enabled, 0 = Disabled)"
                 endchoice
-
             endif # PSTAR_KCONFIG_PCA9685_USE_OE_PIN
 
-            # --- Servo Configuration ---
             menu "Servo Control Settings"
                 depends on PSTAR_KCONFIG_PCA9685_ENABLED
 
@@ -511,25 +451,21 @@ menu "Project Star Components Configuration"
                     range 500 1500
                     default 1000
                     help
-                        The pulse width in microseconds corresponding to the servo's minimum angle (typically 0 degrees).
-                        Adjust this based on your specific servo model's datasheet. Common values are 500-1000us.
+                        Pulse width (us) for servo minimum angle (e.g., 0 deg).
 
                 config PSTAR_KCONFIG_PCA9685_SERVO_MAX_PULSE_US
                     int "Servo Maximum Pulse Width (microseconds)"
                     range 1500 2500
                     default 2000
                     help
-                        The pulse width in microseconds corresponding to the servo's maximum angle (typically 180 degrees).
-                        Adjust this based on your specific servo model's datasheet. Common values are 2000-2500us.
+                        Pulse width (us) for servo maximum angle (e.g., 180 deg).
 
                 config PSTAR_KCONFIG_PCA9685_SERVO_ANGLE_RANGE
                     int "Servo Angle Range (degrees)"
                     range 90 270
                     default 180
                     help
-                        The total angle range (in degrees) that the servo can travel between the minimum and maximum pulse widths.
-                        Commonly 180 degrees for standard servos.
-
+                        Total angle range (degrees) between min/max pulse.
             endmenu # Servo Control Settings
 
         endif # PSTAR_KCONFIG_PCA9685_ENABLED
@@ -543,19 +479,17 @@ menu "Project Star Components Configuration"
             default n
             help
                 Enable the Project Star DHT22 Temperature and Humidity Sensor component.
-                This sensor uses a custom one-wire protocol on a single GPIO pin.
+                Uses a custom one-wire protocol on a single GPIO pin.
 
         if PSTAR_KCONFIG_DHT22_ENABLED
 
             config PSTAR_KCONFIG_DHT22_GPIO_PIN
                 int "GPIO Pin for DHT22 Data Line"
-                range 0 39 # Adjust range based on target MCU capabilities
+                range 0 54
                 default 4
                 help
                     Specify the GPIO pin number connected to the DHT22 data line.
-                    Ensure this pin is not used by other components or JTAG.
-                    An external pull-up resistor (e.g., 4.7k-10k Ohm) is required between
-                    this pin and VCC.
+                    Requires external pull-up resistor (4.7k-10k Ohm).
 
         endif # PSTAR_KCONFIG_DHT22_ENABLED
     endmenu # DHT22 Configuration
@@ -568,9 +502,7 @@ menu "Project Star Components Configuration"
             default n
             help
                 Enable the Project Star MQ135 Air Quality Sensor component.
-                This sensor provides an analog output voltage proportional to the
-                concentration of various gases (e.g., NH3, NOx, alcohol, Benzene, smoke, CO2).
-                Requires an ADC pin. Accurate PPM conversion requires calibration.
+                Provides analog output proportional to gas concentration. Requires ADC pin.
 
         if PSTAR_KCONFIG_MQ135_ENABLED
 
@@ -578,35 +510,20 @@ menu "Project Star Components Configuration"
                 prompt "MQ135 Pin Selection Mode"
                 default PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO
                 help
-                    Choose how to specify the ADC pin connected to the MQ135.
-                    - Common GPIO Pin: Select from a list of common GPIOs suitable for ADC input
-                      based on your target MCU (ESP32, S3, etc.). The ADC Unit and Channel
-                      will be determined automatically. (Recommended)
-                    - Custom Unit/Channel: Manually enter the ADC Unit and Channel number.
-                      Use this if your pin isn't listed or for advanced configuration. Requires
-                      checking your board's datasheet/pinout.
+                    Choose how to specify the ADC pin.
 
                 config PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO
                     bool "Select Common GPIO Pin (Auto-detect Unit/Channel)"
-
                 config PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
                     bool "Enter Custom ADC Unit and Channel"
-
             endchoice
 
-            # --- Common GPIO Pin Selection (Target Specific) ---
             choice PSTAR_KCONFIG_MQ135_COMMON_GPIO
                 prompt "Common GPIO Pin"
                 depends on PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO
-                default PSTAR_KCONFIG_MQ135_GPIO_34 if IDF_TARGET_ESP32 # Default for ESP32
-                # Add defaults for other targets if desired, e.g.:
-                # default PSTAR_KCONFIG_MQ135_GPIO_S3_1 if IDF_TARGET_ESP32S3
+                default PSTAR_KCONFIG_MQ135_GPIO_34 if IDF_TARGET_ESP32
                 help
-                    Select the GPIO pin connected to the MQ135 sensor.
-                    Only pins typically usable for ADC on the selected target MCU are shown.
-                    The corresponding ADC Unit and Channel will be set automatically.
-                    Verify the pin is available on your specific board.
-                    WARNING: Using ADC2 pins can conflict with Wi-Fi on some chips (like ESP32). ADC1 is preferred.
+                    Select GPIO pin for MQ135 (ADC capable pins shown).
 
                 # --- ESP32 Specific Common Pins ---
                 if IDF_TARGET_ESP32
@@ -622,7 +539,6 @@ menu "Project Star Components Configuration"
                         bool "GPIO 34 (ADC1_CH6)"
                     config PSTAR_KCONFIG_MQ135_GPIO_35
                         bool "GPIO 35 (ADC1_CH7)"
-                    # Common ADC2 Pins (Use with caution if Wi-Fi needed)
                     config PSTAR_KCONFIG_MQ135_GPIO_4
                         bool "GPIO 4 (ADC2_CH0)"
                     config PSTAR_KCONFIG_MQ135_GPIO_2
@@ -644,8 +560,6 @@ menu "Project Star Components Configuration"
                 endif # IDF_TARGET_ESP32
 
                 # --- ESP32-S3 Specific Common Pins ---
-                # Add similar sections for other supported targets (S2, C3, etc.)
-                # Check ESP32-S3 datasheet for ADC pin mappings
                 if IDF_TARGET_ESP32S3
                     config PSTAR_KCONFIG_MQ135_GPIO_S3_1
                         bool "GPIO 1 (ADC1_CH0)"
@@ -657,26 +571,20 @@ menu "Project Star Components Configuration"
                         bool "GPIO 4 (ADC1_CH3)"
                     config PSTAR_KCONFIG_MQ135_GPIO_S3_5
                         bool "GPIO 5 (ADC1_CH4)"
-                    # Add common ADC2 pins for S3 if needed
                     config PSTAR_KCONFIG_MQ135_GPIO_S3_11
                         bool "GPIO 11 (ADC2_CH0)"
-                    # ... etc
                 endif # IDF_TARGET_ESP32S3
-
             endchoice # PSTAR_KCONFIG_MQ135_COMMON_GPIO
 
-            # --- Custom Unit/Channel Selection ---
             choice PSTAR_KCONFIG_MQ135_ADC_UNIT_CHOICE_CUSTOM
                 prompt "ADC Unit (Custom Mode)"
                 depends on PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
                 default PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM
                 help
-                    Select the ADC unit (1 or 2) for the custom channel.
-                    Note: ADC2 channels may conflict with Wi-Fi usage on ESP32.
+                    Select ADC unit (ADC2 may conflict with Wi-Fi).
 
                 config PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM
                     bool "ADC Unit 1 (ADC_UNIT_1)"
-
                 config PSTAR_KCONFIG_MQ135_ADC_UNIT_2_CUSTOM
                     bool "ADC Unit 2 (ADC_UNIT_2)"
             endchoice
@@ -684,39 +592,30 @@ menu "Project Star Components Configuration"
             config PSTAR_KCONFIG_MQ135_ADC_CHANNEL_CUSTOM
                 int "ADC Channel (Custom Mode)"
                 depends on PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
-                range 0 9 # Max channel number across common ESP32 ADC units
+                range 0 9
                 default 6
                 help
-                    Manually enter the ADC channel number (0-9).
-                    You MUST verify the correct channel number corresponding to the GPIO pin
-                    you are using on your specific ESP32 board/variant by consulting its
-                    datasheet or pinout diagram. Ensure the chosen GPIO pin is not used
-                    by other components.
+                    Manually enter ADC channel number (0-9). Verify against board datasheet.
 
             # --- Hidden configs to store the final Unit and Channel ---
-            # Determine ADC Unit based on selections
             config PSTAR_KCONFIG_MQ135_ADC_UNIT
                 int
-                default 1 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_36 || PSTAR_KCONFIG_MQ135_GPIO_39 || PSTAR_KCONFIG_MQ135_GPIO_32 || PSTAR_KCONFIG_MQ135_GPIO_33 || PSTAR_KCONFIG_MQ135_GPIO_34 || PSTAR_KCONFIG_MQ135_GPIO_35) # ESP32 ADC1
-                default 2 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_4 || PSTAR_KCONFIG_MQ135_GPIO_2 || PSTAR_KCONFIG_MQ135_GPIO_15 || PSTAR_KCONFIG_MQ135_GPIO_13 || PSTAR_KCONFIG_MQ135_GPIO_12 || PSTAR_KCONFIG_MQ135_GPIO_14 || PSTAR_KCONFIG_MQ135_GPIO_27 || PSTAR_KCONFIG_MQ135_GPIO_25 || PSTAR_KCONFIG_MQ135_GPIO_26) # ESP32 ADC2
-                default 1 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_S3_1 || PSTAR_KCONFIG_MQ135_GPIO_S3_2 || PSTAR_KCONFIG_MQ135_GPIO_S3_3 || PSTAR_KCONFIG_MQ135_GPIO_S3_4 || PSTAR_KCONFIG_MQ135_GPIO_S3_5) # ESP32-S3 ADC1 Example
+                default 1 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_36 || PSTAR_KCONFIG_MQ135_GPIO_39 || PSTAR_KCONFIG_MQ135_GPIO_32 || PSTAR_KCONFIG_MQ135_GPIO_33 || PSTAR_KCONFIG_MQ135_GPIO_34 || PSTAR_KCONFIG_MQ135_GPIO_35)
+                default 2 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_4 || PSTAR_KCONFIG_MQ135_GPIO_2 || PSTAR_KCONFIG_MQ135_GPIO_15 || PSTAR_KCONFIG_MQ135_GPIO_13 || PSTAR_KCONFIG_MQ135_GPIO_12 || PSTAR_KCONFIG_MQ135_GPIO_14 || PSTAR_KCONFIG_MQ135_GPIO_27 || PSTAR_KCONFIG_MQ135_GPIO_25 || PSTAR_KCONFIG_MQ135_GPIO_26)
+                default 1 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_S3_1 || PSTAR_KCONFIG_MQ135_GPIO_S3_2 || PSTAR_KCONFIG_MQ135_GPIO_S3_3 || PSTAR_KCONFIG_MQ135_GPIO_S3_4 || PSTAR_KCONFIG_MQ135_GPIO_S3_5)
                 default 2 if PSTAR_KCONFIG_MQ135_PIN_MODE_COMMON_GPIO && (PSTAR_KCONFIG_MQ135_GPIO_S3_11)
-                # Add mappings for other targets/pins here...
-                default 1 if PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM # Custom Mode Unit 1
-                default 2 if PSTAR_KCONFIG_MQ135_ADC_UNIT_2_CUSTOM # Custom Mode Unit 2
+                default 1 if PSTAR_KCONFIG_MQ135_ADC_UNIT_1_CUSTOM
+                default 2 if PSTAR_KCONFIG_MQ135_ADC_UNIT_2_CUSTOM
                 depends on PSTAR_KCONFIG_MQ135_ENABLED
 
-            # Determine ADC Channel based on selections
             config PSTAR_KCONFIG_MQ135_ADC_CHANNEL
                 int
-                # ESP32 ADC1 Mappings
                 default 0 if PSTAR_KCONFIG_MQ135_GPIO_36
                 default 3 if PSTAR_KCONFIG_MQ135_GPIO_39
                 default 4 if PSTAR_KCONFIG_MQ135_GPIO_32
                 default 5 if PSTAR_KCONFIG_MQ135_GPIO_33
                 default 6 if PSTAR_KCONFIG_MQ135_GPIO_34
                 default 7 if PSTAR_KCONFIG_MQ135_GPIO_35
-                # ESP32 ADC2 Mappings
                 default 0 if PSTAR_KCONFIG_MQ135_GPIO_4
                 default 2 if PSTAR_KCONFIG_MQ135_GPIO_2
                 default 3 if PSTAR_KCONFIG_MQ135_GPIO_15
@@ -726,28 +625,20 @@ menu "Project Star Components Configuration"
                 default 7 if PSTAR_KCONFIG_MQ135_GPIO_27
                 default 8 if PSTAR_KCONFIG_MQ135_GPIO_25
                 default 9 if PSTAR_KCONFIG_MQ135_GPIO_26
-                # ESP32-S3 ADC1 Mappings
                 default 0 if PSTAR_KCONFIG_MQ135_GPIO_S3_1
                 default 1 if PSTAR_KCONFIG_MQ135_GPIO_S3_2
                 default 2 if PSTAR_KCONFIG_MQ135_GPIO_S3_3
                 default 3 if PSTAR_KCONFIG_MQ135_GPIO_S3_4
                 default 4 if PSTAR_KCONFIG_MQ135_GPIO_S3_5
-                # ESP32-S3 ADC2 Mappings
                 default 0 if PSTAR_KCONFIG_MQ135_GPIO_S3_11
-                # Add mappings for other targets/pins here...
-                # Custom Mode Channel
                 default PSTAR_KCONFIG_MQ135_ADC_CHANNEL_CUSTOM if PSTAR_KCONFIG_MQ135_PIN_MODE_CUSTOM
                 depends on PSTAR_KCONFIG_MQ135_ENABLED
 
-            # --- Attenuation, Bitwidth, Samples (common to both modes) ---
             choice PSTAR_KCONFIG_MQ135_ADC_ATTEN_CHOICE
                 prompt "ADC Attenuation"
                 default PSTAR_KCONFIG_MQ135_ADC_ATTEN_11DB
                 help
-                    Select the attenuation level for the ADC channel. This determines the
-                    measurable input voltage range. Choose the range that best covers the
-                    expected output voltage of the MQ135 under your operating conditions.
-                    11dB attenuation is usually required for sensors operating up to 3.3V.
+                    Select ADC attenuation (determines voltage range). 11dB for ~0-3.9V.
 
                 config PSTAR_KCONFIG_MQ135_ADC_ATTEN_0DB
                     bool "0dB Attenuation (Range: ~0-1.1V)"
@@ -771,8 +662,7 @@ menu "Project Star Components Configuration"
                 prompt "ADC Bit Width"
                 default PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_12
                 help
-                    Select the resolution (bit width) for the ADC conversion.
-                    Higher bit width provides finer resolution. ESP32 supports 9-12 bits.
+                    Select ADC resolution (9-12 bits).
 
                 config PSTAR_KCONFIG_MQ135_ADC_BITWIDTH_9
                     bool "9-bit (ADC_BITWIDTH_9)"
@@ -797,8 +687,7 @@ menu "Project Star Components Configuration"
                 range 1 256
                 default 64
                 help
-                    Number of consecutive ADC readings to take and average for each
-                    call to read_raw or read_voltage. Averaging helps reduce noise.
+                    Number of samples to average for noise reduction.
 
         endif # PSTAR_KCONFIG_MQ135_ENABLED
     endmenu # MQ135 Configuration
@@ -819,133 +708,106 @@ menu "Project Star Components Configuration"
                 prompt "Interface Mode"
                 default PSTAR_KCONFIG_HD44780_MODE_PARALLEL
                 help
-                    Select the communication interface used to connect to the LCD.
-                    - Parallel: Uses direct GPIO connections for RS, E, and D4-D7.
-                    - I2C: Uses an I2C backpack module (typically PCF8574-based).
-                           Requires the I2C Bus Manager component to be enabled.
+                    Select communication interface (Parallel or I2C).
 
                 config PSTAR_KCONFIG_HD44780_MODE_PARALLEL
                     bool "4-bit Parallel Interface"
-
                 config PSTAR_KCONFIG_HD44780_MODE_I2C
                     bool "I2C Interface (via PCF8574 Backpack)"
-                    depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED # I2C mode needs the bus manager
+                    depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED
                     help
-                        Select this if your LCD is connected via an I2C adapter board.
-                        Configure the I2C bus settings below.
-
+                        Use I2C adapter board (requires I2C Bus Manager).
             endchoice
 
-            # --- Parallel Interface Settings ---
             if PSTAR_KCONFIG_HD44780_MODE_PARALLEL
-
                 config PSTAR_KCONFIG_HD44780_RS_PIN
                     int "GPIO Pin for RS (Register Select)"
-                    range 0 39 # Adjust range based on target MCU capabilities
+                    range 0 54
                     default 16
                     help
-                        GPIO pin number connected to the LCD's RS pin.
-
+                        GPIO pin for LCD RS.
                 config PSTAR_KCONFIG_HD44780_E_PIN
                     int "GPIO Pin for E (Enable)"
-                    range 0 39
+                    range 0 54
                     default 17
                     help
-                        GPIO pin number connected to the LCD's E pin.
-
+                        GPIO pin for LCD E.
                 config PSTAR_KCONFIG_HD44780_D4_PIN
                     int "GPIO Pin for Data 4"
-                    range 0 39
+                    range 0 54
                     default 18
                     help
-                        GPIO pin number connected to the LCD's D4 pin.
-
+                        GPIO pin for LCD D4.
                 config PSTAR_KCONFIG_HD44780_D5_PIN
                     int "GPIO Pin for Data 5"
-                    range 0 39
+                    range 0 54
                     default 19
                     help
-                        GPIO pin number connected to the LCD's D5 pin.
-
+                        GPIO pin for LCD D5.
                 config PSTAR_KCONFIG_HD44780_D6_PIN
                     int "GPIO Pin for Data 6"
-                    range 0 39
-                    default 21 # Note: Common I2C SDA pin, ensure no conflict
+                    range 0 54
+                    default 21
                     help
-                        GPIO pin number connected to the LCD's D6 pin.
-
+                        GPIO pin for LCD D6.
                 config PSTAR_KCONFIG_HD44780_D7_PIN
                     int "GPIO Pin for Data 7"
-                    range 0 39
-                    default 22 # Note: Common I2C SCL pin, ensure no conflict
+                    range 0 54
+                    default 22
                     help
-                        GPIO pin number connected to the LCD's D7 pin.
-
+                        GPIO pin for LCD D7.
             endif # PSTAR_KCONFIG_HD44780_MODE_PARALLEL
 
-            # --- I2C Interface Settings ---
             if PSTAR_KCONFIG_HD44780_MODE_I2C
-
                 config PSTAR_KCONFIG_HD44780_I2C_BUS_NAME
                     string "I2C Bus Manager Name"
                     default "lcd_i2c_bus"
                     help
-                        The unique name identifying the I2C bus configuration within the
-                        I2C Bus Manager that the LCD backpack will use. The Bus Manager
-                        will use the Port, Pins, and Frequency defined below.
+                        Unique I2C bus name for the LCD backpack.
 
                 choice PSTAR_KCONFIG_HD44780_I2C_PORT
                     prompt "I2C Port for LCD Backpack"
-                    default PSTAR_KCONFIG_HD44780_I2C_PORT_0 # Default Port 0 for potential sharing
+                    default PSTAR_KCONFIG_HD44780_I2C_PORT_0
                     help
-                        Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) the
-                        LCD backpack is connected to.
+                        I2C port number for the LCD backpack.
 
                     config PSTAR_KCONFIG_HD44780_I2C_PORT_0
                         bool "I2C Port 0 (I2C_NUM_0)"
-
                     config PSTAR_KCONFIG_HD44780_I2C_PORT_1
                         bool "I2C Port 1 (I2C_NUM_1)"
                 endchoice
 
                 config PSTAR_KCONFIG_HD44780_I2C_FREQ_HZ
                     int "I2C Clock Frequency (Hz)"
-                    range 10000 400000 # PCF8574 typically supports up to 400kHz
-                    default 100000 # Common standard mode speed
+                    range 10000 400000
+                    default 100000
                     help
-                        I2C clock frequency in Hz for the bus connected to the LCD backpack.
-                        100000 (100kHz) Standard mode is common and reliable for PCF8574.
-                        400000 (400kHz) Fast mode may also work.
-                        Ensure compatibility with other devices sharing the bus configuration.
+                        I2C clock frequency for LCD backpack (100kHz/400kHz).
 
                 config PSTAR_KCONFIG_HD44780_SDA_PIN
                     int "GPIO for SDA (I2C Data)"
-                    range 0 39 # Adjust range based on target MCU capabilities
-                    default 21 # Common default for I2C_NUM_0 on ESP32
+                    range 0 54
+                    default 21
                     help
-                        GPIO pin number for the I2C SDA line connected to the LCD backpack.
-                        Verify the pin mapping on your board.
+                        GPIO pin for I2C SDA.
 
                 config PSTAR_KCONFIG_HD44780_SCL_PIN
                     int "GPIO for SCL (I2C Clock)"
-                    range 0 39 # Adjust range based on target MCU capabilities
-                    default 22 # Common default for I2C_NUM_0 on ESP32
+                    range 0 54
+                    default 22
                     help
-                        GPIO pin number for the I2C SCL line connected to the LCD backpack.
-                        Verify the pin mapping on your board.
+                        GPIO pin for I2C SCL.
 
                 config PSTAR_KCONFIG_HD44780_I2C_ADDR
                     hex "I2C Address of LCD Backpack (PCF8574)"
-                    default 0x27 # Common default for PCF8574 based backpacks
-                    range 0x20 0x27 # Standard PCF8574 address range
+                    default 0x27
+                    range 0x20 0x27
                     help
-                        The 7-bit I2C address of the LCD backpack module (usually a PCF8574).
-                        Common addresses are 0x27 or 0x3F. Check your specific module
-                        (address selection jumpers/solder pads). Use an I2C scanner if unsure.
-
+                        7-bit I2C address of backpack (e.g., 0x27, 0x3F). Check module.
             endif # PSTAR_KCONFIG_HD44780_MODE_I2C
 
             # --- Common LCD Settings (Size) ---
+            # *** FIXED HELP BLOCK SYNTAX ***
             config PSTAR_KCONFIG_HD44780_ROWS
                 int "Number of LCD Rows"
                 range 1 4
@@ -971,8 +833,8 @@ menu "Project Star Components Configuration"
             bool "Enable MPU6050 IMU Component"
             default n
             help
-                Enable the Project Star MPU6050 6-DOF IMU (Accelerometer + Gyroscope) component.
-                It communicates via I2C and is typically considered a higher-speed device (400kHz).
+                Enable the Project Star MPU6050 6-DOF IMU (Accel + Gyro) component.
+                Uses I2C (typically 400kHz).
 
         if PSTAR_KCONFIG_MPU6050_ENABLED
 
@@ -980,58 +842,49 @@ menu "Project Star Components Configuration"
                 string "I2C Bus Manager Name"
                 default "mpu6050_bus"
                 help
-                    The unique name identifying the I2C bus configuration within the
-                    I2C Bus Manager that this MPU6050 sensor will use.
+                    Unique I2C bus name for the MPU6050.
 
             choice PSTAR_KCONFIG_MPU6050_I2C_PORT
                 prompt "I2C Port for MPU6050"
-                default PSTAR_KCONFIG_MPU6050_I2C_PORT_0 # Default Port 0 for faster devices
+                default PSTAR_KCONFIG_MPU6050_I2C_PORT_0
                 help
-                    Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) the MPU6050 is connected to.
-                    Recommendation: Use I2C_NUM_0 for higher-speed devices like MPU6050 (400kHz).
+                    I2C port for MPU6050. Port 0 recommended (400kHz).
 
                 config PSTAR_KCONFIG_MPU6050_I2C_PORT_0
                     bool "I2C Port 0 (I2C_NUM_0)"
-
                 config PSTAR_KCONFIG_MPU6050_I2C_PORT_1
                     bool "I2C Port 1 (I2C_NUM_1)"
             endchoice
 
             config PSTAR_KCONFIG_MPU6050_I2C_FREQ_HZ
                 int "I2C Clock Frequency (Hz)"
-                range 10000 400000 # MPU6050 supports up to 400kHz
+                range 10000 400000
                 default 400000
                 help
-                    I2C clock frequency in Hz for the bus connected to the MPU6050.
-                    400000 (400kHz) Fast mode is recommended for MPU6050.
-                    Ensure compatibility with other devices sharing the exact bus configuration.
+                    I2C clock frequency. 400kHz (Fast) recommended.
 
             config PSTAR_KCONFIG_MPU6050_SDA_PIN
                 int "GPIO for SDA (I2C Data)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                default 21 # Common default for I2C_NUM_0 on ESP32
+                range 0 54
+                default 21
                 help
-                    GPIO pin number for the I2C SDA line connection to the MPU6050 sensor.
-                    Verify the pin mapping on your board.
+                    GPIO pin for I2C SDA.
 
             config PSTAR_KCONFIG_MPU6050_SCL_PIN
                 int "GPIO for SCL (I2C Clock)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                default 22 # Common default for I2C_NUM_0 on ESP32
+                range 0 54
+                default 22
                 help
-                    GPIO pin number for the I2C SCL line connection to the MPU6050 sensor.
-                    Verify the pin mapping on your board.
+                    GPIO pin for I2C SCL.
 
             choice PSTAR_KCONFIG_MPU6050_ADDR
                 prompt "I2C Address Selection (AD0 Pin)"
                 default PSTAR_KCONFIG_MPU6050_ADDR_LOW
                 help
-                    Select the 7-bit I2C address of the MPU6050 sensor based on the state
-                    of its AD0 pin.
+                    Select 7-bit I2C address based on AD0 pin state.
 
                 config PSTAR_KCONFIG_MPU6050_ADDR_LOW
                     bool "0x68 (AD0 pin connected to GND)"
-
                 config PSTAR_KCONFIG_MPU6050_ADDR_HIGH
                     bool "0x69 (AD0 pin connected to VCC)"
             endchoice
@@ -1040,8 +893,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Accelerometer Full Scale Range"
                 default PSTAR_KCONFIG_MPU6050_ACCEL_FS_2G
                 help
-                    Select the default measurement range for the accelerometer.
-                    Lower ranges offer higher sensitivity but clip at lower accelerations.
+                    Select accelerometer range (+/- 2g, 4g, 8g, 16g).
 
                 config PSTAR_KCONFIG_MPU6050_ACCEL_FS_2G
                     bool "+/- 2g"
@@ -1065,8 +917,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Gyroscope Full Scale Range"
                 default PSTAR_KCONFIG_MPU6050_GYRO_FS_250DPS
                 help
-                    Select the default measurement range for the gyroscope.
-                    Lower ranges offer higher sensitivity but clip at lower angular velocities.
+                    Select gyroscope range (+/- 250, 500, 1000, 2000 dps).
 
                 config PSTAR_KCONFIG_MPU6050_GYRO_FS_250DPS
                     bool "+/- 250 degrees/sec"
@@ -1090,9 +941,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Digital Low Pass Filter (DLPF) Bandwidth"
                 default PSTAR_KCONFIG_MPU6050_DLPF_BW_44
                 help
-                    Select the bandwidth for the internal Digital Low Pass Filter.
-                    Lower bandwidth reduces noise but increases delay. Affects both accel & gyro.
-                    See MPU6050 datasheet register map (Register 26 ‚Äö√Ñ√∂‚àö√ë‚àö¬® Configuration) for details.
+                    Select internal DLPF bandwidth (lower = less noise, more delay).
 
                 config PSTAR_KCONFIG_MPU6050_DLPF_BW_260
                     bool "Accel: 260Hz, Gyro: 256Hz"
@@ -1133,7 +982,7 @@ menu "Project Star Components Configuration"
             default n
             help
                 Enable the Project Star QMC5883 3-Axis Magnetometer component.
-                It communicates via I2C and is typically considered a higher-speed device (400kHz).
+                Uses I2C (typically 400kHz). Fixed address 0x0D.
 
         if PSTAR_KCONFIG_QMC5883_ENABLED
 
@@ -1141,55 +990,46 @@ menu "Project Star Components Configuration"
                 string "I2C Bus Manager Name"
                 default "qmc5883_bus"
                 help
-                    The unique name identifying the I2C bus configuration within the
-                    I2C Bus Manager that this QMC5883 sensor will use.
+                    Unique I2C bus name for the QMC5883.
 
             choice PSTAR_KCONFIG_QMC5883_I2C_PORT
                 prompt "I2C Port for QMC5883"
-                default PSTAR_KCONFIG_QMC5883_I2C_PORT_0 # Default Port 0 for faster devices
+                default PSTAR_KCONFIG_QMC5883_I2C_PORT_0
                 help
-                    Select the ESP-IDF I2C peripheral port number (I2C_NUM_x) the QMC5883 is connected to.
-                    Recommendation: Use I2C_NUM_0 for higher-speed devices like QMC5883 (400kHz).
+                    I2C port for QMC5883. Port 0 recommended (400kHz).
 
                 config PSTAR_KCONFIG_QMC5883_I2C_PORT_0
                     bool "I2C Port 0 (I2C_NUM_0)"
-
                 config PSTAR_KCONFIG_QMC5883_I2C_PORT_1
                     bool "I2C Port 1 (I2C_NUM_1)"
             endchoice
 
             config PSTAR_KCONFIG_QMC5883_I2C_FREQ_HZ
                 int "I2C Clock Frequency (Hz)"
-                range 10000 400000 # QMC5883 supports up to 400kHz
+                range 10000 400000
                 default 400000
                 help
-                    I2C clock frequency in Hz for the bus connected to the QMC5883.
-                    400000 (400kHz) Fast mode is recommended.
-                    Ensure compatibility with other devices sharing the exact bus configuration.
+                    I2C clock frequency. 400kHz (Fast) recommended.
 
             config PSTAR_KCONFIG_QMC5883_SDA_PIN
                 int "GPIO for SDA (I2C Data)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                default 21 # Common default for I2C_NUM_0 on ESP32
+                range 0 54
+                default 21
                 help
-                    GPIO pin number for the I2C SDA line connection to the QMC5883 sensor.
-                    Verify the pin mapping on your board.
+                    GPIO pin for I2C SDA.
 
             config PSTAR_KCONFIG_QMC5883_SCL_PIN
                 int "GPIO for SCL (I2C Clock)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                default 22 # Common default for I2C_NUM_0 on ESP32
+                range 0 54
+                default 22
                 help
-                    GPIO pin number for the I2C SCL line connection to the QMC5883 sensor.
-                    Verify the pin mapping on your board.
-
-            # QMC5883 I2C Address is fixed at 0x0D, no choice needed.
+                    GPIO pin for I2C SCL.
 
             choice PSTAR_KCONFIG_QMC5883_ODR_CHOICE
                 prompt "Default Output Data Rate (ODR)"
                 default PSTAR_KCONFIG_QMC5883_ODR_100HZ
                 help
-                    Select the default output data rate for the sensor.
+                    Select output data rate (10, 50, 100, 200 Hz).
 
                 config PSTAR_KCONFIG_QMC5883_ODR_10HZ
                     bool "10 Hz"
@@ -1201,8 +1041,7 @@ menu "Project Star Components Configuration"
                     bool "200 Hz"
             endchoice
 
-            # --- FIXED: Add hidden config for ODR ---
-            config PSTAR_KCONFIG_QMC5883_ODR
+            config PSTAR_KCONFIG_QMC5883_ODR # Hidden config
                 int
                 default 0 if PSTAR_KCONFIG_QMC5883_ODR_10HZ
                 default 1 if PSTAR_KCONFIG_QMC5883_ODR_50HZ
@@ -1214,9 +1053,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Full Scale Range (FSR)"
                 default PSTAR_KCONFIG_QMC5883_FSR_8G
                 help
-                    Select the default magnetic field measurement range.
-                    +/- 2G offers higher sensitivity.
-                    +/- 8G allows measuring stronger fields.
+                    Select magnetic field range (+/- 2G or +/- 8G).
 
                 config PSTAR_KCONFIG_QMC5883_FSR_2G
                     bool "+/- 2 Gauss"
@@ -1224,8 +1061,7 @@ menu "Project Star Components Configuration"
                     bool "+/- 8 Gauss"
             endchoice
 
-            # --- FIXED: Add hidden config for FSR ---
-            config PSTAR_KCONFIG_QMC5883_FSR
+            config PSTAR_KCONFIG_QMC5883_FSR # Hidden config
                 int
                 default 0 if PSTAR_KCONFIG_QMC5883_FSR_2G
                 default 1 if PSTAR_KCONFIG_QMC5883_FSR_8G
@@ -1235,8 +1071,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Over Sampling Rate (OSR)"
                 default PSTAR_KCONFIG_QMC5883_OSR_512
                 help
-                    Select the default over sampling rate. Higher OSR reduces noise
-                    but increases power consumption and may limit the effective ODR.
+                    Select over sampling rate (64, 128, 256, 512). Higher reduces noise.
 
                 config PSTAR_KCONFIG_QMC5883_OSR_512
                     bool "512 Samples"
@@ -1248,8 +1083,7 @@ menu "Project Star Components Configuration"
                     bool "64 Samples"
             endchoice
 
-            # --- FIXED: Add hidden config for OSR ---
-            config PSTAR_KCONFIG_QMC5883_OSR
+            config PSTAR_KCONFIG_QMC5883_OSR # Hidden config
                 int
                 default 0 if PSTAR_KCONFIG_QMC5883_OSR_512
                 default 1 if PSTAR_KCONFIG_QMC5883_OSR_256
@@ -1261,7 +1095,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Operating Mode"
                 default PSTAR_KCONFIG_QMC5883_MODE_CONTINUOUS
                 help
-                    Select the default operating mode for the sensor upon initialization.
+                    Select operating mode (Standby or Continuous).
 
                 config PSTAR_KCONFIG_QMC5883_MODE_STANDBY
                     bool "Standby Mode"
@@ -1269,8 +1103,7 @@ menu "Project Star Components Configuration"
                     bool "Continuous Mode"
             endchoice
 
-            # --- FIXED: Add hidden config for MODE ---
-            config PSTAR_KCONFIG_QMC5883_MODE
+            config PSTAR_KCONFIG_QMC5883_MODE # Hidden config
                 int
                 default 0 if PSTAR_KCONFIG_QMC5883_MODE_STANDBY
                 default 1 if PSTAR_KCONFIG_QMC5883_MODE_CONTINUOUS
@@ -1281,15 +1114,15 @@ menu "Project Star Components Configuration"
 
     # --- ILI9341 LCD Configuration ---
     menu "ILI9341 LCD Configuration"
-        depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED # Requires Bus Manager
+        # This component uses SPI. If your bus manager (enabled by PSTAR_KCONFIG_BUS_COMPONENT_ENABLED)
+        # *only* handles I2C, this dependency might be wrong. If it handles both I2C and SPI, it's okay.
+        depends on PSTAR_KCONFIG_BUS_COMPONENT_ENABLED # Requires Bus Manager? Verify this dependency.
 
         config PSTAR_KCONFIG_ILI9341_ENABLED
             bool "Enable ILI9341 LCD Component"
             default n
             help
-                Enable the Project Star ILI9341 TFT LCD component.
-                This component provides an interface for controlling ILI9341-based
-                displays via SPI.
+                Enable the Project Star ILI9341 TFT LCD component. Uses SPI.
 
         if PSTAR_KCONFIG_ILI9341_ENABLED
 
@@ -1297,17 +1130,13 @@ menu "Project Star Components Configuration"
                 string "SPI Bus Manager Name"
                 default "lcd_spi_bus"
                 help
-                    The unique name identifying the SPI device configuration within the
-                    Bus Manager that the ILI9341 display will use.
+                    Unique SPI bus/device name for the ILI9341.
 
             choice PSTAR_KCONFIG_ILI9341_SPI_HOST_CHOICE
                 prompt "SPI Host"
-                default PSTAR_KCONFIG_ILI9341_SPI_HOST_VSPI # Often SPI2_HOST on newer ESP-IDF
+                default PSTAR_KCONFIG_ILI9341_SPI_HOST_VSPI
                 help
-                    Select the SPI host peripheral to use for the ILI9341 display.
-                    Check your ESP32 variant's datasheet for default pin mappings
-                    and capabilities of each host (SPI2_HOST/VSPI, SPI3_HOST/HSPI).
-                    SPI2_HOST (often VSPI) is generally recommended if available.
+                    Select SPI host peripheral (VSPI/SPI2 or HSPI/SPI3).
 
                 config PSTAR_KCONFIG_ILI9341_SPI_HOST_VSPI
                     bool "SPI2_HOST (Often VSPI)"
@@ -1317,109 +1146,93 @@ menu "Project Star Components Configuration"
 
             config PSTAR_KCONFIG_ILI9341_SPI_HOST # Hidden config
                 int
-                default 2 if PSTAR_KCONFIG_ILI9341_SPI_HOST_VSPI # SPI2_HOST = 2
-                default 1 if PSTAR_KCONFIG_ILI9341_SPI_HOST_HSPI # SPI3_HOST = 1 (Check IDF version, might be 3)
+                default 2 if PSTAR_KCONFIG_ILI9341_SPI_HOST_VSPI
+                default 1 if PSTAR_KCONFIG_ILI9341_SPI_HOST_HSPI # Check exact value for SPI3_HOST in IDF
                 depends on PSTAR_KCONFIG_ILI9341_ENABLED
                 help
-                  Internal value mapping Kconfig choice to SPI host number.
-                  Check spi_host_device_t enum in driver/spi_common.h for exact values.
-                  Typically SPI2_HOST=2, SPI3_HOST=1 or 3 depending on IDF version/target.
+                    Internal mapping to SPI host number.
 
             config PSTAR_KCONFIG_ILI9341_POSI_PIN
                 int "GPIO for POSI (Primary Out Secondary In)"
-                range 0 39 # Adjust range based on target MCU capabilities
-                default 23 # Common default for VSPI MOSI on ESP32
+                range 0 54
+                default 23
                 help
-                    GPIO pin number for the SPI POSI (Data Out) line.
-                    Verify the pin mapping for the selected SPI host on your board.
+                    GPIO pin for SPI POSI (MOSI).
 
             config PSTAR_KCONFIG_ILI9341_SCLK_PIN
                 int "GPIO for SCLK (Serial Clock)"
-                range 0 39
-                default 18 # Common default for VSPI SCLK on ESP32
+                range 0 54
+                default 18
                 help
-                    GPIO pin number for the SPI SCLK (Clock) line.
-                    Verify the pin mapping for the selected SPI host on your board.
+                    GPIO pin for SPI SCLK.
 
             config PSTAR_KCONFIG_ILI9341_PISO_PIN
                 int "GPIO for PISO (Primary In Secondary Out)"
-                range -1 39 # Allow -1 if not connected/used
-                default -1 # PISO is often not needed for display-only operation
+                range -1 54
+                default -1
                 help
-                    GPIO pin number for the SPI PISO (Data In) line.
-                    Set to -1 if your display module does not connect the PISO pin
-                    (e.g., for write-only operations).
+                    GPIO pin for SPI PISO (MISO). Set to -1 if not used.
 
             config PSTAR_KCONFIG_ILI9341_CS_PIN
                 int "GPIO for CS (Chip Select)"
-                range 0 39
-                default 5 # Common choice, verify on your board
+                range 0 54
+                default 5
                 help
-                    GPIO pin number for the SPI Chip Select (CS) line.
+                    GPIO pin for SPI CS.
 
             config PSTAR_KCONFIG_ILI9341_DC_PIN
                 int "GPIO for D/C (Data/Command)"
-                range 0 39
-                default 2 # Common choice, verify on your board
+                range 0 54
+                default 2
                 help
-                    GPIO pin number for the Data/Command (D/C or RS) line.
+                    GPIO pin for D/C (RS).
 
             config PSTAR_KCONFIG_ILI9341_RST_PIN
                 int "GPIO for RST (Reset)"
-                range -1 39 # Allow -1 if not connected/used
-                default 4 # Common choice, set to -1 if not connected
+                range -1 54
+                default 4
                 help
-                    GPIO pin number for the Reset (RST) line.
-                    Set to -1 if the reset pin is not connected or controlled externally.
-                    A software reset command will be used if this is -1.
+                    GPIO pin for Reset. Set to -1 if not used/controlled externally.
 
             config PSTAR_KCONFIG_ILI9341_BLK_PIN
                 int "GPIO for BLK (Backlight Control)"
-                range -1 39 # Allow -1 if not connected/used
-                default -1 # Default to not connected
+                range -1 54
+                default -1
                 help
-                    GPIO pin number for controlling the display backlight (BLK or LED).
-                    Set to -1 if the backlight is always on or controlled differently.
+                    GPIO pin for Backlight control. Set to -1 if not used.
 
             if PSTAR_KCONFIG_ILI9341_BLK_PIN >= 0
-
                 choice PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_LEVEL
                     prompt "Backlight Active Level"
-                    default PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_HIGH # Default to active HIGH
+                    default PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_HIGH
                     help
-                        Select the logic level that turns the backlight ON.
+                        Logic level that turns backlight ON.
 
-                    config PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_HIGH # Choice symbol 1
+                    config PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_HIGH
                         bool "Active High (1 = ON, 0 = OFF)"
-                    config PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_LOW # Choice symbol 2
+                    config PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_LOW
                         bool "Active Low (0 = ON, 1 = OFF)"
                 endchoice
 
-                # Hidden config to store the result (use a different name)
-                config PSTAR_KCONFIG_ILI9341_BLK_IS_ACTIVE_LOW # Corrected Name
+                config PSTAR_KCONFIG_ILI9341_BLK_IS_ACTIVE_LOW # Hidden config
                     bool
-                    default y if PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_LOW # Default based on choice symbol
-                    default n if PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_HIGH # Default based on choice symbol
-                    depends on PSTAR_KCONFIG_ILI9341_BLK_PIN >= 0 # Keep dependency on pin being enabled
-
+                    default y if PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_LOW
+                    default n if PSTAR_KCONFIG_ILI9341_BLK_ACTIVE_HIGH
+                    depends on PSTAR_KCONFIG_ILI9341_BLK_PIN >= 0
             endif # PSTAR_KCONFIG_ILI9341_BLK_PIN >= 0
 
             config PSTAR_KCONFIG_ILI9341_SPI_FREQ_HZ
                 int "SPI Clock Frequency (Hz)"
-                range 1000000 80000000 # 1MHz to 80MHz
-                default 40000000 # 40 MHz is often achievable
+                range 1000000 80000000
+                default 40000000
                 help
-                    SPI clock frequency in Hz for the ILI9341 display. Higher values
-                    result in faster drawing but may cause issues depending on wiring length
-                    and board layout. 40MHz is common, 80MHz may work on some setups.
-                    Start lower (e.g., 10MHz or 20MHz) if experiencing issues.
+                    SPI clock frequency (e.g., 10-80 MHz). Higher is faster but check stability.
 
             choice PSTAR_KCONFIG_ILI9341_SPI_MODE_CHOICE
                 prompt "SPI Mode"
                 default PSTAR_KCONFIG_ILI9341_SPI_MODE_0
                 help
-                    Select the SPI mode (clock polarity CPOL and phase CPHA).
-                    ILI9341 typically uses Mode 0 (CPOL=0, CPHA=0).
+                    Select SPI mode (CPOL/CPHA). Mode 0 is typical for ILI9341.
 
                 config PSTAR_KCONFIG_ILI9341_SPI_MODE_0
                     bool "Mode 0 (CPOL=0, CPHA=0)"
@@ -1443,7 +1256,7 @@ menu "Project Star Components Configuration"
                 prompt "Default Display Rotation"
                 default PSTAR_KCONFIG_ILI9341_ROTATION_0
                 help
-                    Select the initial orientation of the display.
+                    Select initial display orientation.
 
                 config PSTAR_KCONFIG_ILI9341_ROTATION_0
                     bool "0 degrees (Portrait)"
@@ -1466,8 +1279,185 @@ menu "Project Star Components Configuration"
         endif # PSTAR_KCONFIG_ILI9341_ENABLED
     endmenu # ILI9341 LCD Configuration
 
+    # --- SDMMC HAL Configuration ---
+    menu "SDMMC HAL Configuration"
+        # No top-level dependency needed here
+
+        config PSTAR_KCONFIG_SDMMC_ENABLED
+            bool "Enable SDMMC HAL Component (SD/SPI Mode)"
+            default n
+            help
+                Enable the Project Star SDMMC HAL component for SD cards (SDMMC or SPI).
+
+        if PSTAR_KCONFIG_SDMMC_ENABLED
+
+            choice PSTAR_KCONFIG_SDMMC_INTERFACE_MODE
+                prompt "SD Card Interface Mode"
+                default PSTAR_KCONFIG_SDMMC_MODE_SPI
+                help
+                    Select SD card interface (SDMMC 4-bit, 1-bit, or SPI).
+
+                config PSTAR_KCONFIG_SDMMC_MODE_SDMMC_4BIT
+                    bool "SDMMC 4-bit Mode"
+                config PSTAR_KCONFIG_SDMMC_MODE_SDMMC_1BIT
+                    bool "SDMMC 1-bit Mode"
+                config PSTAR_KCONFIG_SDMMC_MODE_SPI
+                    bool "SPI Mode"
+            endchoice
+
+            if PSTAR_KCONFIG_SDMMC_MODE_SDMMC_4BIT || PSTAR_KCONFIG_SDMMC_MODE_SDMMC_1BIT
+                config PSTAR_KCONFIG_SDMMC_CLK_PIN_DEFAULT
+                    int
+                    default 14 if IDF_TARGET_ESP32
+                    default -1
+                config PSTAR_KCONFIG_SDMMC_CMD_PIN_DEFAULT
+                    int
+                    default 15 if IDF_TARGET_ESP32
+                    default -1
+                config PSTAR_KCONFIG_SDMMC_D0_PIN_DEFAULT
+                    int
+                    default 2 if IDF_TARGET_ESP32
+                    default -1
+                config PSTAR_KCONFIG_SDMMC_D1_PIN_DEFAULT
+                    int
+                    default 4 if IDF_TARGET_ESP32
+                    default -1
+                config PSTAR_KCONFIG_SDMMC_D2_PIN_DEFAULT
+                    int
+                    default 12 if IDF_TARGET_ESP32
+                    default -1
+                config PSTAR_KCONFIG_SDMMC_D3_PIN_DEFAULT
+                    int
+                    default 13 if IDF_TARGET_ESP32
+                    default -1
+
+                config PSTAR_KCONFIG_SDMMC_CLK_PIN
+                    int "SDMMC CLK Pin"
+                    range 0 54
+                    default PSTAR_KCONFIG_SDMMC_CLK_PIN_DEFAULT
+                    help
+                        GPIO for SDMMC Clock. Verify pin.
+                config PSTAR_KCONFIG_SDMMC_CMD_PIN
+                    int "SDMMC CMD Pin"
+                    range 0 54
+                    default PSTAR_KCONFIG_SDMMC_CMD_PIN_DEFAULT
+                    help
+                        GPIO for SDMMC Command. Verify pin.
+                config PSTAR_KCONFIG_SDMMC_D0_PIN
+                    int "SDMMC D0 Pin"
+                    range 0 54
+                    default PSTAR_KCONFIG_SDMMC_D0_PIN_DEFAULT
+                    help
+                        GPIO for SDMMC Data 0. Verify pin.
+
+                if PSTAR_KCONFIG_SDMMC_MODE_SDMMC_4BIT
+                    config PSTAR_KCONFIG_SDMMC_D1_PIN
+                        int "SDMMC D1 Pin"
+                        range 0 54
+                        default PSTAR_KCONFIG_SDMMC_D1_PIN_DEFAULT
+                        help
+                            GPIO for SDMMC Data 1 (4-bit only). Verify pin.
+                    config PSTAR_KCONFIG_SDMMC_D2_PIN
+                        int "SDMMC D2 Pin"
+                        range 0 54
+                        default PSTAR_KCONFIG_SDMMC_D2_PIN_DEFAULT
+                        help
+                            GPIO for SDMMC Data 2 (4-bit only). Verify pin.
+                    config PSTAR_KCONFIG_SDMMC_D3_PIN
+                        int "SDMMC D3 Pin"
+                        range 0 54
+                        default PSTAR_KCONFIG_SDMMC_D3_PIN_DEFAULT
+                        help
+                            GPIO for SDMMC Data 3 (4-bit only). Verify pin.
+                endif # SDMMC_4BIT
+            endif # SDMMC Mode
+
+            if PSTAR_KCONFIG_SDMMC_MODE_SPI
+                # If SPI mode relies on a specific SPI bus manager enabled elsewhere, add dependency here.
+                # E.g., depends on PSTAR_KCONFIG_SPI_BUS_MANAGER_ENABLED (if such a flag exists)
+
+                config PSTAR_KCONFIG_SDMMC_SPI_BUS_NAME
+                    string "SPI Bus Manager Name"
+                    default "sdcard_spi_bus"
+                    help
+                        Unique SPI bus/device name for the SD card in SPI mode.
+
+                choice PSTAR_KCONFIG_SDMMC_SPI_HOST_CHOICE
+                    prompt "SPI Host"
+                    default PSTAR_KCONFIG_SDMMC_SPI_HOST_VSPI
+                    help
+                        Select SPI host peripheral (VSPI/SPI2 or HSPI/SPI3).
+
+                    config PSTAR_KCONFIG_SDMMC_SPI_HOST_VSPI
+                        bool "SPI2_HOST (Often VSPI)"
+                    config PSTAR_KCONFIG_SDMMC_SPI_HOST_HSPI
+                        bool "SPI3_HOST (Often HSPI)"
+                endchoice
+
+                config PSTAR_KCONFIG_SDMMC_SPI_HOST # Hidden config
+                    int
+                    default 2 if PSTAR_KCONFIG_SDMMC_SPI_HOST_VSPI
+                    default 1 if PSTAR_KCONFIG_SDMMC_SPI_HOST_HSPI # Check exact value for SPI3_HOST in IDF
+                    depends on PSTAR_KCONFIG_SDMMC_MODE_SPI
+                    help
+                        Internal mapping to SPI host number.
+
+                config PSTAR_KCONFIG_SDMMC_POSI_PIN
+                    int "GPIO for POSI (SPI MOSI)"
+                    range 0 54
+                    default 23
+                    help
+                        GPIO pin for SPI POSI (MOSI).
+                config PSTAR_KCONFIG_SDMMC_PISO_PIN
+                    int "GPIO for PISO (SPI MISO)"
+                    range 0 54
+                    default 19
+                    help
+                        GPIO pin for SPI PISO (MISO). Required for SD card.
+                config PSTAR_KCONFIG_SDMMC_SCLK_PIN
+                    int "GPIO for SCLK (SPI Clock)"
+                    range 0 54
+                    default 18
+                    help
+                        GPIO pin for SPI SCLK.
+                config PSTAR_KCONFIG_SDMMC_CS_PIN
+                    int "GPIO for CS (Chip Select)"
+                    range 0 54
+                    default 5
+                    help
+                        GPIO pin for SPI CS.
+
+                config PSTAR_KCONFIG_SDMMC_SPI_FREQ_HZ
+                    int "SPI Clock Frequency (Hz)"
+                    range 100000 20000000
+                    default 20000000
+                    help
+                        SPI clock frequency (~100kHz - 20MHz typical for SD in SPI mode).
+            endif # SPI Mode
+
+            config PSTAR_KCONFIG_SDMMC_MOUNT_POINT
+                string "Filesystem Mount Point"
+                default "/sdcard"
+                help
+                    Path to mount the SD card filesystem (e.g., /sdcard).
+
+            config PSTAR_KCONFIG_SDMMC_MAX_FILES
+                int "Maximum Open Files"
+                range 1 10
+                default 5
+                help
+                    Maximum simultaneous open files on the SD card.
+
+            config PSTAR_KCONFIG_SDMMC_FORMAT_IF_FAIL
+                bool "Format Card if Mount Fails"
+                default n
+                help
+                    Attempt FAT format if mount fails (WARNING: DATA LOSS).
+
+        endif # PSTAR_KCONFIG_SDMMC_ENABLED
+    endmenu # SDMMC HAL Configuration
+
     # --- Example Selection ---
-    # Place this menu at the end, inside the main project menu
     choice PSTAR_EXAMPLE_SELECTION
         prompt "Select Example to Run"
         default PSTAR_EXAMPLE_NONE
@@ -1475,47 +1465,46 @@ menu "Project Star Components Configuration"
             Select which code routine to run. Choose 'Main Application' to run the
             standard Project-STAR logic. Selecting a specific example will run ONLY
             that example's code, bypassing the main application setup.
+            Note: Example options are only selectable if their corresponding component is enabled above.
 
         config PSTAR_EXAMPLE_NONE
             bool "Main Application"
             help
                 Run the standard Project-STAR application defined in main.c.
 
-        # --- Add one config entry for EACH example ---
-
         config PSTAR_EXAMPLE_BH1750
             bool "BH1750 Example"
-            depends on PSTAR_KCONFIG_BH1750_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_BH1750_ENABLED
             help
                 Run a standalone example demonstrating the BH1750 light sensor HAL.
 
         config PSTAR_EXAMPLE_PCA9685
             bool "PCA9685 Servo Sweep Example"
-            depends on PSTAR_KCONFIG_PCA9685_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_PCA9685_ENABLED
             help
                 Run a standalone example demonstrating the PCA9685 HAL for sweeping servos.
 
         config PSTAR_EXAMPLE_DHT22
             bool "DHT22 Example"
-            depends on PSTAR_KCONFIG_DHT22_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_DHT22_ENABLED
             help
                 Run a standalone example demonstrating the DHT22 temperature/humidity sensor HAL.
 
         config PSTAR_EXAMPLE_MQ135
             bool "MQ135 Example"
-            depends on PSTAR_KCONFIG_MQ135_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_MQ135_ENABLED
             help
                 Run a standalone example demonstrating the MQ135 air quality sensor HAL.
 
         config PSTAR_EXAMPLE_HD44780
             bool "HD44780 LCD Example"
-            depends on PSTAR_KCONFIG_HD44780_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_HD44780_ENABLED
             help
                 Run a standalone example demonstrating the HD44780 LCD HAL.
 
         config PSTAR_EXAMPLE_PIN_VALIDATOR
              bool "Pin Validator Example"
-             depends on PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED # Example depends on the component
+             depends on PSTAR_KCONFIG_PIN_VALIDATOR_ENABLED
              help
                  Run a simple demonstration showing pin conflict detection using the Pin Validator.
 
@@ -1533,23 +1522,27 @@ menu "Project Star Components Configuration"
 
         config PSTAR_EXAMPLE_MPU6050
             bool "MPU6050 IMU Example"
-            depends on PSTAR_KCONFIG_MPU6050_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_MPU6050_ENABLED
             help
                 Run a standalone example demonstrating the MPU6050 IMU HAL.
 
         config PSTAR_EXAMPLE_QMC5883
             bool "QMC5883 Magnetometer Example"
-            depends on PSTAR_KCONFIG_QMC5883_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_QMC5883_ENABLED
             help
                 Run a standalone example demonstrating the QMC5883 Magnetometer HAL.
 
         config PSTAR_EXAMPLE_ILI9341
             bool "ILI9341 LCD Example"
-            depends on PSTAR_KCONFIG_ILI9341_ENABLED # Example depends on the component
+            depends on PSTAR_KCONFIG_ILI9341_ENABLED
             help
                 Run a standalone example demonstrating the ILI9341 LCD HAL.
 
-        # --- Add more examples as needed ---
+        config PSTAR_EXAMPLE_SDMMC
+            bool "SD Card (SDMMC/SPI) Example"
+            depends on PSTAR_KCONFIG_SDMMC_ENABLED
+            help
+                Run a standalone example demonstrating the SD Card HAL (SDMMC or SPI Mode).
 
     endchoice # PSTAR_EXAMPLE_SELECTION
 

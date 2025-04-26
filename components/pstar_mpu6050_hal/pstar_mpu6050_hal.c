@@ -647,7 +647,8 @@ esp_err_t pstar_mpu6050_hal_create_kconfig_default(pstar_bus_manager_t*        m
 
   /* 3. Initialize the bus hardware */
   if (!mpu6050_i2c_config->initialized) {
-    ret = pstar_bus_config_init(mpu6050_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(mpu6050_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,
@@ -750,7 +751,8 @@ esp_err_t pstar_mpu6050_hal_create_custom(pstar_bus_manager_t*        manager,
 
   /* 3. Initialize Bus Hardware */
   if (!mpu6050_i2c_config->initialized) {
-    ret = pstar_bus_config_init(mpu6050_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(mpu6050_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,

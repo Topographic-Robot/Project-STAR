@@ -17,6 +17,8 @@ idf_component_register(
     pstar_error_handler
     pstar_mpu6050_hal
     pstar_qmc5883_hal
+    pstar_ili9341_hal
+    pstar_sdmmc_hal   # Added now
     pstar_examples
 	PRIV_REQUIRES
 )

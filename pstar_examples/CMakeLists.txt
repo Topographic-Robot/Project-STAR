@@ -14,6 +14,7 @@ idf_component_register(
     "mpu6050_example.c"
     "qmc5883_example.c"
     "ili9341_example.c"
+    "sdmmc_example.c" # Added
   INCLUDE_DIRS
     "."
     "include"
@@ -26,6 +27,7 @@ idf_component_register(
     esp_timer
     esp_adc
     esp_common
+    sdmmc
     # Project Components
     pstar_pin_validator
     pstar_bus
@@ -39,5 +41,6 @@ idf_component_register(
     pstar_mpu6050_hal
     pstar_qmc5883_hal
     pstar_ili9341_hal
+    pstar_sdmmc_hal
   PRIV_REQUIRES
 )

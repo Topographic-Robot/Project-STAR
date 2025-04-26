@@ -733,7 +733,8 @@ esp_err_t pstar_hd44780_hal_create_kconfig_default(pstar_bus_manager_t*        m
   }
 
   if (!lcd_i2c_config->initialized) {
-    ret = pstar_bus_config_init(lcd_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(lcd_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup_i2c,
                       TAG,
@@ -884,7 +885,8 @@ esp_err_t pstar_hd44780_hal_create_custom_i2c(pstar_bus_manager_t*        manage
 
   /* 3. Initialize Bus Hardware */
   if (!lcd_i2c_config->initialized) {
-    ret = pstar_bus_config_init(lcd_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(lcd_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,

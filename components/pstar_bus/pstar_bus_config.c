@@ -4,6 +4,8 @@
 
 #include "pstar_bus_i2c.h"
 #include "pstar_bus_spi.h"
+/* Include manager types to access manager struct for SPI host tracking */
+#include "pstar_bus_manager_types.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -17,11 +19,6 @@
 /* --- Constants --- */
 
 static const char* TAG = "BusConfig";
-
-/* Track initialized SPI hosts globally within this file */
-/* This needs protection if accessed from multiple tasks during init/deinit */
-/* For simplicity, assume init/deinit happens sequentially or is protected by manager mutex */
-static bool s_spi_host_initialized[SPI_HOST_MAX] = {false};
 
 /* --- Private Function Prototypes --- */
 
@@ -82,6 +79,11 @@ pstar_bus_config_t* pstar_bus_config_create_spi_device(const char*       name,
                                                        const spi_device_interface_config_t* dev_cfg)
 {
   ESP_RETURN_ON_FALSE(dev_cfg, NULL, TAG, "SPI device config cannot be NULL");
+  ESP_RETURN_ON_FALSE(host >= 0 && host < SPI_HOST_MAX,
+                      NULL,
+                      TAG,
+                      "Invalid SPI host number: %d",
+                      host);
 
   pstar_bus_config_t* config = priv_pstar_bus_config_create_common(name, k_pstar_bus_type_spi);
   ESP_RETURN_ON_FALSE(config,
@@ -107,12 +109,16 @@ pstar_bus_config_t* pstar_bus_config_create_spi_device(const char*       name,
   /* Copy the provided device configuration */
   memcpy(&config->proto.spi.dev_cfg, dev_cfg, sizeof(spi_device_interface_config_t));
 
+  /* Store DMA channel request */
+  config->proto.spi.bus_cfg.flags = (dma_chan > 0) ? SPICOMMON_BUSFLAG_MASTER : 0;
+  /* The actual DMA channel assignment happens in spi_bus_initialize */
+
   /* Initialize default operations */
   pstar_bus_spi_init_default_ops(&config->proto.spi.ops);
 
   ESP_LOGI(
     TAG,
-    "Created SPI config '%s' (Host: %d, POSI: %d, PISO: %d, SCLK: %d, CS: %d, Mode: %d, Speed: %ld Hz, DMA: %d)",
+    "Created SPI config '%s' (Host: %d, POSI: %d, PISO: %d, SCLK: %d, CS: %d, Mode: %d, Speed: %ld Hz, DMA: %s)",
     name,
     host,
     posi_pin,
@@ -121,7 +127,7 @@ pstar_bus_config_t* pstar_bus_config_create_spi_device(const char*       name,
     dev_cfg->spics_io_num,
     dev_cfg->mode,
     (long)dev_cfg->clock_speed_hz,
-    dma_chan);
+    (dma_chan > 0) ? "Enabled" : "Disabled");
 
   return config;
 }
@@ -144,19 +150,8 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
 
   ESP_LOGI(TAG, "Destroying bus config '%s'", config->name ? config->name : "UNKNOWN");
 
-  /* Specific cleanup for SPI: Check if this was the last device on the bus */
-  if (config->type == k_pstar_bus_type_spi) {
-    spi_host_device_t host = config->proto.spi.host;
-    /* This check needs to be done carefully, potentially by the manager */
-    /* For now, assume the bus is freed elsewhere or not needed */
-    /* A better approach involves reference counting in the manager */
-    ESP_LOGD(TAG, "SPI config destroy for '%s' on host %d.", config->name, host);
-    /* TODO: Implement reference counting in manager to call spi_bus_free */
-    /* if (pstar_bus_manager_get_spi_device_count(manager, host) == 0) { */
-    /*     spi_bus_free(host); */
-    /*     s_spi_host_initialized[host] = false; */
-    /* } */
-  }
+  /* Specific cleanup for SPI is handled by the manager during remove_bus */
+  /* The manager checks if the bus needs to be freed based on device count */
 
   /* Clean up and free the configuration */
   priv_pstar_bus_config_cleanup(config);
@@ -165,7 +160,18 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config)
   return ESP_OK;
 }
 
-esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
+/**
+ * @brief Initialize the bus/device associated with this configuration.
+ *
+ * For I2C: Performs i2c_param_config, i2c_driver_install.
+ * For SPI: Performs spi_bus_initialize (if not already done for this host) and spi_bus_add_device.
+ *          Requires the bus manager to track host initialization status.
+ *
+ * @param[in] config Pointer to the bus configuration to initialize.
+ * @param[in] manager Pointer to the bus manager (needed for SPI host tracking).
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if config or manager is NULL, ESP_ERR_INVALID_STATE if already initialized, or an error code from the underlying driver initialization.
+ */
+esp_err_t pstar_bus_config_init(pstar_bus_config_t* config, pstar_bus_manager_t* manager)
 {
   ESP_RETURN_ON_FALSE(config, ESP_ERR_INVALID_ARG, TAG, "Config pointer is NULL");
   ESP_RETURN_ON_FALSE(!config->initialized,
@@ -204,11 +210,21 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
       break;
 
     case k_pstar_bus_type_spi:
+      ESP_RETURN_ON_FALSE(manager,
+                          ESP_ERR_INVALID_ARG,
+                          TAG,
+                          "Bus manager pointer is required for SPI initialization");
       ESP_LOGI(TAG, "Initializing SPI device '%s' (Host %d)", bus_name, config->proto.spi.host);
       spi_host_device_t host = config->proto.spi.host;
+      ESP_RETURN_ON_FALSE(host >= 0 && host < SPI_HOST_MAX,
+                          ESP_ERR_INVALID_ARG,
+                          TAG,
+                          "Invalid SPI host number: %d",
+                          host);
 
       /* Initialize the SPI bus *only if* it hasn't been initialized yet for this host */
-      if (!s_spi_host_initialized[host]) {
+      /* This check MUST be protected by the manager's mutex in the calling function (pstar_bus_manager_add_bus or similar) */
+      if (!manager->spi_host_initialized[host]) {
         ESP_LOGI(TAG, "Initializing SPI bus driver for host %d...", host);
         /* Create the ESP-IDF spi_bus_config_t from our internal structure */
         spi_bus_config_t esp_idf_bus_cfg = {
@@ -218,17 +234,22 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
           .quadwp_io_num   = config->proto.spi.quadwp_io_num,
           .quadhd_io_num   = config->proto.spi.quadhd_io_num,
           .max_transfer_sz = config->proto.spi.max_transfer_sz,
-          /* .flags = ..., */
+          .flags           = config->proto.spi.bus_cfg.flags, /* Pass flags (e.g., DMA enable) */
           /* .intr_flags = ... */
         };
-        ret = spi_bus_initialize(host, &esp_idf_bus_cfg, SPI_DMA_CH_AUTO);
+        /* Determine DMA channel based on flags */
+        int dma_chan = (config->proto.spi.bus_cfg.flags & SPICOMMON_BUSFLAG_MASTER)
+                         ? SPI_DMA_CH_AUTO
+                         : SPI_DMA_DISABLED;
+        ret          = spi_bus_initialize(host, &esp_idf_bus_cfg, dma_chan);
         ESP_GOTO_ON_ERROR(ret,
                           fail,
                           TAG,
                           "spi_bus_initialize failed for host %d: %s",
                           host,
                           esp_err_to_name(ret));
-        s_spi_host_initialized[host] = true;
+        manager->spi_host_initialized[host] = true; /* Update manager state */
+        manager->spi_device_count[host]     = 0;    /* Initialize device count */
         ESP_LOGI(TAG, "SPI bus driver for host %d initialized.", host);
       } else {
         ESP_LOGD(TAG, "SPI bus driver for host %d already initialized.", host);
@@ -244,6 +265,7 @@ esp_err_t pstar_bus_config_init(pstar_bus_config_t* config)
                         bus_name,
                         esp_err_to_name(ret));
       config->handle = (void*)spi_handle; /* Store the device handle */
+      manager->spi_device_count[host]++;  /* Increment device count for this host */
       break;
 
     default:
@@ -267,8 +289,7 @@ fail_i2c_driver:
 
 fail_spi_add_device:
   /* If add_device failed, we might need to free the bus if we just initialized it */
-  /* This logic needs refinement, ideally with reference counting in the manager */
-  /* For now, we don't free the bus here, assuming manager handles it */
+  /* This logic is now handled by the manager during remove_bus */
   goto fail;
 
 /* Generic failure point */
@@ -302,12 +323,11 @@ esp_err_t pstar_bus_config_deinit(pstar_bus_config_t* config)
       if (config->handle) {
         ret            = spi_bus_remove_device((spi_device_handle_t)config->handle);
         config->handle = NULL; /* Clear handle after removing */
+        /* Decrementing device count and freeing the bus is handled by the manager */
       } else {
         ESP_LOGW(TAG, "SPI device '%s' handle was already NULL before deinit.", bus_name);
         ret = ESP_OK; /* Not an error if handle is already NULL */
       }
-      /* Note: spi_bus_free is NOT called here. It should be called by the */
-      /* manager when the last device on the host is destroyed. */
       break;
 
     default:

@@ -15,6 +15,9 @@ extern "C" {
 
 #include "esp_err.h"
 
+/* --- Forward declaration needed for the function signature --- */
+struct pstar_bus_manager;
+
 /* --- Public Functions --- */
 
 /**
@@ -84,11 +87,13 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config);
  *
  * For I2C: Performs i2c_param_config, i2c_driver_install.
  * For SPI: Performs spi_bus_initialize (if not already done for this host) and spi_bus_add_device.
+ *          Requires the bus manager to track host initialization status.
  *
  * @param[in] config Pointer to the bus configuration to initialize.
- * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if config is NULL, ESP_ERR_INVALID_STATE if already initialized, or an error code from the underlying driver initialization.
+ * @param[in] manager Pointer to the bus manager (needed for SPI host tracking). Must not be NULL.
+ * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if config or manager is NULL, ESP_ERR_INVALID_STATE if already initialized, or an error code from the underlying driver initialization.
  */
-esp_err_t pstar_bus_config_init(pstar_bus_config_t* config);
+esp_err_t pstar_bus_config_init(pstar_bus_config_t* config, struct pstar_bus_manager* manager);
 
 /**
  * @brief Deinitialize the bus/device associated with this configuration.

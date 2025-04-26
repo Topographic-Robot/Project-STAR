@@ -646,7 +646,8 @@ esp_err_t pstar_qmc5883_hal_create_kconfig_default(pstar_bus_manager_t*        m
 
   /* 3. Initialize the bus hardware */
   if (!qmc5883_i2c_config->initialized) {
-    ret = pstar_bus_config_init(qmc5883_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(qmc5883_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,
@@ -745,7 +746,8 @@ esp_err_t pstar_qmc5883_hal_create_custom(pstar_bus_manager_t*        manager,
 
   /* 3. Initialize Bus Hardware */
   if (!qmc5883_i2c_config->initialized) {
-    ret = pstar_bus_config_init(qmc5883_i2c_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(qmc5883_i2c_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,

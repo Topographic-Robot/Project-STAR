@@ -53,6 +53,7 @@ esp_err_t pstar_bus_manager_init(pstar_bus_manager_t* manager, const char* tag)
   /* Initialize SPI host tracking */
   for (int i = 0; i < SPI_HOST_MAX; ++i) {
     manager->spi_host_initialized[i] = false;
+    manager->spi_device_count[i]     = 0; /* Initialize device count */
   }
 
   ESP_LOGI(manager->tag, "Initialized");
@@ -95,16 +96,23 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager, pstar_bus_conf
     }
   }
 
+  /* Initialize the bus hardware *before* adding it to the list */
+  /* This ensures the manager's SPI host tracking is updated correctly */
+  if (!config->initialized) {
+    /* Pass the manager to init for SPI host tracking */
+    ret = pstar_bus_config_init(config, manager);
+    if (ret != ESP_OK) {
+      ESP_LOGE(manager->tag,
+               "Failed to initialize bus hardware for '%s': %s",
+               config->name,
+               esp_err_to_name(ret));
+      goto add_give_mutex; /* Don't add if init failed */
+    }
+  }
+
   /* Add to head of list */
   config->next   = manager->buses;
   manager->buses = config;
-
-  /* Update SPI host initialized status if adding an SPI config */
-  /* This assumes the config's init function will set the manager's flag */
-  /* It might be better to update the flag *after* successful init */
-  /* if (config->type == k_pstar_bus_type_spi && config->initialized) { */
-  /*     manager->spi_host_initialized[config->proto.spi.host] = true; */
-  /* } */
 
   ESP_LOGI(manager->tag,
            "Added bus config: %s (Type: %s)",
@@ -142,20 +150,6 @@ pstar_bus_config_t* pstar_bus_manager_find_bus(const pstar_bus_manager_t* manage
   return found_bus;
 }
 
-/* Helper function to count devices on a specific SPI host */
-static int priv_count_spi_devices_on_host(const pstar_bus_manager_t* manager,
-                                          spi_host_device_t          host)
-{
-  int count = 0;
-  /* Assumes manager mutex is already held */
-  for (pstar_bus_config_t* curr = manager->buses; curr; curr = curr->next) {
-    if (curr->type == k_pstar_bus_type_spi && curr->proto.spi.host == host) {
-      count++;
-    }
-  }
-  return count;
-}
-
 esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char* name)
 {
   ESP_RETURN_ON_FALSE(manager && name && strlen(name) > 0,
@@ -171,6 +165,7 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
   pstar_bus_config_t* prev              = NULL;
   esp_err_t           ret               = ESP_ERR_NOT_FOUND; /* Default to not found */
   spi_host_device_t   spi_host_to_check = -1; /* Track SPI host if removing an SPI device */
+  bool                was_spi_device    = false;
 
   if (xSemaphoreTake(manager->mutex, pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) !=
       pdTRUE) {
@@ -191,19 +186,38 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
       to_remove->next = NULL;   /* Unlink completely */
       ret             = ESP_OK; /* Found it */
 
-      /* If it's an SPI device, note its host for potential bus freeing */
+      /* If it's an SPI device, note its host and decrement count */
       if (to_remove->type == k_pstar_bus_type_spi) {
         spi_host_to_check = to_remove->proto.spi.host;
+        was_spi_device    = true;
+        if (spi_host_to_check >= 0 && spi_host_to_check < SPI_HOST_MAX) {
+          if (manager->spi_device_count[spi_host_to_check] > 0) {
+            manager->spi_device_count[spi_host_to_check]--;
+            ESP_LOGD(manager->tag,
+                     "Decremented device count for SPI host %d to %d",
+                     spi_host_to_check,
+                     manager->spi_device_count[spi_host_to_check]);
+          } else {
+            ESP_LOGW(manager->tag,
+                     "SPI device count for host %d was already 0 before decrementing!",
+                     spi_host_to_check);
+          }
+        } else {
+          ESP_LOGE(manager->tag,
+                   "Invalid SPI host %d found in config '%s'",
+                   spi_host_to_check,
+                   name);
+          spi_host_to_check = -1; /* Mark as invalid */
+        }
       }
       break;
     }
   }
 
-  /* Check if we need to free the SPI bus *after* unlinking */
+  /* Check if we need to free the SPI bus *after* unlinking and decrementing count */
   bool free_spi_bus = false;
-  if (ret == ESP_OK && spi_host_to_check != -1) {
-    /* Check if this was the last device on the host */
-    if (priv_count_spi_devices_on_host(manager, spi_host_to_check) == 0) {
+  if (ret == ESP_OK && was_spi_device && spi_host_to_check != -1) {
+    if (manager->spi_device_count[spi_host_to_check] == 0) {
       if (manager->spi_host_initialized[spi_host_to_check]) {
         free_spi_bus = true;
       } else {
@@ -255,6 +269,7 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
       if (xSemaphoreTake(manager->mutex,
                          pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) == pdTRUE) {
         manager->spi_host_initialized[spi_host_to_check] = false;
+        /* Device count is already 0 */
         xSemaphoreGive(manager->mutex);
         ESP_LOGI(manager->tag, "SPI bus driver for host %d freed.", spi_host_to_check);
       } else {
@@ -335,6 +350,7 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
         }
       }
       manager->spi_host_initialized[host] = false;
+      manager->spi_device_count[host]     = 0;
     }
   }
 

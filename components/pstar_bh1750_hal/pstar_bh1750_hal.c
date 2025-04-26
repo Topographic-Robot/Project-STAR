@@ -327,7 +327,8 @@ esp_err_t pstar_bh1750_hal_create_kconfig_default(pstar_bus_manager_t* manager,
   config_created = false; /* Manager now owns the config pointer */
 
   /* 3. Initialize the bus hardware */
-  ret = pstar_bus_config_init(bh1750_i2c_config);
+  // *** CORRECTED LINE ***
+  ret = pstar_bus_config_init(bh1750_i2c_config, manager);
   ESP_GOTO_ON_ERROR(ret,
                     cleanup,
                     TAG,
@@ -424,7 +425,8 @@ esp_err_t pstar_bh1750_hal_create_custom(pstar_bus_manager_t* manager,
   config_created = false; /* Manager now owns the config pointer */
 
   /* 3. Initialize the bus hardware */
-  ret = pstar_bus_config_init(bh1750_i2c_config);
+  // *** CORRECTED LINE ***
+  ret = pstar_bus_config_init(bh1750_i2c_config, manager);
   ESP_GOTO_ON_ERROR(ret,
                     cleanup,
                     TAG,

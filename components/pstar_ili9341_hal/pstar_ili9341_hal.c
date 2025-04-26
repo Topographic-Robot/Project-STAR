@@ -864,7 +864,8 @@ esp_err_t pstar_ili9341_hal_create_kconfig_default(pstar_bus_manager_t*        m
 
   /* 3. Initialize the bus hardware */
   if (!ili9341_spi_config->initialized) {
-    ret = pstar_bus_config_init(ili9341_spi_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(ili9341_spi_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,
@@ -991,7 +992,8 @@ esp_err_t pstar_ili9341_hal_create_custom(pstar_bus_manager_t*        manager,
 
   /* 3. Initialize Bus Hardware */
   if (!ili9341_spi_config->initialized) {
-    ret = pstar_bus_config_init(ili9341_spi_config);
+    // *** CORRECTED LINE ***
+    ret = pstar_bus_config_init(ili9341_spi_config, manager);
     ESP_GOTO_ON_ERROR(ret,
                       cleanup,
                       TAG,
