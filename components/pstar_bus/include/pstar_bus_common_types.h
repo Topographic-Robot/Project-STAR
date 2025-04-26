@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "driver/gpio.h"
+#include "driver/spi_master.h" /* Added for spi_host_device_t */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -23,12 +24,13 @@ typedef struct pstar_bus_manager pstar_bus_manager_t;
 /* --- Enums --- */
 
 /**
- * @brief Types of supported bus interfaces (Currently only I2C).
+ * @brief Types of supported bus interfaces.
  */
 typedef enum {
   k_pstar_bus_type_none, /**< No bus type specified */
   k_pstar_bus_type_i2c,  /**< I2C bus */
-  /* Other types removed for I2C focus */
+  k_pstar_bus_type_spi,  /**< SPI bus */
+  /* Add other types like UART, CAN if needed */
   k_pstar_bus_type_count, /**< Number of bus types */
 } pstar_bus_type_t;
 
@@ -39,7 +41,7 @@ typedef enum {
  *
  * @param[in] pin_num   The GPIO pin number being registered.
  * @param[in] bus_name  The name of the bus configuration using this pin.
- * @param[in] pin_usage A descriptive string of how the pin is used (e.g., "I2C SDA").
+ * @param[in] pin_usage A descriptive string of how the pin is used (e.g., "I2C SDA", "SPI MOSI").
  * @param[in] user_ctx  User context pointer provided to pstar_bus_manager_register_all_pins.
  * @return esp_err_t Should return ESP_OK on successful registration, or an error code otherwise.
  */

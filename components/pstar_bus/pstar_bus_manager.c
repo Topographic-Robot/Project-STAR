@@ -50,6 +50,11 @@ esp_err_t pstar_bus_manager_init(pstar_bus_manager_t* manager, const char* tag)
     return ESP_ERR_NO_MEM;
   }
 
+  /* Initialize SPI host tracking */
+  for (int i = 0; i < SPI_HOST_MAX; ++i) {
+    manager->spi_host_initialized[i] = false;
+  }
+
   ESP_LOGI(manager->tag, "Initialized");
   return ESP_OK;
 }
@@ -64,10 +69,10 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager, pstar_bus_conf
                       ESP_ERR_INVALID_ARG,
                       manager->tag,
                       "Config name is NULL or empty");
-  ESP_RETURN_ON_FALSE(config->type == k_pstar_bus_type_i2c,
+  ESP_RETURN_ON_FALSE(config->type > k_pstar_bus_type_none && config->type < k_pstar_bus_type_count,
                       ESP_ERR_INVALID_ARG,
                       manager->tag,
-                      "Only I2C bus type supported currently");
+                      "Invalid bus type in config");
   ESP_RETURN_ON_FALSE(manager->mutex,
                       ESP_ERR_INVALID_STATE,
                       manager->tag,
@@ -94,8 +99,15 @@ esp_err_t pstar_bus_manager_add_bus(pstar_bus_manager_t* manager, pstar_bus_conf
   config->next   = manager->buses;
   manager->buses = config;
 
+  /* Update SPI host initialized status if adding an SPI config */
+  /* This assumes the config's init function will set the manager's flag */
+  /* It might be better to update the flag *after* successful init */
+  /* if (config->type == k_pstar_bus_type_spi && config->initialized) { */
+  /*     manager->spi_host_initialized[config->proto.spi.host] = true; */
+  /* } */
+
   ESP_LOGI(manager->tag,
-           "Added bus: %s (Type: %s)",
+           "Added bus config: %s (Type: %s)",
            config->name,
            pstar_bus_type_to_string(config->type));
 
@@ -130,6 +142,20 @@ pstar_bus_config_t* pstar_bus_manager_find_bus(const pstar_bus_manager_t* manage
   return found_bus;
 }
 
+/* Helper function to count devices on a specific SPI host */
+static int priv_count_spi_devices_on_host(const pstar_bus_manager_t* manager,
+                                          spi_host_device_t          host)
+{
+  int count = 0;
+  /* Assumes manager mutex is already held */
+  for (pstar_bus_config_t* curr = manager->buses; curr; curr = curr->next) {
+    if (curr->type == k_pstar_bus_type_spi && curr->proto.spi.host == host) {
+      count++;
+    }
+  }
+  return count;
+}
+
 esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char* name)
 {
   ESP_RETURN_ON_FALSE(manager && name && strlen(name) > 0,
@@ -141,9 +167,10 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
                       manager->tag,
                       "Manager mutex not initialized");
 
-  pstar_bus_config_t* to_remove = NULL;
-  pstar_bus_config_t* prev      = NULL;
-  esp_err_t           ret       = ESP_ERR_NOT_FOUND; /* Default to not found */
+  pstar_bus_config_t* to_remove         = NULL;
+  pstar_bus_config_t* prev              = NULL;
+  esp_err_t           ret               = ESP_ERR_NOT_FOUND; /* Default to not found */
+  spi_host_device_t   spi_host_to_check = -1; /* Track SPI host if removing an SPI device */
 
   if (xSemaphoreTake(manager->mutex, pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) !=
       pdTRUE) {
@@ -163,11 +190,31 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
       }
       to_remove->next = NULL;   /* Unlink completely */
       ret             = ESP_OK; /* Found it */
+
+      /* If it's an SPI device, note its host for potential bus freeing */
+      if (to_remove->type == k_pstar_bus_type_spi) {
+        spi_host_to_check = to_remove->proto.spi.host;
+      }
       break;
     }
   }
 
-  /* Release mutex BEFORE potentially long deinit/destroy */
+  /* Check if we need to free the SPI bus *after* unlinking */
+  bool free_spi_bus = false;
+  if (ret == ESP_OK && spi_host_to_check != -1) {
+    /* Check if this was the last device on the host */
+    if (priv_count_spi_devices_on_host(manager, spi_host_to_check) == 0) {
+      if (manager->spi_host_initialized[spi_host_to_check]) {
+        free_spi_bus = true;
+      } else {
+        ESP_LOGW(manager->tag,
+                 "Last device on SPI host %d removed, but host wasn't marked as initialized?",
+                 spi_host_to_check);
+      }
+    }
+  }
+
+  /* Release mutex BEFORE potentially long deinit/destroy/free */
   xSemaphoreGive(manager->mutex);
 
   if (ret == ESP_ERR_NOT_FOUND) {
@@ -185,11 +232,43 @@ esp_err_t pstar_bus_manager_remove_bus(pstar_bus_manager_t* manager, const char*
              name,
              esp_err_to_name(destroy_result));
     /* Return the destroy error as it's more critical than just finding it */
-    return destroy_result;
+    /* We might still need to free the SPI bus below */
+    ret = destroy_result;
+  } else {
+    ESP_LOGI(manager->tag, "Removed and destroyed bus config: %s", name);
   }
 
-  ESP_LOGI(manager->tag, "Removed and destroyed bus: %s", name);
-  return ESP_OK;
+  /* Free the underlying SPI bus if necessary */
+  if (free_spi_bus) {
+    ESP_LOGI(manager->tag, "Freeing SPI bus driver for host %d...", spi_host_to_check);
+    esp_err_t free_ret = spi_bus_free(spi_host_to_check);
+    if (free_ret != ESP_OK) {
+      ESP_LOGE(manager->tag,
+               "Failed to free SPI bus for host %d: %s",
+               spi_host_to_check,
+               esp_err_to_name(free_ret));
+      if (ret == ESP_OK) { /* Only overwrite if previous steps were successful */
+        ret = free_ret;
+      }
+    } else {
+      /* Update manager's tracking state - requires mutex again */
+      if (xSemaphoreTake(manager->mutex,
+                         pdMS_TO_TICKS(CONFIG_PSTAR_KCONFIG_BUS_MUTEX_TIMEOUT_MS)) == pdTRUE) {
+        manager->spi_host_initialized[spi_host_to_check] = false;
+        xSemaphoreGive(manager->mutex);
+        ESP_LOGI(manager->tag, "SPI bus driver for host %d freed.", spi_host_to_check);
+      } else {
+        ESP_LOGE(manager->tag,
+                 "Timeout acquiring mutex to update SPI host %d freed status.",
+                 spi_host_to_check);
+        if (ret == ESP_OK) {
+          ret = ESP_ERR_TIMEOUT;
+        }
+      }
+    }
+  }
+
+  return ret;
 }
 
 esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
@@ -241,6 +320,24 @@ esp_err_t pstar_bus_manager_deinit(pstar_bus_manager_t* manager)
     curr = next; /* Move to the next node (original curr pointer is now invalid) */
   }
 
+  /* Free underlying SPI buses that might still be marked as initialized */
+  for (int host = 0; host < SPI_HOST_MAX; ++host) {
+    if (manager->spi_host_initialized[host]) {
+      ESP_LOGI(manager->tag, "Freeing potentially orphaned SPI bus driver for host %d...", host);
+      esp_err_t free_ret = spi_bus_free((spi_host_device_t)host);
+      if (free_ret != ESP_OK) {
+        ESP_LOGE(manager->tag,
+                 "Failed to free SPI bus for host %d during manager deinit: %s",
+                 host,
+                 esp_err_to_name(free_ret));
+        if (first_error == ESP_OK) {
+          first_error = free_ret;
+        }
+      }
+      manager->spi_host_initialized[host] = false;
+    }
+  }
+
   /* Free the tag string if it was dynamically allocated */
   if (manager->tag != NULL && manager->tag != TAG) {
     free((void*)manager->tag); /* Cast needed for free */
@@ -266,7 +363,8 @@ static inline esp_err_t register_pin_if_valid(gpio_num_t                  pin,
                                               const char*                 bus_name,
                                               const char*                 usage,
                                               pin_registration_function_t reg_func,
-                                              void*                       user_ctx)
+                                              void*                       user_ctx,
+                                              bool                        can_be_shared)
 {
   if (pin >= 0 && pin < GPIO_NUM_MAX) /* Check if pin number is valid */
   {
@@ -306,21 +404,77 @@ esp_err_t pstar_bus_manager_register_all_pins(const pstar_bus_manager_t*  manage
              bus_name,
              pstar_bus_type_to_string(curr->type));
 
-    /* Only handle I2C pins */
-    if (curr->type == k_pstar_bus_type_i2c) {
-      reg_result =
-        register_pin_if_valid(curr->i2c.config.sda_io_num, bus_name, "I2C SDA", reg_func, user_ctx);
-      if (reg_result != ESP_OK && ret == ESP_OK) {
-        ret = reg_result;
-      } /* Record first error */
+    switch (curr->type) {
+      case k_pstar_bus_type_i2c:
+        reg_result = register_pin_if_valid(curr->proto.i2c.config.sda_io_num,
+                                           bus_name,
+                                           "I2C SDA",
+                                           reg_func,
+                                           user_ctx,
+                                           true); /* I2C pins are shareable */
+        if (reg_result != ESP_OK && ret == ESP_OK)
+          ret = reg_result;
 
-      reg_result =
-        register_pin_if_valid(curr->i2c.config.scl_io_num, bus_name, "I2C SCL", reg_func, user_ctx);
-      if (reg_result != ESP_OK && ret == ESP_OK) {
-        ret = reg_result;
-      }
-    } else {
-      ESP_LOGW(manager->tag, "Skipping non-I2C bus '%s' during pin registration", bus_name);
+        reg_result = register_pin_if_valid(curr->proto.i2c.config.scl_io_num,
+                                           bus_name,
+                                           "I2C SCL",
+                                           reg_func,
+                                           user_ctx,
+                                           true); /* I2C pins are shareable */
+        if (reg_result != ESP_OK && ret == ESP_OK)
+          ret = reg_result;
+        break;
+
+      case k_pstar_bus_type_spi:
+        /* SPI bus pins (POSI, PISO, SCLK) are shared per host */
+        /* Use the renamed internal fields for registration */
+        reg_result = register_pin_if_valid(curr->proto.spi.posi_io_num,
+                                           bus_name,
+                                           "SPI POSI", /* Updated description */
+                                           reg_func,
+                                           user_ctx,
+                                           true);
+        if (reg_result != ESP_OK && ret == ESP_OK)
+          ret = reg_result;
+
+        reg_result = register_pin_if_valid(curr->proto.spi.piso_io_num,
+                                           bus_name,
+                                           "SPI PISO", /* Updated description */
+                                           reg_func,
+                                           user_ctx,
+                                           true);
+        if (reg_result != ESP_OK && ret == ESP_OK)
+          ret = reg_result;
+
+        reg_result = register_pin_if_valid(curr->proto.spi.sclk_io_num,
+                                           bus_name,
+                                           "SPI SCLK",
+                                           reg_func,
+                                           user_ctx,
+                                           true);
+        if (reg_result != ESP_OK && ret == ESP_OK)
+          ret = reg_result;
+
+        /* SPI CS pin is device-specific and NOT shared */
+        reg_result = register_pin_if_valid(curr->proto.spi.dev_cfg.spics_io_num,
+                                           bus_name,
+                                           "SPI CS",
+                                           reg_func,
+                                           user_ctx,
+                                           false);
+        if (reg_result != ESP_OK && ret == ESP_OK)
+          ret = reg_result;
+
+        /* Register DC pin if used (often specific to device, not shared) */
+        /* Assuming DC pin info might be stored in user context or flags if needed */
+        /* For now, we don't have DC pin explicitly in config, HAL registers it */
+        break;
+
+      default:
+        ESP_LOGW(manager->tag,
+                 "Skipping pin registration for unsupported bus type: %d",
+                 curr->type);
+        break;
     }
 
     /* Log first error encountered during registration for this bus */

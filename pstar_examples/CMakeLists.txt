@@ -11,6 +11,9 @@ idf_component_register(
     "pin_validator_example.c"
     "error_handler_example.c"
     "jtag_example.c"
+    "mpu6050_example.c"
+    "qmc5883_example.c"
+    "ili9341_example.c"
   INCLUDE_DIRS
     "."
     "include"
@@ -22,6 +25,7 @@ idf_component_register(
     freertos
     esp_timer
     esp_adc
+    esp_common
     # Project Components
     pstar_pin_validator
     pstar_bus
@@ -32,5 +36,8 @@ idf_component_register(
     pstar_hd44780_hal
     pstar_error_handler
     pstar_jtag
+    pstar_mpu6050_hal
+    pstar_qmc5883_hal
+    pstar_ili9341_hal
   PRIV_REQUIRES
 )

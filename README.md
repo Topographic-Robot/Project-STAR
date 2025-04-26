@@ -28,11 +28,15 @@ _(Note: This repository is under active development. While the goal is a fully a
 This repository currently provides the following firmware features and utilities:
 
 - **I2C Bus Management:** A manager (`pstar_bus`) to handle I2C bus configurations and operations.
+- **SPI Bus Management:** Integrated into `pstar_bus` to handle SPI bus/device configurations and operations.
 - **Ambient Light Sensing:** HAL (`pstar_bh1750_hal`) for the BH1750 I2C light sensor.
 - **Temperature & Humidity Sensing:** HAL (`pstar_dht22_hal`) for the DHT22 sensor (using a custom 1-wire protocol).
-- **Character LCD Display:** HAL (`pstar_hd44780_hal`) for HD44780-compatible LCDs (4-bit parallel mode).
+- **Character LCD Display:** HAL (`pstar_hd44780_hal`) for HD44780-compatible LCDs (4-bit parallel or I2C mode).
 - **Air Quality Sensing (Analog):** HAL (`pstar_mq135_hal`) for the MQ135 analog gas sensor using ESP32's ADC.
 - **PWM/Servo Control:** HAL (`pstar_pca9685_hal`) for the PCA9685 16-channel I2C PWM driver.
+- **IMU Sensing:** HAL (`pstar_mpu6050_hal`) for the MPU6050 6-DOF I2C IMU.
+- **Magnetometer Sensing:** HAL (`pstar_qmc5883_hal`) for the QMC5883 3-axis I2C magnetometer.
+- **TFT LCD Display:** HAL (`pstar_ili9341_hal`) for ILI9341-based SPI TFT displays.
 - **Pin Validation:** Utility (`pstar_pin_validator`) to detect GPIO pin assignment conflicts at compile/runtime setup.
 - **Error Handling:** Utility (`pstar_error_handler`) for basic error tracking and retry logic.
 - **JTAG Configuration:** Utility (`pstar_jtag`) to retrieve JTAG pin configuration from Kconfig.
@@ -51,14 +55,17 @@ The firmware components currently support interaction with the following hardwar
   - BH1750 (Ambient Light - I2C)
   - DHT22 (Temperature & Humidity - 1-Wire)
   - MQ135 (Air Quality - Analog/ADC)
+  - MPU6050 (6-DOF IMU - I2C)
+  - QMC5883 (Magnetometer - I2C)
 - **Actuators/Drivers:**
   - PCA9685 (16-Channel PWM/Servo Driver - I2C)
 - **Displays:**
-  - HD44780-compatible Character LCDs (4-bit parallel)
+  - HD44780-compatible Character LCDs (4-bit parallel or I2C)
+  - ILI9341-based TFT LCDs (SPI)
 - **Debugging:**
   - JTAG Debugger (e.g., ESP-Prog, FTDI-based) - Configuration supported by `pstar_jtag`.
 
-_(Support for other hardware like cameras, GPS, IMUs, SD cards, etc., will be added as development progresses.)_
+_(Support for other hardware like cameras, GPS, SD cards, etc., will be added as development progresses.)_
 
 ## Software
 
@@ -72,11 +79,11 @@ The firmware is developed using the **ESP-IDF** framework (v5.1 or later recomme
 
 ### Architecture Diagram (Bus Manager)
 
-The `pstar_bus` component provides an I2C bus manager. The diagram below illustrates its conceptual structure:
+The `pstar_bus` component provides an I2C and SPI bus manager. The diagram below illustrates its conceptual structure:
 
 ![ESP32 Bus Manager Block Diagram](./docs/diagrams/esp32_bus_manager_fbd.svg)
 
-_(Note: The diagram shows I2C, SPI, and UART, but the current implementation in `pstar_bus` only focuses on I2C management)._
+_(Note: The diagram shows I2C, SPI, and UART, but the current implementation in `pstar_bus` only focuses on I2C and SPI management)._
 
 ### Dependencies
 
@@ -118,7 +125,7 @@ Project-wide settings, including component configurations (pins, addresses, defa
     *   Navigate to the `Select Example to Run` submenu.
     *   Choose either `Main Application` to run the primary STAR firmware logic or select a specific example (e.g., `BH1750 Example`) to run only that demo routine.
 4.  **Enable/Disable Components:** Ensure the components required by your selection (either the main app or the chosen example) are enabled (e.g., `[*] Enable BH1750 Light Sensor Component`). Examples usually depend on their corresponding HAL component being enabled.
-5.  **Configure Component Settings:** Enter the submenus for enabled components to set parameters like GPIO pins, I2C addresses, default frequencies, etc. Pay close attention to pin assignments to avoid conflicts. The Pin Validator (if enabled) will help detect issues during the build or at runtime startup.
+5.  **Configure Component Settings:** Enter the submenus for enabled components to set parameters like GPIO pins, I2C addresses, SPI pins (POSI/PISO/SCLK/CS), default frequencies, etc. Pay close attention to pin assignments to avoid conflicts. The Pin Validator (if enabled) will help detect issues during the build or at runtime startup.
 6.  **Save and Exit.**
 
 ## Running Examples or Main Application

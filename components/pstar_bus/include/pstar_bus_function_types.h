@@ -11,6 +11,7 @@ extern "C" {
 #include "pstar_bus_event_types.h"
 
 #include "driver/i2c.h"
+#include "driver/spi_master.h" /* Added for SPI */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -23,6 +24,12 @@ extern "C" {
 /* I2C Callback Function Types */
 typedef void (*pstar_i2c_transfer_complete_cb_t)(const pstar_bus_event_t* event, void* user_ctx);
 typedef void (*pstar_i2c_error_cb_t)(const pstar_bus_event_t* event,
+                                     esp_err_t                error,
+                                     void*                    user_ctx);
+
+/* SPI Callback Function Types */
+typedef void (*pstar_spi_transfer_complete_cb_t)(const pstar_bus_event_t* event, void* user_ctx);
+typedef void (*pstar_spi_error_cb_t)(const pstar_bus_event_t* event,
                                      esp_err_t                error,
                                      void*                    user_ctx);
 
@@ -83,6 +90,49 @@ typedef esp_err_t (*pstar_i2c_read_raw_fn_t)(const pstar_bus_config_t* config,
                                              uint8_t*                  data,
                                              size_t                    len,
                                              size_t*                   bytes_read);
+
+/* SPI Operation Function Types */
+
+/**
+ * @brief Function pointer type for transmitting SPI data (command or general data).
+ * @param config Pointer to the initialized SPI device configuration.
+ * @param tx_buffer Pointer to the data buffer to transmit.
+ * @param len Number of bytes to transmit.
+ * @param user_flags User-defined flags (e.g., to control DC pin via callback).
+ * @return ESP_OK on success, error code otherwise.
+ */
+typedef esp_err_t (*pstar_spi_transmit_fn_t)(const pstar_bus_config_t* config,
+                                             const void*               tx_buffer,
+                                             size_t                    len,
+                                             uint32_t                  user_flags);
+
+/**
+ * @brief Function pointer type for receiving SPI data.
+ * @param config Pointer to the initialized SPI device configuration.
+ * @param rx_buffer Pointer to the buffer where received data will be stored.
+ * @param len Number of bytes to receive.
+ * @param user_flags User-defined flags.
+ * @return ESP_OK on success, error code otherwise.
+ */
+typedef esp_err_t (*pstar_spi_receive_fn_t)(const pstar_bus_config_t* config,
+                                            void*                     rx_buffer,
+                                            size_t                    len,
+                                            uint32_t                  user_flags);
+
+/**
+ * @brief Function pointer type for full-duplex SPI transfer.
+ * @param config Pointer to the initialized SPI device configuration.
+ * @param tx_buffer Pointer to the data buffer to transmit.
+ * @param rx_buffer Pointer to the buffer where received data will be stored.
+ * @param len Number of bytes to transfer.
+ * @param user_flags User-defined flags.
+ * @return ESP_OK on success, error code otherwise.
+ */
+typedef esp_err_t (*pstar_spi_transfer_fn_t)(const pstar_bus_config_t* config,
+                                             const void*               tx_buffer,
+                                             void*                     rx_buffer,
+                                             size_t                    len,
+                                             uint32_t                  user_flags);
 
 #ifdef __cplusplus
 }

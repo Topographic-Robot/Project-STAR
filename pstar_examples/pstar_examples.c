@@ -26,11 +26,20 @@
 #ifdef CONFIG_PSTAR_EXAMPLE_PIN_VALIDATOR
 #include "pin_validator_example.h"
 #endif
-#ifdef CONFIG_PSTAR_EXAMPLE_ERROR_HANDLER // Added
+#ifdef CONFIG_PSTAR_EXAMPLE_ERROR_HANDLER
 #include "error_handler_example.h"
 #endif
-#ifdef CONFIG_PSTAR_EXAMPLE_JTAG // Added
+#ifdef CONFIG_PSTAR_EXAMPLE_JTAG
 #include "jtag_example.h"
+#endif
+#ifdef CONFIG_PSTAR_EXAMPLE_MPU6050
+#include "mpu6050_example.h"
+#endif
+#ifdef CONFIG_PSTAR_EXAMPLE_QMC5883
+#include "qmc5883_example.h"
+#endif
+#ifdef CONFIG_PSTAR_EXAMPLE_ILI9341 /* Added */
+#include "ili9341_example.h"
 #endif
 
 static const char* TAG_DISPATCH = "ExampleDispatch";
@@ -55,12 +64,21 @@ void run_selected_example(void)
 #elif CONFIG_PSTAR_EXAMPLE_PIN_VALIDATOR
   ESP_LOGI(TAG_DISPATCH, "Dispatching to Pin Validator Example");
   example_pin_validator_app_main();
-#elif CONFIG_PSTAR_EXAMPLE_ERROR_HANDLER // Added
+#elif CONFIG_PSTAR_EXAMPLE_ERROR_HANDLER
   ESP_LOGI(TAG_DISPATCH, "Dispatching to Error Handler Example");
   example_error_handler_app_main();
-#elif CONFIG_PSTAR_EXAMPLE_JTAG          // Added
+#elif CONFIG_PSTAR_EXAMPLE_JTAG
   ESP_LOGI(TAG_DISPATCH, "Dispatching to JTAG Example");
   example_jtag_app_main();
+#elif CONFIG_PSTAR_EXAMPLE_MPU6050
+  ESP_LOGI(TAG_DISPATCH, "Dispatching to MPU6050 Example");
+  example_mpu6050_app_main();
+#elif CONFIG_PSTAR_EXAMPLE_QMC5883
+  ESP_LOGI(TAG_DISPATCH, "Dispatching to QMC5883 Example");
+  example_qmc5883_app_main();
+#elif CONFIG_PSTAR_EXAMPLE_ILI9341 /* Added */
+  ESP_LOGI(TAG_DISPATCH, "Dispatching to ILI9341 Example");
+  example_ili9341_app_main();
 #elif CONFIG_PSTAR_EXAMPLE_NONE
   ESP_LOGE(TAG_DISPATCH, "Error: run_selected_example called when Main Application selected!");
 #else

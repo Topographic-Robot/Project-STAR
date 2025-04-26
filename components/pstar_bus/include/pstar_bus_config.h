@@ -11,6 +11,7 @@ extern "C" {
 
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "driver/spi_master.h" /* Added for SPI */
 
 #include "esp_err.h"
 
@@ -38,11 +39,40 @@ pstar_bus_config_t* pstar_bus_config_create_i2c(const char* name,
                                                 uint32_t    clk_speed);
 
 /**
+ * @brief Create a new SPI device configuration.
+ *
+ * Configures parameters for a specific SPI device communication.
+ * The underlying SPI bus driver will be initialized when pstar_bus_config_init is called
+ * for the first device on a given SPI host.
+ *
+ * @param[in] name        Unique name for this SPI device instance (e.g., "SPI_LCD"). Must be non-NULL.
+ * @param[in] host        SPI host device (e.g., SPI2_HOST, SPI3_HOST).
+ * @param[in] posi_pin    GPIO number for POSI (Primary Out Secondary In) line.
+ * @param[in] piso_pin    GPIO number for PISO (Primary In Secondary Out) line (-1 if not used).
+ * @param[in] sclk_pin    GPIO number for SCLK line.
+ * @param[in] dma_chan    SPI DMA channel to use (SPI_DMA_CH_AUTO, SPI_DMA_CH1, SPI_DMA_CH2, or 0 if DMA disabled).
+ * @param[in] dev_cfg     Pointer to the ESP-IDF SPI device interface configuration structure.
+ *                        This structure contains CS pin, clock speed, mode, queue size, callbacks, etc.
+ *                        The bus manager does NOT take ownership of this pointer or its contents;
+ *                        it copies the relevant data. The caller must ensure dev_cfg is valid.
+ * @return pstar_bus_config_t* Pointer to the created configuration, or NULL on failure. Must be destroyed via pstar_bus_config_destroy.
+ */
+pstar_bus_config_t*
+pstar_bus_config_create_spi_device(const char*                          name,
+                                   spi_host_device_t                    host,
+                                   gpio_num_t                           posi_pin,
+                                   gpio_num_t                           piso_pin,
+                                   gpio_num_t                           sclk_pin,
+                                   int                                  dma_chan,
+                                   const spi_device_interface_config_t* dev_cfg);
+
+/**
  * @brief Destroy a bus configuration and free all associated resources.
  *
- * This function will first attempt to deinitialize the I2C driver if it was initialized
- * by this configuration. Then, it frees the memory allocated for the configuration
- * structure itself.
+ * This function will first attempt to deinitialize the bus/device driver if it was initialized
+ * by this configuration (e.g., i2c_driver_delete, spi_bus_remove_device).
+ * For SPI, it will also attempt to free the underlying SPI bus if this was the last device on it.
+ * Then, it frees the memory allocated for the configuration structure itself.
  *
  * @param[in] config Pointer to the bus configuration to destroy. This pointer will be invalid after the call.
  * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if config is NULL, or an error code from the underlying deinitialization process.
@@ -50,9 +80,10 @@ pstar_bus_config_t* pstar_bus_config_create_i2c(const char* name,
 esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config);
 
 /**
- * @brief Initialize the I2C bus/device associated with this configuration.
+ * @brief Initialize the bus/device associated with this configuration.
  *
- * This performs the necessary I2C driver initialization (i2c_param_config, i2c_driver_install).
+ * For I2C: Performs i2c_param_config, i2c_driver_install.
+ * For SPI: Performs spi_bus_initialize (if not already done for this host) and spi_bus_add_device.
  *
  * @param[in] config Pointer to the bus configuration to initialize.
  * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if config is NULL, ESP_ERR_INVALID_STATE if already initialized, or an error code from the underlying driver initialization.
@@ -60,9 +91,11 @@ esp_err_t pstar_bus_config_destroy(pstar_bus_config_t* config);
 esp_err_t pstar_bus_config_init(pstar_bus_config_t* config);
 
 /**
- * @brief Deinitialize the I2C bus/device associated with this configuration.
+ * @brief Deinitialize the bus/device associated with this configuration.
  *
- * This performs the necessary I2C driver deinitialization (i2c_driver_delete).
+ * For I2C: Performs i2c_driver_delete.
+ * For SPI: Performs spi_bus_remove_device. Does NOT automatically free the SPI bus;
+ *          that happens during pstar_bus_config_destroy if it's the last device.
  *
  * @param[in] config Pointer to the bus configuration to deinitialize.
  * @return esp_err_t ESP_OK on success, ESP_ERR_INVALID_ARG if config is NULL, ESP_ERR_INVALID_STATE if not initialized, or an error code from the underlying driver deinitialization.

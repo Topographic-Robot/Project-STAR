@@ -30,17 +30,112 @@ static const char* TAG = "PCA9685 HAL";
 #define PCA9685_SUBADR2 0x03    /**< I2C-bus subaddress 2 */
 #define PCA9685_SUBADR3 0x04    /**< I2C-bus subaddress 3 */
 #define PCA9685_ALLCALLADR 0x05 /**< LED All Call I2C-bus address */
+
+/* --- LED0 Registers --- */
 #define PCA9685_LED0_ON_L 0x06  /**< LED0 output and brightness control byte 0 */
 #define PCA9685_LED0_ON_H 0x07  /**< LED0 output and brightness control byte 1 */
 #define PCA9685_LED0_OFF_L 0x08 /**< LED0 output and brightness control byte 2 */
 #define PCA9685_LED0_OFF_H 0x09 /**< LED0 output and brightness control byte 3 */
-/* Registers for LED1_*, LED2_*, ... LED15_* follow sequentially (4 bytes each) */
+
+/* --- LED1 Registers --- */
+#define PCA9685_LED1_ON_L 0x0A
+#define PCA9685_LED1_ON_H 0x0B
+#define PCA9685_LED1_OFF_L 0x0C
+#define PCA9685_LED1_OFF_H 0x0D
+
+/* --- LED2 Registers --- */
+#define PCA9685_LED2_ON_L 0x0E
+#define PCA9685_LED2_ON_H 0x0F
+#define PCA9685_LED2_OFF_L 0x10
+#define PCA9685_LED2_OFF_H 0x11
+
+/* --- LED3 Registers --- */
+#define PCA9685_LED3_ON_L 0x12
+#define PCA9685_LED3_ON_H 0x13
+#define PCA9685_LED3_OFF_L 0x14
+#define PCA9685_LED3_OFF_H 0x15
+
+/* --- LED4 Registers --- */
+#define PCA9685_LED4_ON_L 0x16
+#define PCA9685_LED4_ON_H 0x17
+#define PCA9685_LED4_OFF_L 0x18
+#define PCA9685_LED4_OFF_H 0x19
+
+/* --- LED5 Registers --- */
+#define PCA9685_LED5_ON_L 0x1A
+#define PCA9685_LED5_ON_H 0x1B
+#define PCA9685_LED5_OFF_L 0x1C
+#define PCA9685_LED5_OFF_H 0x1D
+
+/* --- LED6 Registers --- */
+#define PCA9685_LED6_ON_L 0x1E
+#define PCA9685_LED6_ON_H 0x1F
+#define PCA9685_LED6_OFF_L 0x20
+#define PCA9685_LED6_OFF_H 0x21
+
+/* --- LED7 Registers --- */
+#define PCA9685_LED7_ON_L 0x22
+#define PCA9685_LED7_ON_H 0x23
+#define PCA9685_LED7_OFF_L 0x24
+#define PCA9685_LED7_OFF_H 0x25
+
+/* --- LED8 Registers --- */
+#define PCA9685_LED8_ON_L 0x26
+#define PCA9685_LED8_ON_H 0x27
+#define PCA9685_LED8_OFF_L 0x28
+#define PCA9685_LED8_OFF_H 0x29
+
+/* --- LED9 Registers --- */
+#define PCA9685_LED9_ON_L 0x2A
+#define PCA9685_LED9_ON_H 0x2B
+#define PCA9685_LED9_OFF_L 0x2C
+#define PCA9685_LED9_OFF_H 0x2D
+
+/* --- LED10 Registers --- */
+#define PCA9685_LED10_ON_L 0x2E
+#define PCA9685_LED10_ON_H 0x2F
+#define PCA9685_LED10_OFF_L 0x30
+#define PCA9685_LED10_OFF_H 0x31
+
+/* --- LED11 Registers --- */
+#define PCA9685_LED11_ON_L 0x32
+#define PCA9685_LED11_ON_H 0x33
+#define PCA9685_LED11_OFF_L 0x34
+#define PCA9685_LED11_OFF_H 0x35
+
+/* --- LED12 Registers --- */
+#define PCA9685_LED12_ON_L 0x36
+#define PCA9685_LED12_ON_H 0x37
+#define PCA9685_LED12_OFF_L 0x38
+#define PCA9685_LED12_OFF_H 0x39
+
+/* --- LED13 Registers --- */
+#define PCA9685_LED13_ON_L 0x3A
+#define PCA9685_LED13_ON_H 0x3B
+#define PCA9685_LED13_OFF_L 0x3C
+#define PCA9685_LED13_OFF_H 0x3D
+
+/* --- LED14 Registers --- */
+#define PCA9685_LED14_ON_L 0x3E
+#define PCA9685_LED14_ON_H 0x3F
+#define PCA9685_LED14_OFF_L 0x40
+#define PCA9685_LED14_OFF_H 0x41
+
+/* --- LED15 Registers --- */
+#define PCA9685_LED15_ON_L 0x42
+#define PCA9685_LED15_ON_H 0x43
+#define PCA9685_LED15_OFF_L 0x44
+#define PCA9685_LED15_OFF_H 0x45
+
+/* --- ALL LED Registers --- */
 #define PCA9685_ALL_LED_ON_L 0xFA  /**< load all the LEDn_ON registers, byte 0 */
 #define PCA9685_ALL_LED_ON_H 0xFB  /**< load all the LEDn_ON registers, byte 1 */
 #define PCA9685_ALL_LED_OFF_L 0xFC /**< load all the LEDn_OFF registers, byte 0 */
 #define PCA9685_ALL_LED_OFF_H 0xFD /**< load all the LEDn_OFF registers, byte 1 */
-#define PCA9685_PRE_SCALE 0xFE     /**< prescaler for PWM output frequency */
-#define PCA9685_TESTMODE 0xFF      /**< defines the test mode to be entered */
+
+/* --- Other Registers --- */
+#define PCA9685_PRE_SCALE 0xFE /**< prescaler for PWM output frequency */
+#define PCA9685_TESTMODE 0xFF  /**< defines the test mode to be entered */
 
 /* --- PCA9685 MODE1 Register Bits --- */
 #define PCA9685_MODE1_RESTART (1 << 7) /**< Restart enabled */
@@ -1220,8 +1315,9 @@ esp_err_t pstar_pca9685_hal_create_multiple_defaults(pstar_bus_manager_t*       
                "Bus config '%s' already exists for board %d. Using existing.",
                loop_bus_name,
                i);
+      /* --- CORRECTED ACCESS --- */
       if (loop_i2c_config->type != k_pstar_bus_type_i2c ||
-          loop_i2c_config->i2c.port != PCA9685_DEFAULT_I2C_PORT) {
+          loop_i2c_config->proto.i2c.port != PCA9685_DEFAULT_I2C_PORT) {
         ESP_LOGE(TAG,
                  "Existing bus config '%s' has wrong type/port for board %d.",
                  loop_bus_name,

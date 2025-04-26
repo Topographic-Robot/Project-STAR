@@ -192,9 +192,6 @@ static esp_err_t
 priv_hd44780_i2c_send_byte_nolock(pstar_hd44780_hal_handle_t handle, uint8_t value, int rs_level)
 {
   esp_err_t ret;
-  uint8_t   current_control_bits =
-    (handle->i2c_backpack_state & PCF8574_BIT_BACKLIGHT) | /* Keep backlight state */
-    (rs_level ? PCF8574_BIT_RS : 0);                       /* Set RS */
   /* Assume RW is low (tied to GND on most backpacks) */
 
   /* Update internal state for RS bit */
@@ -391,7 +388,8 @@ esp_err_t pstar_hd44780_hal_init(const pstar_bus_manager_t*        manager,
                       TAG,
                       "Bus '%s' not I2C",
                       dev->i2c_bus_name);
-    dev->i2c_addr = bus_config->i2c.address; /* Get address from the found bus config */
+    /* --- CORRECTED ACCESS --- */
+    dev->i2c_addr = bus_config->proto.i2c.address; /* Get address from the found bus config */
 
     /* Initialize backpack state (Backlight ON/OFF based on config) */
     dev->i2c_backpack_state = config->i2c_backlight_on ? PCF8574_BIT_BACKLIGHT : 0;
@@ -446,7 +444,7 @@ esp_err_t pstar_hd44780_hal_init(const pstar_bus_manager_t*        manager,
   return ESP_OK;
 
 init_fail_mutex:
-  xSemaphoreGive(dev->mutex); /* Release mutex on failure path */
+  xSemaphoreGive(dev->mutex); /* Release mutex on failure */
 init_fail_no_mutex:
   if (dev) {
     if (dev->mutex) {

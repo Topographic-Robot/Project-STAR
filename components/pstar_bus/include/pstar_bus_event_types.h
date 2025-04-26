@@ -10,6 +10,7 @@ extern "C" {
 #include "pstar_bus_common_types.h"
 
 #include "driver/i2c.h"
+#include "driver/spi_master.h" /* Added for SPI */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -27,14 +28,29 @@ typedef struct pstar_i2c_event_data {
 } pstar_i2c_event_data_t;
 
 /**
+ * @brief SPI bus event data structure.
+ */
+typedef struct pstar_spi_event_data {
+  spi_host_device_t host;     /**< SPI host number */
+  int               cs_pin;   /**< Chip select pin used for the transaction */
+  bool              is_write; /**< True if it was primarily a write/transmit operation */
+  size_t            tx_len;   /**< Length of data transmitted */
+  size_t            rx_len;   /**< Length of data received */
+} pstar_spi_event_data_t;
+
+/**
  * @brief Bus event structure passed to callback functions.
  */
 typedef struct pstar_bus_event {
-  pstar_bus_type_t bus_type; /**< Type of bus that generated the event (will be I2C) */
+  pstar_bus_type_t bus_type; /**< Type of bus that generated the event */
   const char*      bus_name; /**< Name of the bus configuration that generated the event */
 
-  /* Union simplified to only include I2C */
-  pstar_i2c_event_data_t i2c; /**< I2C specific event data */
+  /* Union to hold specific event data based on bus type */
+  union {
+    pstar_i2c_event_data_t i2c; /**< I2C specific event data */
+    pstar_spi_event_data_t spi; /**< SPI specific event data */
+    /* Add other bus types here */
+  };
 
 } pstar_bus_event_t;
 

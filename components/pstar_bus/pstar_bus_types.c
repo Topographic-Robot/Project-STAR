@@ -10,6 +10,7 @@ const char* pstar_bus_type_to_string(pstar_bus_type_t type)
   static const char* const pstar_bus_type_strings[k_pstar_bus_type_count] = {
     [k_pstar_bus_type_none] = "NONE",
     [k_pstar_bus_type_i2c]  = "I2C",
+    [k_pstar_bus_type_spi]  = "SPI",
   };
 
   /* Use >= count for check as enum starts from 0 */
